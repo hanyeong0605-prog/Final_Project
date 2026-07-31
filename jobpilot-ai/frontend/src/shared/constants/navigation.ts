@@ -13,5 +13,5 @@ export const navigationItems: NavigationItem[] = [
   { path: "/opportunities", label: "성장 기회 추천", icon: Sparkles },
   { path: "/planner", label: "나의 플래너", icon: CalendarDays },
   { path: "/profile", label: "역량 프로필", icon: Target },
-  { path: "/repository-analysis", label: "GitHub Analysis", icon: Code2 },
+  { path: "/repository-analysis", label: "GitHub 코드 분석", icon: Code2 },
 ];
