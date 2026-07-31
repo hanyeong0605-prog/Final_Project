@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: jobpilot-mysql
+    environment:
+      MYSQL_DATABASE: jobpilot
+      MYSQL_USER: jobpilot
+      MYSQL_PASSWORD: jobpilot
+      MYSQL_ROOT_PASSWORD: change-me-in-production
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pchange-me-in-production"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+volumes:
+  mysql_data:
