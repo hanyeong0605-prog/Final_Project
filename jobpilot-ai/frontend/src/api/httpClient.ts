@@ -1,39 +1,37 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+const tokenKey = "jobpilot.accessToken";
 
-/**
- * 현재는 API 미연동 상태에서도 화면을 확인할 수 있도록 fallback을 받는다.
- * 실제 Spring API가 준비되면 VITE_API_BASE_URL만 설정해 fixture를 제거한다.
- */
-export async function getJson<T>(path: string, fallback: T): Promise<T> {
-  if (!apiBaseUrl) {
-    return fallback;
-  }
+export function getAccessToken() { return localStorage.getItem(tokenKey); }
+export function setAccessToken(token: string) { localStorage.setItem(tokenKey, token); }
+export function clearAccessToken() { localStorage.removeItem(tokenKey); }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: { Accept: "application/json" },
-  });
+async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getAccessToken();
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (init.body) headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
 
+  const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
   if (!response.ok) {
-    throw new Error(`GET ${path} failed: ${response.status}`);
+    if (response.status === 401) clearAccessToken();
+    const error = await response.json().catch(() => null) as { message?: string } | null;
+    throw new Error(error?.message ?? `${init.method ?? "GET"} ${path} failed: ${response.status}`);
   }
-
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
-export async function postJson<T>(path: string, body: unknown, fallback: T): Promise<T> {
-  if (!apiBaseUrl) {
-    return fallback;
-  }
-
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`POST ${path} failed: ${response.status}`);
-  }
-
-  return response.json() as Promise<T>;
+export function getJson<T>(path: string): Promise<T> { return requestJson<T>(path); }
+export function postJson<T>(path: string, body: unknown): Promise<T> {
+  return requestJson<T>(path, { method: "POST", body: JSON.stringify(body) });
+}
+export function patchJson<T>(path: string, body: unknown): Promise<T> {
+  return requestJson<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function putJson<T>(path: string, body: unknown): Promise<T> {
+  return requestJson<T>(path, { method: "PUT", body: JSON.stringify(body) });
+}
+export function deleteJson(path: string, body?: unknown): Promise<void> {
+  return requestJson<void>(path, { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) });
 }

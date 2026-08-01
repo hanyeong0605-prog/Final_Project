@@ -4,51 +4,48 @@
 
 ## 채용공고 수집
 
-### 제공처 공고 동기화
+### SaraminDATA 동기화
 
 ```http
-POST /providers/work24/sync
+POST /api/v1/providers/saramin-data/sync
 ```
 
-운영자 또는 스케줄러 전용 API다. 외부 응답을 곧바로 저장하지 않고 반드시 `NormalizedJobPosting`으로 변환한 뒤, `(sourceId, externalJobId)` 기준으로 upsert한다.
+`SARAMIN_DATA_ENABLED=true`와 `SARAMIN_ACCESS_KEY`가 설정된 서버에서만 실행한다. 사람인 API 응답을
+`SaraminDATA` 경계 안에서 검증하고, `externalJobId=사람인 공고 ID` 기준으로
+`job_postings`에 upsert한다. `SARAMIN_CRAWL_ENABLED=true`이면 API가 제공한 사람인 HTTPS 원문 URL만
+낮은 빈도로 보완 수집하며, 실패해도 API 데이터 저장은 계속한다.
 
 ```json
 {
-  "provider": "WORK24",
-  "fetched": 120,
-  "created": 25,
-  "updated": 93,
-  "skipped": 2
+  "provider": "SARAMIN_DATA",
+  "fetched": 50,
+  "created": 35,
+  "updated": 13,
+  "skipped": 1,
+  "failed": 1
 }
 ```
 
-### 사용자 공고 직접 등록
+API 키, HTML 원문, 사람인 전용 DTO를 프론트엔드 응답에 노출하지 않는다.
 
-```http
-POST /job-postings/manual
-```
+## 회원 입력 데이터
 
-```json
-{
-  "sourceUrl": "https://example.com/jobs/123",
-  "title": "주니어 백엔드 개발자",
-  "companyName": "예시회사",
-  "description": "사용자가 확인한 공고 전문 또는 허용된 범위의 내용",
-  "deadlineAt": "2026-08-20T23:59:59+09:00"
-}
-```
+회원가입 후 회원 ID에 다음 데이터가 연결된다.
 
-`MANUAL` source의 UUID 외부 ID를 생성한다. 잡코리아 등 특정 제공처의 수집 방식은 사용 권한·계약·robots 정책을 확인한 뒤 Provider로 추가한다. 그 전에는 이 직접 등록 경로를 제공한다.
+- `member_profiles`: 희망 IT 직무·지역·지원 가능 시점
+- `member_specifications`: 학력·전공·경력 개월·기술 요약·포트폴리오
+- `member_skills`, `projects`, `certificates`, `education_histories`: 비교 가능한 구조화 근거
+- `self_introductions`: 여러 자소서 버전과 대표 자소서
 
 ## 맞춤 채용공고
 
 ### 추천 목록
 
 ```http
-GET /job-matches?memberId=1&grade=READY_TO_APPLY
+GET /api/v1/job-matches?memberId=1&level=APPLY_NOW
 ```
 
-기본 목록에는 `READY_TO_APPLY`, `NEEDS_IMPROVEMENT`만 반환한다. `INSUFFICIENT_EVIDENCE`는 사용자가 명시적으로 필터를 선택한 경우에만 포함한다.
+추천 단계는 `APPLY_NOW`, `CHALLENGE_AFTER_GAPS`, `DIFFICULT_NOW` 세 가지다. 합격 확률이 아니라 사람인 공고의 필수 요건과 회원이 입력한 근거 사이의 준비 상태다.
 
 ```json
 {
@@ -57,10 +54,10 @@ GET /job-matches?memberId=1&grade=READY_TO_APPLY
       "jobPostingId": 101,
       "companyName": "모노랩",
       "title": "신입 백엔드 개발자 (Java/Spring)",
-      "source": { "code": "WORK24", "displayName": "고용24" },
-      "sourceUrl": "https://source.example/jobs/101",
+      "source": "사람인",
+      "sourceUrl": "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=101",
       "deadlineAt": "2026-08-12T23:59:59+09:00",
-      "grade": "READY_TO_APPLY",
+      "recommendationLevel": "APPLY_NOW",
       "readinessScore": 86.0,
       "summaryComment": "Spring Boot·JPA·MySQL 프로젝트 근거가 필수 요건과 직접 연결됩니다."
     }
@@ -80,7 +77,7 @@ GET /job-matches/{jobPostingId}?memberId=1
 ```json
 {
   "jobPostingId": 101,
-  "grade": "READY_TO_APPLY",
+  "recommendationLevel": "APPLY_NOW",
   "readinessScore": 86.0,
   "evidences": [
     {

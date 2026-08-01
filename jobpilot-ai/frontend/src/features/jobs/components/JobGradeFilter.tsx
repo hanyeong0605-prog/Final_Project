@@ -1,13 +1,13 @@
 import { Search } from "lucide-react";
-import type { MatchGrade } from "../model/job.types";
+import type { RecommendationLevel } from "../model/job.types";
 
 interface JobGradeFilterProps {
-  grade: MatchGrade | "ALL";
-  onGradeChange: (grade: MatchGrade | "ALL") => void;
+  grade: RecommendationLevel | "ALL";
+  onGradeChange: (grade: RecommendationLevel | "ALL") => void;
 }
 
-const filters: { id: MatchGrade | "ALL"; label: string }[] = [
-  { id: "ALL", label: "전체" }, { id: "READY_TO_APPLY", label: "지원 조건 충족 가능" }, { id: "NEEDS_IMPROVEMENT", label: "보완 후 도전 가능" }, { id: "INSUFFICIENT_EVIDENCE", label: "현재 근거 부족" },
+const filters: { id: RecommendationLevel | "ALL"; label: string }[] = [
+  { id: "ALL", label: "전체" }, { id: "APPLY_NOW", label: "지금도 지원해볼 만함" }, { id: "CHALLENGE_AFTER_GAPS", label: "요건 보완 후 도전 가능" }, { id: "DIFFICULT_NOW", label: "현재는 지원이 어려움" },
 ];
 
 export function JobGradeFilter({ grade, onGradeChange }: JobGradeFilterProps) {

@@ -1,9 +1,9 @@
-import type { MatchGrade, RequirementStatus } from "./job.types";
+import type { RecommendationLevel, RequirementStatus } from "./job.types";
 
-export const gradeMeta: Record<MatchGrade, { label: string; tone: string }> = {
-  READY_TO_APPLY: { label: "지원 조건 충족 가능", tone: "ready" },
-  NEEDS_IMPROVEMENT: { label: "보완 후 도전 가능", tone: "improve" },
-  INSUFFICIENT_EVIDENCE: { label: "현재 근거 부족", tone: "insufficient" },
+export const gradeMeta: Record<RecommendationLevel, { label: string; tone: string }> = {
+  APPLY_NOW: { label: "지금도 지원해볼 만함", tone: "ready" },
+  CHALLENGE_AFTER_GAPS: { label: "요건 보완 후 도전 가능", tone: "improve" },
+  DIFFICULT_NOW: { label: "현재는 지원이 어려움", tone: "insufficient" },
 };
 
 export const evidenceMeta: Record<RequirementStatus, { label: string; tone: string }> = {

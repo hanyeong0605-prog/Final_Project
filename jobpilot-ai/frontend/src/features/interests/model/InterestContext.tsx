@@ -1,25 +1,34 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
-import { toggleInterest as requestInterestToggle } from "../api/interestsApi";
+import { getInterestIds, toggleInterest as requestInterestToggle } from "../api/interestsApi";
+import { useAuth } from "../../auth/model/AuthContext";
 
 interface InterestContextValue {
   interestCount: number;
   isInterested: (targetId: number) => boolean;
-  toggleInterest: (targetId: number) => void;
+  toggleInterest: (targetId: number) => Promise<void>;
 }
 
 const InterestContext = createContext<InterestContextValue | null>(null);
 
 export function InterestProvider({ children }: PropsWithChildren) {
-  const [interestIds, setInterestIds] = useState<number[]>([101, 202]);
+  const [interestIds, setInterestIds] = useState<number[]>([]);
+  const { member } = useAuth();
 
-  const toggleInterest = useCallback((targetId: number) => {
-    setInterestIds((current) => {
-      const alreadyInterested = current.includes(targetId);
-      void requestInterestToggle(targetId, !alreadyInterested);
-      return alreadyInterested ? current.filter((id) => id !== targetId) : [...current, targetId];
-    });
-  }, []);
+  useEffect(() => {
+    if (!member) { setInterestIds([]); return; }
+    void getInterestIds().then(setInterestIds).catch(() => setInterestIds([]));
+  }, [member]);
+
+  const toggleInterest = useCallback(async (targetId: number) => {
+    const alreadyInterested = interestIds.includes(targetId);
+    const next = alreadyInterested
+      ? interestIds.filter((id) => id !== targetId)
+      : [...interestIds, targetId];
+    setInterestIds(next);
+    try { await requestInterestToggle(targetId, !alreadyInterested); }
+    catch (error) { setInterestIds(interestIds); throw error; }
+  }, [interestIds]);
 
   const value = useMemo<InterestContextValue>(() => ({
     interestCount: interestIds.length,

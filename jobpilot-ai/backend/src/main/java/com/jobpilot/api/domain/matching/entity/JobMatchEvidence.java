@@ -3,12 +3,15 @@ package com.jobpilot.api.domain.matching.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "job_match_evidences")
 public class JobMatchEvidence {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "job_match_id")
@@ -27,7 +30,13 @@ public class JobMatchEvidence {
     private Long memberEvidenceId;
 
     private String status;
+    @jakarta.persistence.Lob
+    @Column(columnDefinition = "TEXT")
     private String comment;
+
+    @jakarta.persistence.Lob
+    @Column(name = "gap_action", columnDefinition = "TEXT")
+    private String gapAction;
 
     protected JobMatchEvidence() {}
 
@@ -39,4 +48,5 @@ public class JobMatchEvidence {
     public Long getMemberEvidenceId() { return memberEvidenceId; }
     public String getStatus() { return status; }
     public String getComment() { return comment; }
+    public String getGapAction() { return gapAction; }
 }

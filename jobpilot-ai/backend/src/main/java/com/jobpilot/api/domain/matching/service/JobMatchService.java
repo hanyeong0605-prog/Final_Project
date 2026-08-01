@@ -9,7 +9,7 @@ import com.jobpilot.api.domain.matching.dto.JobMatchEvidenceResponse;
 import com.jobpilot.api.domain.matching.dto.JobMatchSummaryResponse;
 import com.jobpilot.api.domain.matching.entity.JobMatch;
 import com.jobpilot.api.domain.matching.entity.JobMatchEvidence;
-import com.jobpilot.api.domain.matching.policy.MatchGrade;
+import com.jobpilot.api.domain.matching.policy.RecommendationLevel;
 import com.jobpilot.api.domain.matching.repository.JobMatchEvidenceRepository;
 import com.jobpilot.api.domain.matching.repository.JobMatchRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
@@ -40,10 +40,10 @@ public class JobMatchService {
         this.jobRequirementRepository = jobRequirementRepository;
     }
 
-    public List<JobMatchSummaryResponse> findMatches(Long memberId, MatchGrade grade) {
-        List<JobMatch> matches = grade == null
-                ? jobMatchRepository.findByMemberIdOrderByScoreDesc(memberId)
-                : jobMatchRepository.findByMemberIdAndGradeOrderByScoreDesc(memberId, grade);
+    public List<JobMatchSummaryResponse> findMatches(Long memberId, RecommendationLevel level) {
+        List<JobMatch> matches = level == null
+                ? jobMatchRepository.findByMemberIdOrderByReadinessScoreDesc(memberId)
+                : jobMatchRepository.findByMemberIdAndRecommendationLevelOrderByReadinessScoreDesc(memberId, level);
         Map<Long, JobPosting> postings = mapById(jobPostingRepository.findAllById(matches.stream().map(JobMatch::getJobPostingId).toList()));
 
         return matches.stream()
@@ -69,8 +69,8 @@ public class JobMatchService {
 
     private JobMatchSummaryResponse toSummary(JobMatch match, JobPosting posting) {
         return new JobMatchSummaryResponse(
-                posting.getId(), posting.getCompanyName(), posting.getTitle(), posting.getSourceUrl(), posting.getDeadlineAt(),
-                match.getGrade(), match.getScore(), match.getSummaryComment()
+                posting.getId(), posting.getCompanyName(), posting.getTitle(), posting.getSourceUrl(), posting.getLocation(), posting.getDeadlineAt(),
+                match.getRecommendationLevel(), match.getReadinessScore(), match.getSummaryComment()
         );
     }
 

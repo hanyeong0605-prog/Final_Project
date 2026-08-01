@@ -8,18 +8,18 @@ class MatchPolicyTest {
     @Test
     void directEvidenceForAllRequiredItemsIsReadyToApply() {
         var input = new MatchPolicy.MatchInput(4, 4, 0, false);
-        assertThat(MatchPolicy.determine(input)).isEqualTo(MatchGrade.READY_TO_APPLY);
+        assertThat(MatchPolicy.determine(input)).isEqualTo(RecommendationLevel.APPLY_NOW);
     }
 
     @Test
     void partialEvidenceNeedsImprovementWhenHalfIsCovered() {
         var input = new MatchPolicy.MatchInput(4, 2, 1, false);
-        assertThat(MatchPolicy.determine(input)).isEqualTo(MatchGrade.NEEDS_IMPROVEMENT);
+        assertThat(MatchPolicy.determine(input)).isEqualTo(RecommendationLevel.CHALLENGE_AFTER_GAPS);
     }
 
     @Test
     void explicitBlockerIsInsufficientEvidence() {
         var input = new MatchPolicy.MatchInput(4, 4, 0, true);
-        assertThat(MatchPolicy.determine(input)).isEqualTo(MatchGrade.INSUFFICIENT_EVIDENCE);
+        assertThat(MatchPolicy.determine(input)).isEqualTo(RecommendationLevel.DIFFICULT_NOW);
     }
 }

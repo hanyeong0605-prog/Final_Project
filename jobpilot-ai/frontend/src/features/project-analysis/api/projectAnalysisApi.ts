@@ -5,6 +5,5 @@ export async function analyzeGitHubRepository(repositoryUrl: string): Promise<Pr
   return postJson<ProjectAnalysis | null>(
     "/api/v1/project-analysis/github",
     { repositoryUrl },
-    null,
   );
 }

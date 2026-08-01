@@ -1,4 +1,4 @@
-export type MatchGrade = "READY_TO_APPLY" | "NEEDS_IMPROVEMENT" | "INSUFFICIENT_EVIDENCE";
+export type RecommendationLevel = "DIFFICULT_NOW" | "CHALLENGE_AFTER_GAPS" | "APPLY_NOW";
 export type RequirementStatus = "DIRECT" | "RELATED" | "MISSING" | "CHECK_REQUIRED";
 
 export interface RequirementEvidence {
@@ -13,10 +13,11 @@ export interface JobMatch {
   id: number;
   company: string;
   title: string;
-  source: "고용24" | "잡코리아" | "직접 등록";
+  source: "사람인";
+  sourceUrl: string;
   location: string;
   deadline: string;
-  grade: MatchGrade;
+  recommendationLevel: RecommendationLevel;
   score: number;
   comment: string;
   skills: string[];

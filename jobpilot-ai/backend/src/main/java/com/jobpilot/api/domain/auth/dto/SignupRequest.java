@@ -1,0 +1,15 @@
+package com.jobpilot.api.domain.auth.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record SignupRequest(
+        @NotBlank @Size(min = 4, max = 80)
+        @Pattern(regexp = "^[a-zA-Z0-9._-]+$", message = "로그인 아이디는 영문, 숫자, 점, 밑줄, 하이픈만 사용할 수 있습니다.")
+        String loginId,
+        @NotBlank @Email @Size(max = 255) String email,
+        @NotBlank @Size(min = 8, max = 72) String password,
+        @NotBlank @Size(min = 2, max = 80) String nickname
+) {}

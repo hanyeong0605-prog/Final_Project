@@ -7,23 +7,23 @@ package com.jobpilot.api.domain.matching.policy;
 public final class MatchPolicy {
     private MatchPolicy() {}
 
-    public static MatchGrade determine(MatchInput input) {
+    public static RecommendationLevel determine(MatchInput input) {
         if (input.requiredCount() == 0 || input.hasExplicitBlocker()) {
-            return MatchGrade.INSUFFICIENT_EVIDENCE;
+            return RecommendationLevel.DIFFICULT_NOW;
         }
 
         int covered = input.directEvidenceCount() + input.relatedEvidenceCount();
         int minimumForReview = (int) Math.ceil(input.requiredCount() * 0.5d);
         if (covered < minimumForReview) {
-            return MatchGrade.INSUFFICIENT_EVIDENCE;
+            return RecommendationLevel.DIFFICULT_NOW;
         }
 
         int directThreshold = (int) Math.ceil(input.requiredCount() * 0.75d);
         if (input.directEvidenceCount() >= directThreshold && covered >= input.requiredCount()) {
-            return MatchGrade.READY_TO_APPLY;
+            return RecommendationLevel.APPLY_NOW;
         }
 
-        return MatchGrade.NEEDS_IMPROVEMENT;
+        return RecommendationLevel.CHALLENGE_AFTER_GAPS;
     }
 
     public record MatchInput(int requiredCount, int directEvidenceCount, int relatedEvidenceCount, boolean hasExplicitBlocker) {

@@ -2,7 +2,7 @@ spring:
   application:
     name: jobpilot-api
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/job?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/jobpilot?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
     username: root
     password: mysql
   jpa:
@@ -13,3 +13,25 @@ spring:
     enabled: true
 server:
   port: ${SERVER_PORT:8080}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  jwt:
+    issuer: ${JWT_ISSUER:jobpilot-api}
+    secret: ${JWT_SECRET:jobpilot-local-development-secret-change-me}
+    access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:120}
+
+# SaraminDATA: 키는 SARAMIN_ACCESS_KEY 환경변수로만 주입한다.
+saramin-data:
+  enabled: ${SARAMIN_DATA_ENABLED:false}
+  access-key: ${SARAMIN_ACCESS_KEY:}
+  base-url: https://oapi.saramin.co.kr/job-search
+  job-mid-code: ${SARAMIN_JOB_MID_CODE:2}
+  job-type: ${SARAMIN_JOB_TYPE:1,4,11}
+  count-per-page: ${SARAMIN_COUNT_PER_PAGE:50}
+  max-pages: ${SARAMIN_MAX_PAGES:3}
+  crawl-enabled: ${SARAMIN_CRAWL_ENABLED:false}
+  crawl-delay-ms: ${SARAMIN_CRAWL_DELAY_MS:500}
+  connect-timeout-seconds: 10
+  read-timeout-seconds: 20
