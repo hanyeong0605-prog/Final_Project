@@ -3,6 +3,7 @@ import type { AuthMember, AuthResponse, EmailVerificationConfirmResponse, LoginI
 
 export const signup = (input: SignupInput) => postJson<AuthResponse>("/api/v1/auth/signup", input);
 export const login = (input: LoginInput) => postJson<AuthResponse>("/api/v1/auth/login", input);
+export const developmentLogin = () => postJson<AuthResponse>("/api/v1/dev/auth/token", {});
 export const getMe = () => getJson<AuthMember>("/api/v1/auth/me");
 export const checkLoginIdAvailability = (loginId: string) =>
   getJson<LoginIdAvailabilityResponse>(`/api/v1/auth/login-id-availability?loginId=${encodeURIComponent(loginId)}`);

@@ -43,6 +43,8 @@ app:
     code-expiry-minutes: ${EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES:10}
     resend-cooldown-seconds: ${EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
     max-failed-attempts: ${EMAIL_VERIFICATION_MAX_FAILED_ATTEMPTS:5}
+  dev-auth:
+    enabled: false
 
 # SaraminDATA: 키는 SARAMIN_ACCESS_KEY 환경변수로만 주입한다.
 saramin-data:

@@ -24,15 +24,24 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            @Value("${app.dev-auth.enabled:false}") boolean developmentAuthenticationEnabled
+    ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability", "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/job-postings/**").permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(authorize -> {
+                    authorize.requestMatchers(
+                            "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",
+                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error").permitAll();
+                    if (developmentAuthenticationEnabled) {
+                        authorize.requestMatchers("/api/v1/dev/auth/token").permitAll();
+                    }
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/job-postings/**").permitAll();
+                    authorize.anyRequest().authenticated();
+                })
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
                 .build();
     }

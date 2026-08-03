@@ -2,6 +2,8 @@ package com.jobpilot.api.domain.member.entity;
 
 import jakarta.persistence.*;
 
+//브뤤취
+
 @Entity
 @Table(name = "member_skills")
 public class MemberSkill {

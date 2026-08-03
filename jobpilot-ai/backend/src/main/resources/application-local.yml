@@ -1,0 +1,3 @@
+app:
+  dev-auth:
+    enabled: true

@@ -1,12 +1,13 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { clearAccessToken, getAccessToken, setAccessToken } from "../../../api/httpClient";
-import { getMe, login as requestLogin, signup as requestSignup } from "../api/authApi";
+import { developmentLogin as requestDevelopmentLogin, getMe, login as requestLogin, signup as requestSignup } from "../api/authApi";
 import type { AuthMember, LoginInput, SignupInput } from "./auth.types";
 
 interface AuthContextValue {
   member: AuthMember | null;
   loading: boolean;
   login: (input: LoginInput) => Promise<void>;
+  developmentLogin: () => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => void;
   updateMember: (member: AuthMember) => void;
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     member,
     loading,
     login: async (input) => { const response = await requestLogin(input); setAccessToken(response.accessToken); setMember(response.member); },
+    developmentLogin: async () => { const response = await requestDevelopmentLogin(); setAccessToken(response.accessToken); setMember(response.member); },
     signup: async (input) => { const response = await requestSignup(input); setAccessToken(response.accessToken); setMember(response.member); },
     logout: () => { clearAccessToken(); setMember(null); },
     updateMember: setMember,

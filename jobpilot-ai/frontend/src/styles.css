@@ -170,6 +170,10 @@ a { color: inherit; text-decoration: none; }
 .auth-card input:focus { border-color: #7f91f4; box-shadow: 0 0 0 3px #6278ee14; }
 .auth-card form .primary-button { width: 100%; margin-top: 5px; padding: 12px; }
 .auth-card button:disabled { cursor: wait; opacity: .7; }
+.dev-login-separator { display: flex; align-items: center; gap: 10px; margin: 20px 0 12px; color: #9aa3b3; font-size: 10px; }
+.dev-login-separator::before, .dev-login-separator::after { height: 1px; flex: 1; background: #e8ecf2; content: ""; }
+.development-login-button { width: 100%; border: 1px dashed #91a1e9; border-radius: 8px; background: #f7f8ff; padding: 11px 12px; color: #586bd7; font-size: 11px; font-weight: 800; }
+.development-login-button:hover:not(:disabled) { border-color: #6579e8; background: #eff1ff; }
 .auth-error { border: 1px solid #f1caca; border-radius: 8px; background: #fff7f7; color: #b25757; padding: 10px 11px; font-size: 10px; line-height: 1.5; }
 .auth-notice { border: 1px solid #bce9d2; border-radius: 8px; background: #effbf5; color: #287957; padding: 10px 11px; font-size: 10px; line-height: 1.5; }
 .field-input-action { display: flex; gap: 8px; align-items: stretch; }
