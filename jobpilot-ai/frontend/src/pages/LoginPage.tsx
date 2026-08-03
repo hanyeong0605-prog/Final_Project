@@ -2,7 +2,8 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
 
-const developmentLoginEnabled = import.meta.env.VITE_DEV_AUTH === "true";
+// Vite's DEV is true only for `npm run dev`; production builds never show this button.
+const developmentLoginEnabled = import.meta.env.DEV;
 
 export function LoginPage() {
   const { member, login, developmentLogin } = useAuth();
