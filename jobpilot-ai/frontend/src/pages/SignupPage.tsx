@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { checkLoginIdAvailability, confirmEmailVerificationCode, sendEmailVerificationCode } from "../features/auth/api/authApi";
 import { useAuth } from "../features/auth/model/AuthContext";
 
+/*테스트*/
+
 type TextField = "loginId" | "email" | "password" | "nickname";
 type ConsentField = "termsAgreed" | "privacyCollectionAgreed" | "marketingEmailAgreed";
 

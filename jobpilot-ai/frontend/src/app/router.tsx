@@ -12,6 +12,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { SignupPage } from "../pages/SignupPage";
 import { MyPage } from "../pages/MyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
+import { LocationJobsPage } from "../pages/LocationJobsPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: "jobs", element: <JobMatchesPage /> },
       { path: "job-postings", element: <AllJobPostingsPage /> },
+      { path: "locationjobs", element: <LocationJobsPage /> },
       { path: "opportunities", element: <OpportunitiesPage /> },
       { path: "planner", element: <PlannerPage /> },
       { path: "profile", element: <ProfilePage /> },
