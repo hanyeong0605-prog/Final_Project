@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.web.SecurityFilterChain;
 
+//서큐리티 큰피구
 @Configuration
 public class SecurityConfig {
     @Bean
