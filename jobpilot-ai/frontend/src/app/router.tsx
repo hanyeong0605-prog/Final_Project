@@ -6,6 +6,7 @@ import { OpportunitiesPage } from "../pages/OpportunitiesPage";
 import { PlannerPage } from "../pages/PlannerPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { RepositoryAnalysisPage } from "../pages/RepositoryAnalysisPage";
+import { MockInterviewPage } from "../pages/MockInterviewPage";
 import { AllJobPostingsPage } from "../pages/AllJobPostingsPage";
 import { LoginPage } from "../pages/LoginPage";
 import { SignupPage } from "../pages/SignupPage";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "opportunities", element: <OpportunitiesPage /> },
       { path: "planner", element: <PlannerPage /> },
       { path: "profile", element: <ProfilePage /> },
+      { path: "mock-interview", element: <MockInterviewPage /> },
       { path: "account", element: <MyPage /> },
       { path: "repository-analysis", element: <RepositoryAnalysisPage /> },
     ],
