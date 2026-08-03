@@ -95,6 +95,19 @@ $env:JWT_SECRET="32바이트_이상의_충분히_긴_운영용_랜덤_비밀키"
 $env:JWT_ACCESS_TOKEN_MINUTES="120"
 ```
 
+### Gmail 이메일 인증 (로컬)
+
+회원가입 시 이메일 인증 코드를 발송하려면 Gmail 계정의 일반 비밀번호가 아닌 **앱 비밀번호**를 사용합니다. 백엔드 실행 위치의 상위 폴더(`jobpilot-ai/.env`)에 있는 `.env`는 자동으로 읽히므로, 2단계 인증을 켠 Google 계정에서 앱 비밀번호를 만든 뒤 다음 값을 추가합니다.
+
+```dotenv
+MAIL_USERNAME=your-gmail-address@gmail.com
+MAIL_PASSWORD=16자리_Gmail_앱_비밀번호
+# 선택 사항: 이 줄을 아예 생략하면 MAIL_USERNAME을 발신자로 사용합니다.
+# MAIL_FROM=another-sender@example.com
+```
+
+`MAIL_PASSWORD`는 코드, `application.yml`, Git에 저장하지 않습니다. 가입 화면에서 인증 코드를 발송·확인한 뒤에만 회원가입 버튼이 활성화됩니다. 코드는 10분간 유효하고, 60초마다 재발송할 수 있으며, 5회 틀리면 새 코드를 요청해야 합니다.
+
 ## 아키텍처
 
 ```mermaid

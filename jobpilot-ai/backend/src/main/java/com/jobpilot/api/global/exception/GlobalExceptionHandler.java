@@ -3,6 +3,8 @@ package com.jobpilot.api.global.exception;
 import com.jobpilot.api.domain.projectanalysis.exception.ProjectAnalysisException;
 import com.jobpilot.api.domain.jobposting.provider.saramindata.exception.SaraminDataException;
 import com.jobpilot.api.domain.auth.exception.DuplicateMemberException;
+import com.jobpilot.api.domain.auth.exception.EmailDeliveryException;
+import com.jobpilot.api.domain.auth.exception.EmailVerificationException;
 import com.jobpilot.api.domain.auth.exception.InvalidCredentialsException;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
@@ -30,6 +32,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleInvalidCredentials(InvalidCredentialsException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
                 "code", "INVALID_CREDENTIALS", "message", exception.getMessage(), "timestamp", Instant.now().toString()));
+    }
+    @ExceptionHandler(EmailVerificationException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailVerification(EmailVerificationException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "code", "EMAIL_VERIFICATION_FAILED", "message", exception.getMessage(), "timestamp", Instant.now().toString()));
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailDelivery(EmailDeliveryException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                "code", "EMAIL_DELIVERY_FAILED", "message", exception.getMessage(), "timestamp", Instant.now().toString()));
     }
     @ExceptionHandler({SaraminDataException.class, IllegalStateException.class})
     public ResponseEntity<Map<String, Object>> handleProvider(Exception exception) {
