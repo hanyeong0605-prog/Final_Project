@@ -3,37 +3,75 @@ import { LocationJob } from "../types";
 
 interface Props {
   center: { lat: number; lng: number };
+  radiusKm: number;
   jobs: LocationJob[];
 }
 
-export const KakaoMapContainer: React.FC<Props> = ({ center, jobs }) => {
+export const KakaoMapContainer: React.FC<Props> = ({ center, radiusKm, jobs }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const circleRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
-  // 1. 지도
+  // 1. 지도 초기화 (SDK 로딩 대기 처리)
   useEffect(() => {
-    if (!containerRef.current || !window.kakao) return;
+    if (!containerRef.current) return;
 
-    window.kakao.maps.load(() => {
-      const options = {
-        center: new window.kakao.maps.LatLng(center.lat, center.lng),
-        level: 7, 
-      };
-      mapRef.current = new window.kakao.maps.Map(containerRef.current, options);
-    });
-  }, []);
+    const initMap = () => {
+      if (!window.kakao || !window.kakao.maps) return;
 
-  // 2. 중심 이동 및 반경 20km
-  useEffect(() => {
-    if (!mapRef.current) return;
+      window.kakao.maps.load(() => {
+        const options = {
+          center: new window.kakao.maps.LatLng(center.lat, center.lng),
+          level: 6,
+        };
+        const kakaoMap = new window.kakao.maps.Map(containerRef.current, options);
+        mapRef.current = kakaoMap;
 
-    const moveLatLon = new window.kakao.maps.LatLng(center.lat, center.lng);
-    mapRef.current.setCenter(moveLatLon);
+        // 초기 원 및 마커 그리기 실행
+        updateCircleAndLevel(kakaoMap, center, radiusKm);
+        updateMarkers(kakaoMap, jobs);
+      });
+    };
 
+    // 만약 kakao SDK가 아직 안 불러와졌다면 주기적으로 확인
+    if (window.kakao && window.kakao.maps) {
+      initMap();
+    } else {
+      const interval = setInterval(() => {
+        if (window.kakao && window.kakao.maps) {
+          initMap();
+          clearInterval(interval);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
+    }
+  }, []); // 최초 1회만 초기화
+
+  // 원 및 줌 레벨 업데이트 함수
+  const updateCircleAndLevel = (map: any, currentCenter: { lat: number; lng: number }, currentRadius: number) => {
+    if (!map || !window.kakao) return;
+
+    const moveLatLon = new window.kakao.maps.LatLng(currentCenter.lat, currentCenter.lng);
+    map.setCenter(moveLatLon);
+
+    let level = 6;
+    if (currentRadius >= 20) level = 8;
+    else if (currentRadius >= 10) level = 7;
+    else if (currentRadius >= 5) level = 6;
+    else level = 5;
+    map.setLevel(level);
+
+    // 기존 원 제거
+    if (circleRef.current) {
+      circleRef.current.setMap(null);
+    }
+
+    // 새 원 생성
     const circle = new window.kakao.maps.Circle({
       center: moveLatLon,
-      radius: 20000, // 20km
+      radius: currentRadius * 1000,
       strokeWeight: 2,
       strokeColor: "#2563EB",
       strokeOpacity: 0.8,
@@ -42,27 +80,51 @@ export const KakaoMapContainer: React.FC<Props> = ({ center, jobs }) => {
       fillOpacity: 0.1,
     });
 
-    circle.setMap(mapRef.current);
-    return () => circle.setMap(null);
-  }, [center]);
+    circle.setMap(map);
+    circleRef.current = circle;
+  };
 
-  useEffect(() => {
-    if (!mapRef.current) return;
+  // 마커 업데이트 함수
+  const updateMarkers = (map: any, currentJobs: LocationJob[]) => {
+    if (!map || !window.kakao) return;
 
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
-    jobs.forEach((job) => {
+    currentJobs.forEach((job) => {
       const markerPosition = new window.kakao.maps.LatLng(job.latitude, job.longitude);
       const marker = new window.kakao.maps.Marker({
         position: markerPosition,
         title: job.title,
       });
 
-      marker.setMap(mapRef.current);
+      marker.setMap(map);
       markersRef.current.push(marker);
     });
+  };
+
+  // 2. center 또는 radiusKm 변경 시 업데이트
+  useEffect(() => {
+    if (mapRef.current) {
+      updateCircleAndLevel(mapRef.current, center, radiusKm);
+    }
+  }, [center, radiusKm]);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      updateMarkers(mapRef.current, jobs);
+    }
   }, [jobs]);
 
-  return <div ref={containerRef} className="w-full h-full rounded-r-xl" />;
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: "600px",
+        backgroundColor: "#e5e7eb", 
+      }}
+    />
+  );
 };
