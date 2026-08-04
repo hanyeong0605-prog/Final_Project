@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "job_posting_locations")
@@ -26,8 +27,11 @@ public class JobPostingLocation {
     @Column(name = "detailed_address")
     private String detailedAddress;
 
-    private Double latitude;
-    private Double longitude;
+    @Column(precision = 10, scale = 7)
+    private BigDecimal latitude;
+
+    @Column(precision = 10, scale = 7)
+    private BigDecimal longitude;
 
     @Column(name = "is_primary", nullable = false)
     private boolean primaryLocation;
@@ -37,7 +41,7 @@ public class JobPostingLocation {
     public String getSido() { return sido; }
     public String getSigungu() { return sigungu; }
     public String getDetailedAddress() { return detailedAddress; }
-    public Double getLatitude() { return latitude; }
-    public Double getLongitude() { return longitude; }
+    public BigDecimal getLatitude() { return latitude; }
+    public BigDecimal getLongitude() { return longitude; }
     public boolean isPrimaryLocation() { return primaryLocation; }
 }

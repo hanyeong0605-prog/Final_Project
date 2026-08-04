@@ -39,16 +39,12 @@ export function JobPostingDetailPage() {
   const locations = posting.locations ?? [];
   const primaryLocation = locations.find((location) => location.primaryLocation) ?? locations[0] ?? null;
   const locationText = primaryLocation?.locationText ?? posting.location;
-  const coordinateText = primaryLocation?.latitude != null && primaryLocation.longitude != null
-    ? `${primaryLocation.latitude}, ${primaryLocation.longitude}`
-    : null;
   const roleName = posting.jobName ?? posting.jobMidName;
   const deadline = deadlineLabel(posting);
   const workType = [posting.experienceType, posting.employmentType].filter(hasText).join(" · ");
   const details: Array<[string, string]> = [
     ...(hasText(locationText) ? [["근무지", locationText] as [string, string]] : []),
     ...(hasText(primaryLocation?.detailedAddress) ? [["상세 주소", primaryLocation.detailedAddress] as [string, string]] : []),
-    ...(coordinateText ? [["위도 · 경도", coordinateText] as [string, string]] : []),
     ...(hasText(posting.experienceType) ? [["경력", posting.experienceType] as [string, string]] : []),
     ...(hasText(posting.employmentType) ? [["고용 형태", posting.employmentType] as [string, string]] : []),
     ...(hasText(roleName) ? [["직무", roleName] as [string, string]] : []),
