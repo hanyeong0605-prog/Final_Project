@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SaraminDataPersister {
+    private static final String SOURCE_PROVIDER = "SARAMIN_DATA";
     private final JobPostingRepository postingRepository;
     private final JobRequirementRepository requirementRepository;
 
@@ -22,8 +23,9 @@ public class SaraminDataPersister {
 
     @Transactional
     public SaveResult save(NormalizedSaraminPosting normalized) {
-        var existing = postingRepository.findByExternalJobId(normalized.externalJobId());
-        JobPosting posting = existing.orElseGet(() -> new JobPosting(normalized.externalJobId()));
+        var existing = postingRepository.findBySourceProviderAndExternalJobId(
+                SOURCE_PROVIDER, normalized.externalJobId());
+        JobPosting posting = existing.orElseGet(() -> new JobPosting(SOURCE_PROVIDER, normalized.externalJobId()));
         posting.updateFromProvider(
                 normalized.title(), normalized.companyName(), normalized.companyUrl(), normalized.description(), normalized.sourceUrl(),
                 normalized.location(), normalized.employmentType(), normalized.experienceType(),
