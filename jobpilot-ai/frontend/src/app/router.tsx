@@ -14,10 +14,11 @@ import { SignupPage } from "../pages/SignupPage";
 import { MyPage } from "../pages/MyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
+import {StatisticsDashboard} from "../pages/StatisticsDashboard";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
-  { path: "/signup", element: <SignupPage /> },
+  { path: "/signup", element: <SignupPage /> },    
   {
     path: "/",
     element: <RequireAuth><AppShell /></RequireAuth>,
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { path: "mock-interview", element: <MockInterviewPage /> },
       { path: "account", element: <MyPage /> },
       { path: "repository-analysis", element: <RepositoryAnalysisPage /> },
+      { path: "statistics", element: <StatisticsDashboard /> },
     ],
   },
 ]);

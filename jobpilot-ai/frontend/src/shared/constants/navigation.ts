@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BriefcaseBusiness, CalendarDays, Code2, LayoutDashboard, ListFilter, MapPin, Mic, Sparkles, Target, UserRound } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, Code2, LayoutDashboard, ListFilter, MapPin, Mic, Sparkles, Target, UserRound,BarChart3 } from "lucide-react";
 
 export interface NavigationItem {
   path: string;
@@ -9,6 +9,7 @@ export interface NavigationItem {
 
 export const navigationItems: NavigationItem[] = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/statistics", label: "ICT 관련 통계", icon: BarChart3 },
   { path: "/job-postings", label: "전체 채용공고", icon: ListFilter },
   { path: "/locationjobs", label: "우리 동네 채용공고", icon: MapPin },
   { path: "/jobs", label: "맞춤 채용공고", icon: BriefcaseBusiness },
