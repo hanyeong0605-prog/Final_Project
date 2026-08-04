@@ -16,11 +16,20 @@ public class JobPosting {
     @Column(name = "external_job_id", nullable = false, length = 150)
     private String externalJobId;
 
+    @Column(name = "source_provider", nullable = false, length = 30)
+    private String sourceProvider;
+
+    @Column(name = "source_company_id", length = 150)
+    private String sourceCompanyId;
+
     @Column(name = "company_name")
     private String companyName;
 
     @Column(name = "company_url", length = 1500)
     private String companyUrl;
+
+    @Column(name = "company_logo_url", length = 1500)
+    private String companyLogoUrl;
 
     private String title;
 
@@ -38,6 +47,9 @@ public class JobPosting {
 
     @Column(name = "experience_type")
     private String experienceType;
+
+    @Column(name = "is_entry_level")
+    private Boolean entryLevel;
 
     @Column(name = "industry_code", length = 100) private String industryCode;
     @Column(name = "industry_name") private String industryName;
@@ -79,6 +91,11 @@ public class JobPosting {
     protected JobPosting() {}
 
     public JobPosting(String externalJobId) {
+        this("WANTED", externalJobId);
+    }
+
+    public JobPosting(String sourceProvider, String externalJobId) {
+        this.sourceProvider = sourceProvider;
         this.externalJobId = externalJobId;
     }
 
@@ -120,14 +137,18 @@ public class JobPosting {
 
     public Long getId() { return id; }
     public String getExternalJobId() { return externalJobId; }
+    public String getSourceProvider() { return sourceProvider; }
+    public String getSourceCompanyId() { return sourceCompanyId; }
     public String getCompanyName() { return companyName; }
     public String getCompanyUrl() { return companyUrl; }
+    public String getCompanyLogoUrl() { return companyLogoUrl; }
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public String getSourceUrl() { return sourceUrl; }
     public String getLocation() { return location; }
     public String getEmploymentType() { return employmentType; }
     public String getExperienceType() { return experienceType; }
+    public Boolean getEntryLevel() { return entryLevel; }
     public String getIndustryName() { return industryName; }
     public String getJobMidName() { return jobMidName; }
     public String getJobName() { return jobName; }
