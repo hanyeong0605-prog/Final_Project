@@ -159,4 +159,5 @@ public class JobPosting {
     public boolean isRollingDeadline() { return rollingDeadline; }
     public String getStatus() { return status; }
     public String getCrawlStatus() { return crawlStatus; }
+    public JsonNode getRawPayload() { return rawPayload; }
 }
