@@ -15,3 +15,25 @@ export interface JobPosting {
   rollingDeadline: boolean;
   status: string;
 }
+
+export interface JobPostingDetail extends JobPosting {
+  sourceProvider: string;
+  companyUrl: string | null;
+  companyLogoUrl: string | null;
+  description: string | null;
+  entryLevel: boolean | null;
+  industryName: string | null;
+  jobMidName: string | null;
+  locations?: JobPostingLocation[];
+  imageUrls: string[];
+}
+
+export interface JobPostingLocation {
+  locationText: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  detailedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  primaryLocation: boolean;
+}
