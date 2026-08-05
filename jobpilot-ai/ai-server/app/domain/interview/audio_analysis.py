@@ -51,6 +51,8 @@ from functools import lru_cache
 
 import numpy as np
 
+from app.core.config import settings
+
 # 2026-08-04: whisper를 파일 맨 위에서 바로 import하면, 이 모듈을 불러오는 순간(=서버
 # 기동 시점) whisper가 통째로 로드된다. 실제로 STT/오디오 분석을 쓸 때(_get_whisper_model,
 # analyze_voice 호출 시점)까지 import를 미룬다 - 서버는 항상 뜨고, 이 기능을 실제로 호출할
@@ -167,22 +169,30 @@ _TRANSCRIBE_INITIAL_PROMPT = "채용 면접에서 지원자가 자연스러운 �
 _LOW_CONFIDENCE_AVG_LOGPROB_THRESHOLD = -1.0
 
 
+def _detect_speech_frames(y: np.ndarray) -> np.ndarray:
+    """RMS 기준으로 "말소리가 있다고 보이는" 프레임 인덱스를 돌려준다(SILENCE_TOP_DB 기준
+    - 전체 클립 중 최대 음량 대비 상대적으로 조용한 구간은 무음으로 취급). 빈 배열이면
+    클립 전체가 무음에 가깝다는 뜻 - _trim_silence와 transcribe()의 환각 방지 체크가
+    같이 쓴다."""
+    rms = _frame_rms(y)
+    if rms.size == 0:
+        return np.array([], dtype=int)
+    peak = np.max(rms)
+    if peak <= 0:
+        return np.array([], dtype=int)
+    with np.errstate(divide="ignore"):
+        db_rel = 20 * np.log10(np.maximum(rms, 1e-10) / peak)
+    return np.where(db_rel > -SILENCE_TOP_DB)[0]
+
+
 def _trim_silence(y: np.ndarray, sr: int) -> np.ndarray:
     """STT(whisper)에 넘기기 전에 답변 맨 앞/맨 뒤의 무음만 잘라낸다 - 중간에 있는 긴
     침묵은 안 건드린다(analyze_voice의 긴 침묵 지표와는 무관한, whisper가 무음 구간에서
     환각 텍스트를 만들어내는 경향을 줄이려는 목적일 뿐이라 범위를 앞뒤로만 한정했다).
     말이 시작/끝나는 지점이 딱 붙어서 잘리지 않도록 짧게 패딩을 남긴다."""
-    rms = _frame_rms(y)
-    if rms.size == 0:
-        return y
-    peak = np.max(rms)
-    if peak <= 0:
-        return y
-    with np.errstate(divide="ignore"):
-        db_rel = 20 * np.log10(np.maximum(rms, 1e-10) / peak)
-    speaking = np.where(db_rel > -SILENCE_TOP_DB)[0]
+    speaking = _detect_speech_frames(y)
     if speaking.size == 0:
-        return y  # 전부 무음처럼 보이면 섣불리 자르지 않고 원본 그대로 넘긴다
+        return y  # 전부 무음처럼 보이면 섣불리 자르지 않고 원본 그대로 넘긴다(호출부에서 별도 처리)
 
     frame_sec = _HOP_LENGTH / WHISPER_SAMPLE_RATE
     pad_sec = 0.3
@@ -191,9 +201,62 @@ def _trim_silence(y: np.ndarray, sr: int) -> np.ndarray:
     return y[int(start_sec * sr) : int(end_sec * sr)]
 
 
+def _gemini_correct_transcript(text: str) -> str:
+    """STT 확신도가 낮았던(low_confidence) 답변에 한해서만 호출한다 - Whisper가 한국어
+    격음('ㅎ/ㅋ/ㅌ/ㅍ' 등)을 다른 자음으로 잘못 인식하는 경우가 흔해서, 명백한 오인식으로
+    보이는 단어만 Gemini에게 최소한으로 교정해달라고 요청한다. question_generator.py의
+    _gemini_polish와 같은 fail-open 원칙 - 키가 없거나 호출이 실패하면 원문 그대로 반환한다
+    (STT 결과가 아예 안 나오는 것보단 원문이라도 있는 게 낫다). 답변 "내용" 자체를 바꾸는 게
+    아니라 "오인식으로 보이는 단어 교정"만 하도록 프롬프트로 강하게 제한한다 - 안 그러면
+    evaluation.py가 실제로 지원자가 말하지 않은 내용을 근거로 채점하게 될 위험이 있다.
+
+    2026-08-05: low_confidence일 때만 호출해서(항상 켜두지 않음) 비용을 최소화한다 - 이미
+    확신도 높은 결과까지 매번 다듬을 필요는 없다."""
+    if not settings.gemini_api_key:
+        return text
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        prompt = (
+            "다음은 한국어 채용면접 답변을 음성 인식(STT)으로 변환한 텍스트인데, 인식 확신도가 "
+            "낮았던 구간이 있다. 특히 'ㅎ/ㅋ/ㅌ/ㅍ' 같은 격음이 다른 자음으로 잘못 인식되는 "
+            "경우가 흔하다.\n\n"
+            "아래 규칙을 반드시 지켜라.\n"
+            "1) 명백히 발음 인식 오류로 보이는 단어(문맥상 말이 안 되는 단어)만 자연스러운 "
+            "단어로 최소한으로 고쳐라\n"
+            "2) 문장 구조, 어순, 내용, 의미는 절대 바꾸지 마라 - 새로운 정보를 추가하거나 "
+            "빼지 마라\n"
+            "3) 이미 자연스러운 부분은 절대 손대지 마라\n"
+            "4) 고칠 부분이 없으면 원문을 그대로 반환해라\n"
+            "5) 결과는 교정된 텍스트만 출력해라 - 설명, 따옴표, 다른 말은 절대 붙이지 마라\n\n"
+            f"STT 결과: {text}"
+        )
+        response = client.models.generate_content(model=settings.gemini_model, contents=prompt)
+        corrected = (response.text or "").strip()
+        return corrected or text
+    except Exception:
+        return text
+
+
 def transcribe(audio_path: str, language: str = "ko") -> TranscriptionResult:
-    model = _get_whisper_model()
     y = _load_audio_mono16k(audio_path)
+
+    # 2026-08-06: 실제로 겪은 버그 - 답변 오디오에 말소리가 거의/전혀 없으면(마이크에 소리가
+    # 안 잡혔거나, 답변을 안 하고 바로 답변 완료를 누른 경우 등) whisper가 initial_prompt
+    # 문구를 그대로 베껴서 "답변"인 것처럼 텍스트를 지어내는 환각을 일으켰다(실제 사례:
+    # initial_prompt가 "...자연스러운 한국어 구어체로 답변하는 내용입니다"였는데 인식
+    # 결과가 "이 내용은 한국어 구어체로 답변하는 내용입니다"로 나옴 - 우연이 아니라 무음/
+    # 저음량 오디오에서 흔히 보고되는 whisper 환각 패턴이다). avg_logprob 기반 low_confidence
+    # 체크만으로는 이미 지어낸 그럴듯한 문장을 걸러내지 못했다(문장 자체는 "자신 있게"
+    # 생성되기 때문) - 그래서 whisper 모델 로딩·호출 자체를 아예 건너뛰고 빈 결과를 바로
+    # 반환한다(모델 로딩도 미룬다 - _get_whisper_model()을 먼저 불러두면 안 쓸 때도 무거운
+    # 로딩 비용이 들고, 테스트에서도 "무음이면 whisper 쪽은 아예 안 건드렸는지"를 확인하기
+    # 쉬워진다). 없는 답변을 지어내는 것보다 "인식된 내용 없음"이 훨씬 낫다.
+    if _detect_speech_frames(y).size == 0:
+        return TranscriptionResult(text="", low_confidence=True)
+
+    model = _get_whisper_model()
     trimmed = _trim_silence(y, WHISPER_SAMPLE_RATE)
     result = model.transcribe(trimmed, language=language, initial_prompt=_TRANSCRIBE_INITIAL_PROMPT)
 
@@ -205,6 +268,11 @@ def transcribe(audio_path: str, language: str = "ko") -> TranscriptionResult:
         or not segments
         or (bool(avg_logprobs) and sum(avg_logprobs) / len(avg_logprobs) < _LOW_CONFIDENCE_AVG_LOGPROB_THRESHOLD)
     )
+    # low_confidence여도 UI에는 그대로 경고를 보여준다(원문이 그대로인지 Gemini가 교정한
+    # 텍스트인지와 무관하게, Whisper 자체가 확신하지 못했던 답변이라는 사실은 변하지 않음 -
+    # Gemini 교정도 완벽을 보장하진 않으므로 "믿을 만큼 확신하지 못했다"는 신호를 계속 보여준다).
+    if low_confidence and text:
+        text = _gemini_correct_transcript(text)
     return TranscriptionResult(text=text, low_confidence=bool(low_confidence))
 
 

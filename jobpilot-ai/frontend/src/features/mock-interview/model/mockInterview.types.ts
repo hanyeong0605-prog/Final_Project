@@ -17,14 +17,54 @@ export interface AnswerAnalysis {
   // 2026-08-05: ai-server가 whisper 세그먼트 avg_logprob 기준으로 판단한 참고 신호 -
   // true면 인식 결과가 불안정했을 수 있다는 뜻(확정적인 "틀렸다" 판정은 아님).
   low_confidence_transcript: boolean;
-  metrics: VoiceMetrics;
+  // 2026-08-05: 마이크 없이 텍스트로 답변하는 경로에서는 녹음 자체가 없어서 음성 지표가
+  // 없다 - 이 경우 null.
+  metrics: VoiceMetrics | null;
 }
 
 export interface NextQuestionResponse {
   question: string;
 }
 
-// ai-server evaluation.py의 generate_report()가 반환하는 리포트 본문 하나만 담는다.
+// ai-server evaluation.py의 EvaluationReport.to_dict()와 그대로 대응되는 필드명(snake_case).
+// ok=false면 message만 의미 있고 나머지는 비어있다(키 없음/생성 실패 안내용).
+export interface EvaluationReport {
+  ok: boolean;
+  message: string | null;
+  overall_score: number | null;
+  content_score: number | null;
+  delivery_score: number | null;
+  strengths: string[];
+  improvements: string[];
+  model_answer: string | null;
+  next_steps: string[];
+}
+
 export interface EvaluateReportResponse {
-  report: string;
+  report: EvaluationReport;
+}
+
+// 2026-08-05: 질문마다 EvaluationReport를 따로 받던 걸 세션(보통 3개) 전체를 한 번에
+// 평가하는 방식으로 바꿨다 - ai-server evaluation.py의 SessionEvaluationReport.to_dict()와
+// 대응. model_answer(질문 1개짜리 필드) 대신 질문별 피드백 배열(questions)을 둔다.
+export interface QuestionFeedback {
+  question: string;
+  feedback: string;
+  model_answer: string | null;
+}
+
+export interface SessionEvaluationReport {
+  ok: boolean;
+  message: string | null;
+  overall_score: number | null;
+  content_score: number | null;
+  delivery_score: number | null;
+  strengths: string[];
+  improvements: string[];
+  next_steps: string[];
+  questions: QuestionFeedback[];
+}
+
+export interface EvaluateSessionResponse {
+  report: SessionEvaluationReport;
 }

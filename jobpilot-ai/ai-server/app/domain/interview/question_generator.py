@@ -127,10 +127,11 @@ def _gemini_polish(question: str) -> str | None:
     if not settings.gemini_api_key:
         return question
     try:
-        import google.generativeai as genai
+        # 2026-08-05: google.generativeai 지원 종료(2025-11-30)로 google-genai SDK로 전환
+        # (evaluation.py의 같은 변경 메모 참고).
+        from google import genai
 
-        genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel(settings.gemini_model)
+        client = genai.Client(api_key=settings.gemini_api_key)
         prompt = (
             "다음은 AI가 생성한 한국어 채용면접 질문 후보다. 문법이 어색하거나, 존재하지 않는 "
             "단어가 섞여 있거나, 서로 다른 문장 두 개가 억지로 이어붙어 있거나, 질문이 아니라 "
@@ -151,7 +152,7 @@ def _gemini_polish(question: str) -> str | None:
             "따옴표, 다른 말은 절대 붙이지 마라\n\n"
             f"질문 후보: {question}"
         )
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=settings.gemini_model, contents=prompt)
         polished = (response.text or "").strip().strip('"').strip()
         if polished.upper() == "DISCARD":
             return None

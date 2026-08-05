@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# 2026-08-05: 이 파일 안 한글 주석 때문에 Windows(한국어 로캘, cp949)에서 pip가
+# UnicodeDecodeError를 내는 문제가 있었다 - pip의 auto_decode가 BOM도 PEP263 인코딩
+# 선언도 없으면 로캘 기본 인코딩(cp949)으로 읽으려다 UTF-8 바이트를 못 읽어서 터진다.
+# 맨 위에 이 인코딩 선언 한 줄을 두면 pip가 UTF-8로 확실히 읽는다.
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2
@@ -38,7 +43,7 @@ accelerate>=0.33
 
 # mock interview - question quality check (optional, see question_generator.py _gemini_polish).
 # Falls back to no-op if GEMINI_API_KEY isn't set.
-google-generativeai
+google-genai
 
 # test
 pytest==8.3.3

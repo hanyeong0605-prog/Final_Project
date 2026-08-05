@@ -14,7 +14,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
-from app.domain.interview.evaluation import generate_report
+from app.domain.interview.evaluation import generate_report, generate_session_report
 from app.domain.interview.question_generator import DEFAULT_JOB, generate_question
 
 router = APIRouter()
@@ -80,7 +80,9 @@ class EvaluateRequest(BaseModel):
     transcript: str
     # /analyze-answer 응답의 "metrics"를 그대로 넣으면 되는 자유 형식 dict - VoiceMetrics의
     # 필드가 늘어나도 이 스키마를 안 고쳐도 되게 느슨하게 받는다.
-    voice_metrics: dict
+    # 2026-08-05: 마이크 없이 텍스트로 답변하는 경로가 생기면서 음성 지표 자체가 없을 수
+    # 있어 선택값으로 바꿨다(face_metrics와 같은 이유).
+    voice_metrics: dict | None = None
     # 프론트(faceAnalysis.ts summarizeFaceFrames)가 브라우저에서 계산한 결과. 카메라를 안 썼거나
     # 얼굴 인식에 실패하면 없을 수 있어서 선택값.
     face_metrics: dict | None = None
@@ -91,11 +93,38 @@ def evaluate(body: EvaluateRequest):
     """질문 + STT 답변 + 음성/얼굴 지표를 모아 Gemini에게 종합 평가 리포트를 요청한다.
     2026-08-05: /analyze-answer(음성 분석)와 별개 엔드포인트로 분리했다 - 얼굴 지표는
     브라우저에서 답변 종료 후에 계산되므로, 프론트가 (1) /analyze-answer로 STT+음성 지표를
-    받고 (2) 그 결과 + 자체 계산한 얼굴 지표를 모아 이 엔드포인트를 호출하는 2단계 흐름이다."""
+    받고 (2) 그 결과 + 자체 계산한 얼굴 지표를 모아 이 엔드포인트를 호출하는 2단계 흐름이다.
+
+    2026-08-05: 프론트의 모의면접 세션(질문 3개) 흐름은 이제 질문마다 이 엔드포인트를 부르지
+    않고, 세션이 끝난 뒤 /evaluate-session을 한 번만 부른다(토큰/비용 절감 + 질문 단위가
+    아니라 면접 전체를 놓고 보는 종합 평가). 이 엔드포인트 자체는 없애지 않았다 - 질문 1개짜리
+    평가가 필요한 다른 흐름(예: 개발/디버깅, 향후 "질문 하나만 다시 평가받기" 같은 기능)에
+    그대로 쓸 수 있다."""
     report = generate_report(
         question=body.question,
         transcript=body.transcript,
         voice_metrics=body.voice_metrics,
         face_metrics=body.face_metrics,
     )
-    return {"report": report}
+    return {"report": report.to_dict()}
+
+
+class SessionAnswer(BaseModel):
+    question: str
+    transcript: str
+    voice_metrics: dict | None = None
+    face_metrics: dict | None = None
+
+
+class EvaluateSessionRequest(BaseModel):
+    # 보통 3개(자기소개 포함) - 프론트 세션 진행 순서 그대로 담아서 보낸다.
+    answers: list[SessionAnswer]
+
+
+@router.post("/evaluate-session")
+def evaluate_session(body: EvaluateSessionRequest):
+    """모의면접 세션(질문 여러 개)을 한 번에 종합 평가한다 - Gemini 호출 1회로 세션
+    전체(자기소개 포함 보통 3개 질문)를 평가해서 총평/강점/개선점/질문별 피드백+모범답안을
+    반환한다."""
+    report = generate_session_report([a.model_dump() for a in body.answers])
+    return {"report": report.to_dict()}

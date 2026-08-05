@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap");
 
 :root {
   font-family: "Manrope", "Noto Sans KR", sans-serif;
@@ -260,3 +260,49 @@ a { color: inherit; text-decoration: none; }
 .calendar-event.range-start, .calendar-event.single, .calendar-event.week-start { margin-left: 0; border-radius: 5px 0 0 5px; }.calendar-event.range-middle { width: calc(100% + 15px); margin-left: -7px; border-left: 0; border-radius: 0; }.calendar-event.range-end { width: calc(100% + 7px); margin-left: -7px; border-left: 0; border-radius: 0 5px 5px 0; text-align: right; }.calendar-event.range-start:not(.week-end) { width: calc(100% + 8px); }.calendar-event.week-start { width: calc(100% + 8px); margin-left: 0; border-left-width: 3px; border-radius: 5px 0 0 5px; }.calendar-event.week-end { width: calc(100% + 7px); border-radius: 0 5px 5px 0; }.calendar-event.single { width: 100%; border-radius: 5px; }
 .modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; overflow-y: auto; background: #16213999; padding: 28px; }.onboarding-modal { width: min(820px, 100%); max-height: calc(100vh - 56px); overflow-y: auto; border-radius: 16px; background: #fff; box-shadow: 0 24px 80px #14203a4d; padding: 30px; }.onboarding-head h2 { margin: 7px 0 8px; color: #263149; font-size: 22px; }.onboarding-head p { margin: 0 0 22px; color: #7c8798; font-size: 12px; line-height: 1.7; }.career-profile-form { display: grid; gap: 18px; }.form-section { border-top: 1px solid #edf0f4; padding-top: 17px; }.form-section h3 { margin: 0 0 14px; color: #445067; font-size: 13px; }.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }.form-fields label { display: grid; gap: 6px; color: #606b7e; font-size: 10px; font-weight: 800; }.form-fields input, .form-fields select, .form-fields textarea { width: 100%; border: 1px solid #dfe4ec; border-radius: 8px; background: #fff; padding: 10px 11px; color: #344057; font: inherit; resize: vertical; }.form-fields .wide { grid-column: 1 / -1; }.form-actions { display: flex; justify-content: flex-end; gap: 8px; }.skip-onboarding { display: block; margin: 15px auto 0; border: 0; background: transparent; color: #8993a3; font-size: 11px; text-decoration: underline; }.profile-form-panel, .spec-editor { padding: 25px; }.mypage-section-title { display: flex; align-items: end; justify-content: space-between; margin: 27px 0 10px; }.mypage-section-title:first-of-type { margin-top: 0; }.mypage-section-title h2 { margin: 0; color: #39455b; font-size: 15px; }.mypage-section-title p { margin: 4px 0 0; color: #929bab; font-size: 10px; }.spec-title > div { display: grid; }.spec-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 22px; }.spec-summary div { display: grid; gap: 6px; }.spec-summary span { color: #929bab; font-size: 9px; }.spec-summary strong { overflow: hidden; color: #4b566c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 700px) { .modal-backdrop { padding: 0; }.onboarding-modal { max-height: 100vh; min-height: 100vh; border-radius: 0; padding: 22px 18px; }.form-fields, .spec-summary { grid-template-columns: 1fr; }.form-fields .wide { grid-column: auto; } }
+
+/* 모의면접 페이지 - 2026-08-05: 기존엔 mini-label(밝은 라벤더색, 원래 어두운 배경용)을
+   흰 배경 패널에 그대로 갖다 써서 라벨이 흐릿하게 보였고, 지표 카드도 색/아이콘 없이
+   테두리만 있는 밋밋한 박스였다. 대시보드의 metric-card/metric-icon 톤 시스템을 그대로
+   가져다 쓰고, 라벨은 흰 배경에 맞는 새 클래스로 분리했다. */
+.interview-field-label { display: block; color: #8b95a8; font-family: "DM Mono", monospace; font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+.interview-question-card { display: flex; align-items: center; gap: 16px; margin: 2px 0 22px; border: 1px solid #dfe5ff; border-radius: 14px; background: linear-gradient(105deg, #f6f8ff, #fff); padding: 16px 18px; }
+.interview-question-icon { display: grid; flex: none; width: 42px; height: 42px; place-items: center; border-radius: 11px; background: #e7edff; color: #596ff1; }
+.interview-question-card strong { display: block; color: #293349; font-size: 15px; line-height: 1.55; }
+.interview-summary-banner { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; border: 1px solid #dde4ff; border-radius: 12px; background: linear-gradient(100deg, #eef2ff, #f8f5ff); padding: 12px 16px; color: #435098; font-size: 13px; font-weight: 700; }
+.interview-summary-banner svg { flex: none; color: #6678e8; }
+.interview-transcript-box { border: 1px solid #e8ebf1; border-radius: 12px; background: #fbfcff; padding: 14px 16px; }
+.interview-report-panel { margin-top: 22px; border-top: 1px solid #eef0f4; padding-top: 20px; }
+.interview-report-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; color: #293349; font-size: 14px; font-weight: 800; }
+.interview-report-head svg { color: #916ce1; }
+.interview-score-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.interview-score-card { display: flex; align-items: center; gap: 12px; border-radius: 12px; padding: 13px 15px; }
+.interview-score-card.score-high { border: 1px solid #cdeedd; background: linear-gradient(120deg, #eafaf2, #f6fdfa); }
+.interview-score-card.score-mid { border: 1px solid #f6e3b8; background: linear-gradient(120deg, #fff8ea, #fffaf2); }
+.interview-score-card.score-low { border: 1px solid #f6cccc; background: linear-gradient(120deg, #fff0f0, #fff7f7); }
+.interview-score-ring { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 50%; color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; }
+.score-high .interview-score-ring { background: linear-gradient(135deg, #3fbf83, #2ea36f); }
+.score-mid .interview-score-ring { background: linear-gradient(135deg, #eab654, #db9a34); }
+.score-low .interview-score-ring { background: linear-gradient(135deg, #ee7676, #d95656); }
+.interview-score-label { display: block; color: #6a7383; font-size: 10px; font-weight: 700; }
+.interview-score-card strong { display: block; margin-top: 2px; color: #293349; font-size: 13px; }
+.interview-report-section { display: grid; gap: 8px; margin-bottom: 18px; }
+.interview-report-section h4 { display: flex; align-items: center; gap: 6px; margin: 0; color: #465067; font-size: 12px; font-weight: 800; }
+.interview-report-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.interview-report-list li { display: flex; align-items: flex-start; gap: 8px; color: #3a4356; font-size: 13px; line-height: 1.6; }
+.interview-report-list li svg { flex: none; margin-top: 3px; }
+.interview-report-list.strengths li svg { color: #37bf82; }
+.interview-report-list.improvements li svg { color: #e0a233; }
+.interview-report-list.next-steps li svg { color: #6678e8; }
+.interview-model-answer { position: relative; margin-bottom: 18px; border-left: 3px solid #6678e8; border-radius: 0 12px 12px 0; background: linear-gradient(100deg, #f5f7ff, #fbfbff); padding: 16px 18px 16px 20px; }
+.interview-model-answer h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: #4a5ad0; font-size: 12px; font-weight: 800; }
+.interview-model-answer p { margin: 0; color: #333d54; font-size: 13px; line-height: 1.75; }
+/* 2026-08-05: 대시보드는 카드 4개짜리 grid라 metric-card strong 21px가 맞았는데, 이 페이지는
+   한 줄에 5~6개까지 촘촘하게 들어가는 grid라 그대로 쓰면 숫자가 과하게 커 보였다 - 이 페이지
+   안에서만 값/아이콘 크기를 한 단계 줄인다. */
+.interview-metric-grid .metric-card { padding: 13px; gap: 10px; }
+.interview-metric-grid .metric-icon { width: 30px; height: 30px; }
+.interview-metric-grid .metric-card svg { width: 15px; }
+.interview-metric-grid .metric-card strong { font-family: inherit; font-size: 15px; }
+.interview-metric-grid .metric-card div > span { font-size: 9px; }
+.interview-metric-grid .metric-card small { font-size: 9px; margin-top: 1px; line-height: 1.4; }

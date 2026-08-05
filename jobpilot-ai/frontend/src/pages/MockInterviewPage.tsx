@@ -1,9 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, LoaderCircle, Mic, RotateCcw, Square, Volume2 } from "lucide-react";
-import { analyzeAnswer, evaluateAnswer, fetchNextQuestion } from "../features/mock-interview/api/mockInterviewApi";
+import type { ReactNode } from "react";
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Gauge,
+  Lightbulb,
+  LoaderCircle,
+  MessageSquareWarning,
+  Mic,
+  Move,
+  PauseCircle,
+  Quote,
+  RotateCcw,
+  Sparkles,
+  Square,
+  Volume2,
+  VolumeX,
+  Waves,
+} from "lucide-react";
+import { analyzeAnswer, evaluateSession, fetchNextQuestion } from "../features/mock-interview/api/mockInterviewApi";
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
-import type { AnswerAnalysis } from "../features/mock-interview/model/mockInterview.types";
+import type { AnswerAnalysis, SessionEvaluationReport, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
 
@@ -25,7 +47,57 @@ function pickFallbackQuestion(exclude: string): string {
   return others[Math.floor(Math.random() * others.length)] ?? SAMPLE_QUESTIONS[0];
 }
 
-type Stage = "idle" | "preparing" | "testing-mic" | "get-ready" | "recording" | "analyzing" | "result" | "error";
+// 2026-08-05: "break"(휴식)와 "countdown"(질문 공개 직전) 두 단계에서 똑같은 원형 타이머를
+// 색만 다르게 재사용한다 - 순수 표시용이라 훅 없이 일반 함수 컴포넌트로 둔다.
+function CountdownRing({ value, total, color }: { value: number; total: number; color: string }) {
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(1, value / total));
+  return (
+    <svg width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r={radius} fill="none" stroke="#eef0f6" strokeWidth="8" />
+      <circle
+        cx="60"
+        cy="60"
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - progress)}
+        transform="rotate(-90 60 60)"
+        style={{ transition: "stroke-dashoffset 1s linear" }}
+      />
+      <text x="60" y="70" textAnchor="middle" fontSize="34" fontWeight={700} fill="#293349">
+        {value > 0 ? value : "시작!"}
+      </text>
+    </svg>
+  );
+}
+
+// 2026-08-05: 실제 면접처럼 "시작하기 -> 질문 3개(자기소개 포함) 준비 -> 마이크/캠 확인 ->
+// 카운트다운 -> 질문 공개 & 답변"으로 이어지는 하나의 세션 흐름으로 개편했다. 예전에는
+// 페이지에 들어오자마자 질문이 바로 보이고 그때그때 "다른 질문"으로 하나씩 새로 받는
+// 방식이었는데, 그러면 질문을 미리 다 보고 준비할 수 있어서 실전 느낌이 안 났다 -
+// 이제는 시작 버튼을 누르기 전까지 질문이 뭔지 전혀 알 수 없고, 카운트다운이 끝나는
+// 순간에만 공개된다.
+type Stage =
+  | "start" // 랜딩 화면 - "모의면접 시작하기" 버튼만
+  // 2026-08-06: "질문 생성 중" 전용 대기 화면은 없앴다 - startSession 주석 참고. 질문 3개
+  // (자기소개 1번 고정)는 device-check 진입과 동시에 백그라운드에서 생성된다.
+  | "device-check" // 마이크/캠 테스트로 넘어가거나 타이핑 모드 선택(질문은 백그라운드 생성 중)
+  | "preparing"
+  | "testing-mic"
+  | "break" // 2026-08-05: 답변 사이 10초 휴식 - 얼굴 추적 루프 자체를 꺼둬서 이 시간이
+  // 분석에 절대 섞이지 않게 한다(카메라 미리보기도 숨김). countdown과 별도 단계로 분리.
+  | "countdown" // 질문 공개 직전 3초 카운트다운 - 여기서부터 다시 카메라/얼굴 추적 재개
+  | "get-ready"
+  | "recording"
+  | "analyzing"
+  | "session-report" // 세션의 마지막 질문까지 다 끝난 뒤 - 전체를 한 번에 종합 평가한 최종 화면
+  | "error"
+  | "typing";
 
 // 2026-08-04: 숫자만 던져주면 "그래서 좋은 거야 나쁜 거야?"가 안 남는다는 피드백을
 // 받고, 신뢰할 수 있는 출처가 있는 지표(말속도/침묵)에만 참고 범위 해설을 붙였다.
@@ -42,7 +114,7 @@ const SPEAKING_RATE_MIN = 220;
 const SPEAKING_RATE_MAX = 271;
 
 const metricLabels: {
-  key: keyof AnswerAnalysis["metrics"];
+  key: keyof VoiceMetrics;
   label: string;
   format: (value: number) => string;
   hint?: (value: number) => string;
@@ -51,8 +123,12 @@ const metricLabels: {
   // min/max(막대 전체 스케일)와 goodMin/goodMax(양호 구간)를 넣는다. 기준이 없는 지표
   // (noBaseline: true인 것들)는 애초에 "정상 구간"이라는 게 없어서 게이지를 안 그린다.
   gauge?: { min: number; max: number; goodMin: number; goodMax: number };
+  // 2026-08-05: 대시보드 metric-card 톤 시스템(색+아이콘)을 지표 성격별로 매핑 - 시간/속도는
+  // blue, 파형·떨림처럼 기준 없는 원시 신호는 purple, 침묵·주의가 필요할 수 있는 지표는 orange.
+  icon: ReactNode;
+  tone: "blue" | "orange" | "purple" | "green";
 }[] = [
-  { key: "duration_sec", label: "답변 길이", format: (v) => `${v.toFixed(1)}초` },
+  { key: "duration_sec", label: "답변 길이", format: (v) => `${v.toFixed(1)}초`, icon: <Clock />, tone: "blue" },
   {
     key: "speaking_rate_chars_per_min",
     label: "말속도",
@@ -66,9 +142,18 @@ const metricLabels: {
     // 실측 분포(IQR 220.3~271.4)보다 위아래로 넉넉하게 잡아서 대부분의 실제 값이 막대
     // 안쪽에 자연스럽게 들어오게 했다(너무 좁으면 막대 양 끝에 값이 몰려 보임).
     gauge: { min: 100, max: 350, goodMin: SPEAKING_RATE_MIN, goodMax: SPEAKING_RATE_MAX },
+    icon: <Gauge />,
+    tone: "purple",
   },
-  { key: "pitch_mean_hz", label: "평균 음높이", format: (v) => `${v.toFixed(0)}Hz` },
-  { key: "pitch_variation_hz", label: "음높이 변동폭", format: (v) => `${v.toFixed(0)}Hz`, noBaseline: true },
+  { key: "pitch_mean_hz", label: "평균 음높이", format: (v) => `${v.toFixed(0)}Hz`, icon: <Waves />, tone: "blue" },
+  {
+    key: "pitch_variation_hz",
+    label: "음높이 변동폭",
+    format: (v) => `${v.toFixed(0)}Hz`,
+    noBaseline: true,
+    icon: <Activity />,
+    tone: "purple",
+  },
   {
     key: "silence_ratio",
     label: "침묵 비율",
@@ -76,14 +161,25 @@ const metricLabels: {
     hint: (v) => (v * 100 > 30 ? "침묵 비율이 다소 높아요. 답변이 자주 끊겼을 수 있어요." : "적절한 수준의 침묵 비율이에요."),
     // silence_ratio는 0~1 원시값이라 게이지도 같은 단위(0~1, 양호 구간 0~0.3)로 맞췄다.
     gauge: { min: 0, max: 1, goodMin: 0, goodMax: 0.3 },
+    icon: <VolumeX />,
+    tone: "orange",
   },
   {
     key: "long_pause_count",
     label: "긴 침묵 횟수",
     format: (v) => `${v}회`,
     hint: (v) => (v === 0 ? "긴 침묵 없이 이어갔어요." : `${v}번 길게 끊겼어요.`),
+    icon: <PauseCircle />,
+    tone: "orange",
   },
-  { key: "volume_variation_rms", label: "음량 떨림 정도", format: (v) => v.toFixed(4), noBaseline: true },
+  {
+    key: "volume_variation_rms",
+    label: "음량 떨림 정도",
+    format: (v) => v.toFixed(4),
+    noBaseline: true,
+    icon: <Waves />,
+    tone: "purple",
+  },
 ];
 
 // 참고 기준 자체가 없는 지표들 - 카드 아래 이 문구를 공통으로 보여준다.
@@ -93,10 +189,16 @@ const NO_BASELINE_HINT = "비교 기준 없음 - 여러 번 연습해서 평소 
 // blinkRatePerMin: 그 횟수를 "1분 동안 이 속도가 유지됐다면"으로 환산한 값 -
 // 답변이 짧으면 실제 횟수보다 훨씬 커 보일 수 있어서(예: 6초에 3회 -> 분당 30회),
 // 반드시 blinkCount와 나란히 보여줘서 오해가 없게 한다.
-const faceMetricLabels: { key: keyof FaceMetrics; label: string; format: (value: number) => string; noBaseline?: boolean }[] = [
-  { key: "blinkCount", label: "실제 깜빡임 횟수", format: (v) => `${v}회` },
-  { key: "blinkRatePerMin", label: "분당 깜빡임 (환산)", format: (v) => `${v}회/분`, noBaseline: true },
-  { key: "headMovement", label: "고개 움직임 정도", format: (v) => `${v}/100`, noBaseline: true },
+const faceMetricLabels: {
+  key: keyof FaceMetrics;
+  label: string;
+  format: (value: number) => string;
+  noBaseline?: boolean;
+  icon: ReactNode;
+}[] = [
+  { key: "blinkCount", label: "실제 깜빡임 횟수", format: (v) => `${v}회`, icon: <Eye /> },
+  { key: "blinkRatePerMin", label: "분당 깜빡임 (환산)", format: (v) => `${v}회/분`, noBaseline: true, icon: <Eye /> },
+  { key: "headMovement", label: "고개 움직임 정도", format: (v) => `${v}/100`, noBaseline: true, icon: <Move /> },
 ];
 
 // 표준국어대사전 기준 대표적인 구어체 습관어(필러워드). 어절(공백 기준 토큰) 단위로
@@ -120,6 +222,7 @@ function analyzeFillers(transcript: string): { count: number; parts: { text: str
 // 규칙 기반으로 이미 계산된 숫자들을 문장으로 조립만 한다 - 새로운 판단을 더하지
 // 않는다(감정/긴장도 추정 금지 원칙과 동일). 각 조건은 위 hint들과 같은 기준을 쓴다.
 function buildSummarySentence(result: AnswerAnalysis, fillerCount: number): string {
+  if (!result.metrics) return ""; // 타이핑으로 답변한 경우 - 음성 지표 자체가 없음
   const parts: string[] = [];
   const rate = result.metrics.speaking_rate_chars_per_min;
   if (rate !== null && rate !== undefined) {
@@ -136,21 +239,321 @@ function buildSummarySentence(result: AnswerAnalysis, fillerCount: number): stri
   return parts.length > 0 ? parts.join(", ") + "." : "";
 }
 
+// 2026-08-05: 질문마다 Gemini를 부르던 걸 세션이 끝난 뒤 한 번만 부르도록 바꾸면서 생긴
+// 최종 화면 - answers(세션에서 쌓인 답변들)를 받아 마운트되자마자 evaluateSession을 딱
+// 1번 호출하고, 로딩/완료를 자체적으로 관리한다. MockInterviewPage 본문에서 훅 개수가
+// 스테이지마다 달라지는 걸 피하려고 별도 컴포넌트로 뺐다.
+function SessionReportPanel({
+  answers,
+  onEndSession,
+}: {
+  answers: { question: string; result: AnswerAnalysis; faceMetrics: FaceMetrics | null }[];
+  onEndSession: () => void;
+}) {
+  const [report, setReport] = useState<SessionEvaluationReport | null>(null);
+  // 2026-08-06: 원래는 이 화면에 들어오자마자 자동으로 Gemini를 호출했는데, "처음엔 지표만
+  // 보여주고, 스크롤해서 아래 'AI 분석' 버튼을 눌러야 그때 모범답안/총평까지 레포트처럼
+  // 한 번에 보여주면 좋겠다"는 요청으로 바꿨다 - requested가 true가 되기 전까지는
+  // evaluateSession을 아예 호출하지 않는다(질문마다 지표만 먼저 훑어보고, 실제로 AI
+  // 피드백이 궁금할 때만 누르라는 의도).
+  const [requested, setRequested] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadReport = () => {
+    setRequested(true);
+    setLoading(true);
+    setLoadError(null);
+    evaluateSession(
+      answers.map((a) => ({
+        question: a.question,
+        transcript: a.result.transcript,
+        voiceMetrics: a.result.metrics,
+        faceMetrics: a.faceMetrics,
+      })),
+    )
+      .then((res) => setReport(res.report))
+      .catch((error) => setLoadError(error instanceof Error ? error.message : "종합 평가를 불러오지 못했습니다."))
+      .finally(() => setLoading(false));
+  };
+
+  return (
+    <section className="panel" style={{ marginTop: 20 }}>
+      <div className="panel-title">
+        <div>
+          <h2>면접 결과</h2>
+          <p>질문 {answers.length}개에 대한 답변 지표입니다. 아래 "AI 분석"을 누르면 전체를 종합 평가한 리포트를 볼 수 있어요.</p>
+        </div>
+        <button className="text-button" onClick={onEndSession} type="button">
+          <RotateCcw size={13} /> 처음으로
+        </button>
+      </div>
+
+      {answers.map((a, i) => {
+        const { count: fillerCount, parts: fillerParts } = analyzeFillers(a.result.transcript ?? "");
+        const summary = buildSummarySentence(a.result, fillerCount);
+        return (
+          <div key={i} style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #eef0f4" }}>
+            <div className="interview-question-card" style={{ marginBottom: 16 }}>
+              <span className="interview-question-icon">
+                <Sparkles size={19} />
+              </span>
+              <strong>{`Q${i + 1}. ${a.question}`}</strong>
+            </div>
+
+            {summary && (
+              <div className="interview-summary-banner">
+                <Sparkles size={16} />
+                {summary}
+              </div>
+            )}
+
+            <div className="interview-transcript-box" style={{ marginBottom: 20 }}>
+              <span className="interview-field-label">{a.result.metrics ? "인식된 답변" : "답변 내용"}</span>
+              {a.result.low_confidence_transcript && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    margin: "8px 0 0",
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    background: "#fff4e5",
+                    color: "#a05a00",
+                    fontSize: 11,
+                  }}
+                >
+                  <AlertCircle size={12} />
+                  인식이 불안정했을 수 있어요 - 아래 텍스트가 실제 답변과 다를 수 있습니다. (배경 소음이 있었거나 마이크와 거리가 멀었을 때 자주 발생해요)
+                </div>
+              )}
+              <p style={{ margin: "8px 0 0", color: "#293349", fontSize: 13, lineHeight: 1.6 }}>
+                {a.result.transcript
+                  ? fillerParts.map((part, pi) =>
+                      part.isFiller ? (
+                        <mark key={pi} style={{ background: "#ffe6a8", borderRadius: 3, padding: "0 2px" }}>
+                          {part.text}
+                        </mark>
+                      ) : (
+                        <span key={pi}>{part.text}</span>
+                      ),
+                    )
+                  : "(인식된 내용 없음)"}
+              </p>
+              {fillerCount > 0 && (
+                <span className="analysis-muted" style={{ fontSize: 11 }}>
+                  습관어("음", "어", "그니까" 등) {fillerCount}회 감지됨 (형광 표시)
+                </span>
+              )}
+            </div>
+
+            <div className="metric-grid interview-metric-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+              {a.result.metrics &&
+                metricLabels.map(({ key, label, format, hint, noBaseline, gauge, icon, tone }) => {
+                  const value = a.result.metrics![key];
+                  const hasValue = value !== null && value !== undefined;
+                  return (
+                    <div key={key} className={`metric-card ${tone}`} style={{ alignItems: "flex-start" }}>
+                      <span className="metric-icon">{icon}</span>
+                      <div>
+                        <span>{label}</span>
+                        <strong>{hasValue ? format(value) : "-"}</strong>
+                        {hasValue && gauge && <RangeGauge value={value} {...gauge} />}
+                        {hasValue && hint && <small style={{ whiteSpace: "normal" }}>{hint(value)}</small>}
+                        {hasValue && !hint && noBaseline && <small style={{ whiteSpace: "normal" }}>{NO_BASELINE_HINT}</small>}
+                      </div>
+                    </div>
+                  );
+                })}
+              {a.result.transcript && (
+                <div className="metric-card orange">
+                  <span className="metric-icon">
+                    <MessageSquareWarning />
+                  </span>
+                  <div>
+                    <span>습관어 사용 횟수</span>
+                    <strong>{fillerCount}회</strong>
+                  </div>
+                </div>
+              )}
+              {a.faceMetrics &&
+                faceMetricLabels.map(({ key, label, format, noBaseline, icon }) => (
+                  <div key={key} className="metric-card green" style={{ alignItems: "flex-start" }}>
+                    <span className="metric-icon">{icon}</span>
+                    <div>
+                      <span>{label}</span>
+                      <strong>{format(a.faceMetrics![key] as number)}</strong>
+                      {noBaseline && <small style={{ whiteSpace: "normal" }}>{NO_BASELINE_HINT}</small>}
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {a.result.metrics && !a.faceMetrics && (
+              <p className="analysis-muted" style={{ marginTop: 12, fontSize: 11 }}>
+                얼굴이 인식되지 않아 표정 관련 지표는 계산되지 않았습니다. 카메라 각도를 조정하고 다시 시도해 보세요.
+              </p>
+            )}
+
+          </div>
+        );
+      })}
+
+      {/* 2026-08-06: 지표를 먼저 다 훑어본 다음, 맨 아래에서 "AI 분석"을 눌러야 총평/강점/
+          개선점/질문별 모범답안이 레포트 형태로 한 번에 나온다(요청 반영) - 누르기 전엔
+          Gemini를 호출하지 않는다. */}
+      <div className="interview-report-panel" style={{ marginTop: 24 }}>
+        <div className="interview-report-head">
+          <Sparkles size={16} /> AI 종합 평가
+        </div>
+        {!requested && (
+          <button className="primary-button" onClick={loadReport} type="button">
+            <Sparkles size={14} /> AI 분석 보기
+          </button>
+        )}
+        {loading && (
+          <p style={{ display: "flex", alignItems: "center", gap: 8, margin: 0, color: "#6a7383", fontSize: 13 }}>
+            <LoaderCircle className="spin" size={14} /> 면접 전체를 종합 평가하는 중입니다...
+          </p>
+        )}
+        {!loading && requested && (loadError || (report && !report.ok)) && (
+          <p style={{ margin: 0, color: "#293349", fontSize: 13, lineHeight: 1.7 }}>{loadError ?? report?.message}</p>
+        )}
+        {!loading && report && report.ok && (
+          <>
+            <div className="interview-score-row">
+              {[
+                { label: "총평", value: report.overall_score },
+                { label: "답변 내용", value: report.content_score },
+                { label: "전달력", value: report.delivery_score },
+              ]
+                .filter((s): s is { label: string; value: number } => s.value !== null)
+                .map(({ label, value }) => {
+                  const tone = value >= 4 ? "score-high" : value === 3 ? "score-mid" : "score-low";
+                  return (
+                    <div key={label} className={`interview-score-card ${tone}`}>
+                      <span className="interview-score-ring">{value}</span>
+                      <div>
+                        <span className="interview-score-label">{label}</span>
+                        <strong>{value} / 5</strong>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {report.strengths.length > 0 && (
+              <div className="interview-report-section">
+                <h4>
+                  <CheckCircle2 size={14} color="#37bf82" /> 잘한 점
+                </h4>
+                <ul className="interview-report-list strengths">
+                  {report.strengths.map((item, i) => (
+                    <li key={i}>
+                      <CheckCircle2 size={14} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {report.improvements.length > 0 && (
+              <div className="interview-report-section">
+                <h4>
+                  <AlertTriangle size={14} color="#e0a233" /> 개선할 점
+                </h4>
+                <ul className="interview-report-list improvements">
+                  {report.improvements.map((item, i) => (
+                    <li key={i}>
+                      <AlertTriangle size={14} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {report.next_steps.length > 0 && (
+              <div className="interview-report-section" style={{ marginBottom: 0 }}>
+                <h4>
+                  <Lightbulb size={14} color="#6678e8" /> 다음에 연습하면 좋을 점
+                </h4>
+                <ul className="interview-report-list next-steps">
+                  {report.next_steps.map((item, i) => (
+                    <li key={i}>
+                      <Lightbulb size={14} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 2026-08-06: 원래 질문 카드마다 따로 붙어 있던 걸 여기로 모았다 - "총평 보려고
+                내려왔다가 질문별 피드백 보려고 다시 위로 올라가야 하는" 왔다갔다를 없애려고,
+                AI 관련 내용은 전부 이 패널 하나에 모아서 보여준다. 위 섹션들과 붙어 보인다는
+                피드백을 받아서 구분선+여백을 확실히 주고, 질문 하나당 카드로 나눴다 - 피드백/
+                모범답안이 중요한 정보라 옅은 배경색 대신 기존 .interview-model-answer(파란
+                왼쪽 테두리 + 그라데이션 배경)를 그대로 재사용해서 확실히 눈에 띄게 했다. */}
+            {report.questions.length > 0 && (
+              <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid #eef0f4" }}>
+                <div className="interview-report-head" style={{ marginBottom: 14 }}>
+                  <Quote size={16} /> 질문별 피드백
+                </div>
+                <div style={{ display: "grid", gap: 16 }}>
+                  {report.questions.map((q, i) => (
+                    <div key={i} style={{ border: "1px solid #e8ebf1", borderRadius: 12, background: "#fbfcff", padding: "16px 18px" }}>
+                      <strong style={{ display: "block", color: "#293349", fontSize: 13, marginBottom: 10 }}>
+                        {`Q${i + 1}. ${q.question}`}
+                      </strong>
+                      {q.feedback && <p style={{ margin: 0, color: "#3a4356", fontSize: 13, lineHeight: 1.7 }}>{q.feedback}</p>}
+                      {q.model_answer && (
+                        <div className="interview-model-answer" style={{ marginTop: 12, marginBottom: 0 }}>
+                          <h4>
+                            <Quote size={13} /> 모범 답안 예시
+                          </h4>
+                          <p>{q.model_answer}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function MockInterviewPage() {
-  const [question, setQuestion] = useState(() => SAMPLE_QUESTIONS[0]);
-  const [questionLoading, setQuestionLoading] = useState(false);
-  const [stage, setStage] = useState<Stage>("idle");
-  const [result, setResult] = useState<AnswerAnalysis | null>(null);
-  const [faceMetrics, setFaceMetrics] = useState<FaceMetrics | null>(null);
-  // 2026-08-05: 종합 평가(evaluateAnswer)는 Gemini 호출이라 몇 초 걸릴 수 있어서, result 화면
-  // 자체는 metrics만으로 먼저 보여주고 report는 별도 로딩 상태로 나중에 채워 넣는다 -
-  // "답변 분석" 자체가 리포트 생성 때문에 지연되면 안 된다.
-  const [report, setReport] = useState<string | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [stage, setStage] = useState<Stage>("start");
+  // 2026-08-05: 질문마다 즉시 결과 화면을 보여주던 걸 없애고, 세션의 답변을 여기 계속
+  // 쌓아뒀다가 마지막 질문까지 끝나면 한 번에 SessionReportPanel에 넘겨서 보여준다.
+  const [sessionAnswers, setSessionAnswers] = useState<{ question: string; result: AnswerAnalysis; faceMetrics: FaceMetrics | null }[]>(
+    [],
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  // 2026-08-05: 마이크/카메라를 못 쓰거나 쓰기 부담스러운 사람을 위한 보조 경로 - 주 기능은
+  // 여전히 녹음이라(device-check 화면에서 아주 작은 글씨 링크로만 노출) answerMode는
+  // "voice"가 기본값.
+  const [answerMode, setAnswerMode] = useState<"voice" | "text">("voice");
+  const [typedAnswer, setTypedAnswer] = useState("");
+  // 2026-08-05: 이번 세션에서 쓸 질문 3개(자기소개 포함, 순서 셔플됨) - "시작하기"를 누르는
+  // 순간 한 번에 미리 만들어두고, 카운트다운이 끝날 때마다 순서대로 하나씩 공개한다.
+  const [sessionQuestions, setSessionQuestions] = useState<string[]>([]);
+  const [sessionIndex, setSessionIndex] = useState(0);
+  const [countdownValue, setCountdownValue] = useState(0);
+  // 2026-08-05: 첫 질문 직전엔 짧게(3초), 두 번째 질문부터는 답변을 확인하고 숨 고를
+  // 시간까지 겸해서 좀 더 길게(10초) 카운트다운한다 - 원형 타이머 진행률 계산에 필요.
+  const [countdownTotal, setCountdownTotal] = useState(3);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -163,110 +566,70 @@ export function MockInterviewPage() {
   const faceFramesRef = useRef<FaceFrameSample[]>([]);
   const isRecordingRef = useRef(false);
   const timerIdRef = useRef<number | null>(null);
-  // 2026-08-05: 이번 세션에서 몇 번째 질문인지 세는 용도(0부터 시작) - 3개 중 1개는 무조건
-  // 자기소개로 고정하기 위해 필요하다. 컴포넌트가 다시 마운트되면(면접 페이지 재진입) 0부터
-  // 다시 센다.
-  const questionCountRef = useRef(0);
-  // 2026-08-05: 모델 생성이 6~8초씩 걸려서 "다음 질문"을 누른 시점에 요청을 시작하면 매번
-  // 그만큼 기다려야 했다. 대신 지금 질문을 보여주는 즉시 다음 질문을 백그라운드로 미리
-  // 만들어두고(prefetch), 실제로 "다음 질문"을 누르는 시점엔 이미 준비된 걸 즉시 보여준다.
-  const prefetchRef = useRef<{ index: number; promise: Promise<string> } | null>(null);
-  // 2026-08-05: React 18 StrictMode(main.tsx)는 개발 모드에서 마운트 이펙트를 일부러
-  // 두 번 실행한다(부작용이 안전하게 반복 가능한지 검증하려는 의도). 아래 초기 로딩
-  // useEffect가 두 번 실행되면 loadNextQuestion()이 연달아 두 번 불려서 - 1번째 호출로
-  // 자기소개 질문이 뜨고 prefetch(다음 질문)가 백그라운드로 걸리는데, 곧바로 2번째
-  // 호출이 같은 prefetch 슬롯을 "자기 차례"로 인식하고 그 프라미스가 끝나길 기다렸다가
-  // 끝나는 순간 question/stage를 통째로 덮어써버렸다 - "카메라 앵글 맞추는 중에 갑자기
-  // 다음 질문으로 바뀌는" 버그의 원인이었다(HMR 재마운트가 아니라 StrictMode 이중 실행).
-  // 이 ref로 "진짜 처음 한 번"만 실행되게 막는다(프로덕션 빌드는 StrictMode 이중 실행이
-  // 애초에 없어서 원래도 영향 없었음 - 개발 중에만 재현되던 버그).
-  const hasInitialLoadRef = useRef(false);
+  // 2026-08-05: 얼굴 인식 모델은 로딩에 몇 초 걸려서, 세션 중 다음 질문으로 넘어갈 때마다
+  // 다시 로딩하지 않도록 한 번 로드한 걸 캐싱해둔다(카메라 스트림 자체도 질문 사이에 끊지
+  // 않고 계속 켜둔다 - stopRecording 참고).
+  const landmarkerRef = useRef<Awaited<ReturnType<typeof loadFaceLandmarker>> | null>(null);
+  // 2026-08-05: 카운트다운이 끝나는 순간 공개할 질문을 미리 담아두는 곳 - sessionIndex
+  // state는 비동기라 카운트다운 이펙트 안에서 타이밍 문제가 생길 수 있어서, 대신 이 ref에
+  // "다음에 공개할 질문 텍스트"를 직접 넣어두고 그대로 읽는다.
+  const pendingQuestionRef = useRef<string | null>(null);
+  // 2026-08-05: 버그 수정 - finishAnswer가 question "state"를 직접 읽으면, 녹음 파이프라인
+  // 전체(get-ready -> recording -> stop -> 분석 -> finishAnswer)가 질문이 공개된 시점의
+  // 렌더에서 만들어진 클로저 체인(onend/setTimeout/recorder.onstop으로 미리 엮여있음)을
+  // 그대로 쓰기 때문에, setQuestion(text)가 아직 리렌더에 반영되기 "전"의 오래된 question
+  // 값을 참조해버린다(그 결과 세션 리포트에 항상 한 질문 전 텍스트, 첫 질문은 빈 문자열이
+  // 붙는 버그가 있었다). ref는 .current를 어느 클로저에서 읽어도 항상 최신값이라 이 문제가
+  // 없다 - 질문을 공개하는 모든 지점에서 state와 함께 이 ref도 같이 갱신한다.
+  const currentQuestionRef = useRef("");
 
   // 30초~1분 정도가 일반적인 면접 답변 권장 길이라는 참고 자료 기준 - 절대 기준은
   // 아니고, 감 잡는 용도로만 색을 살짝 바꿔 보여준다.
   const RECOMMENDED_MIN_SEC = 30;
   const RECOMMENDED_MAX_SEC = 60;
+  const GET_READY_MS = 1500;
+  const FIRST_COUNTDOWN_SECONDS = 3;
+  const BREAK_COUNTDOWN_SECONDS = 10;
 
-  // text를 인자로 받는 이유: setQuestion 직후 곧바로 읽어줘야 할 때, state 업데이트가
-  // 비동기라 클로저 안의 question이 아직 이전 값일 수 있다 - 방금 정한 새 질문 텍스트를
-  // 직접 넘겨받아서 그걸 읽는다. 버튼에서 수동으로 다시 듣기 할 땐 인자 없이 현재 question을 쓴다.
+  // 수동으로 "질문 듣기"를 다시 누를 때 쓰는 재생 함수 - 인자 없이 부르면 현재 question을 읽는다.
   const speakQuestion = (text: string = question) => {
-    if (!("speechSynthesis" in window)) return;
+    if (!("speechSynthesis" in window) || !text) return;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "ko-KR";
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
 
-  // 2026-08-04: ai-server의 KoGPT2+LoRA 질문 생성 API를 부른다. 모델이 아직 안 떠 있거나
-  // (503, RuntimeError from question_generator.py) 네트워크 오류가 나면 SAMPLE_QUESTIONS로
-  // 폴백해서 화면이 완전히 막히지 않게 한다.
-  //
-  // 2026-08-05: 3개 중 1개(1, 4, 7번째...)는 모델을 아예 호출하지 않고 무조건 자기소개로
-  // 고정한다 - 학습 데이터 특성상 생성 모델이 "자기소개해주세요"류를 알아서 규칙적으로
-  // 만들어내지는 않아서, 실제 면접처럼 주기적으로 짚고 넘어가려면 강제로 끼워 넣는 게 낫다.
-  // index를 인자로 받아 순수하게 "그 순번의 질문이 뭐가 되어야 하는지"만 반환한다(state를
-  // 직접 안 건드림) - prefetch(미리 만들어두기)에서도 그대로 재사용하기 위함.
-  const resolveQuestion = async (index: number, excludeForFallback: string): Promise<string> => {
-    if (index % 3 === 0) return SELF_INTRO_QUESTION;
-    try {
-      const res = await fetchNextQuestion();
-      return res.question;
-    } catch {
-      return pickFallbackQuestion(excludeForFallback);
-    }
+  // 2026-08-05: 세션 시작 시 한 번에 질문 3개를 준비한다 - 실제 면접 관례대로 1번째 질문은
+  // 항상 자기소개로 고정하고(모델이 스스로 자기소개 질문을 규칙적으로 만들어내지는 않아서
+  // 강제로 넣음), 나머지 2개는 ai-server 생성 모델을 병렬로 호출해서 받는다(순차로 하면
+  // 질문 하나당 6~8초씩 걸려서 대기시간이 두 배가 됨). 모델 호출이 실패하면
+  // SAMPLE_QUESTIONS로 폴백한다.
+  const buildSessionQuestions = async (): Promise<string[]> => {
+    const [r1, r2] = await Promise.allSettled([fetchNextQuestion(), fetchNextQuestion()]);
+    const q2 = r1.status === "fulfilled" ? r1.value.question : pickFallbackQuestion(SELF_INTRO_QUESTION);
+    const q3 = r2.status === "fulfilled" && r2.value.question !== q2 ? r2.value.question : pickFallbackQuestion(q2);
+    return [SELF_INTRO_QUESTION, q2, q3];
   };
 
-  const schedulePrefetch = (index: number, excludeForFallback: string) => {
-    prefetchRef.current = { index, promise: resolveQuestion(index, excludeForFallback) };
-  };
-
-  const loadNextQuestion = async () => {
-    const index = questionCountRef.current;
-    questionCountRef.current += 1;
-
+  // 2026-08-06: 원래 "질문 생성 중..." 화면에서 완전히 다 끝날 때까지 막아놓고 그다음에야
+  // 마이크·카메라 테스트로 넘어갔는데, 로컬 LoRA 모델 추론(질문 2개, 순차면 최대 16초)이
+  // 체감상 너무 느리다는 피드백을 받았다. 질문 생성과 마이크/캠 테스트는 서로 의존관계가
+  // 없으므로(질문은 "모의면접 시작하기"를 눌러 카운트다운이 시작될 때만 실제로 필요함) 굳이
+  // 순서대로 기다릴 이유가 없다 - 시작하자마자 질문 생성은 백그라운드로 흘려보내고, 화면은
+  // 곧바로 device-check(마이크·카메라 테스트 안내)로 넘긴다. 사용자가 권한 허용하고 얼굴
+  // 인식 모델 로딩하고 마이크 레벨 확인하는 그 몇 초 동안 질문 생성이 같이 진행되니, 실제
+  // 답변을 시작하려는 시점("모의면접 시작하기" 버튼)엔 이미 다 준비돼 있을 확률이 높다 -
+  // 그 버튼만 sessionQuestions가 채워질 때까지 비활성화해서 안전하게 막아둔다.
+  const startSession = () => {
     setErrorMessage(null);
-    setQuestionLoading(true);
-
-    let next: string;
-    if (prefetchRef.current && prefetchRef.current.index === index) {
-      // 미리 준비해둔 게 있으면 그걸 쓴다 - 이미 끝났으면 사실상 즉시, 너무 빨리 눌러서
-      // 아직 안 끝났으면 그 프라미스가 끝날 때까지만 기다린다(그래도 새로 요청 두 번
-      // 보내는 것보단 낫다).
-      next = await prefetchRef.current.promise;
-    } else {
-      next = await resolveQuestion(index, question);
-    }
-    prefetchRef.current = null;
-    setQuestionLoading(false);
-
-    setQuestion(next);
-    setStage("idle");
-    setResult(null);
-    setFaceMetrics(null);
-    setReport(null);
-    setReportLoading(false);
-    setErrorMessage(null);
-    speakQuestion(next);
-
-    // 지금 질문을 보여주자마자 다음 질문을 백그라운드로 미리 만들어둔다 - 답변 준비/녹음/
-    // 결과 확인하는 동안(보통 수십 초 이상) 시간이 충분해서 웬만하면 미리 끝나 있다.
-    schedulePrefetch(questionCountRef.current, next);
+    setSessionQuestions([]);
+    setSessionIndex(0);
+    void buildSessionQuestions().then((questions) => {
+      setSessionQuestions(questions);
+    });
+    setStage("device-check");
   };
-
-  const pickNextQuestion = () => {
-    void loadNextQuestion();
-  };
-
-  // 첫 진입 시에도 정적 배열이 아니라 실제 생성된 질문으로 시작하고, 자동으로 읽어준다
-  // ("면접관처럼 질문을 던지는" 게 원래 목표였어서 - 사용자가 매번 "질문 듣기"를 눌러야
-  // 하는 건 그 취지에 안 맞는다).
-  useEffect(() => {
-    if (hasInitialLoadRef.current) return;
-    hasInitialLoadRef.current = true;
-    void loadNextQuestion();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const stopMeterLoop = () => {
     if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
@@ -376,6 +739,7 @@ export function MockInterviewPage() {
       // 얼굴 인식 모델(WASM+모델 파일)을 CDN에서 받아오는 데 몇 초 걸릴 수 있어서
       // "준비 중" 단계로 따로 보여준다.
       const landmarker = await loadFaceLandmarker();
+      landmarkerRef.current = landmarker;
       setCameraReady(true);
       startFaceTrackingLoop(landmarker);
 
@@ -420,10 +784,19 @@ export function MockInterviewPage() {
     isRecordingRef.current = false;
     stopStream();
     setCameraReady(false);
-    setStage("idle");
+    setStage("device-check");
   };
 
-  const GET_READY_MS = 1500;
+  // 2026-08-05: 마이크/캠 없이 텍스트로 진행하는 보조 경로 - 세션의 첫 질문을 바로 공개하고
+  // 타이핑 화면으로 보낸다(이 경로는 "실전처럼 숨겼다 공개"하는 연출까지는 굳이 필요 없다고
+  // 판단 - 이미 주 기능이 아니라고 명시한 보조 경로라 단순하게 유지).
+  const startTypingForSession = () => {
+    const first = sessionQuestions[0] ?? SAMPLE_QUESTIONS[0];
+    currentQuestionRef.current = first;
+    setQuestion(first);
+    setAnswerMode("text");
+    setStage("typing");
+  };
 
   // 버튼 누르자마자 녹음을 시작하면 말할 준비가 안 된 채로 앞부분이 침묵으로 날아가는
   // 경우가 많아서(테스트 중 실제로 겪음), 짧게 준비 시간을 준 다음 녹음을 시작한다.
@@ -479,11 +852,74 @@ export function MockInterviewPage() {
     setStage("recording");
   };
 
+  // 2026-08-05: 마이크·카메라 테스트를 마치고 "면접 시작"을 누르면 곧바로 질문을 보여주지
+  // 않고 카운트다운부터 돌린다 - 아래 useEffect가 매초 값을 줄이다가 0이 되는 순간
+  // revealQuestionAndBeginRecording을 호출해 질문을 공개한다.
+  const beginInterviewCountdown = () => {
+    stopMeterLoop();
+    pendingQuestionRef.current = sessionQuestions[sessionIndex] ?? null;
+    setCountdownTotal(FIRST_COUNTDOWN_SECONDS);
+    setCountdownValue(FIRST_COUNTDOWN_SECONDS);
+    setStage("countdown");
+  };
+
+  useEffect(() => {
+    if (stage !== "countdown") return;
+    if (countdownValue <= 0) {
+      const next = pendingQuestionRef.current;
+      if (next) revealQuestionAndBeginRecording(next);
+      return;
+    }
+    const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, countdownValue]);
+
+  // 2026-08-05: 답변 사이 10초 휴식 - 이 동안은 얼굴 추적 루프 자체가 꺼져 있어서(카메라
+  // 미리보기도 안 보여줌) 분석 대상 시간에 절대 섞이지 않는다. 휴식이 끝나면 그때 얼굴
+  // 추적을 다시 켜고 원래의 3초 "질문 공개 직전" 카운트다운으로 넘어간다.
+  useEffect(() => {
+    if (stage !== "break") return;
+    if (countdownValue <= 0) {
+      if (landmarkerRef.current) startFaceTrackingLoop(landmarkerRef.current);
+      setCountdownTotal(FIRST_COUNTDOWN_SECONDS);
+      setCountdownValue(FIRST_COUNTDOWN_SECONDS);
+      setStage("countdown");
+      return;
+    }
+    const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, countdownValue]);
+
+  // 카운트다운이 끝나는 순간 호출된다 - 질문 텍스트를 화면에 공개하고 동시에 음성으로
+  // 읽어준 다음, TTS가 끝나는 시점(onend)에 맞춰 녹음 준비(get-ready)로 넘어간다.
+  // TTS가 끝나기도 전에 녹음을 시작하면 스피커로 나오는 질문 음성이 마이크에 다시
+  // 잡혀 답변 인식에 섞여 들어갈 수 있어서, 반드시 다 읽고 나서 시작한다.
+  const revealQuestionAndBeginRecording = (text: string) => {
+    currentQuestionRef.current = text;
+    setQuestion(text);
+    const hasSpeechSynthesis = typeof window.speechSynthesis !== "undefined";
+    if (hasSpeechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "ko-KR";
+      utterance.onend = () => startRecording();
+      utterance.onerror = () => startRecording();
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.setTimeout(startRecording, 1800);
+    }
+  };
+
   const stopRecording = () => {
     mediaRecorderRef.current?.stop();
     isRecordingRef.current = false;
+    // 2026-08-05: 예전엔 여기서 stopStream()까지 같이 불러서 한 문제(답변)가 끝날 때마다
+    // 카메라/마이크가 완전히 꺼졌다 - 세션 안에서 다음 질문으로 넘어갈 때 매번 권한을 다시
+    // 요청해야 해서 실전 흐름이 끊겼다. 이제는 얼굴 추적 루프만 멈추고(다음 질문 시작 시
+    // startFaceTrackingLoop로 재개) 스트림 자체는 세션이 완전히 끝날 때(endSession)만 끈다.
     stopFaceLoop();
-    stopStream();
     if (timerIdRef.current !== null) {
       window.clearInterval(timerIdRef.current);
       timerIdRef.current = null;
@@ -495,103 +931,170 @@ export function MockInterviewPage() {
     try {
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
       const analysis = await analyzeAnswer(blob, "answer.webm");
-      const faceMetricsResult = summarizeFaceFrames(faceFramesRef.current, analysis.metrics.duration_sec);
-      setResult(analysis);
-      setFaceMetrics(faceMetricsResult);
-      setReport(null);
-      setStage("result");
+      // analyzeAnswer는 실제 녹음 경로에서만 호출되므로(타이핑 경로는 submitTypedAnswer가
+      // 별도로 처리) metrics는 항상 채워져 있지만, 타입상 VoiceMetrics | null이라 안전하게 처리한다.
+      const faceMetricsResult = summarizeFaceFrames(faceFramesRef.current, analysis.metrics?.duration_sec ?? 0);
+      finishAnswer(analysis, faceMetricsResult);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "답변 분석에 실패했습니다.");
       setStage("error");
     }
   };
 
-  // 2026-08-05: 원래는 답변 분석 직후 자동으로 호출했는데, Gemini 호출이 답변마다 나가는 게
-  // (질문 다듬기 1회 + 리포트 1회) 아까워서 - 사용자가 실제로 보고 싶을 때만 버튼으로 호출하도록
-  // 바꿨다. 다시하기를 누르고 리포트를 안 보면 호출 자체가 안 나간다.
-  const loadReport = async () => {
-    if (!result) return;
-    setReportLoading(true);
-    try {
-      const evaluation = await evaluateAnswer(question, result.transcript, result.metrics, faceMetrics);
-      setReport(evaluation.report);
-    } catch (error) {
-      setReport(error instanceof Error ? error.message : "종합 평가를 불러오지 못했습니다.");
-    } finally {
-      setReportLoading(false);
-    }
+  // 2026-08-05: 마이크/카메라 없이(또는 실제 녹음 없이) 최종 리포트 UI만 빨리 확인하고 싶을
+  // 때 쓰는 개발용 우회 버튼. import.meta.env.DEV로 감싸서 프로덕션 빌드에는 아예 안 들어간다.
+  // 세션 질문 없이 답변 1개짜리 더미로 바로 최종 화면(session-report)까지 건너뛴다.
+  const fillDummyResultForDevTesting = () => {
+    setSessionAnswers([
+      {
+        question: SAMPLE_QUESTIONS[0],
+        result: {
+          transcript:
+            "이전 프로젝트에서 팀원과 API 설계 방향이 달라서 의견 차이가 있었습니다. 저는 회의를 잡아서 각자 장단점을 정리해서 공유했고, 결국 두 방식을 절충한 안으로 합의했습니다.",
+          low_confidence_transcript: false,
+          metrics: {
+            duration_sec: 42,
+            speaking_rate_chars_per_min: 280,
+            pitch_mean_hz: 165.2,
+            pitch_variation_hz: 18.4,
+            silence_ratio: 0.12,
+            long_pause_count: 1,
+            volume_mean_rms: 0.08,
+            volume_variation_rms: 0.03,
+          },
+        },
+        faceMetrics: { blinkCount: 14, blinkRatePerMin: 22, headMovement: 12, frameCount: 300 },
+      },
+    ]);
+    setStage("session-report");
   };
 
-  const reset = () => {
+  // 2026-08-05: 녹음 답변(submitRecording)과 타이핑 답변(submitTypedAnswer) 둘 다 여기로
+  // 모인다 - 방금 끝난 답변을 세션 목록에 쌓아두고, 세션의 마지막 질문이었으면 바로 최종
+  // 종합 리포트 화면으로, 아니면 다음 질문으로 이어간다(텍스트 모드는 곧바로 다음 질문
+  // 공개, 음성 모드는 10초 휴식 후 카운트다운). "질문마다 리포트 부르지 말고 다 받은 뒤
+  // 한 번에 부르자"는 요청으로, 여기서는 Gemini를 호출하지 않는다 - 그건 session-report
+  // 화면(SessionReportPanel)에 진입할 때 한 번만 일어난다.
+  const finishAnswer = (analysis: AnswerAnalysis, faceMetricsResult: FaceMetrics | null) => {
+    const isLastQuestion = sessionQuestions.length === 0 || sessionIndex >= sessionQuestions.length - 1;
+    // 2026-08-05: question "state"가 아니라 currentQuestionRef.current를 쓴다 - 위 ref
+    // 선언부 주석 참고(state를 쓰면 녹음 파이프라인의 오래된 클로저 때문에 한 질문 밀려서
+    // 저장되는 버그가 있었다).
+    setSessionAnswers((prev) => [...prev, { question: currentQuestionRef.current, result: analysis, faceMetrics: faceMetricsResult }]);
+    setTypedAnswer("");
+
+    if (isLastQuestion) {
+      setStage("session-report");
+      return;
+    }
+
+    const nextIndex = sessionIndex + 1;
+    const next = sessionQuestions[nextIndex];
+    setSessionIndex(nextIndex);
+    setErrorMessage(null);
+    setElapsedSec(0);
+
+    if (answerMode === "text") {
+      currentQuestionRef.current = next;
+      setQuestion(next);
+      setStage("typing");
+      return;
+    }
+
+    // 2026-08-05: 얼굴 추적 루프는 여기서 다시 켜지 않는다 - "break" 단계 동안은 카메라
+    // 미리보기도 숨기고 추적도 완전히 꺼둬서, 쉬는 시간이 분석에 섞일 걱정을 원천 차단한다.
+    // 10초가 지나면 break용 useEffect가 알아서 추적을 재개하고 countdown(3초)으로 넘긴다.
+    pendingQuestionRef.current = next;
+    setCountdownTotal(BREAK_COUNTDOWN_SECONDS);
+    setCountdownValue(BREAK_COUNTDOWN_SECONDS);
+    setStage("break");
+  };
+
+  // 2026-08-05: 녹음 대신 텍스트로 답변을 제출하는 경로 - STT/음성분석/얼굴분석을 아예
+  // 거치지 않고 바로 finishAnswer로 간다. metrics를 null로 둬서, 렌더링 쪽이 "음성 지표가
+  // 없는 답변"임을 구분할 수 있게 한다.
+  const submitTypedAnswer = () => {
+    const text = typedAnswer.trim();
+    if (!text) return;
+    setAnswerMode("text");
+    finishAnswer({ transcript: text, low_confidence_transcript: false, metrics: null }, null);
+  };
+
+  // 세션을 완전히 종료하고 랜딩 화면으로 돌아간다 - 카메라/마이크 스트림도 이 시점에만 끈다.
+  const endSession = () => {
     stopMeterLoop();
     stopFaceLoop();
     isRecordingRef.current = false;
     stopStream();
+    landmarkerRef.current = null;
     if (timerIdRef.current !== null) {
       window.clearInterval(timerIdRef.current);
       timerIdRef.current = null;
     }
     setCameraReady(false);
-    setStage("idle");
-    setResult(null);
-    setFaceMetrics(null);
-    setReport(null);
-    setReportLoading(false);
+    setSessionQuestions([]);
+    setSessionIndex(0);
+    setSessionAnswers([]);
+    currentQuestionRef.current = "";
+    setQuestion("");
+    setStage("start");
     setErrorMessage(null);
     setMicLevel(0);
     setElapsedSec(0);
+    setAnswerMode("voice");
+    setTypedAnswer("");
   };
 
-  // 2026-08-05: "다른 질문"/"질문 듣기" 버튼이 stage와 무관하게 항상 클릭 가능했다 -
-  // 답변을 녹음하거나("recording") 방금 녹음한 답변을 분석하는("analyzing") 도중에 이
-  // 버튼을 누르면 loadNextQuestion()이 그대로 실행돼서 question/stage가 즉시 바뀌어
-  // 버렸다("분석하다가 다음 질문으로 넘어가는" 것처럼 보이는 원인). 결과 화면("result")도
-  // 마찬가지로 이 버튼 대신 "다시 하기"를 쓰는 흐름이라 막는다.
-  const isAnswerInProgress = stage === "recording" || stage === "analyzing" || stage === "result";
+  // 질문 준비는 이미 끝난 상태에서 생긴 오류(마이크 권한 거부 등)면 device-check로,
+  // 질문 준비 자체가 안 된 상태의 오류면 처음(start)으로 돌아간다.
+  const retryAfterError = () => {
+    setErrorMessage(null);
+    setStage(sessionQuestions.length > 0 ? "device-check" : "start");
+  };
 
-  const showVideoPreview = stage === "preparing" || stage === "testing-mic" || stage === "get-ready" || stage === "recording";
+  const showVideoPreview =
+    stage === "preparing" || stage === "testing-mic" || stage === "countdown" || stage === "get-ready" || stage === "recording";
+
+  const hasSession = sessionQuestions.length > 0;
+  const questionRevealed = stage === "get-ready" || stage === "recording" || stage === "analyzing" || stage === "typing";
 
   return (
     <>
       <PageHeading
         eyebrow="Early Bird 모의면접"
         title="모의면접"
-        body="질문을 듣고 답변을 녹음하면, 답변 내용과 말투(속도·높낮이·침묵), 화면에 보이는 표정 신호(눈 깜빡임·고개 움직임)를 함께 분석해 보여줍니다."
+        body="시작하면 자기소개를 포함한 질문 3개가 순서대로 나옵니다. 질문은 공개 직전까지 보이지 않아서 실제 면접처럼 답변을 준비하고, 말투(속도·높낮이·침묵)와 표정 신호(눈 깜빡임·고개 움직임)를 함께 분석해 보여줍니다."
       />
 
       <section className="panel">
         <div className="panel-title">
           <div>
             <h2>질문</h2>
-            <p>버튼을 눌러 질문을 음성으로 들을 수 있습니다.</p>
+            <p>
+              {hasSession && stage !== "device-check"
+                ? `질문 ${sessionIndex + 1} / ${sessionQuestions.length}`
+                : "면접을 시작하면 질문 3개(자기소개 포함)가 순서대로 진행됩니다."}
+            </p>
           </div>
-          <button
-            className="text-button"
-            onClick={pickNextQuestion}
-            type="button"
-            disabled={questionLoading || isAnswerInProgress}
-          >
-            {questionLoading ? <LoaderCircle className="spin" size={13} /> : <RotateCcw size={13} />} 다른 질문
-          </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 24px" }}>
-          <button
-            className="primary-button"
-            onClick={() => speakQuestion()}
-            type="button"
-            disabled={questionLoading || isAnswerInProgress}
-          >
-            <Volume2 size={16} /> 질문 듣기
-          </button>
-          {questionLoading ? (
-            <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#6a7383", fontSize: 14 }}>
-              <LoaderCircle className="spin" size={16} /> 질문을 준비하는 중...
+        {questionRevealed && (
+          <div className="interview-question-card">
+            <span className="interview-question-icon">
+              <Sparkles size={19} />
             </span>
-          ) : (
-            <strong style={{ color: "#293349", fontSize: 14 }}>{question}</strong>
-          )}
-        </div>
+            <strong>{question}</strong>
+            <button
+              className="primary-button"
+              onClick={() => speakQuestion()}
+              type="button"
+              disabled={stage === "recording" || stage === "analyzing"}
+              style={{ marginLeft: "auto", flex: "none" }}
+            >
+              <Volume2 size={16} /> 질문 듣기
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
           <div style={{ position: "relative", display: showVideoPreview ? "block" : "none", width: 480, height: 360, maxWidth: "90vw" }}>
@@ -625,10 +1128,102 @@ export function MockInterviewPage() {
             <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
           )}
 
-          {stage === "idle" && (
-            <button className="primary-button" onClick={startDeviceTest} type="button">
-              <Mic size={16} /> 마이크·카메라 테스트
-            </button>
+          {stage === "start" && (
+            <>
+              <span
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 60,
+                  height: 60,
+                  borderRadius: "50%",
+                  background: "#eef2ff",
+                  color: "#596ff1",
+                }}
+              >
+                <Mic size={24} />
+              </span>
+              <strong style={{ fontSize: 15, color: "#293349" }}>준비되면 시작해 주세요</strong>
+              <span style={{ fontSize: 12, color: "#9098a7", textAlign: "center", maxWidth: 360, lineHeight: 1.6 }}>
+                자기소개를 포함한 질문 3개가 순서대로 나옵니다. 질문은 시작 직전까지 공개되지 않아요.
+              </span>
+              <button className="primary-button" onClick={startSession} type="button">
+                <Sparkles size={16} /> 시작하기
+              </button>
+              {import.meta.env.DEV && (
+                <button className="text-button" onClick={fillDummyResultForDevTesting} type="button" style={{ fontSize: 11 }}>
+                  (개발용) 마이크 없이 더미 결과로 리포트 UI 확인
+                </button>
+              )}
+            </>
+          )}
+
+          {stage === "device-check" && (
+            <>
+              <p
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  margin: 0,
+                  color: sessionQuestions.length > 0 ? "#2e9e5b" : "#465067",
+                  fontSize: 13,
+                  textAlign: "center",
+                }}
+              >
+                {sessionQuestions.length === 0 && <LoaderCircle className="spin" size={14} />}
+                {sessionQuestions.length > 0 ? "질문 3개 준비 완료! 마이크와 카메라를 확인해 주세요." : "질문을 백그라운드에서 준비하고 있어요 - 먼저 마이크와 카메라부터 확인해 주세요."}
+              </p>
+              <button className="primary-button" onClick={() => void startDeviceTest()} type="button">
+                <Mic size={16} /> 마이크·카메라 테스트
+              </button>
+              <button
+                className="text-button"
+                onClick={startTypingForSession}
+                type="button"
+                disabled={sessionQuestions.length === 0}
+                style={{ fontSize: 10, color: "#b0b6c0", fontWeight: 700, opacity: sessionQuestions.length === 0 ? 0.5 : 1 }}
+              >
+                마이크/캠을 사용할 수 없어요
+              </button>
+            </>
+          )}
+
+          {stage === "typing" && (
+            <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: 10 }}>
+              <textarea
+                value={typedAnswer}
+                onChange={(e) => setTypedAnswer(e.target.value)}
+                placeholder="답변을 텍스트로 입력해 주세요..."
+                rows={6}
+                autoFocus
+                style={{
+                  width: "100%",
+                  border: "1px solid #dfe4ec",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  font: "inherit",
+                  fontSize: 13,
+                  color: "#293349",
+                  resize: "vertical",
+                }}
+              />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="primary-button" onClick={submitTypedAnswer} type="button" disabled={!typedAnswer.trim()}>
+                  답변 제출
+                </button>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setStage("device-check");
+                    setTypedAnswer("");
+                  }}
+                  type="button"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
           )}
 
           {stage === "preparing" && (
@@ -653,13 +1248,36 @@ export function MockInterviewPage() {
                 {micLevel < 8 ? "소리가 거의 안 잡혀요 - 마이크에 더 가까이서 말해보세요" : "마이크가 소리를 잡고 있어요"}
               </span>
               <div style={{ display: "flex", gap: 10 }}>
-                <button className="primary-button" onClick={startRecording} type="button">
-                  <Mic size={16} /> 답변 녹음 시작
+                <button className="primary-button" onClick={beginInterviewCountdown} type="button" disabled={sessionQuestions.length === 0}>
+                  {sessionQuestions.length === 0 ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} /> 질문 준비 중...
+                    </>
+                  ) : (
+                    <>
+                      <Mic size={16} /> 모의면접 시작하기
+                    </>
+                  )}
                 </button>
                 <button className="text-button" onClick={cancelDeviceTest} type="button">
                   취소
                 </button>
               </div>
+            </>
+          )}
+
+          {stage === "break" && (
+            <>
+              <strong style={{ fontSize: 14, color: "#8a93a3", fontWeight: 700 }}>잠시 쉬어가세요</strong>
+              <span style={{ fontSize: 12, color: "#9098a7" }}>이 시간은 분석하지 않아요 - 다음 질문까지 {countdownValue}초</span>
+              <CountdownRing value={countdownValue} total={countdownTotal} color="#c3c9d4" />
+            </>
+          )}
+
+          {stage === "countdown" && (
+            <>
+              <strong style={{ fontSize: 14, color: "#596ff3", fontWeight: 700 }}>정면을 응시해주세요</strong>
+              <CountdownRing value={countdownValue} total={countdownTotal} color="#596ff3" />
             </>
           )}
 
@@ -700,135 +1318,14 @@ export function MockInterviewPage() {
           )}
 
           {stage === "error" && (
-            <button className="text-button" onClick={reset} type="button">
+            <button className="text-button" onClick={retryAfterError} type="button">
               다시 시도
             </button>
           )}
         </div>
       </section>
 
-      {stage === "result" &&
-        result &&
-        (() => {
-          const { count: fillerCount, parts: fillerParts } = analyzeFillers(result.transcript ?? "");
-          const summary = buildSummarySentence(result, fillerCount);
-          return (
-            <section className="panel" style={{ marginTop: 20 }}>
-              <div className="panel-title">
-                <div>
-                  <h2>분석 결과</h2>
-                  <p>측정된 지표는 감정을 판단한 값이 아니라, 말투·표정의 객관적인 신호를 보여줍니다.</p>
-                </div>
-                <button className="text-button" onClick={reset} type="button">
-                  <RotateCcw size={13} /> 다시 하기
-                </button>
-              </div>
-
-              {summary && (
-                <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "#f2f5ff", color: "#3a4a8f", fontSize: 13 }}>
-                  {summary}
-                </div>
-              )}
-
-              <div style={{ marginBottom: 18 }}>
-                <span className="mini-label">인식된 답변</span>
-                {result.low_confidence_transcript && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      margin: "6px 0 0",
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      background: "#fff4e5",
-                      color: "#a05a00",
-                      fontSize: 11,
-                    }}
-                  >
-                    <AlertCircle size={12} />
-                    인식이 불안정했을 수 있어요 - 아래 텍스트가 실제 답변과 다를 수 있습니다. (배경 소음이 있었거나 마이크와 거리가 멀었을 때 자주 발생해요)
-                  </div>
-                )}
-                <p style={{ margin: "6px 0 0", color: "#293349", fontSize: 13, lineHeight: 1.6 }}>
-                  {result.transcript
-                    ? fillerParts.map((part, i) =>
-                        part.isFiller ? (
-                          <mark key={i} style={{ background: "#ffe6a8", borderRadius: 3, padding: "0 2px" }}>
-                            {part.text}
-                          </mark>
-                        ) : (
-                          <span key={i}>{part.text}</span>
-                        ),
-                      )
-                    : "(인식된 내용 없음)"}
-                </p>
-                {fillerCount > 0 && (
-                  <span className="analysis-muted" style={{ fontSize: 11 }}>
-                    습관어("음", "어", "그니까" 등) {fillerCount}회 감지됨 (형광 표시)
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
-                {metricLabels.map(({ key, label, format, hint, noBaseline, gauge }) => {
-                  const value = result.metrics[key];
-                  const hasValue = value !== null && value !== undefined;
-                  return (
-                    <div key={key} style={{ border: "1px solid #e8ebf1", borderRadius: 10, padding: "10px 12px" }}>
-                      <span className="mini-label">{label}</span>
-                      <p style={{ margin: "4px 0 0", color: "#293349", fontSize: 15, fontWeight: 700 }}>{hasValue ? format(value) : "-"}</p>
-                      {hasValue && gauge && <RangeGauge value={value} {...gauge} />}
-                      {hasValue && hint && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#6a7383" }}>{hint(value)}</p>}
-                      {hasValue && !hint && noBaseline && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#b0b6c0" }}>{NO_BASELINE_HINT}</p>}
-                    </div>
-                  );
-                })}
-                {result.transcript && (
-                  <div style={{ border: "1px solid #e8ebf1", borderRadius: 10, padding: "10px 12px" }}>
-                    <span className="mini-label">습관어 사용 횟수</span>
-                    <p style={{ margin: "4px 0 0", color: "#293349", fontSize: 15, fontWeight: 700 }}>{fillerCount}회</p>
-                  </div>
-                )}
-                {faceMetrics &&
-                  faceMetricLabels.map(({ key, label, format, noBaseline }) => (
-                    <div key={key} style={{ border: "1px solid #e8ebf1", borderRadius: 10, padding: "10px 12px" }}>
-                      <span className="mini-label">{label}</span>
-                      <p style={{ margin: "4px 0 0", color: "#293349", fontSize: 15, fontWeight: 700 }}>{format(faceMetrics[key] as number)}</p>
-                      {noBaseline && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#b0b6c0" }}>{NO_BASELINE_HINT}</p>}
-                    </div>
-                  ))}
-              </div>
-
-              {!faceMetrics && (
-                <p className="analysis-muted" style={{ marginTop: 12, fontSize: 11 }}>
-                  얼굴이 인식되지 않아 표정 관련 지표는 계산되지 않았습니다. 카메라 각도를 조정하고 다시 시도해 보세요.
-                </p>
-              )}
-
-              {/* 2026-08-05: 질문+답변 내용+음성/얼굴 지표를 모아 Gemini가 종합 평가한 리포트.
-                  위쪽 지표들은 이미 떠 있으니, 이 영역만 별도로 로딩 상태를 보여준다. */}
-              <div style={{ marginTop: 18, borderTop: "1px solid #e8ebf1", paddingTop: 16 }}>
-                <span className="mini-label">AI 종합 평가</span>
-                {!report && !reportLoading && (
-                  <div style={{ marginTop: 8 }}>
-                    <button className="text-button" onClick={() => void loadReport()} type="button">
-                      종합 평가 보기
-                    </button>
-                  </div>
-                )}
-                {reportLoading && (
-                  <p style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 0", color: "#6a7383", fontSize: 13 }}>
-                    <LoaderCircle className="spin" size={14} /> 평가를 생성하는 중입니다...
-                  </p>
-                )}
-                {!reportLoading && report && (
-                  <p style={{ margin: "8px 0 0", color: "#293349", fontSize: 13, lineHeight: 1.7 }}>{report}</p>
-                )}
-              </div>
-            </section>
-          );
-        })()}
+      {stage === "session-report" && <SessionReportPanel answers={sessionAnswers} onEndSession={endSession} />}
     </>
   );
 }
