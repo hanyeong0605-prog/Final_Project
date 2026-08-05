@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 .env
 .venv/
+
+# 학습 결과물 - 코드 리뷰 대상 아니고 재학습할 때마다 커지므로 git엔 안 올린다.
+# ai-server/ml/mock_interview_question_generator.ipynb로 각자 학습해서 채우거나,
+# 팀 공유 스토리지에서 받아서 여기 두면 된다.
+app/domain/interview/model/
