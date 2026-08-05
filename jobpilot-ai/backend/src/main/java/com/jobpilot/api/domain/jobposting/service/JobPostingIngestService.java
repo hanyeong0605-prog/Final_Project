@@ -14,6 +14,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class JobPostingIngestService {
+    private static final Set<String> SUPPORTED_SOURCE_PROVIDERS = Set.of("WANTED", "ZIGHANG", "SARAMIN_DATA");
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -49,6 +51,7 @@ public class JobPostingIngestService {
         int created = 0;
         int updated = 0;
         int skipped = 0;
+        String sourceProvider = normalizeSourceProvider(request.sourceCode());
 
         List<JobPostingCrawlItem> items = request.items() == null ? List.of() : request.items();
         for (JobPostingCrawlItem item : items) {
@@ -56,8 +59,8 @@ public class JobPostingIngestService {
                 skipped++;
                 continue;
             }
-            boolean existed = existsByExternalId(item.externalId());
-            upsert(item);
+            boolean existed = existsByExternalId(sourceProvider, item.externalId());
+            upsert(sourceProvider, item);
             if (existed) {
                 updated++;
             } else {
@@ -74,8 +77,9 @@ public class JobPostingIngestService {
      * sourceCode는 지금 스키마에선 안 쓰지만, 크롤러(router.py)가 그대로 호출하고
      * 있어서 파라미터만 유지한다. */
     public Map<String, String> findExistingSourceUpdatedAt(String sourceCode) {
+        String sourceProvider = normalizeSourceProvider(sourceCode);
         return jdbcTemplate.query(
-                "SELECT external_job_id, source_updated_at FROM job_postings",
+                "SELECT external_job_id, source_updated_at FROM job_postings WHERE source_provider = ?",
                 rs -> {
                     Map<String, String> map = new HashMap<>();
                     while (rs.next()) {
@@ -86,30 +90,32 @@ public class JobPostingIngestService {
                         }
                     }
                     return map;
-                }
+                },
+                sourceProvider
         );
     }
 
-    private boolean existsByExternalId(String externalId) {
+    private boolean existsByExternalId(String sourceProvider, String externalId) {
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_postings WHERE external_job_id = ?",
+                "SELECT COUNT(*) FROM job_postings WHERE source_provider = ? AND external_job_id = ?",
                 Integer.class,
+                sourceProvider,
                 externalId
         );
         return count != null && count > 0;
     }
 
-    private void upsert(JobPostingCrawlItem item) {
+    private void upsert(String sourceProvider, JobPostingCrawlItem item) {
         String rawPayload = toJson(item);
         LocalDateTime deadlineAt = parseDeadline(item.deadlineRaw());
         LocalDateTime sourceUpdatedAt = parseFlexibleDateTime(item.sourceUpdatedAt());
 
         jdbcTemplate.update(
                 "INSERT INTO job_postings "
-                        + "(external_job_id, title, company_name, description, source_url, "
+                        + "(external_job_id, source_provider, title, company_name, description, source_url, "
                         + " location, employment_type, experience_type, job_mid_name, deadline_at, is_rolling_deadline, "
                         + " status, fetched_at, source_updated_at, raw_payload) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(), ?, CAST(? AS JSON)) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(), ?, CAST(? AS JSON)) "
                         + "ON DUPLICATE KEY UPDATE "
                         + " title = VALUES(title), "
                         + " company_name = VALUES(company_name), "
@@ -126,6 +132,7 @@ public class JobPostingIngestService {
                         + " source_updated_at = VALUES(source_updated_at), "
                         + " raw_payload = VALUES(raw_payload)",
                 item.externalId(),
+                sourceProvider,
                 item.title(),
                 item.companyName(),
                 item.description(),
@@ -146,7 +153,8 @@ public class JobPostingIngestService {
         jdbcTemplate.update(
                 "UPDATE job_postings SET status = 'CLOSED' "
                         + "WHERE deadline_at IS NOT NULL AND deadline_at < NOW() "
-                        + "AND status <> 'CLOSED'"
+                        + "AND status <> 'CLOSED'",
+                new Object[0]
         );
     }
 
@@ -184,5 +192,13 @@ public class JobPostingIngestService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String normalizeSourceProvider(String sourceCode) {
+        String sourceProvider = isBlank(sourceCode) ? "WANTED" : sourceCode.trim().toUpperCase();
+        if (!SUPPORTED_SOURCE_PROVIDERS.contains(sourceProvider)) {
+            throw new IllegalArgumentException("Unsupported job posting source: " + sourceProvider);
+        }
+        return sourceProvider;
     }
 }

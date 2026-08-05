@@ -2,6 +2,8 @@ export interface JobPosting {
   id: number;
   externalJobId: string;
   companyName: string | null;
+  companyLogoUrl: string | null;
+  thumbnailUrl: string | null;
   title: string;
   sourceUrl: string;
   location: string | null;
@@ -14,4 +16,48 @@ export interface JobPosting {
   deadlineAt: string | null;
   rollingDeadline: boolean;
   status: string;
+}
+
+export type JobPostingSort = "deadline_asc" | "deadline_desc" | "recent";
+export type JobExperienceFilter = "" | "ENTRY" | "EXPERIENCED";
+
+export interface JobPostingSearchParams {
+  query?: string;
+  roles?: string[];
+  experience?: JobExperienceFilter;
+  location?: string;
+  employmentType?: string;
+  sort?: JobPostingSort;
+  page?: number;
+  size?: number;
+}
+
+export interface JobPostingPage {
+  content: JobPosting[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  sort: JobPostingSort;
+}
+
+export interface JobPostingDetail extends JobPosting {
+  sourceProvider: string;
+  companyUrl: string | null;
+  description: string | null;
+  entryLevel: boolean | null;
+  industryName: string | null;
+  jobMidName: string | null;
+  locations?: JobPostingLocation[];
+  imageUrls: string[];
+}
+
+export interface JobPostingLocation {
+  locationText: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  detailedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  primaryLocation: boolean;
 }

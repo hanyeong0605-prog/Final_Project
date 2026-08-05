@@ -6,6 +6,8 @@ public record JobPostingListResponse(
         Long id,
         String externalJobId,
         String companyName,
+        String companyLogoUrl,
+        String thumbnailUrl,
         String title,
         String sourceUrl,
         String location,
