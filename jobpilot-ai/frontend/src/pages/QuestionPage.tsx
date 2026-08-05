@@ -7,7 +7,8 @@ www.career.go.kr/inspct/openapi/test/questions?apikey=e54274d54718d12457fbb8a202
 www.career.go.kr/inspct/openapi/test/questions?apikey=e54274d54718d12457fbb8a202f83d6e&q=10 (주요능력효능감검사) */
 
 
-/* */
+/* 
 import  React, { useState } from 'react';
-export function QuestionPage() {}
+export function QuestionPage() {} */ 
+
 

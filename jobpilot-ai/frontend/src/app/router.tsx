@@ -15,7 +15,7 @@ import { MyPage } from "../pages/MyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import {StatisticsDashboard} from "../pages/StatisticsDashboard";
-/*import {QuestionPage} from "../pages/QuestionPage"; 검사 */
+/*import {QuestionPage} from "../pages/QuestionPage"; 검사   */
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
