@@ -15,6 +15,7 @@ import { MyPage } from "../pages/MyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import {StatisticsDashboard} from "../pages/StatisticsDashboard";
+/*import {QuestionPage} from "../pages/QuestionPage"; 검사 */
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: "account", element: <MyPage /> },
       { path: "repository-analysis", element: <RepositoryAnalysisPage /> },
       { path: "statistics", element: <StatisticsDashboard /> },
+      /*{ path: "question", element: <QuestionPage /> },*/
     ],
   },
 ]);

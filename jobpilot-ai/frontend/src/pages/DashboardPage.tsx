@@ -31,6 +31,8 @@ export function DashboardPage() {
   return <>
     <PageHeading eyebrow="TODAY'S CAREER ACTION" title="현재 지원할 수 있는 공고를 확인하세요." body="회원의 실제 역량 근거와 사람인 채용공고를 비교한 결과만 표시합니다." action={<button className="outline-button" onClick={() => navigate("/profile")}><Target size={17} />내 역량 근거 관리</button>} />
 
+
+
     {status === "loading" && <DataStatePanel state="loading" />}
     {status === "error" && <DataStatePanel state="error" />}
     {status === "ready" && jobs.length === 0 && <DataStatePanel state="empty" emptyTitle="표시할 매칭 결과가 없습니다" emptyBody="사람인 공고 수집과 회원별 AI 분석이 완료되면 대시보드가 구성됩니다." />}
