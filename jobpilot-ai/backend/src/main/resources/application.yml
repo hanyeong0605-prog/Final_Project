@@ -47,6 +47,12 @@ app:
     max-failed-attempts: ${EMAIL_VERIFICATION_MAX_FAILED_ATTEMPTS:5}
   dev-auth:
     enabled: false
+  # ai-server(파이썬 크롤러)가 POST /api/v1/job-postings/ingest 호출할 때 쓰는
+  # 서버 간 공유 비밀키. InternalApiKeyFilter 참고.
+  internal-api-key: ${INTERNAL_API_KEY:}
+  ai-server:
+    # 스프링이 크롤링을 트리거할 때 부르는 ai-server 주소. AiServerCrawlClient 참고.
+    base-url: ${AI_SERVER_BASE_URL:http://localhost:8001}
 
 # SaraminDATA: 키는 SARAMIN_ACCESS_KEY 환경변수로만 주입한다.
 saramin-data:

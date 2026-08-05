@@ -21,7 +21,13 @@ from functools import lru_cache
 
 import librosa
 import numpy as np
-import whisper
+
+# 2026-08-04: whisper를 파일 맨 위에서 바로 import하면, 이 모듈을 불러오는 순간(=서버
+# 기동 시점) whisper -> numba까지 통째로 로드된다. 학원 컴퓨터처럼 애플리케이션 제어
+# 정책으로 numba의 네이티브 DLL(_helperlib)이 막힌 환경에서는 이거 하나 때문에
+# 크롤러 API처럼 무관한 기능까지 포함해서 서버 전체가 기동을 못 한다. 그래서 whisper는
+# 실제로 STT를 쓸 때(_get_whisper_model 호출 시점)까지 import를 미룬다 - 서버는 항상
+# 뜨고, 이 기능을 실제로 호출할 때만 (환경이 막혀있다면) 에러가 난다.
 
 # base 모델: CPU에서도 감당 가능한 선에서 한국어 인식 품질이 쓸만한 절충점.
 # GPU 없는 노트북 기준 답변 1건(1~2분)당 몇 초~수십 초 정도 걸릴 수 있음 - 실시간
@@ -38,6 +44,8 @@ LONG_PAUSE_THRESHOLD_SEC = 1.0
 @lru_cache(maxsize=1)
 def _get_whisper_model():
     """프로세스당 한 번만 로드해서 재사용한다 (요청마다 로드하면 매번 몇 초씩 걸림)."""
+    import whisper
+
     return whisper.load_model(WHISPER_MODEL_NAME)
 
 
