@@ -30,7 +30,6 @@ public class LocationJobService {
 
                     String shortAddress = formatRegionAddress(loc);
 
-                    // 연관된 JobPosting 객체 가져오기
                     JobPosting jp = loc.getJobPosting();
 
                     // 원본 공고가 있으면 원본 공고 데이터를, 없으면 fallback 데이터 적용
