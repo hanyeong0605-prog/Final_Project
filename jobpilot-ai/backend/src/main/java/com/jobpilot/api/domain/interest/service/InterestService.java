@@ -61,9 +61,15 @@ public class InterestService {
     }
 
     private JobPostingListResponse jobResponse(JobPosting posting) {
-        return new JobPostingListResponse(posting.getId(), posting.getExternalJobId(), posting.getCompanyName(), posting.getTitle(),
+        return new JobPostingListResponse(posting.getId(), posting.getExternalJobId(), posting.getCompanyName(), posting.getCompanyLogoUrl(), thumbnailUrl(posting), posting.getTitle(),
                 posting.getSourceUrl(), posting.getLocation(), posting.getEmploymentType(), posting.getExperienceType(),
                 posting.getJobName(), posting.getSalary(), posting.getKeywords(), posting.getPublishedAt(), posting.getDeadlineAt(),
                 posting.isRollingDeadline(), posting.getStatus());
+    }
+
+    private String thumbnailUrl(JobPosting posting) {
+        var rawPayload = posting.getRawPayload();
+        var url = rawPayload == null ? null : rawPayload.path("images").path("job_thumbnail_urls").path(0);
+        return url != null && url.isTextual() ? url.asText() : posting.getCompanyLogoUrl();
     }
 }

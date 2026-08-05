@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 //서큐리티 큰피구
 @Configuration
@@ -27,12 +28,14 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            @Value("${app.dev-auth.enabled:false}") boolean developmentAuthenticationEnabled
+            @Value("${app.dev-auth.enabled:false}") boolean developmentAuthenticationEnabled,
+            InternalApiKeyFilter internalApiKeyFilter
     ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers(
                             "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",
@@ -41,6 +44,12 @@ public class SecurityConfig {
                         authorize.requestMatchers("/api/v1/dev/auth/token").permitAll();
                     }
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/job-postings/**").permitAll();
+                    // POST /ingest는 크롤러(ai-server)가 로그인 토큰 없이 호출한다 -
+                    // InternalApiKeyFilter가 공유 비밀키(app.internal-api-key)로 이미
+                    // 검증하므로 여기서는 permitAll하고, 키 검증 실패는 그 필터가 401로
+                    // 먼저 끊어낸다 (2026-08-04: 이게 안 열려있어서 크롤링 2836건 성공하고도
+                    // DB엔 0건 저장되는 버그가 있었음).
+                    authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/ingest").permitAll();
                     authorize.anyRequest().authenticated();
                 })
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))

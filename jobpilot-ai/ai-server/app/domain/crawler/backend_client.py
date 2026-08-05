@@ -11,6 +11,7 @@ job_sources/source_id 개념이 없어져서 external_job_id 하나로만 구분
 
 import requests
 
+from app.core.config import settings
 from app.domain.crawler.scraped_job_posting import ScrapedJobPosting
 
 DEFAULT_TIMEOUT_SEC = 15
@@ -75,6 +76,7 @@ def send_to_backend(
     resp = requests.post(
         f"{backend_base_url.rstrip('/')}/api/v1/job-postings/ingest",
         json=payload,
+        headers={"X-Internal-Api-Key": settings.internal_api_key},
         timeout=DEFAULT_TIMEOUT_SEC,
     )
     resp.raise_for_status()
