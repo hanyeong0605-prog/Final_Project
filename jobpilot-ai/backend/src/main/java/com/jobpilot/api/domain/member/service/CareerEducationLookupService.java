@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.member.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobpilot.api.domain.member.dto.EducationMajorResponse;
 import com.jobpilot.api.domain.member.dto.EducationSchoolResponse;
 import java.util.ArrayList;
@@ -17,9 +18,10 @@ public class CareerEducationLookupService {
     private static final String CAREER_OPEN_API = "https://www.career.go.kr/cnet/openapi/getOpenApi";
     private final String apiKey;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CareerEducationLookupService(@Value("${career.api.key:}") String apiKey) {
-        this.apiKey = apiKey;
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
     }
 
     public List<EducationSchoolResponse> searchSchools(String query, String educationLevel) {
@@ -70,8 +72,9 @@ public class CareerEducationLookupService {
                 .encode()
                 .toUriString();
         try {
-            JsonNode response = restTemplate.getForObject(uri, JsonNode.class);
-            if (response == null) throw new IllegalStateException("커리어넷 교육정보 응답이 비어 있습니다.");
+            String rawResponse = restTemplate.getForObject(uri, String.class);
+            if (rawResponse == null || rawResponse.isBlank()) throw new IllegalStateException("커리어넷 교육정보 응답이 비어 있습니다.");
+            JsonNode response = objectMapper.readTree(rawResponse);
             JsonNode error = response.path("result").path("content");
             if (!error.isMissingNode() && !text(error, "code").isBlank() && !"0".equals(text(error, "code"))) {
                 throw new IllegalStateException("커리어넷 교육정보 조회에 실패했습니다: " + text(error, "message"));

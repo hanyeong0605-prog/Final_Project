@@ -56,6 +56,7 @@ public class MemberSkillService {
         }
 
         memberSkills.deleteByMemberId(memberId);
+        memberSkills.flush();
         List<MemberSkill> saved = memberSkills.saveAll(input.stream()
                 .map(item -> new MemberSkill(memberId, item.skillId(), level(item.selfReportedLevel()), clean(item.note())))
                 .toList());
