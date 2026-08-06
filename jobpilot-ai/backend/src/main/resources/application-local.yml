@@ -1,3 +1,10 @@
 app:
   dev-auth:
     enabled: true
+
+
+
+#커리어넷 인증키 env 파일에 등록했는데 구동시 에러나서 여기에 추가로 적어둡니다!
+career:
+  api:
+    key: ${CAREER_API_KEY}

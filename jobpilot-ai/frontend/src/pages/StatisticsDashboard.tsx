@@ -1,5 +1,4 @@
-/* npm install chart.js react-chartjs-2 react에서 차트그리는 용도 설치 */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,48 +10,48 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
+import jobDiffData from '../data/jobdiff.json';
+import helpfulData from '../data/helpful.json';
+
+import { BarChart3 } from "lucide-react";
+import { PageHeading } from "../shared/components/PageHeading";
+import { PanelTitle } from "../shared/components/PanelTitle";
+
 // Chart.js 모듈 등록
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// 데이터 구조 타입 정의
-interface StatItem {
-  title: string;
-  labels: string[];
-  values: number[];
-}
-
 type TabType = 'difficulty' | 'helpFactor';
 
-// 통계 데이터 객체
-const statisticsData: Record<TabType, StatItem> = {
-  difficulty: {
-    title: "구직할 때 어려움을 겪는 이유",
-    labels: ["전공/경력에 맞는 일자리 부족", "임금/근로조건 불일치", "교육·기술·경험 부족", "주변에 일거리 부족"],
-    values: [33.0, 20.5, 20.2, 22.6],
-  },
-  helpFactor: {
-    title: "ICT관련 직종 취업에 가장 큰 도움이 된 사항",
-    labels: ["대학(원) 강의 수강", "캡스톤 R&D 등 비교과", "자격증 취득", "공공훈련", "민간기관 훈련"],
-    values: [41.2, 28.0, 6.8, 8.6, 9.9],
-  },
-};
-
 export function StatisticsDashboard() {
-  // 현재 선택된 탭 상태 타입 지정
   const [activeTab, setActiveTab] = useState<TabType>('difficulty');
 
-  // 현재 탭에 맞는 데이터 선택
-  const currentData = statisticsData[activeTab];
+  const targetJobDiff = (jobDiffData as any[]).find(
+    (item) => item.educationLevel === "00 전체" && item.majorType === "C01 계"
+  );
+  const targetHelpful = (helpfulData as any[]).find(
+    (item) => item.educationLevel === "00 전체" && item.majorType === "C01 계"
+  );
 
-  // 차트 데이터 설정
+  const jobDiffLabels = targetJobDiff ? Object.keys(targetJobDiff.values).map(k => k.replace(/^\d+\s*/, '')) : [];
+  const jobDiffValues = targetJobDiff ? Object.values(targetJobDiff.values).map(v => Number(v)) : [];
+
+  const helpfulLabels = targetHelpful ? Object.keys(targetHelpful.values).map(k => k.replace(/^\d+\s*/, '')) : [];
+  const helpfulValues = targetHelpful ? Object.values(targetHelpful.values).map(v => Number(v)) : [];
+
+  const currentData = {
+    title: activeTab === 'difficulty' ? "구직할 때 어려움을 겪는 이유" : "ICT관련 직종 취업에 가장 큰 도움이 된 사항",
+    labels: activeTab === 'difficulty' ? jobDiffLabels : helpfulLabels,
+    values: activeTab === 'difficulty' ? jobDiffValues : helpfulValues,
+  };
+
   const chartData = {
     labels: currentData.labels,
     datasets: [
       {
         label: '비중 (%)',
         data: currentData.values,
-        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-        borderColor: 'rgba(54, 162, 235, 1)',
+        backgroundColor: activeTab === 'difficulty' ? 'rgba(236, 72, 153, 0.6)' : 'rgba(54, 162, 235, 0.6)',
+        borderColor: activeTab === 'difficulty' ? 'rgba(236, 72, 153, 1)' : 'rgba(54, 162, 235, 1)',
         borderWidth: 1,
       },
     ],
@@ -67,64 +66,61 @@ export function StatisticsDashboard() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <h2>📊 ICT 전문인력 통계 대시보드</h2>
+    <>
+      <PageHeading 
+        eyebrow="ICT STATISTICS" 
+        title="ICT 전문인력 통계 대시보드" 
+        body="구직 시 겪는 어려움과 취업에 도움이 된 주요 요인 데이터를 시각화하여 제공합니다." 
+      />
 
-      {/* 1. 상단 탭 버튼 영역 */}
+      {/* 탭 버튼 영역 */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
         <button
           onClick={() => setActiveTab('difficulty')}
-          style={{
-            padding: '10px 15px',
-            background: activeTab === 'difficulty' ? '#007bff' : '#f8f9fa',
-            color: activeTab === 'difficulty' ? '#fff' : '#000',
-            border: '1px solid #ccc',
-            cursor: 'pointer',
-            borderRadius: '4px',
-          }}
+          className={activeTab === 'difficulty' ? "primary-button" : "outline-button"}
+          style={{ cursor: 'pointer' }}
         >
           구직 시 어려움
         </button>
         <button
           onClick={() => setActiveTab('helpFactor')}
-          style={{
-            padding: '10px 15px',
-            background: activeTab === 'helpFactor' ? '#007bff' : '#f8f9fa',
-            color: activeTab === 'helpFactor' ? '#fff' : '#000',
-            border: '1px solid #ccc',
-            cursor: 'pointer',
-            borderRadius: '4px',
-          }}
+          className={activeTab === 'helpFactor' ? "primary-button" : "outline-button"}
+          style={{ cursor: 'pointer' }}
         >
           취업에 도움된 사항
         </button>
       </div>
 
-      {/* 2. 선택된 탭의 내용 (차트 영역) */}
-      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <Bar data={chartData} options={chartOptions} />
-      </div>
+      {/* 차트 영역 */}
+      <section className="panel" style={{ marginBottom: '24px', padding: '20px' }}>
+        <PanelTitle title={currentData.title} subtitle="항목별 응답 비중 통계 결과입니다." />
+        <div style={{ background: '#fff', padding: '10px', borderRadius: '8px' }}>
+          <Bar data={chartData} options={chartOptions} />
+        </div>
+      </section>
 
-      {/* 3. 상세 데이터 표 영역 */}
-      <div style={{ marginTop: '30px' }}>
-        <h3>상세 수치표</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: '#f1f3f5' }}>
-              <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>항목</th>
-              <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>비율 (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentData.labels.map((label: string, index: number) => (
-              <tr key={index}>
-                <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>{label}</td>
-                <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>{currentData.values[index]}%</td>
+      {/* 상세 데이터 표 영역 */}
+      <section className="panel" style={{ padding: '20px' }}>
+        <PanelTitle title="상세 수치표" subtitle="데이터 항목별 구체적인 비율 수치입니다." />
+        <div style={{ overflowX: 'auto', marginTop: '15px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f1f3f5' }}>
+                <th style={{ padding: '12px', borderBottom: '1px solid #dee2e6' }}>항목</th>
+                <th style={{ padding: '12px', borderBottom: '1px solid #dee2e6', width: '120px' }}>비율 (%)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            </thead>
+            <tbody>
+              {currentData.labels.map((label: string, index: number) => (
+                <tr key={index}>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #dee2e6' }}>{label}</td>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #dee2e6' }}>{currentData.values[index]}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   );
 }
