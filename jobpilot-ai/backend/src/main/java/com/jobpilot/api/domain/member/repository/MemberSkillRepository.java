@@ -4,4 +4,5 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 public interface MemberSkillRepository extends JpaRepository<MemberSkill, Long> {
     List<MemberSkill> findByMemberId(Long memberId);
+    void deleteByMemberId(Long memberId);
 }

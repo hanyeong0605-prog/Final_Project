@@ -4,8 +4,8 @@ import com.jobpilot.api.domain.jobposting.entity.JobRequirement;
 import com.jobpilot.api.domain.jobposting.repository.JobRequirementRepository;
 import com.jobpilot.api.domain.jobposting.repository.JobRequirementExtractionStatusRepository;
 import com.jobpilot.api.domain.jobposting.repository.JobSkillRepository;
+import com.jobpilot.api.domain.member.service.SkillCatalogService;
 import com.jobpilot.api.domain.member.entity.Skill;
-import com.jobpilot.api.domain.member.repository.SkillRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,26 +14,21 @@ import org.springframework.transaction.annotation.Transactional;
 class JobRequirementExtractionPersistenceService {
     private static final String EXTRACTION_SOURCE = "OPENAI_LUNA";
     private static final String VERIFICATION_STATUS = "UNVERIFIED";
-    private static final String SKILL_CATEGORY = "TECHNICAL";
-
     private final JobRequirementRepository jobRequirementRepository;
     private final JobSkillRepository jobSkillRepository;
     private final JobRequirementExtractionStatusRepository extractionStatusRepository;
-    private final SkillRepository skillRepository;
-    private final SkillNameNormalizer skillNameNormalizer;
+    private final SkillCatalogService skillCatalogService;
 
     JobRequirementExtractionPersistenceService(
             JobRequirementRepository jobRequirementRepository,
             JobSkillRepository jobSkillRepository,
             JobRequirementExtractionStatusRepository extractionStatusRepository,
-            SkillRepository skillRepository,
-            SkillNameNormalizer skillNameNormalizer
+            SkillCatalogService skillCatalogService
     ) {
         this.jobRequirementRepository = jobRequirementRepository;
         this.jobSkillRepository = jobSkillRepository;
         this.extractionStatusRepository = extractionStatusRepository;
-        this.skillRepository = skillRepository;
-        this.skillNameNormalizer = skillNameNormalizer;
+        this.skillCatalogService = skillCatalogService;
     }
 
     @Transactional
@@ -65,10 +60,13 @@ class JobRequirementExtractionPersistenceService {
     }
 
     private void saveJobSkill(Long jobPostingId, ExtractedJobRequirement requirement) {
-        String normalizedName = skillNameNormalizer.normalize(requirement.content());
-        if (normalizedName.isBlank()) return;
-        Skill skill = skillRepository.findByName(normalizedName)
-                .orElseGet(() -> skillRepository.save(new Skill(normalizedName, SKILL_CATEGORY)));
-        jobSkillRepository.save(jobPostingId, skill.getId(), requirement.importance(), requirement.sourceExcerpt());
+        skillCatalogService.resolveCanonical(requirement.content())
+                .ifPresent(skill -> jobSkillRepository.save(
+                        jobPostingId,
+                        skill.getId(),
+                        skill.getId(),
+                        requirement.importance(),
+                        requirement.sourceExcerpt()
+                ));
     }
 }

@@ -15,11 +15,13 @@ public class JobSkillRepository {
         jdbcTemplate.update("DELETE FROM job_skills WHERE job_posting_id = ?", jobPostingId);
     }
 
-    public void save(Long jobPostingId, Long skillId, String requirementType, String sourceExcerpt) {
+    public void save(Long jobPostingId, Long skillId, Long canonicalSkillId, String requirementType, String sourceExcerpt) {
         jdbcTemplate.update("""
-                INSERT INTO job_skills (job_posting_id, skill_id, requirement_type, source_excerpt)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE source_excerpt = VALUES(source_excerpt)
-                """, jobPostingId, skillId, requirementType, sourceExcerpt);
+                INSERT INTO job_skills (job_posting_id, skill_id, canonical_skill_id, requirement_type, source_excerpt)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    canonical_skill_id = VALUES(canonical_skill_id),
+                    source_excerpt = VALUES(source_excerpt)
+                """, jobPostingId, skillId, canonicalSkillId, requirementType, sourceExcerpt);
     }
 }

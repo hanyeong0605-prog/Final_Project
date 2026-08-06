@@ -13,8 +13,17 @@ public class MemberSkill {
     @Column(name = "self_reported_level") private String selfReportedLevel;
     private String note;
     protected MemberSkill() {}
+
+    public MemberSkill(Long memberId, Long skillId, String selfReportedLevel, String note) {
+        this.memberId = memberId;
+        this.skillId = skillId;
+        this.selfReportedLevel = selfReportedLevel;
+        this.note = note;
+    }
+
     public Long getId() { return id; }
     public Long getMemberId() { return memberId; }
     public Long getSkillId() { return skillId; }
     public String getSelfReportedLevel() { return selfReportedLevel; }
+    public String getNote() { return note; }
 }
