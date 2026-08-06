@@ -284,6 +284,6 @@ export function LocationJobsPage() {
         onClose={() => setIsPostcodeOpen(false)}
         onSelectAddress={handleSelectAddress}
       />
-    </div>
+    </div>  //ㅁㄴㅇㄹ
   );
 }
