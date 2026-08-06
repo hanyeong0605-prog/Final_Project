@@ -20,6 +20,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const circleRef = useRef<any>(null);
+  const centerMarkerRef = useRef<any>(null); 
   const markersRef = useRef<any[]>([]);
   const overlayRef = useRef<any>(null);
   
@@ -55,7 +56,6 @@ export const KakaoMapContainer: React.FC<Props> = ({
       </div>
     `;
 
-    // 말풍선 클릭 시 상세 페이지 이동
     container.onclick = (e) => {
       e.stopPropagation();
       onSelectJob(job);
@@ -69,7 +69,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
     return container;
   };
 
-  // 1. 지도 초기화
+  // 지도 초기화
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -107,7 +107,6 @@ export const KakaoMapContainer: React.FC<Props> = ({
     }
   }, []);
 
-  // 2. 반경 원 
   const updateCircleAndLevel = (
     map: any, 
     currentCenter: { lat: number; lng: number }, 
@@ -144,9 +143,28 @@ export const KakaoMapContainer: React.FC<Props> = ({
 
     circle.setMap(map);
     circleRef.current = circle;
+
+    if (centerMarkerRef.current) {
+      centerMarkerRef.current.setMap(null);
+    }
+
+  
+    const redMarkerImageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png";
+    const imageSize = new window.kakao.maps.Size(31, 35);
+    const markerImage = new window.kakao.maps.MarkerImage(redMarkerImageSrc, imageSize);
+
+    const centerMarker = new window.kakao.maps.Marker({
+      position: moveLatLon,
+      image: markerImage,
+      title: "설정된 내 기준 위치",
+      zIndex: 4
+    });
+
+    centerMarker.setMap(map);
+    centerMarkerRef.current = centerMarker;
   };
 
-  // 3. 마커 생성
+  // 3. 채용 공고 마커 생성
   const updateMarkers = (map: any, currentJobs: LocationJob[]) => {
     if (!map || !window.kakao) return;
 
@@ -186,13 +204,13 @@ export const KakaoMapContainer: React.FC<Props> = ({
     if (targetJob && overlayRef.current) {
       const markerPosition = new window.kakao.maps.LatLng(targetJob.latitude, targetJob.longitude);
 
-
       const contentNode = createOverlayContent(targetJob);
       overlayRef.current.setContent(contentNode);
       overlayRef.current.setPosition(markerPosition);
       overlayRef.current.setMap(mapRef.current);
     }
   }, [selectedJobId]);
+
 
   useEffect(() => {
     if (mapRef.current) updateCircleAndLevel(mapRef.current, center, radiusKm, true);

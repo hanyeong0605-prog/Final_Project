@@ -1,15 +1,22 @@
 export interface LocationJob {
   id: number;
+  jobPostingId?: number;     
   title: string;
-  companyName: string;
-  address: string;
+  companyName?: string;      
+  company?: string;          
+  company_name?: string;     
+  address?: string;
+  locationText?: string;     
   latitude: number;
   longitude: number;
-  distanceKm: number;
+  distanceKm?: number;
+  companyLogoUrl?: string;
+  logoUrl?: string;
 }
 
 export interface LocationJobRequestParams {
   latitude: number;
   longitude: number;
+  radiusKm?: number;        
   radius?: number; 
 }
