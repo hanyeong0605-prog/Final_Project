@@ -10,6 +10,7 @@ import {
   Gauge,
   Lightbulb,
   LoaderCircle,
+  MessageCircle,
   MessageSquareWarning,
   Mic,
   Move,
@@ -22,10 +23,11 @@ import {
   VolumeX,
   Waves,
 } from "lucide-react";
-import { analyzeAnswer, evaluateSession, fetchNextQuestion } from "../features/mock-interview/api/mockInterviewApi";
+import { analyzeAnswer, evaluateSession, fetchNextQuestion, fetchTtsVoices, synthesizeSpeech } from "../features/mock-interview/api/mockInterviewApi";
+import { getCareerProfile } from "../features/profile/api/careerProfileApi";
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
-import type { AnswerAnalysis, SessionEvaluationReport, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
+import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
 
@@ -42,9 +44,14 @@ const SAMPLE_QUESTIONS = [
   "협업 중 갈등을 해결했던 경험이 있나요?",
 ];
 
-function pickFallbackQuestion(exclude: string): string {
-  const others = SAMPLE_QUESTIONS.filter((q) => q !== exclude);
-  return others[Math.floor(Math.random() * others.length)] ?? SAMPLE_QUESTIONS[0];
+// 2026-08-06: q3 폴백에서 q2만 제외하고 SELF_INTRO_QUESTION은 안 빼놨더니, API 호출이
+// 둘 다 실패한 경우 SAMPLE_QUESTIONS[0](자기소개)가 무작위로 다시 뽑혀서 세션 마지막
+// 질문에 "간단하게 자기소개 부탁드립니다"가 또 나오는 버그가 있었다 - 항상 자기소개는
+// 제외 목록에 넣어야 해서 exclude를 배열로 받게 바꿨다.
+function pickFallbackQuestion(...exclude: string[]): string {
+  const excludeSet = new Set([SELF_INTRO_QUESTION, ...exclude]);
+  const others = SAMPLE_QUESTIONS.filter((q) => !excludeSet.has(q));
+  return others[Math.floor(Math.random() * others.length)] ?? SAMPLE_QUESTIONS[1];
 }
 
 // 2026-08-05: "break"(휴식)와 "countdown"(질문 공개 직전) 두 단계에서 똑같은 원형 타이머를
@@ -73,6 +80,20 @@ function CountdownRing({ value, total, color }: { value: number; total: number; 
         {value > 0 ? value : "시작!"}
       </text>
     </svg>
+  );
+}
+
+// 2026-08-06: "질문 준비 중" 로딩 표시가 밋밋하다는 피드백으로 처음엔 SVG로 직접 그린
+// 캐릭터를 넣었는데, "매(Falcon) 마스코트 컨셉 이미지를 넣어줄 수 있냐"는 요청을 받았다.
+// 그 이미지는 사용자가 채팅에 붙여넣은 마스코트 목업(전체 페이지 스크린샷)이라 여기서
+// "매" 캐릭터의 히어로 포즈만 오려내고(파이썬 PIL로 크롭 + 배경 흰색을 투명 처리) public/
+// mascot-falcon.png로 저장해뒀다 - 정지 이미지라 눈 깜빡임 대신 위아래로 통통 튀는 동작에
+// 살짝 좌우로 갸웃거리는 동작을 더해 생동감을 줬다(styles.css의 loading-buddy-* 참고).
+function LoadingBuddy({ size = 40 }: { size?: number }) {
+  return (
+    <span className="loading-buddy" style={{ display: "inline-block" }}>
+      <img src="/mascot-falcon.png" alt="" width={size} height={(size * 330) / 138} style={{ display: "block" }} />
+    </span>
   );
 }
 
@@ -546,6 +567,17 @@ export function MockInterviewPage() {
   // "voice"가 기본값.
   const [answerMode, setAnswerMode] = useState<"voice" | "text">("voice");
   const [typedAnswer, setTypedAnswer] = useState("");
+  // 2026-08-06: "채팅으로 연습하기"를 작은 팝업 위젯 대신 카메라/마이크 모드처럼 화면을
+  // 통째로 바꾸는 전용 흐름으로 요청받아 추가했다 - device-check(카메라/마이크 안내)를
+  // 완전히 건너뛰고 곧장 "typing" 단계로 간다. 이 플래그로 "취소"를 눌렀을 때 device-check가
+  // 아니라 시작화면(start)으로 돌아가야 한다는 걸 구분한다(기존 마이크/캠 경로 안에 있던
+  // "마이크/캠을 사용할 수 없어요" 보조 링크는 그대로 device-check로 돌아가야 해서 남겨뒀다).
+  const [chatOnlyMode, setChatOnlyMode] = useState(false);
+  // 2026-08-06: "질문도 제한시간 안에 고민 안 하고 칠 수 있게" 요청으로 추가한 타이핑 답변
+  // 제한시간 - 답변을 소리 내어 말하는 것보다 타이핑은 오래 걸리는 걸 감안해 90초로 잡았다.
+  // 시간이 다 되면(입력된 내용이 있을 때만) 자동 제출해서 실제 면접처럼 시간 압박을 준다.
+  const TYPING_TIME_LIMIT_SEC = 90;
+  const [typingSecondsLeft, setTypingSecondsLeft] = useState(TYPING_TIME_LIMIT_SEC);
   // 2026-08-05: 이번 세션에서 쓸 질문 3개(자기소개 포함, 순서 셔플됨) - "시작하기"를 누르는
   // 순간 한 번에 미리 만들어두고, 카운트다운이 끝날 때마다 순서대로 하나씩 공개한다.
   const [sessionQuestions, setSessionQuestions] = useState<string[]>([]);
@@ -554,6 +586,43 @@ export function MockInterviewPage() {
   // 2026-08-05: 첫 질문 직전엔 짧게(3초), 두 번째 질문부터는 답변을 확인하고 숨 고를
   // 시간까지 겸해서 좀 더 길게(10초) 카운트다운한다 - 원형 타이머 진행률 계산에 필요.
   const [countdownTotal, setCountdownTotal] = useState(3);
+  // 2026-08-06: 질문 낭독용 클라우드 TTS 음성 선택 - 목록은 서버에서 받아오고(키가 없는
+  // 환경이면 빈 배열이 와서 선택 UI 자체를 안 보여주고 브라우저 기본 TTS만 쓴다), 선택값은
+  // 다음 방문에도 유지되게 localStorage에 저장한다.
+  const [ttsVoiceOptions, setTtsVoiceOptions] = useState<TtsVoiceOption[]>([]);
+  const [selectedTtsVoice, setSelectedTtsVoice] = useState<string>(
+    () => localStorage.getItem("mockInterviewTtsVoice") ?? "",
+  );
+  // 2026-08-06: 회원 경력프로필(마이페이지에서 입력한 목표 직무/기술·프로젝트 요약)을 질문
+  // 생성에 반영하기 위해 마운트 시 조회해둔다 - fetchNextQuestion(job, context, category,
+  // techSummary)의 techSummary로 그대로 넘어간다(ai-server가 값이 있으면 Gemini 맞춤 질문
+  // 경로를 탄다, question_generator.py generate_personalized_question 참고). 프로필을 아직
+  // 안 입력했거나 "건너뛰기"한 사용자는 targetRole/technicalSummary가 비어있을 수 있는데,
+  // 그 경우 techSummary가 빈 문자열로 넘어가서 기존 LoRA 경로가 그대로 적용된다(동작 변화
+  // 없음). 조회 자체가 실패해도(비로그인 등) 그냥 빈 값 취급하고 넘어간다.
+  const [careerJob, setCareerJob] = useState("");
+  const [careerTechSummary, setCareerTechSummary] = useState("");
+  // 2026-08-06: "분야로 질문 분류 가능하지 않냐"는 요청으로 추가했다 - 처음엔 채용공고
+  // 필터(AllJobPostingsPage.tsx roleOptions/백엔드 ROLE_KEYWORDS)의 9개 분류를 그대로
+  // 재사용했는데, "모의면접 카드는 5개(백엔드/프론트엔드/풀스택/모바일/데이터·AI·기타)가
+  // 낫겠다"는 피드백으로 면접용으로 단순화했다 - Gemini에 넘기는 job은 자유 텍스트라
+  // 채용공고 쪽 enum과 굳이 1:1로 맞출 필요가 없다(QA/보안/게임·임베디드는 빈도가 낮아
+  // "데이터 · AI · 기타"로 흡수). 여기서 고른 분야는 회원 프로필의 targetRole보다
+  // 우선한다 - 프로필을 안 채운 사용자도 이 선택만으로 그 분야 질문을 받을 수 있다
+  // (question_generator.py generate_personalized_question 참고 - job만 있어도 Gemini
+  // 맞춤 질문 경로를 탄다).
+  const INTERVIEW_ROLE_OPTIONS = [
+    ["BACKEND", "백엔드"], ["FRONTEND", "프론트엔드"], ["FULLSTACK", "풀스택"],
+    ["MOBILE", "모바일 (iOS/Android)"], ["DATA_AI", "데이터 · AI · 기타"],
+  ] as const;
+  const [selectedRole, setSelectedRole] = useState("");
+  // 2026-08-06: 카메라/채팅 카드를 클릭해서 고르는 라디오 방식으로 바꾸면서 다시 추가 -
+  // 실제 시작은 맨 아래 단일 "모의면접 시작하기" 버튼이 이 값을 보고 분기한다.
+  const [interviewMode, setInterviewMode] = useState<"camera" | "chat">("camera");
+  // 2026-08-06: "질문 몇 개로 할지도 카드로 고르게" 요청 - 자기소개 1개는 항상 고정이고
+  // 나머지 (개수-1)개를 카테고리를 돌려가며 생성한다(buildSessionQuestions 참고).
+  const QUESTION_COUNT_OPTIONS = [3, 5, 7] as const;
+  const [questionCount, setQuestionCount] = useState<number>(3);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -582,6 +651,23 @@ export function MockInterviewPage() {
   // 붙는 버그가 있었다). ref는 .current를 어느 클로저에서 읽어도 항상 최신값이라 이 문제가
   // 없다 - 질문을 공개하는 모든 지점에서 state와 함께 이 ref도 같이 갱신한다.
   const currentQuestionRef = useRef("");
+  // 2026-08-06: 답변 분석(analyzeAnswer API 호출)과 10초 쉬는 시간을 순차로 이어붙이면
+  // 체감 대기시간이 "분석 시간 + 10초"로 길어져서, 녹음이 끝나자마자 분석은 백그라운드로
+  // 바로 돌리고 화면엔 10초 쉬는 시간 모션만 보여주는 걸로 바꿨다(둘을 병렬로 겹침).
+  // 이 두 ref는 "쉬는 시간 카운트다운이 다 끝났는지"와 "분석 결과가 준비됐는지"를 각각
+  // 추적해서, 둘 다 끝난 시점(늦게 끝나는 쪽 기준)에만 다음 질문으로 넘어가게 한다.
+  const breakCountdownDoneRef = useRef(false);
+  const pendingAnalysisRef = useRef<{ analysis: AnswerAnalysis; faceMetrics: FaceMetrics | null } | null>(null);
+  // 2026-08-06: 카운트다운(3초)이 끝나는 순간 question state는 바뀌지만, questionRevealed가
+  // "get-ready" 단계부터만 true라 TTS가 질문을 다 읽는 동안엔 화면에 텍스트가 안 보이다가
+  // 녹음 시작 직전에 갑자기 "팍" 나타나는 것처럼 느껴졌다 - 질문을 실제로 공개하는 시점
+  // (revealQuestionAndBeginRecording)에 맞춰 이 값을 true로 켜서, TTS가 읽어주는 동안에도
+  // 텍스트가 화면에 같이 보이게 한다.
+  const [questionTextReady, setQuestionTextReady] = useState(false);
+  // 2026-08-06: 클라우드 TTS로 재생 중인 <audio> 엘리먼트/objectURL - 새 질문을 읽기 시작할
+  // 때 이전 재생을 확실히 멈추고, objectURL은 다 쓰면 revoke해서 메모리 누수를 막는다.
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsAudioUrlRef = useRef<string | null>(null);
 
   // 30초~1분 정도가 일반적인 면접 답변 권장 길이라는 참고 자료 기준 - 절대 기준은
   // 아니고, 감 잡는 용도로만 색을 살짝 바꿔 보여준다.
@@ -591,25 +677,145 @@ export function MockInterviewPage() {
   const FIRST_COUNTDOWN_SECONDS = 3;
   const BREAK_COUNTDOWN_SECONDS = 10;
 
-  // 수동으로 "질문 듣기"를 다시 누를 때 쓰는 재생 함수 - 인자 없이 부르면 현재 question을 읽는다.
-  const speakQuestion = (text: string = question) => {
-    if (!("speechSynthesis" in window) || !text) return;
+  // 2026-08-06: 마운트 시 서버에서 클라우드 TTS 음성 목록을 받아온다 - GOOGLE_TTS_API_KEY가
+  // 없는 환경(로컬 개발 등)이면 /tts/voices도 실패할 수 있는데, 그 경우 그냥 빈 배열로 두고
+  // 음성 선택 UI 자체를 숨긴다(브라우저 기본 TTS만 쓰는 예전 동작으로 자연스럽게 폴백).
+  useEffect(() => {
+    fetchTtsVoices()
+      .then((res) => {
+        setTtsVoiceOptions(res.voices);
+        setSelectedTtsVoice((prev) => prev || res.default);
+      })
+      .catch(() => setTtsVoiceOptions([]));
+  }, []);
+
+  useEffect(() => {
+    getCareerProfile()
+      .then((profile) => {
+        setCareerJob(profile?.targetRole?.trim() || "");
+        setCareerTechSummary(profile?.technicalSummary?.trim() || "");
+      })
+      .catch(() => {
+        setCareerJob("");
+        setCareerTechSummary("");
+      });
+  }, []);
+
+  useEffect(() => {
+    if (selectedTtsVoice) localStorage.setItem("mockInterviewTtsVoice", selectedTtsVoice);
+  }, [selectedTtsVoice]);
+
+  const stopTtsAudio = () => {
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+    if (ttsAudioUrlRef.current) {
+      URL.revokeObjectURL(ttsAudioUrlRef.current);
+      ttsAudioUrlRef.current = null;
+    }
+  };
+
+  // 브라우저 기본 TTS로 재생 - 클라우드 TTS 키가 없거나 요청이 실패했을 때의 폴백(fail-open).
+  // onDone은 다 읽고 나면(또는 speechSynthesis 자체를 못 쓰면 1.8초 뒤) 정확히 한 번 불린다.
+  const speakWithBrowserTts = (text: string, onDone: () => void) => {
+    const hasSpeechSynthesis = typeof window.speechSynthesis !== "undefined";
+    if (!hasSpeechSynthesis) {
+      window.setTimeout(onDone, 1800);
+      return;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "ko-KR";
+    utterance.onend = onDone;
+    utterance.onerror = onDone;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
 
-  // 2026-08-05: 세션 시작 시 한 번에 질문 3개를 준비한다 - 실제 면접 관례대로 1번째 질문은
+  // 2026-08-06: 질문을 읽어준다 - 먼저 선택된 클라우드 TTS 음성으로 시도하고(더 자연스러운
+  // 목소리), 키가 없거나 요청/재생이 실패하면 브라우저 기본 TTS로 자동 전환한다(사전적인
+  // 기계음성이지만 최소한 안 끊긴다). onDone은 어느 경로로 끝나든 정확히 한 번만 불린다 -
+  // revealQuestionAndBeginRecording이 이걸로 녹음 시작 타이밍을 잡는다.
+  const speakQuestionText = (text: string, onDone: () => void) => {
+    stopTtsAudio();
+    window.speechSynthesis?.cancel();
+    if (!text) {
+      onDone();
+      return;
+    }
+    synthesizeSpeech(text, selectedTtsVoice)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        ttsAudioUrlRef.current = url;
+        const audio = new Audio(url);
+        ttsAudioRef.current = audio;
+        audio.onended = () => {
+          stopTtsAudio();
+          onDone();
+        };
+        audio.onerror = () => {
+          stopTtsAudio();
+          speakWithBrowserTts(text, onDone);
+        };
+        void audio.play().catch(() => {
+          stopTtsAudio();
+          speakWithBrowserTts(text, onDone);
+        });
+      })
+      .catch(() => speakWithBrowserTts(text, onDone));
+  };
+
+  // 수동으로 "질문 듣기"를 다시 누를 때 쓰는 재생 함수 - 인자 없이 부르면 현재 question을 읽는다.
+  // 이땐 다 읽은 뒤 이어서 할 일이 없어서 onDone은 아무것도 안 한다.
+  const speakQuestion = (text: string = question) => {
+    if (!text) return;
+    speakQuestionText(text, () => {});
+  };
+
+  // 2026-08-05: 세션 시작 시 질문을 한 번에 준비한다 - 실제 면접 관례대로 1번째 질문은
   // 항상 자기소개로 고정하고(모델이 스스로 자기소개 질문을 규칙적으로 만들어내지는 않아서
-  // 강제로 넣음), 나머지 2개는 ai-server 생성 모델을 병렬로 호출해서 받는다(순차로 하면
-  // 질문 하나당 6~8초씩 걸려서 대기시간이 두 배가 됨). 모델 호출이 실패하면
+  // 강제로 넣음), 나머지는 ai-server 생성 모델을 병렬로 호출해서 받는다(순차로 하면 질문
+  // 하나당 6~8초씩 걸려서 대기시간이 개수만큼 늘어남). 모델 호출이 실패하면
   // SAMPLE_QUESTIONS로 폴백한다.
+  // 2026-08-06: 원래 "질문 3개(자기소개+고정 카테고리 2개)"로 하드코딩돼 있었는데, "질문
+  // 개수도 카드로 고르게" 요청으로 questionCount(3/5/7)만큼 나머지 질문을 카테고리를
+  // 순환시키며 생성하도록 일반화했다. 카테고리를 안 넘기면 매번 무작위에 가까운 카테고리가
+  // 나와서, 서로 다른 카테고리를 순서대로 배정해 질문이 겹치는 느낌을 줄인다. 체험판/결제
+  // 등급별로 어떤 카테고리를 줄지는 결제(크레딧) 기능 설계(태스크 #1)에서 정해지는 대로 이
+  // 배열을 등급에 맞게 바꿔 끼우면 된다 - 지금은 고정값.
+  const NON_INTRO_CATEGORIES = [
+    "기술_직무역량", "문제해결_도전경험", "협업_리더십_커뮤니케이션", "가치관_자기관리", "강점_약점",
+  ] as const;
+
   const buildSessionQuestions = async (): Promise<string[]> => {
-    const [r1, r2] = await Promise.allSettled([fetchNextQuestion(), fetchNextQuestion()]);
-    const q2 = r1.status === "fulfilled" ? r1.value.question : pickFallbackQuestion(SELF_INTRO_QUESTION);
-    const q3 = r2.status === "fulfilled" && r2.value.question !== q2 ? r2.value.question : pickFallbackQuestion(q2);
-    return [SELF_INTRO_QUESTION, q2, q3];
+    // 2026-08-06: 마이페이지에 목표 직무/기술 요약을 입력해둔 사용자는 그 값을 넘겨서
+    // 맞춤 질문(Gemini 경로)을 받는다 - careerJob/careerTechSummary가 비어있으면(프로필
+    // 미입력/건너뛰기) undefined로 넘어가 기존 동작과 동일하다. 시작 화면에서 분야를
+    // 직접 골랐다면(selectedRole) 그 라벨이 careerJob보다 우선한다.
+    const selectedRoleLabel = INTERVIEW_ROLE_OPTIONS.find(([code]) => code === selectedRole)?.[1];
+    const effectiveJob = selectedRoleLabel || careerJob || undefined;
+
+    const categoriesNeeded = Math.max(0, questionCount - 1);
+    const categories = Array.from(
+      { length: categoriesNeeded },
+      (_, i) => NON_INTRO_CATEGORIES[i % NON_INTRO_CATEGORIES.length],
+    );
+    const results = await Promise.allSettled(
+      categories.map((category) =>
+        fetchNextQuestion(effectiveJob, undefined, category, careerTechSummary || undefined),
+      ),
+    );
+
+    const questions: string[] = [SELF_INTRO_QUESTION];
+    for (const r of results) {
+      const candidate = r.status === "fulfilled" ? r.value.question : null;
+      if (candidate && !questions.includes(candidate)) {
+        questions.push(candidate);
+      } else {
+        questions.push(pickFallbackQuestion(...questions));
+      }
+    }
+    return questions;
   };
 
   // 2026-08-06: 원래 "질문 생성 중..." 화면에서 완전히 다 끝날 때까지 막아놓고 그다음에야
@@ -625,6 +831,7 @@ export function MockInterviewPage() {
     setErrorMessage(null);
     setSessionQuestions([]);
     setSessionIndex(0);
+    setChatOnlyMode(false);
     void buildSessionQuestions().then((questions) => {
       setSessionQuestions(questions);
     });
@@ -798,6 +1005,28 @@ export function MockInterviewPage() {
     setStage("typing");
   };
 
+  // 2026-08-06: 시작화면의 "채팅으로 연습하기" 카드 전용 진입점 - 팝업 위젯을 열던 걸
+  // 없애고, 카메라/마이크 모드처럼 화면 전체가 바뀌는 흐름으로 곧장 들어간다.
+  // buildSessionQuestions가 끝나기 전엔 question이 빈 문자열이라 "typing" 화면이 로딩
+  // 상태를 보여준다(아래 JSX questionLoading 참고) - device-check 화면 없이 바로 여기로
+  // 오기 때문에 startSession처럼 백그라운드로 흘려보내지 않고 결과를 기다렸다가 채운다.
+  const startChatModeSession = () => {
+    setErrorMessage(null);
+    setSessionQuestions([]);
+    setSessionIndex(0);
+    setAnswerMode("text");
+    setChatOnlyMode(true);
+    setQuestion("");
+    currentQuestionRef.current = "";
+    setStage("typing");
+    void buildSessionQuestions().then((questions) => {
+      setSessionQuestions(questions);
+      const first = questions[0] ?? SAMPLE_QUESTIONS[0];
+      currentQuestionRef.current = first;
+      setQuestion(first);
+    });
+  };
+
   // 버튼 누르자마자 녹음을 시작하면 말할 준비가 안 된 채로 앞부분이 침묵으로 날아가는
   // 경우가 많아서(테스트 중 실제로 겪음), 짧게 준비 시간을 준 다음 녹음을 시작한다.
   const startRecording = () => {
@@ -857,6 +1086,7 @@ export function MockInterviewPage() {
   // revealQuestionAndBeginRecording을 호출해 질문을 공개한다.
   const beginInterviewCountdown = () => {
     stopMeterLoop();
+    setQuestionTextReady(false);
     pendingQuestionRef.current = sessionQuestions[sessionIndex] ?? null;
     setCountdownTotal(FIRST_COUNTDOWN_SECONDS);
     setCountdownValue(FIRST_COUNTDOWN_SECONDS);
@@ -875,16 +1105,22 @@ export function MockInterviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, countdownValue]);
 
-  // 2026-08-05: 답변 사이 10초 휴식 - 이 동안은 얼굴 추적 루프 자체가 꺼져 있어서(카메라
-  // 미리보기도 안 보여줌) 분석 대상 시간에 절대 섞이지 않는다. 휴식이 끝나면 그때 얼굴
-  // 추적을 다시 켜고 원래의 3초 "질문 공개 직전" 카운트다운으로 넘어간다.
+  // 2026-08-06: 답변 사이 10초 휴식 - 이 동안은 얼굴 추적 루프 자체가 꺼져 있어서(카메라
+  // 미리보기도 안 보여줌) 분석 대상 시간에 절대 섞이지 않는다. 이 10초는 방금 답변의 분석
+  // (analyzeAnswer API 호출)과 병렬로 흐른다 - stopRecording에서 분석은 백그라운드로 바로
+  // 시작해두고 화면엔 이 쉬는 시간 모션만 보여준다("분석 시간 + 10초"로 순차로 길어지던 걸
+  // 겹치게 해서 줄였다). 그래서 카운트다운이 다 끝나도 곧장 다음 단계로 넘기지 않고,
+  // 분석 결과(pendingAnalysisRef)가 이미 준비돼 있을 때만 이어서 처리한다 - 분석이 더 늦게
+  // 끝나는 드문 경우엔 handleAnalysisReady 쪽에서 이어받는다(아래 참고).
   useEffect(() => {
     if (stage !== "break") return;
     if (countdownValue <= 0) {
-      if (landmarkerRef.current) startFaceTrackingLoop(landmarkerRef.current);
-      setCountdownTotal(FIRST_COUNTDOWN_SECONDS);
-      setCountdownValue(FIRST_COUNTDOWN_SECONDS);
-      setStage("countdown");
+      breakCountdownDoneRef.current = true;
+      const ready = pendingAnalysisRef.current;
+      if (ready) {
+        pendingAnalysisRef.current = null;
+        finishAnswer(ready.analysis, ready.faceMetrics);
+      }
       return;
     }
     const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
@@ -893,23 +1129,38 @@ export function MockInterviewPage() {
   }, [stage, countdownValue]);
 
   // 카운트다운이 끝나는 순간 호출된다 - 질문 텍스트를 화면에 공개하고 동시에 음성으로
+  // 2026-08-06: 타이핑 화면에 새 질문이 뜨면(question이 바뀌면) 제한시간을 90초로 리셋한다.
+  useEffect(() => {
+    if (stage === "typing" && question) setTypingSecondsLeft(TYPING_TIME_LIMIT_SEC);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, question]);
+
+  // 매초 줄어드는 제한시간 타이머 - "break"/"countdown" 단계와 같은 setTimeout 패턴.
+  useEffect(() => {
+    if (stage !== "typing" || !question || typingSecondsLeft <= 0) return;
+    const timer = window.setTimeout(() => setTypingSecondsLeft((v) => v - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [stage, question, typingSecondsLeft]);
+
+  // 시간이 다 됐을 때 - 이미 입력한 내용이 있으면 그대로 자동 제출(실전처럼 시간 압박),
+  // 아무것도 안 썼으면 그냥 0에 멈춰서 사용자가 뭐라도 입력하게 둔다(빈 답변 제출 방지).
+  useEffect(() => {
+    if (stage === "typing" && typingSecondsLeft === 0 && typedAnswer.trim()) {
+      submitTypedAnswer();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typingSecondsLeft]);
+
   // 읽어준 다음, TTS가 끝나는 시점(onend)에 맞춰 녹음 준비(get-ready)로 넘어간다.
   // TTS가 끝나기도 전에 녹음을 시작하면 스피커로 나오는 질문 음성이 마이크에 다시
   // 잡혀 답변 인식에 섞여 들어갈 수 있어서, 반드시 다 읽고 나서 시작한다.
   const revealQuestionAndBeginRecording = (text: string) => {
     currentQuestionRef.current = text;
     setQuestion(text);
-    const hasSpeechSynthesis = typeof window.speechSynthesis !== "undefined";
-    if (hasSpeechSynthesis) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "ko-KR";
-      utterance.onend = () => startRecording();
-      utterance.onerror = () => startRecording();
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.setTimeout(startRecording, 1800);
-    }
+    // 2026-08-06: 텍스트를 세팅하는 이 시점부터 바로 화면에 질문을 보여준다(TTS가 읽어주는
+    // 동안에도 같이 보이게) - questionTextReady 선언부 주석 참고.
+    setQuestionTextReady(true);
+    speakQuestionText(text, () => startRecording());
   };
 
   const stopRecording = () => {
@@ -924,7 +1175,39 @@ export function MockInterviewPage() {
       window.clearInterval(timerIdRef.current);
       timerIdRef.current = null;
     }
-    setStage("analyzing");
+
+    pendingAnalysisRef.current = null;
+    breakCountdownDoneRef.current = false;
+
+    // 2026-08-06: 마지막 질문이면 어차피 다음 질문이 없어서 쉬는 시간이 필요 없으니 그대로
+    // "분석 중" 대기만 보여준다. 마지막이 아니면 분석(submitRecording, recorder.onstop으로
+    // 곧 비동기 실행됨)은 백그라운드로 흘려보내고, 화면엔 10초 쉬는 시간 모션만 보여준다 -
+    // 예전엔 "분석 중"과 "쉬는 시간"이 순차로 이어져서 체감 대기시간이 길었는데, 이제 둘이
+    // 동시에 흐른다(늦게 끝나는 쪽 기준으로 다음 질문으로 넘어감 - handleAnalysisReady,
+    // break useEffect 참고).
+    const isLastQuestion = sessionQuestions.length === 0 || sessionIndex >= sessionQuestions.length - 1;
+    if (isLastQuestion) {
+      setStage("analyzing");
+    } else {
+      setCountdownTotal(BREAK_COUNTDOWN_SECONDS);
+      setCountdownValue(BREAK_COUNTDOWN_SECONDS);
+      setStage("break");
+    }
+  };
+
+  // 2026-08-06: analyzeAnswer 결과가 도착했을 때 호출된다. 마지막 질문(쉬는 시간 없이 바로
+  // "분석 중"만 보여준 경우)이면 곧장 다음 단계(session-report)로 넘긴다. 마지막이 아니면
+  // 10초 쉬는 시간 카운트다운과 경합 상태다 - 쉬는 시간이 이미 끝나 있었으면(breakCountdownDoneRef)
+  // 바로 이어서 처리하고, 아직 쉬는 중이면 결과만 저장해두고 쉬는 시간 쪽 useEffect가
+  // 카운트다운이 0이 되는 순간 이어받는다.
+  const handleAnalysisReady = (analysis: AnswerAnalysis, faceMetricsResult: FaceMetrics | null) => {
+    const isLastQuestion = sessionQuestions.length === 0 || sessionIndex >= sessionQuestions.length - 1;
+    if (isLastQuestion || breakCountdownDoneRef.current) {
+      breakCountdownDoneRef.current = false;
+      finishAnswer(analysis, faceMetricsResult);
+      return;
+    }
+    pendingAnalysisRef.current = { analysis, faceMetrics: faceMetricsResult };
   };
 
   const submitRecording = async () => {
@@ -934,7 +1217,7 @@ export function MockInterviewPage() {
       // analyzeAnswer는 실제 녹음 경로에서만 호출되므로(타이핑 경로는 submitTypedAnswer가
       // 별도로 처리) metrics는 항상 채워져 있지만, 타입상 VoiceMetrics | null이라 안전하게 처리한다.
       const faceMetricsResult = summarizeFaceFrames(faceFramesRef.current, analysis.metrics?.duration_sec ?? 0);
-      finishAnswer(analysis, faceMetricsResult);
+      handleAnalysisReady(analysis, faceMetricsResult);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "답변 분석에 실패했습니다.");
       setStage("error");
@@ -1001,13 +1284,16 @@ export function MockInterviewPage() {
       return;
     }
 
-    // 2026-08-05: 얼굴 추적 루프는 여기서 다시 켜지 않는다 - "break" 단계 동안은 카메라
-    // 미리보기도 숨기고 추적도 완전히 꺼둬서, 쉬는 시간이 분석에 섞일 걱정을 원천 차단한다.
-    // 10초가 지나면 break용 useEffect가 알아서 추적을 재개하고 countdown(3초)으로 넘긴다.
+    // 2026-08-06: finishAnswer가 여기까지 오는 시점엔 10초 쉬는 시간이 이미 다 지나가 있다
+    // (stopRecording에서 분석과 병렬로 미리 흘려보냈고, break useEffect/handleAnalysisReady가
+    // 둘 다 끝난 걸 확인한 뒤에만 이 함수를 부른다) - 그래서 여기서 새로 "break"를 또
+    // 시작하지 않고, 얼굴 추적을 재개하면서 곧장 3초 "질문 공개 직전" 카운트다운으로 넘어간다.
+    if (landmarkerRef.current) startFaceTrackingLoop(landmarkerRef.current);
+    setQuestionTextReady(false);
     pendingQuestionRef.current = next;
-    setCountdownTotal(BREAK_COUNTDOWN_SECONDS);
-    setCountdownValue(BREAK_COUNTDOWN_SECONDS);
-    setStage("break");
+    setCountdownTotal(FIRST_COUNTDOWN_SECONDS);
+    setCountdownValue(FIRST_COUNTDOWN_SECONDS);
+    setStage("countdown");
   };
 
   // 2026-08-05: 녹음 대신 텍스트로 답변을 제출하는 경로 - STT/음성분석/얼굴분석을 아예
@@ -1024,6 +1310,8 @@ export function MockInterviewPage() {
   const endSession = () => {
     stopMeterLoop();
     stopFaceLoop();
+    stopTtsAudio();
+    window.speechSynthesis?.cancel();
     isRecordingRef.current = false;
     stopStream();
     landmarkerRef.current = null;
@@ -1036,6 +1324,9 @@ export function MockInterviewPage() {
     setSessionIndex(0);
     setSessionAnswers([]);
     currentQuestionRef.current = "";
+    pendingAnalysisRef.current = null;
+    breakCountdownDoneRef.current = false;
+    setQuestionTextReady(false);
     setQuestion("");
     setStage("start");
     setErrorMessage(null);
@@ -1043,6 +1334,7 @@ export function MockInterviewPage() {
     setElapsedSec(0);
     setAnswerMode("voice");
     setTypedAnswer("");
+    setChatOnlyMode(false);
   };
 
   // 질문 준비는 이미 끝난 상태에서 생긴 오류(마이크 권한 거부 등)면 device-check로,
@@ -1056,14 +1348,18 @@ export function MockInterviewPage() {
     stage === "preparing" || stage === "testing-mic" || stage === "countdown" || stage === "get-ready" || stage === "recording";
 
   const hasSession = sessionQuestions.length > 0;
-  const questionRevealed = stage === "get-ready" || stage === "recording" || stage === "analyzing" || stage === "typing";
+  // 2026-08-06: "countdown"(3초) 단계 자체는 아직 이전 질문 텍스트를 들고 있을 수 있어서
+  // 무조건 포함시키면 안 되고, questionTextReady(질문이 실제로 공개된 시점부터 true)로
+  // 판단한다 - TTS가 질문을 읽어주는 동안에도 텍스트가 화면에 보이게 하려는 목적.
+  const questionRevealed =
+    questionTextReady || stage === "get-ready" || stage === "recording" || stage === "analyzing" || stage === "typing";
 
   return (
     <>
       <PageHeading
-        eyebrow="Early Bird 모의면접"
-        title="모의면접"
-        body="시작하면 자기소개를 포함한 질문 3개가 순서대로 나옵니다. 질문은 공개 직전까지 보이지 않아서 실제 면접처럼 답변을 준비하고, 말투(속도·높낮이·침묵)와 표정 신호(눈 깜빡임·고개 움직임)를 함께 분석해 보여줍니다."
+        eyebrow="Early Bird AI모의면접"
+        title="AI모의면접"
+        body={`시작하면 자기소개를 포함한 질문 ${questionCount}개가 순서대로 나옵니다. 질문은 공개 직전까지 보이지 않아서 실제 면접처럼 답변을 준비하고, 말투(속도·높낮이·침묵)와 표정 신호(눈 깜빡임·고개 움직임)를 함께 분석해 보여줍니다.`}
       />
 
       <section className="panel">
@@ -1073,7 +1369,7 @@ export function MockInterviewPage() {
             <p>
               {hasSession && stage !== "device-check"
                 ? `질문 ${sessionIndex + 1} / ${sessionQuestions.length}`
-                : "면접을 시작하면 질문 3개(자기소개 포함)가 순서대로 진행됩니다."}
+                : `면접을 시작하면 질문 ${questionCount}개(자기소개 포함)가 순서대로 진행됩니다.`}
             </p>
           </div>
         </div>
@@ -1129,51 +1425,141 @@ export function MockInterviewPage() {
           )}
 
           {stage === "start" && (
-            <>
-              <span
-                style={{
-                  display: "grid",
-                  placeItems: "center",
-                  width: 60,
-                  height: 60,
-                  borderRadius: "50%",
-                  background: "#eef2ff",
-                  color: "#596ff1",
-                }}
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+              {/* 2026-08-06: 카드 모양(아이콘/제목/설명)은 그대로 두고, 카드 안 개별
+                  "시작하기" 버튼은 없앤 뒤 카드 자체를 클릭해서 고르는 라디오 방식으로
+                  바꿨다 - 선택된 카드는 아래 옵션 칩들과 똑같은 "선택됨(.active)" 파란
+                  스타일로 바뀐다(배경색도 평소엔 아래 칩과 같은 연한 파랑으로 맞췄다).
+                  실제 시작은 아래 옵션들 다음에 있는 단일 "모의면접 시작하기" 버튼이
+                  현재 선택된 interviewMode를 보고 처리한다. */}
+              <div className="interview-mode-grid">
+                <button
+                  type="button"
+                  className={`interview-mode-card${interviewMode === "camera" ? " active" : ""}`}
+                  onClick={() => setInterviewMode("camera")}
+                >
+                  <span className="interview-mode-icon">
+                    <Mic size={22} />
+                  </span>
+                  <strong>카메라·마이크 모의면접</strong>
+                  <p>자기소개를 포함한 질문 {questionCount}개가 순서대로 나옵니다. 말투(속도·높낮이·침묵)와 표정 신호까지 함께 분석해 드려요.</p>
+                </button>
+                <button
+                  type="button"
+                  className={`interview-mode-card${interviewMode === "chat" ? " active" : ""}`}
+                  onClick={() => setInterviewMode("chat")}
+                >
+                  <span className="interview-mode-icon">
+                    <MessageCircle size={22} />
+                  </span>
+                  <strong>채팅으로 연습하기</strong>
+                  <p>카메라·마이크가 없어도 괜찮아요. 화면이 바로 면접 모드로 바뀌고, 제한시간 안에 답변을 입력하면 그 자리에서 피드백과 모범답안을 받을 수 있어요.</p>
+                </button>
+              </div>
+
+              {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다 - 안 고르면 마이페이지에
+                  입력해둔 목표 직무를 대신 쓰고, 둘 다 없으면 기존처럼 범용 ICT 신입 질문이
+                  나온다(동작 변화 없음). 드롭다운 대신 라디오버튼처럼 클릭하는 카드(칩)
+                  형태로 해달라는 요청으로 select를 버튼 그룹으로 바꿨다. */}
+              <div className="interview-option-group">
+                <span className="interview-option-label">면접 분야</span>
+                <div className="interview-option-row">
+                  <button
+                    type="button"
+                    className={`interview-option-chip${selectedRole === "" ? " active" : ""}`}
+                    onClick={() => setSelectedRole("")}
+                  >
+                    선택 안 함{careerJob ? ` (프로필: ${careerJob})` : ""}
+                  </button>
+                  {INTERVIEW_ROLE_OPTIONS.map(([code, label]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`interview-option-chip${selectedRole === code ? " active" : ""}`}
+                      onClick={() => setSelectedRole(code)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="interview-option-group">
+                <span className="interview-option-label">질문 개수</span>
+                <div className="interview-option-row">
+                  {QUESTION_COUNT_OPTIONS.map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      className={`interview-option-chip${questionCount === count ? " active" : ""}`}
+                      onClick={() => setQuestionCount(count)}
+                    >
+                      {count}개
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2026-08-06: 클라우드 TTS 키가 설정돼 있을 때만(ttsVoiceOptions가 비어있지
+                  않을 때만) 노출한다 - 키가 없는 환경에선 이 선택 자체가 의미 없다(브라우저
+                  기본 TTS만 쓰게 됨). "미리 듣기"로 바로 들어보고 마음에 드는 걸 고를 수 있게. */}
+              {ttsVoiceOptions.length > 0 && (
+                <div className="interview-option-group">
+                  <span className="interview-option-label">질문 읽어주는 목소리</span>
+                  <div className="interview-option-row">
+                    {ttsVoiceOptions.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        className={`interview-option-chip${selectedTtsVoice === v.id ? " active" : ""}`}
+                        onClick={() => setSelectedTtsVoice(v.id)}
+                      >
+                        {v.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    style={{ fontSize: 11 }}
+                    onClick={() => speakQuestionText("안녕하세요, 만나서 반갑습니다. 이렇게 질문을 읽어드릴게요.", () => {})}
+                  >
+                    <Volume2 size={12} /> 미리 듣기
+                  </button>
+                </div>
+              )}
+
+              <button
+                className="primary-button"
+                onClick={() => (interviewMode === "camera" ? startSession() : startChatModeSession())}
+                type="button"
+                style={{ fontSize: 15, padding: "14px 32px" }}
               >
-                <Mic size={24} />
-              </span>
-              <strong style={{ fontSize: 15, color: "#293349" }}>준비되면 시작해 주세요</strong>
-              <span style={{ fontSize: 12, color: "#9098a7", textAlign: "center", maxWidth: 360, lineHeight: 1.6 }}>
-                자기소개를 포함한 질문 3개가 순서대로 나옵니다. 질문은 시작 직전까지 공개되지 않아요.
-              </span>
-              <button className="primary-button" onClick={startSession} type="button">
-                <Sparkles size={16} /> 시작하기
+                <Sparkles size={18} /> 모의면접 시작하기
               </button>
+
               {import.meta.env.DEV && (
                 <button className="text-button" onClick={fillDummyResultForDevTesting} type="button" style={{ fontSize: 11 }}>
                   (개발용) 마이크 없이 더미 결과로 리포트 UI 확인
                 </button>
               )}
-            </>
+            </div>
           )}
 
           {stage === "device-check" && (
             <>
-              <p
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  margin: 0,
-                  color: sessionQuestions.length > 0 ? "#2e9e5b" : "#465067",
-                  fontSize: 13,
-                  textAlign: "center",
-                }}
-              >
-                {sessionQuestions.length === 0 && <LoaderCircle className="spin" size={14} />}
-                {sessionQuestions.length > 0 ? "질문 3개 준비 완료! 마이크와 카메라를 확인해 주세요." : "질문을 백그라운드에서 준비하고 있어요 - 먼저 마이크와 카메라부터 확인해 주세요."}
-              </p>
+              {sessionQuestions.length === 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  <LoadingBuddy size={44} />
+                  <p style={{ margin: 0, color: "#465067", fontSize: 13, textAlign: "center" }}>
+                    질문을 백그라운드에서 준비하고 있어요 - 먼저 마이크와 카메라부터 확인해 주세요.
+                  </p>
+                </div>
+              ) : (
+                <p style={{ margin: 0, color: "#2e9e5b", fontSize: 13, textAlign: "center" }}>
+                  {`질문 ${sessionQuestions.length}개 준비 완료! 마이크와 카메라를 확인해 주세요.`}
+                </p>
+              )}
               <button className="primary-button" onClick={() => void startDeviceTest()} type="button">
                 <Mic size={16} /> 마이크·카메라 테스트
               </button>
@@ -1191,38 +1577,75 @@ export function MockInterviewPage() {
 
           {stage === "typing" && (
             <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: 10 }}>
-              <textarea
-                value={typedAnswer}
-                onChange={(e) => setTypedAnswer(e.target.value)}
-                placeholder="답변을 텍스트로 입력해 주세요..."
-                rows={6}
-                autoFocus
-                style={{
-                  width: "100%",
-                  border: "1px solid #dfe4ec",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  font: "inherit",
-                  fontSize: 13,
-                  color: "#293349",
-                  resize: "vertical",
-                }}
-              />
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="primary-button" onClick={submitTypedAnswer} type="button" disabled={!typedAnswer.trim()}>
-                  답변 제출
-                </button>
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    setStage("device-check");
-                    setTypedAnswer("");
-                  }}
-                  type="button"
-                >
-                  취소
-                </button>
-              </div>
+              {!question ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  <LoadingBuddy size={44} />
+                  <p style={{ margin: 0, color: "#9098a7", fontSize: 13 }}>질문을 준비하고 있어요...</p>
+                </div>
+              ) : (
+                <>
+                  {/* 2026-08-06: "질문도 제한시간 안에 고민 안 하고 칠 수 있게" 요청으로 추가한
+                      게이지 바 타이머 - 90초에서 시작해 줄어들고, 남은 시간이 얼마 안 남으면
+                      색이 빨간색으로 바뀌어서 압박감을 준다. 0이 되면(입력한 내용이 있을 때만)
+                      위쪽 useEffect가 자동으로 제출한다. */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9098a7" }}>
+                      <span>답변 제한시간</span>
+                      <span style={{ fontWeight: 800, color: typingSecondsLeft <= 10 ? "#e0524c" : "#465067" }}>
+                        {typingSecondsLeft}초
+                      </span>
+                    </div>
+                    <div style={{ width: "100%", height: 8, borderRadius: 999, background: "#eef0f6", overflow: "hidden" }}>
+                      <div
+                        style={{
+                          width: `${(typingSecondsLeft / TYPING_TIME_LIMIT_SEC) * 100}%`,
+                          height: "100%",
+                          borderRadius: 999,
+                          background: typingSecondsLeft <= 10 ? "#e0524c" : typingSecondsLeft <= 30 ? "#e0a83f" : "#596ff3",
+                          transition: "width 1s linear, background .3s",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <textarea
+                    value={typedAnswer}
+                    onChange={(e) => setTypedAnswer(e.target.value)}
+                    placeholder="답변을 텍스트로 입력해 주세요..."
+                    rows={6}
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      border: "1px solid #dfe4ec",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      font: "inherit",
+                      fontSize: 13,
+                      color: "#293349",
+                      resize: "vertical",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="primary-button" onClick={submitTypedAnswer} type="button" disabled={!typedAnswer.trim()}>
+                      답변 제출
+                    </button>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        if (chatOnlyMode) {
+                          endSession();
+                        } else {
+                          setStage("device-check");
+                          setTypedAnswer("");
+                        }
+                      }}
+                      type="button"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1269,7 +1692,12 @@ export function MockInterviewPage() {
           {stage === "break" && (
             <>
               <strong style={{ fontSize: 14, color: "#8a93a3", fontWeight: 700 }}>잠시 쉬어가세요</strong>
-              <span style={{ fontSize: 12, color: "#9098a7" }}>이 시간은 분석하지 않아요 - 다음 질문까지 {countdownValue}초</span>
+              <span style={{ fontSize: 12, color: "#9098a7" }}>
+                {/* 2026-08-06: 방금 답변 분석이 이 10초 쉬는 시간과 백그라운드에서 같이 도는 중이라,
+                    드물게 분석이 더 오래 걸리면 카운트다운이 0에서 잠깐 멈춘 채 대기할 수 있다 -
+                    그 순간엔 "0초"보다 자연스러운 문구로 바꿔준다. */}
+                {countdownValue > 0 ? `이 시간은 분석하지 않아요 - 다음 질문까지 ${countdownValue}초` : "답변을 정리하고 있어요, 곧 다음 질문으로 넘어갈게요..."}
+              </span>
               <CountdownRing value={countdownValue} total={countdownTotal} color="#c3c9d4" />
             </>
           )}

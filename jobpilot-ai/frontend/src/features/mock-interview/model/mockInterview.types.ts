@@ -68,3 +68,16 @@ export interface SessionEvaluationReport {
 export interface EvaluateSessionResponse {
   report: SessionEvaluationReport;
 }
+
+// 2026-08-06: ai-server tts.py의 VoiceOption.to_dict()와 대응 - 질문 낭독에 쓸 클라우드 TTS
+// 음성 목록. label만 화면에 보여주고 id는 /tts 호출 시 그대로 넘긴다.
+export interface TtsVoiceOption {
+  id: string;
+  label: string;
+  gender: "FEMALE" | "MALE";
+}
+
+export interface TtsVoicesResponse {
+  voices: TtsVoiceOption[];
+  default: string;
+}

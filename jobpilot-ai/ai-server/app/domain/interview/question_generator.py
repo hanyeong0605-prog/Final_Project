@@ -22,8 +22,8 @@ AI Hub "채용면접 인터뷰 데이터"(TL_05, ICT/신입, 5194건 - 남녀 �
   라이브러리가 통째로 로드된다 - 실제로 질문 생성을 호출할 때(_get_loaded_model 호출 시점)까지 미룬다.
 """
 
+import threading
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 
 from app.core.config import settings
@@ -36,6 +36,25 @@ MODEL_DIR = Path(__file__).parent / "model" / "question_generator_lora"
 BASE_MODEL_NAME = "EleutherAI/polyglot-ko-1.3b"
 
 DEFAULT_JOB = "ICT 개발자(신입)"
+
+# 2026-08-06: 재학습(interview_qa_pairs_categorized.jsonl)부터 프롬프트에 카테고리를 포함시켜서
+# 학습했다(ml/mock_interview_question_generator.ipynb 6단계 to_prompt 참고) - "직무: ..\n이전
+# 답변: ..\n카테고리: ..\n다음 질문: .." 형태. 그래서 실제 생성 시에도 카테고리를 넣어줘야
+# 학습 때 본 패턴과 맞아서 카테고리별 특성이 반영된다(안 넣으면 빈 문자열로 들어가서 학습
+# 데이터의 "카테고리 없음" 케이스 취급됨 - 동작은 하지만 카테고리 지정 효과가 없음).
+# 결제(크레딧) 등급별로 난이도를 다르게 주고 싶을 때(예: 체험판은 가벼운 카테고리만, 결제
+# 사용자는 전체 카테고리) 이 값들을 그대로 활용하면 된다.
+QUESTION_CATEGORIES = (
+    "자기소개_지원동기",
+    "가치관_자기관리",
+    "협업_리더십_커뮤니케이션",
+    "기술_직무역량",
+    "문제해결_도전경험",
+    "강점_약점",
+)
+# 체험판처럼 가볍게 답할 수 있는 카테고리만 노출하고 싶을 때 쓰는 부분집합 - 기술 심화/문제
+# 해결처럼 준비가 필요한 카테고리는 제외했다.
+LIGHT_QUESTION_CATEGORIES = ("자기소개_지원동기", "가치관_자기관리", "협업_리더십_커뮤니케이션")
 
 # 2026-08-04: 재학습 없이 품질을 살짝 개선하려고 넣은 얕은 필터. "미리 만들어둔 질문 목록에서
 # 나쁜 걸 지우는" 방식이 아니라 - 생성기는 매번 새로 만들어내니까(무한 공급) - 이상하면
@@ -161,15 +180,92 @@ def _gemini_polish(question: str) -> str | None:
         return question
 
 
+def generate_personalized_question(job: str, tech_summary: str, category: str = "") -> str | None:
+    """스펙(목표 직무) 또는 기술/프로젝트 요약이 있는 사용자를 위한 맞춤 질문 생성.
+
+    2026-08-06 설계 메모: generate_question()의 LoRA 모델은 학습 데이터가 전부 "ICT/신입"
+    한 종류뿐이라 job을 바꿔 넣어도 실제 질문 내용에 거의 영향이 없다(위 docstring 참고).
+    회원 프로필(targetRole/technicalSummary)이나 면접 시작 화면의 "분야 선택"을 연동해도
+    LoRA 경로로는 겉보기만 연동되고 질문은 그대로였을 것 - 진짜 맞춤 질문을 내려면 직무별
+    학습 데이터를 새로 모아 재학습하거나(큰 작업), 프롬프트 제약이 없는 Gemini로 그 경우만
+    직접 생성해야 한다. 후자를 택했다: LoRA 모델은 아무 정보도 없는 사용자의 기본 경로로
+    그대로 남겨두고("직접 학습시킨 모델"이라는 본질 유지), job 또는 tech_summary 중 하나라도
+    있는 사용자에게만 이 함수가 대신 호출된다(router.py의 호출 조건 참고).
+
+    2026-08-06 추가: 처음엔 tech_summary(기술 요약)가 있어야만 호출했는데, "분야만 골라도
+    그 분야 질문이 나오면 좋겠다"는 요청으로 job만 있어도(예: 시작 화면에서 "백엔드" 분야만
+    선택하고 프로필은 안 채운 경우) 호출되도록 조건을 완화했다 - tech_summary가 없으면
+    프롬프트에서 그 줄만 빼고 job만으로 그 분야에 흔히 나오는 질문을 생성한다.
+
+    Gemini 키가 없거나 job/tech_summary가 둘 다 비어있거나 호출이 실패하면 None을
+    반환한다 - 호출부(router.py)가 generate_question()(LoRA 경로)으로 폴백한다.
+    """
+    if not settings.gemini_api_key or not (job.strip() or tech_summary.strip()):
+        return None
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        category_line = f"카테고리: {category}\n" if category else ""
+        tech_line = f"기술/프로젝트 요약: {tech_summary}\n" if tech_summary.strip() else ""
+        prompt = (
+            "너는 IT 채용 면접관이다. 아래 지원자 정보를 참고해서, 이 지원자에게 실제로 물어볼 "
+            "법한 한국어 면접 질문을 딱 하나만 만들어라.\n"
+            f"목표 직무: {job or '미지정'}\n"
+            f"{tech_line}"
+            f"{category_line}"
+            "규칙:\n"
+            "1) 목표 직무(그리고 기술/프로젝트 요약이 있다면 그것도)를 실제로 반영한 구체적인 "
+            "질문이어야 한다 - '자기소개를 해주세요' 같은 뻔한 범용 질문은 피해라. "
+            "기술 요약이 없다면 해당 직무에서 흔히 물어보는 기술 질문으로 만들어라\n"
+            "2) 질문 문장 하나만 출력해라 - 설명, 따옴표, 번호, 다른 말은 절대 붙이지 마라\n"
+            "3) '~습니까/~니까/~나요/~주세요' 같은 정중한 면접 질문 어미로 끝내라\n"
+            "4) 존댓말을 써라\n"
+        )
+        response = client.models.generate_content(model=settings.gemini_model, contents=prompt)
+        question = (response.text or "").strip().strip('"').strip()
+        question = _normalize_addressing(question)
+        if not question or len(question) > 150:
+            return None
+        return question
+    except Exception:
+        return None
+
+
 @dataclass
 class LoadedModel:
     tokenizer: object
     model: object
 
 
-@lru_cache(maxsize=1)
+# 2026-08-06: 원인 불명 KeyError('__reduce_cython__') 버그 재발 방지 메모 - 프론트가 세션
+# 시작 시 fetchNextQuestion 2개를 Promise.allSettled로 "동시에" 쏘는데(질문 생성 병렬화,
+# 위쪽 개편 이력 참고), FastAPI의 next_question은 동기 def라 스레드풀에서 실행되고, 서버가
+# 막 떠서 아직 모델이 한 번도 로드 안 된 "첫 콜드 스타트" 시점엔 두 스레드가 동시에
+# _get_loaded_model()에 들어온다. functools.lru_cache는 캐시가 비어있을 때 원본 함수 호출
+# 구간은 락을 잡지 않는다(캐시 딕셔너리 갱신만 락으로 보호) - 그래서 두 스레드가 동시에
+# AutoModelForCausalLM.from_pretrained/PeftModel.from_pretrained(같은 safetensors 파일을
+# 동시에 mmap 등)를 중복 실행하면서 torch/safetensors 내부 상태가 꼬여 저 알 수 없는 에러가
+# 났던 것으로 보인다(실제로 재현 시 "처음 한 번만" 실패하고 그 뒤로는 항상 성공했다 - 캐시가
+# 채워진 뒤엔 경합이 없어지므로 이 가설과 일치). lru_cache 대신 명시적 락 기반 더블체크
+# 락킹으로 바꿔서, 로딩 자체가 항상 스레드 하나에서만 실행되도록 강제한다.
+_loaded_model: LoadedModel | None = None
+_load_lock = threading.Lock()
+
+
 def _get_loaded_model() -> LoadedModel:
-    """프로세스당 한 번만 로드해서 재사용한다 (whisper 모델 캐싱과 같은 이유)."""
+    global _loaded_model
+    if _loaded_model is not None:  # 이미 로드됨 - 대부분의 요청은 락 없이 여기서 바로 반환
+        return _loaded_model
+    with _load_lock:
+        if _loaded_model is not None:  # 락 기다리는 동안 다른 스레드가 이미 로드를 끝냈을 수 있음
+            return _loaded_model
+        _loaded_model = _load_model()
+        return _loaded_model
+
+
+def _load_model() -> LoadedModel:
+    """실제 모델 로딩 로직 - _get_loaded_model의 락 안에서만 호출된다(위 설계 메모 참고)."""
     if not MODEL_DIR.exists():
         raise RuntimeError(
             f"질문 생성 모델을 찾을 수 없습니다: {MODEL_DIR}. "
@@ -202,18 +298,26 @@ def _get_loaded_model() -> LoadedModel:
     return LoadedModel(tokenizer=tokenizer, model=model)
 
 
-def generate_question(job: str = DEFAULT_JOB, context: str = "") -> str:
+def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
     """면접 질문 하나를 생성한다.
 
     job: 직무 (지금 학습 데이터가 전부 "ICT/신입"이라, 다른 값을 넣어도 그 스타일 질문이 나올 확률이
          높다 - 다른 직무 데이터 추가 전까진 실질적인 분기가 안 된다는 점 인지하고 쓴다).
     context: 이전 답변 텍스트 (선택). 지금 학습 데이터엔 진짜 문맥 연결이 없어서 효과가 제한적이다.
+    category: QUESTION_CATEGORIES 중 하나(선택). 학습 프롬프트에 포함된 값이라 지정하면 그
+              카테고리 스타일 질문이 나올 확률이 올라간다 - 안 넣으면 빈 문자열로 들어가서
+              카테고리 지정 효과 없이 무작위에 가깝게 나온다. 학습 데이터에 없는 값을 넣어도
+              에러는 안 나지만(그냥 프롬프트 텍스트일 뿐) 의미 있는 결과를 기대하기 어렵다.
     """
     loaded = _get_loaded_model()
     tokenizer, model = loaded.tokenizer, loaded.model
 
-    prompt = f"직무: {job}\n이전 답변: {context}\n다음 질문:"
+    prompt = f"직무: {job}\n이전 답변: {context}\n카테고리: {category}\n다음 질문:"
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    # 2026-08-06: GPT-NeoX(polyglot-ko) 계열은 token_type_ids를 안 받는데 토크나이저가 그걸 같이
+    # 반환해서 generate()에 그대로 넘기면 ValueError("model_kwargs are not used by the model")가
+    # 난다 - 재학습 노트북에서 같은 문제를 겪고서 여기도 동일하게 걸릴 걸 확인하고 고쳤다.
+    inputs.pop("token_type_ids", None)
 
     import torch
 

@@ -6,16 +6,20 @@
 그대로 이 엔드포인트에 보내면 된다 - 인터페이스는 지금과 동일(멀티파트 파일 업로드).
 """
 
+import logging
 import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
-from app.domain.interview.question_generator import DEFAULT_JOB, generate_question
+from app.domain.interview.question_generator import DEFAULT_JOB, generate_personalized_question, generate_question
+from app.domain.interview.tts import DEFAULT_VOICE_ID, list_voice_options, synthesize_speech
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -25,16 +29,43 @@ class NextQuestionRequest(BaseModel):
     # 이전 답변 텍스트(선택) - question_generator.py 상단 설계 메모 참고: 지금 학습 데이터엔
     # 진짜 세션 문맥이 없어서 효과는 제한적이지만, 나중에 문맥형 학습으로 갈 걸 대비해 받아둔다.
     context: str = ""
+    # 2026-08-06: QUESTION_CATEGORIES 중 하나(선택) - 재학습 데이터가 카테고리별로 태깅돼
+    # 있어서 지정하면 그 카테고리 스타일 질문이 나온다. 체험판/결제 등급별로 난이도를 다르게
+    # 주는 기능(결제 설계 문서, 태스크 #1)에서 이 필드를 그대로 활용할 예정.
+    category: str = ""
+    # 2026-08-06: 회원 프로필(MemberCareerProfile)의 기술/프로젝트 요약(선택) - 프론트가
+    # /api/v1/members/me/career-profile을 조회해 채워 보낸다. 값이 있으면 LoRA 모델
+    # 대신 generate_personalized_question(Gemini)으로 라우팅된다 - question_generator.py의
+    # generate_personalized_question docstring 설계 메모 참고. 프로필이 없거나 스킵한
+    # 사용자는 빈 문자열이 오고, 기존 LoRA 경로가 그대로 적용된다(동작 변화 없음).
+    tech_summary: str = ""
+
+    def wants_personalized(self) -> bool:
+        # 2026-08-06: job이 기본값(DEFAULT_JOB)이 아니라는 건 (a) 회원 프로필의 targetRole이
+        # 채워졌거나 (b) 모의면접 시작 화면에서 "분야"를 명시적으로 골랐다는 뜻이다 - 둘 중
+        # 하나라도, 또는 기술 요약이 있으면 Gemini 맞춤 질문 경로를 탄다. 아무 정보도 없는
+        # 사용자(job이 기본값 그대로, tech_summary도 빈 문자열)는 기존 LoRA 경로 그대로.
+        return self.tech_summary.strip() != "" or self.job.strip() not in ("", DEFAULT_JOB)
 
 
 @router.post("/next-question")
 def next_question(body: NextQuestionRequest):
     try:
-        question = generate_question(job=body.job, context=body.context)
+        question = None
+        if body.wants_personalized():
+            question = generate_personalized_question(
+                job=body.job, tech_summary=body.tech_summary, category=body.category
+            )
+        if question is None:
+            question = generate_question(job=body.job, context=body.context, category=body.category)
     except RuntimeError as e:
         # 모델 파일이 없는 경우(아직 학습/배포 안 됨) - 500 대신 명확한 메시지로 알려준다.
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
+        # 2026-08-06: 그냥 raise HTTPException만 하면 예외가 "처리됨" 취급이라 콘솔에 트레이스백이
+        # 안 찍혀서, 새 어댑터 교체 후 KeyError('__reduce_cython__') 같은 원인 불명 에러를 디버깅할
+        # 방법이 없었다 - logger.exception으로 전체 스택을 콘솔에 남기고 나서 HTTPException을 던진다.
+        logger.exception("질문 생성 실패")
         raise HTTPException(status_code=500, detail=f"질문 생성 중 오류: {type(e).__name__}: {e}")
 
     return {"question": question}
@@ -128,3 +159,30 @@ def evaluate_session(body: EvaluateSessionRequest):
     반환한다."""
     report = generate_session_report([a.model_dump() for a in body.answers])
     return {"report": report.to_dict()}
+
+
+# 2026-08-06: 질문 낭독용 TTS - 브라우저 기본 TTS(SpeechSynthesisUtterance)가 기계음성처럼
+# 들린다는 피드백으로 Google Cloud TTS를 추가했다. 키가 없는 환경(로컬 개발 등)에서도 기능이
+# 죽지 않도록 503으로 명확히 알려주고, 프론트는 그 응답을 보고 브라우저 기본 TTS로 자동
+# 폴백한다(question_generator.py 모델 없음 처리와 같은 fail-open 패턴).
+@router.get("/tts/voices")
+def tts_voices():
+    return {"voices": [v.to_dict() for v in list_voice_options()], "default": DEFAULT_VOICE_ID}
+
+
+class TtsRequest(BaseModel):
+    text: str
+    voice: str = DEFAULT_VOICE_ID
+
+
+@router.post("/tts")
+def tts(body: TtsRequest):
+    try:
+        audio_bytes = synthesize_speech(body.text, body.voice)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.exception("TTS 생성 실패")
+        raise HTTPException(status_code=500, detail=f"TTS 생성 중 오류: {type(e).__name__}: {e}")
+
+    return Response(content=audio_bytes, media_type="audio/mpeg")

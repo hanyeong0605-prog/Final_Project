@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash-lite"
 
+    # 2026-08-06: 모의면접 질문 낭독용 - 브라우저 기본 TTS(SpeechSynthesisUtterance)가
+    # 기계음성 느낌이 강하다는 피드백으로 Google Cloud Text-to-Speech(Neural2 등 자연스러운
+    # 음성)로 교체했다. 없으면 기능은 그대로 동작한다 - tts.py가 fail-open으로 프론트에
+    # 503을 돌려주고, 프론트는 그걸 보고 브라우저 기본 TTS로 자동 폴백한다.
+    google_tts_api_key: str = ""
+
     class Config:
         env_file = str(_ENV_FILE)
 
