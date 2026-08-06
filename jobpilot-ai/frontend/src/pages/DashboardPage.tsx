@@ -29,21 +29,27 @@ export function DashboardPage() {
   const challengeCount = jobs.filter((job) => job.recommendationLevel === "CHALLENGE_AFTER_GAPS").length;
 
   return <>
-<PageHeading 
-        eyebrow="TODAY'S CAREER ACTION" 
-        title="현재 지원할 수 있는 공고를 확인하세요." 
-        body="회원의 실제 역량 근거와 사람인 채용공고를 비교한 결과만 표시합니다." 
-        action={
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button className="outline-button" onClick={() => navigate("/profile")}>
-              <Target size={17} />내 역량 근거 관리
-            </button>
-            <button className="outline-button" onClick={() => navigate("/question")}>
-              <Target size={17} />진로 심리 검사
-            </button>
-          </div>
-        }
-      />
+    <PageHeading
+      eyebrow="TODAY'S CAREER ACTION"
+      title="현재 지원할 수 있는 공고를 확인하세요."
+      body="회원의 실제 역량 근거와 사람인 채용공고를 비교한 결과만 표시합니다."
+      action={
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button className="outline-button" onClick={() => navigate("/profile")}>
+            <Target size={17} />내 역량 근거 관리
+          </button>
+          <button className="outline-button" onClick={() => navigate("/question")}>
+            <Target size={17} />진로 심리 검사
+          </button>
+          <button className="outline-button" onClick={() => navigate("/check")}>
+            <Target size={17} />맞춤법 검사기
+          </button>
+
+
+
+        </div>
+      }
+    />
 
     {status === "loading" && <DataStatePanel state="loading" />}
     {status === "loading" && <DataStatePanel state="loading" />}

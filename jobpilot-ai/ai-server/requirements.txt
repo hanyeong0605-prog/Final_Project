@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# 2026-08-05: 이 파일 안 한글 주석 때문에 Windows(한국어 로캘, cp949)에서 pip가
+# UnicodeDecodeError를 내는 문제가 있었다 - pip의 auto_decode가 BOM도 PEP263 인코딩
+# 선언도 없으면 로캘 기본 인코딩(cp949)으로 읽으려다 UTF-8 바이트를 못 읽어서 터진다.
+# 맨 위에 이 인코딩 선언 한 줄을 두면 pip가 UTF-8로 확실히 읽는다.
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2
@@ -15,8 +20,30 @@ apscheduler==3.10.4
 # mock interview - STT + voice feature analysis (requires ffmpeg on PATH for whisper)
 python-multipart==0.0.12
 openai-whisper==20240930
-librosa==0.10.2.post1
 numpy==1.26.4
+# 2026-08-05: librosa 뺐다 - librosa가 내부적으로 numba를 끌어들이는데(피치 추출 등에서
+# @numba.jit이 모듈 로드 시점에 실행됨), numba의 네이티브 DLL이 서명 미확인 상태라 Windows
+# 스마트 앱 컨트롤이 로드를 차단하는 환경이 실제로 있었다(팀원 PC에서 확인, "이 컴퓨터만"의
+# 문제가 아니라 같은 보안 정책이면 다른 PC/서버에서도 재현됨). audio_analysis.py를 numpy
+# 전용으로 다시 짜서 librosa/numba 의존성 자체를 없앴다 - 오디오 디코딩은 이미 있는
+# openai-whisper의 ffmpeg 기반 load_audio()를 재사용한다.
+
+# mock interview - question generator (polyglot-ko-1.3b + LoRA, see
+# app/domain/interview/model/question_generator_lora).
+#
+# 2026-08-04: transformers는 import 시점에 자기 내부 deps 테이블로 tokenizers 버전을 강제 검사한다
+# (transformers/dependency_versions_check.py). tokenizers==0.23.1이 깔린 상태에서 로컬은
+# "import transformers" 자체가 ImportError로 죽었는데(tokenizers<=0.23.0 요구), 에러 메시지가
+# tokenizer.json 파싱 실패처럼 보여서 한참 헤맸다 - 실제로는 네트워크 요청/파일 다운로드까지도
+# 못 갔던 것. tokenizers 상한을 명시해서 재발 방지.
+transformers>=4.44
+tokenizers>=0.22.0,<=0.23.0
+peft>=0.12
+accelerate>=0.33
+
+# mock interview - question quality check (optional, see question_generator.py _gemini_polish).
+# Falls back to no-op if GEMINI_API_KEY isn't set.
+google-genai
 
 # test
 pytest==8.3.3

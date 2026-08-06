@@ -1,4 +1,14 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# 2026-08-04: env_file="​.env"(상대경로)였는데, 이게 파이썬 실행 시점의 작업 디렉터리(cwd) 기준으로
+# 해석돼서 - 예: ai-server/ml 아래에서 스크립트를 돌리면 - .env를 못 찾고 조용히 빈 값으로
+# 넘어가는 문제가 있었다(예외도 안 남). GEMINI_API_KEY를 .env에 넣었는데도 settings.gemini_api_key가
+# 계속 빈 문자열이라 Gemini 검수(question_generator.py _gemini_polish)가 항상 fail-open으로
+# 원문을 그대로 통과시키고 있었던 원인이 이거였다.
+# 이 파일(app/core/config.py) 위치 기준 절대경로로 고정해서 cwd와 무관하게 항상 ai-server/.env를 찾게 함.
+_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -8,8 +18,20 @@ class Settings(BaseSettings):
     # 루트 .env의 INTERNAL_API_KEY와 같은 값이어야 한다.
     internal_api_key: str = ""
 
+    # 모의면접 질문생성(question_generator.py) 결과 검수용. 없어도 기능은 동작한다 -
+    # 검수를 그냥 건너뛰고 로컬 모델 결과를 그대로 쓴다 (fail-open). 백엔드 GitHubProjectAnalysis
+    # 기능이 쓰는 것과 같은 키를 재사용해도 된다.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash-lite"
+
+    # 2026-08-06: 모의면접 질문 낭독용 - 브라우저 기본 TTS(SpeechSynthesisUtterance)가
+    # 기계음성 느낌이 강하다는 피드백으로 Google Cloud Text-to-Speech(Neural2 등 자연스러운
+    # 음성)로 교체했다. 없으면 기능은 그대로 동작한다 - tts.py가 fail-open으로 프론트에
+    # 503을 돌려주고, 프론트는 그걸 보고 브라우저 기본 TTS로 자동 폴백한다.
+    google_tts_api_key: str = ""
+
     class Config:
-        env_file = ".env"
+        env_file = str(_ENV_FILE)
 
 
 settings = Settings()
