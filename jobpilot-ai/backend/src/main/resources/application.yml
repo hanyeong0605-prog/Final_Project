@@ -77,3 +77,7 @@ job-requirement-extraction:
     request-interval-ms: ${JOB_REQUIREMENT_BACKFILL_REQUEST_INTERVAL_MS:1000}
     # A readiness check every 10 minutes. The MySQL daily cap still permits only 3,000 postings/day.
     cron: "${JOB_REQUIREMENT_BACKFILL_CRON:0 */10 * * * *}"
+
+career:
+  api:
+    key: ${CAREER_API_KEY}

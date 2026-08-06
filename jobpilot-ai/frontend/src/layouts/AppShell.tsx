@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; /* useEffect 추가 */
 import { Bell, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, X } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
@@ -7,9 +7,19 @@ import { OnboardingModal } from "../features/profile/components/OnboardingModal"
 
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [, setForceRender] = useState(0); //  강제 렌더링용 상태 추가
   const location = useLocation();
   const activeItem = navigationItems.find((item) => item.path === location.pathname) ?? navigationItems[0];
   const { member, logout } = useAuth();
+
+// 카카오 스크립트 로딩으로 인한 렌더링 씹힘 방지용 마운트 훅
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setForceRender((prev) => prev + 1);
+    }, 50); // 0.05초 뒤에 강제로 한 번 더 렌더링
+    return () => clearTimeout(timer);
+  }, []);
+
 
   return <div className="app-shell"><OnboardingModal />
     <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
