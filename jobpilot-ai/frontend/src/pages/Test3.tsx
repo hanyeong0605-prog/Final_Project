@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
-import { fetchTestQuestions } from "../features/career/api/careerApI";
+import { fetchTestQuestions, submitTestReport } from "../features/career/api/careerApI";
 import { PageHeading } from "../shared/components/PageHeading";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 
 export function Test3() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
   
-  // 사용자의 응답을 저장할 상태 (예: { 0: "3", 1: "4", ... } -> 문항인덱스: 선택점수)
+  // 사용자의 응답을 저장할 상태 (문항인덱스: 선택한 보기 점수)
   const [answers, setAnswers] = useState<{ [key: number]: string }>({});
 
   useEffect(() => {
+    // 이공계전공적합도검사 번호인 "9"번으로 문항 데이터를 불러옵니다.
     fetchTestQuestions("9")
       .then((res) => {
         setQuestions(res.RESULT || []);
@@ -30,21 +33,51 @@ export function Test3() {
   };
 
   // 결과 제출 버튼을 눌렀을 때
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (Object.keys(answers).length < questions.length) {
       alert("모든 문항에 답변해주세요!");
       return;
     }
-    console.log("제출된 응답 데이터:", answers);
-    // 여기에 나중에 결과 계산 페이지로 넘어가거나 백엔드로 점수를 보내는 로직 추가
-    alert("설문이 완료되었습니다!");
+
+    setIsSubmitting(true);
+
+    try {
+      // 💡 쉼표(,)로 구분된 답변 문자열 생성
+      const answerString = questions.map((_, idx) => answers[idx]).join(",");
+
+      // 💡 이공계전공적합도검사(9번)에 맞는 페이로드 구성 (대상 코드는 일반/대학생용 코드 등 상황에 맞게 조율)
+      const requestPayload = {
+        qestrnSeq: "9",
+        trgetSe: "100209",
+        gender: "100324",
+        school: "일반",
+        grade: "1",
+        startDtm: Date.now(),
+        answers: answerString,
+      };
+
+      console.log("이공계전공적합도검사 전송 페이로드:", requestPayload);
+
+      const res = await submitTestReport(requestPayload);
+
+      if (res.SUCC_YN === "Y" && res.RESULT?.url) {
+        setReportUrl(res.RESULT.url); 
+      } else {
+        alert("결과 생성에 실패했습니다: " + (res.ERROR_REASON || "알 수 없는 오류"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("서버 통신 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <>
       <PageHeading 
         eyebrow="CAREER TEST" 
-        title="진로개발준비도검사" 
+        title="이공계전공적합도검사" 
         body="문항을 꼼꼼히 읽고 자신에게 알맞은 번호를 선택해주세요." 
       />
 
@@ -58,14 +91,13 @@ export function Test3() {
         {!loading && questions.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {questions.map((item, index) => {
-              // 존재하는 보기들만 동적으로 추출 (answer01, answer02, answer03 ...)
               const answerOptions = [
                 { text: item.answer01, score: item.answerScore01 },
                 { text: item.answer02, score: item.answerScore02 },
                 { text: item.answer03, score: item.answerScore03 },
                 { text: item.answer04, score: item.answerScore04 },
                 item.answer05 ? { text: item.answer05, score: item.answerScore05 } : null,
-              ].filter(opt => opt && opt.text); // 빈 보기 제거
+              ].filter(opt => opt && opt.text);
 
               return (
                 <div key={index} style={{ paddingBottom: "20px", borderBottom: "1px solid #f1f5f9" }}>
@@ -96,11 +128,19 @@ export function Test3() {
             <div style={{ textAlign: "center", marginTop: "20px" }}>
               <button 
                 onClick={handleSubmit}
+                disabled={isSubmitting}
                 style={{ padding: "12px 24px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" }}
               >
-                결과 제출하기
+                {isSubmitting ? "제출 중..." : "결과 제출하기"}
               </button>
             </div>
+
+            {reportUrl && (
+              <div style={{ textAlign: "center", marginTop: "16px" }}>
+                <p>검사가 완료되었습니다.</p>
+                <a href={reportUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "600" }}>결과 리포트 보기 열기</a>
+              </div>
+            )}
           </div>
         )}
       </div>
