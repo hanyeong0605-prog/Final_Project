@@ -44,6 +44,8 @@ public class SecurityConfig {
 //                     임시!@@@@#@@@@@ 지도용
                     authorize.requestMatchers("/api/location-jobs/**").permitAll();
 
+                    authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
+
 
                     if (developmentAuthenticationEnabled) {
                         authorize.requestMatchers("/api/v1/dev/auth/token").permitAll();

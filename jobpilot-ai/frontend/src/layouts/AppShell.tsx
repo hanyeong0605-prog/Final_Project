@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; /* useEffect 추가 */
 import { Bell, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, X } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
@@ -9,9 +9,18 @@ import { InterviewChatWidgetProvider } from "../features/mock-interview/model/In
 
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [, setForceRender] = useState(0); //  강제 렌더링용 상태 추가
   const location = useLocation();
   const activeItem = navigationItems.find((item) => item.path === location.pathname) ?? navigationItems[0];
   const { member, logout } = useAuth();
+
+// 카카오 스크립트 로딩으로 인한 렌더링 씹힘 방지용 마운트 훅
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setForceRender((prev) => prev + 1);
+    }, 50); // 0.05초 뒤에 강제로 한 번 더 렌더링
+    return () => clearTimeout(timer);
+  }, []);
 
   // InterviewChatWidgetProvider로 감싸서, Outlet 안에서 렌더되는 어떤 페이지(예:
   // MockInterviewPage의 "채팅으로 연습하기" 카드)에서도 이 위젯의 열림 상태를 제어할 수 있게 한다.
