@@ -5,6 +5,7 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
         VITE_KAKAO_MAP_KEY: ${VITE_KAKAO_MAP_KEY:?Set VITE_KAKAO_MAP_KEY in the server environment file}
+        VITE_ML_API_URL: ${VITE_ML_API_URL:-/wordcloud-api}
     restart: unless-stopped
     ports:
       # TLS terminates at the host Nginx. Keep the application container
@@ -14,6 +15,8 @@ services:
       backend:
         condition: service_healthy
       ai-server:
+        condition: service_healthy
+      wordcloud-server:
         condition: service_healthy
 
   backend:
@@ -53,3 +56,16 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  wordcloud-server:
+    build:
+      context: ./ml-project
+    restart: unless-stopped
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s

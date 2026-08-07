@@ -59,6 +59,11 @@ jobs:
               $COMPOSE up -d --no-deps ai-server
             fi
 
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ml-project/'; then
+              $COMPOSE build wordcloud-server
+              $COMPOSE up -d --no-deps wordcloud-server
+            fi
+
             if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
               $COMPOSE up -d
             fi

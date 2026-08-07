@@ -4,7 +4,8 @@ export interface WordCloudResponse {
   image_data: string;
 }
 
-const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+// Production uses the same HTTPS origin; Nginx forwards this path internally.
+const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || '/wordcloud-api';
 
 export const getWordCloud = async (importance: string): Promise<WordCloudResponse> => {
   const response = await fetch(`${ML_API_BASE_URL}/api/wordcloud?importance=${importance}`);
