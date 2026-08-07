@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 
 function CheckPage() {
     const [inputText, setInputText] = useState('');     
@@ -16,11 +15,15 @@ function CheckPage() {
 
     const handleCorrect = async () => {
         try {
-            const response = await axios.post('http://localhost:9000/api/checks/correct', {
-                q: inputText 
+            const response = await fetch('/api/checks/correct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ q: inputText }),
             });
 
-            const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const responseData = await response.json().catch(() => response.text());
+            const data = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
             setResultText(data.revised);
             setCopySuccess(false);
         } catch (error) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { LocationJob } from "../types";
+import type { LocationJob } from "../model/types";
 import { useNavigate } from "react-router-dom";
 
 interface Props {

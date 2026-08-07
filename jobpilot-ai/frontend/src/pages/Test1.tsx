@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchTestQuestions, submitTestReport } from "../features/career/api/careerApI";
+import { fetchTestQuestions, submitTestReport } from "../features/career/api/careerAPI";
 import { PageHeading } from "../shared/components/PageHeading";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 
