@@ -17,6 +17,7 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
   const socketRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const transferredRef = useRef(false);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -63,9 +64,15 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
     peerRef.current = peer;
     peer.addTransceiver("video", { direction: "recvonly" });
     peer.addTransceiver("audio", { direction: "recvonly" });
-    peer.ontrack = (event) => {
-      if (transferredRef.current) return;
-      const stream = event.streams[0] ?? new MediaStream([event.track]);
+    const handOffWhenMediaIsReady = () => {
+      const stream = remoteStreamRef.current;
+      if (!stream || transferredRef.current) return;
+      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live" && !track.muted);
+      const audioReady = stream.getAudioTracks().some((track) => track.readyState === "live" && !track.muted);
+      // ontrack fires when SDP is applied, often before mobile microphone
+      // frames arrive. Starting MediaRecorder before this point fails in
+      // Chromium with NotSupportedError.
+      if (!videoReady || !audioReady) return;
       transferredRef.current = true;
       onConnected({
         disconnect: () => {
@@ -77,6 +84,15 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
         },
       });
       onRemoteStream(stream);
+    };
+    peer.ontrack = (event) => {
+      const stream = event.streams[0] ?? new MediaStream([event.track]);
+      remoteStreamRef.current = stream;
+      event.track.addEventListener("unmute", handOffWhenMediaIsReady, { once: true });
+      window.setTimeout(handOffWhenMediaIsReady, 200);
+    };
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === "connected") window.setTimeout(handOffWhenMediaIsReady, 200);
     };
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
