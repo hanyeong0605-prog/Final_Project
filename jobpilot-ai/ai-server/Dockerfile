@@ -10,7 +10,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# openai-whisper's source build still imports pkg_resources. Recent setuptools
+# releases removed it, so keep a compatible build toolchain and disable the
+# isolated build environment for this dependency installation.
+RUN pip install --no-cache-dir "setuptools<81" wheel \
+    && pip install --no-cache-dir --no-build-isolation -r requirements.txt
 COPY app ./app
 
 EXPOSE 8001
