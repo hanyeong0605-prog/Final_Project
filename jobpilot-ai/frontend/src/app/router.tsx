@@ -23,6 +23,7 @@ import { Test4 } from "../pages/Test4";
 import CheckPage from "../pages/CheckPage";
 import WorkPage from "../pages/WorkPage";
 import { SkillRelationView } from "../pages/SkillRelationView";
+import { CameraPairPage } from "../pages/CameraPairPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
