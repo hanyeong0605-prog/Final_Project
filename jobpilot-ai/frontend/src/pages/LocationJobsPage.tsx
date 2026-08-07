@@ -7,6 +7,7 @@ import { JobPostingCard } from "../features/job-postings/components/JobPostingCa
 import type { JobPosting } from "../features/job-postings/model/jobPosting.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 import { PageHeading } from "../shared/components/PageHeading";
+// import { WordCloudSection } from '../features/word-cloud/components/WordCloudSection';
 
 const DEFAULT_ADDRESS = "서울특별시 마포구 백범로 23";
 const DEFAULT_CENTER = { lat: 37.5528112 , lng: 126.9379482  };
@@ -278,12 +279,18 @@ export function LocationJobsPage() {
           </div>
         </main>
       </div>
-
+       {/* 예시용 워드클라우드 가져오기 */}
+      {/* <section style={{ padding: "60px 20px", backgroundColor: "#ffffff", marginTop: "24px", borderTop: "1px solid #ebedf2" }}>
+        <WordCloudSection />
+      </section> */}
+           
       <PostcodeSearchModal
         isOpen={isPostcodeOpen}
         onClose={() => setIsPostcodeOpen(false)}
         onSelectAddress={handleSelectAddress}
       />
+      
     </div>  //ㅁㄴㅇㄹ
+    
   );
 }
