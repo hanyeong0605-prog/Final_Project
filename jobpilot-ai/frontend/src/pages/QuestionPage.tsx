@@ -67,8 +67,8 @@ export function QuestionPage() {
       duration: "10분",
       questionCount: "28문항",
       actions: [
-        { label: "활동1", path: "/tests/job-value-1" },
-        { label: "활동2", path: "/tests/job-value-2" },
+        { label: "활동1", path: "/tests/job-value" },
+        { label: "활동2", path: "/tests/job-value" },
         { label: "검사바로가기", path: "/tests/job-value" }
       ]
     },

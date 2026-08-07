@@ -97,7 +97,7 @@ export function Test3() {
                 { text: item.answer03, score: item.answerScore03 },
                 { text: item.answer04, score: item.answerScore04 },
                 item.answer05 ? { text: item.answer05, score: item.answerScore05 } : null,
-              ].filter(opt => opt && opt.text);
+              ].filter((opt): opt is { text: string; score: string } => Boolean(opt?.text && opt.score));
 
               return (
                 <div key={index} style={{ paddingBottom: "20px", borderBottom: "1px solid #f1f5f9" }}>
@@ -112,11 +112,11 @@ export function Test3() {
                         <input 
                           type="radio" 
                           name={`question-${index}`} 
-                          value={opt?.score}
-                          checked={answers[index] === opt?.score}
-                          onChange={() => handleSelectAnswer(index, opt!.score)}
+                          value={opt.score}
+                          checked={answers[index] === opt.score}
+                          onChange={() => handleSelectAnswer(index, opt.score)}
                         />
-                        {opt?.text}
+                        {opt.text}
                       </label>
                     ))}
                   </div>

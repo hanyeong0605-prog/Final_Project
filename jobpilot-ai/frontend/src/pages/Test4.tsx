@@ -43,7 +43,9 @@ export function Test4() {
 
     try {
       // 직업가치관검사(6번) 답변 형식: "1=값 2=값 3=값" (공백으로 구분)
-      const answerString = questions.map((_, idx) => `${idx + 1}=${answers[idx]}`).join(" ");
+      const answerString = questions
+        .map((question, idx) => `B${question.qitemNo ?? idx + 1}=${answers[idx]}`)
+        .join(" ");
 
       const requestPayload = {
         qestrnSeq: "6",
@@ -96,7 +98,7 @@ export function Test4() {
                 { text: item.answer03, score: item.answerScore03 },
                 { text: item.answer04, score: item.answerScore04 },
                 item.answer05 ? { text: item.answer05, score: item.answerScore05 } : null,
-              ].filter(opt => opt && opt.text);
+              ].filter((opt): opt is { text: string; score: string } => Boolean(opt?.text && opt.score));
 
               return (
                 <div key={index} style={{ paddingBottom: "20px", borderBottom: "1px solid #f1f5f9" }}>
@@ -111,11 +113,11 @@ export function Test4() {
                         <input 
                           type="radio" 
                           name={`question-${index}`} 
-                          value={opt?.score}
-                          checked={answers[index] === opt?.score}
-                          onChange={() => handleSelectAnswer(index, opt!.score)}
+                          value={opt.score}
+                          checked={answers[index] === opt.score}
+                          onChange={() => handleSelectAnswer(index, opt.score)}
                         />
-                        {opt?.text}
+                        {opt.text}
                       </label>
                     ))}
                   </div>
