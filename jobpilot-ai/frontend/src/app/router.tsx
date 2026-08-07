@@ -22,6 +22,7 @@ import { Test3 } from "../pages/Test3";
 import { Test4 } from "../pages/Test4";
 import CheckPage from "../pages/CheckPage";
 import WorkPage from "../pages/WorkPage";
+import { SkillRelationView } from "../pages/SkillRelationView";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: "tests/job-value", element: <Test4 /> },
       { path: "check", element: <CheckPage /> },
       { path: "Work", element: <WorkPage /> },
+      { path: "skill-relation", element: <SkillRelationView /> },
     ],
   },
 ]);

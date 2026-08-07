@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { BriefcaseBusiness, CalendarDays, Code2, LayoutDashboard, ListFilter, MapPin, Mic, Sparkles, Target, UserRound,BarChart3} from "lucide-react";
+import { Cpu } from "lucide-react";
 
 export interface NavigationItem {
   path: string;
@@ -19,4 +20,5 @@ export const navigationItems: NavigationItem[] = [
   { path: "/mock-interview", label: "AI모의면접", icon: Mic },
   { path: "/account", label: "마이페이지", icon: UserRound },
   { path: "/repository-analysis", label: "GitHub 코드 분석", icon: Code2 },
+  { path: "/skill-relation", label: "채용공고 워드클라우드", icon: Cpu },
 ];
