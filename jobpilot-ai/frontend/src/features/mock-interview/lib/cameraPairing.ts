@@ -19,7 +19,12 @@ export function openPairingSocket(ticket: string, onSignal: (signal: PairingSign
       onError("페어링 신호를 해석하지 못했습니다.");
     }
   };
-  socket.onerror = () => onError("페어링 연결에 실패했습니다. HTTPS 주소로 접속했는지 확인해 주세요.");
+  socket.onerror = () => onError("페어링 WebSocket 연결 중 오류가 발생했습니다.");
+  socket.onclose = (event) => {
+    if (event.code !== 1000) {
+      onError(`페어링 WebSocket이 종료되었습니다. 코드: ${event.code}${event.reason ? ` (${event.reason})` : ""}`);
+    }
+  };
   return socket;
 }
 
