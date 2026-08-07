@@ -64,4 +64,17 @@ jobs:
             fi
 
             $COMPOSE ps
-            curl --fail --silent --show-error http://localhost/api/v1/health
+            # A newly recreated Spring Boot container needs time for Flyway and
+            # its health check. Do not mark an otherwise successful deploy as
+            # failed merely because Nginx returns 502 during that short window.
+            for attempt in $(seq 1 24); do
+              if curl --fail --silent --show-error http://localhost/api/v1/health; then
+                exit 0
+              fi
+              sleep 5
+            done
+
+            $COMPOSE ps
+            $COMPOSE logs --tail=120 backend
+            echo "Backend did not become healthy within 120 seconds." >&2
+            exit 1
