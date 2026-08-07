@@ -7,7 +7,9 @@ services:
         VITE_KAKAO_MAP_KEY: ${VITE_KAKAO_MAP_KEY:?Set VITE_KAKAO_MAP_KEY in the server environment file}
     restart: unless-stopped
     ports:
-      - "80:80"
+      # TLS terminates at the host Nginx. Keep the application container
+      # reachable only from this EC2 instance.
+      - "127.0.0.1:8080:80"
     depends_on:
       backend:
         condition: service_healthy
