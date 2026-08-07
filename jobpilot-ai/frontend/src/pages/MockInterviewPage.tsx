@@ -1120,9 +1120,22 @@ export function MockInterviewPage() {
         : new MediaRecorder(audioOnlyStream);
       recorder.start();
     } catch (reason) {
-      setErrorMessage(`녹화를 시작하지 못했습니다. ${reason instanceof Error ? reason.message : "휴대폰의 마이크 권한을 다시 확인해 주세요."}`);
-      setStage("error");
-      return;
+      // Some Chromium builds reject an audio-only MediaStream made from a
+      // remote WebRTC track. The AI server accepts WebM and extracts audio
+      // with ffmpeg, so use the original remote audio+video stream as a safe
+      // fallback instead of abandoning the interview.
+      const fallbackMimeType = ["video/webm;codecs=vp8,opus", "video/webm"]
+        .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+      try {
+        recorder = fallbackMimeType
+          ? new MediaRecorder(stream, { mimeType: fallbackMimeType })
+          : new MediaRecorder(stream);
+        recorder.start();
+      } catch (fallbackReason) {
+        setErrorMessage(`녹화를 시작하지 못했습니다. ${fallbackReason instanceof Error ? fallbackReason.message : reason instanceof Error ? reason.message : "휴대폰의 마이크 권한을 다시 확인해 주세요."}`);
+        setStage("error");
+        return;
+      }
     }
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
@@ -1476,7 +1489,6 @@ export function MockInterviewPage() {
                 borderRadius: 10,
                 background: "#111",
                 objectFit: "cover",
-                transform: "scaleX(-1)",
               }}
             />
             <canvas
@@ -1486,7 +1498,6 @@ export function MockInterviewPage() {
                 inset: 0,
                 width: "100%",
                 height: "100%",
-                transform: "scaleX(-1)",
                 pointerEvents: "none",
               }}
             />
