@@ -4,14 +4,19 @@ import { Camera, LoaderCircle, Smartphone, X } from "lucide-react";
 import { createCameraPairing, type CameraPairing } from "../api/cameraPairingApi";
 import { createPeerConnection, openPairingSocket, type PairingSignal } from "../lib/cameraPairing";
 
-type Props = { onRemoteStream: (stream: MediaStream) => void; onClose: () => void };
+type Props = {
+  onRemoteStream: (stream: MediaStream) => void;
+  onConnected: (disconnect: () => void) => void;
+  onClose: () => void;
+};
 
-export function PhoneCameraPairingPanel({ onRemoteStream, onClose }: Props) {
+export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }: Props) {
   const [pairing, setPairing] = useState<CameraPairing | null>(null);
   const [status, setStatus] = useState("QR 코드를 생성하는 중입니다.");
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
+  const transferredRef = useRef(false);
 
   useEffect(() => {
     let disposed = false;
@@ -25,8 +30,13 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onClose }: Props) {
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "QR 코드를 만들지 못했습니다."));
     return () => {
       disposed = true;
-      socketRef.current?.close();
-      peerRef.current?.close();
+      // Once the stream is handed to MockInterviewPage, that page owns the
+      // peer connection for the entire interview. Closing it here would make
+      // React stage changes immediately stop the phone camera.
+      if (!transferredRef.current) {
+        socketRef.current?.close();
+        peerRef.current?.close();
+      }
     };
   }, []);
 
@@ -55,6 +65,11 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onClose }: Props) {
     peer.addTransceiver("audio", { direction: "recvonly" });
     peer.ontrack = (event) => {
       const stream = event.streams[0] ?? new MediaStream([event.track]);
+      transferredRef.current = true;
+      onConnected(() => {
+        socketRef.current?.close();
+        peer.close();
+      });
       onRemoteStream(stream);
     };
     const offer = await peer.createOffer();

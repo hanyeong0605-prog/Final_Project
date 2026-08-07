@@ -51,6 +51,12 @@ export function CameraPairPage() {
       if (videoRef.current) videoRef.current.srcObject = stream;
       const peer = createPeerConnection(send);
       peerRef.current = peer;
+      peer.onconnectionstatechange = () => {
+        if (["closed", "failed", "disconnected"].includes(peer.connectionState)) {
+          streamRef.current?.getTracks().forEach((track) => track.stop());
+          setStatus("PC 연결이 종료되었습니다.");
+        }
+      };
       stream.getTracks().forEach((track) => peer.addTrack(track, stream));
       await peer.setRemoteDescription(signal.sdp);
       const answer = await peer.createAnswer();

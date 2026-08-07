@@ -632,6 +632,7 @@ export function MockInterviewPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const phonePairDisconnectRef = useRef<(() => void) | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const faceRafIdRef = useRef<number | null>(null);
@@ -848,6 +849,35 @@ export function MockInterviewPage() {
     audioContextRef.current = null;
   };
 
+  const startMeterLoop = (stream: MediaStream) => {
+    stopMeterLoop();
+    if (stream.getAudioTracks().length === 0) {
+      setMicLevel(0);
+      return;
+    }
+    const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let peak = 0;
+      for (const value of data) peak = Math.max(peak, Math.abs((value - 128) / 128));
+      setMicLevel(Math.min(100, Math.round(peak * 250)));
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+  };
+
+  const disconnectPhonePairing = () => {
+    phonePairDisconnectRef.current?.();
+    phonePairDisconnectRef.current = null;
+  };
+
   const stopFaceLoop = () => {
     if (faceRafIdRef.current !== null) cancelAnimationFrame(faceRafIdRef.current);
     faceRafIdRef.current = null;
@@ -869,6 +899,7 @@ export function MockInterviewPage() {
     const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
     landmarkerRef.current = landmarker;
     startFaceTrackingLoop(landmarker);
+    startMeterLoop(stream);
     setCameraReady(true);
     setPairingPanelOpen(false);
     setStage("testing-mic");
@@ -953,6 +984,7 @@ export function MockInterviewPage() {
     setErrorMessage(null);
     setStage("preparing");
     try {
+      disconnectPhonePairing();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480 } });
       streamRef.current = stream;
 
@@ -968,25 +1000,7 @@ export function MockInterviewPage() {
       setCameraReady(true);
       startFaceTrackingLoop(landmarker);
 
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 1024;
-      source.connect(analyser);
-
-      const data = new Uint8Array(analyser.fftSize);
-      const tick = () => {
-        analyser.getByteTimeDomainData(data);
-        let peak = 0;
-        for (const value of data) {
-          const centered = Math.abs((value - 128) / 128);
-          if (centered > peak) peak = centered;
-        }
-        setMicLevel(Math.min(100, Math.round(peak * 250)));
-        rafIdRef.current = requestAnimationFrame(tick);
-      };
-      tick();
+      startMeterLoop(stream);
 
       setStage("testing-mic");
     } catch (error) {
@@ -1007,6 +1021,7 @@ export function MockInterviewPage() {
     stopMeterLoop();
     stopFaceLoop();
     isRecordingRef.current = false;
+    disconnectPhonePairing();
     stopStream();
     setCameraReady(false);
     setStage("device-check");
@@ -1331,6 +1346,7 @@ export function MockInterviewPage() {
     stopTtsAudio();
     window.speechSynthesis?.cancel();
     isRecordingRef.current = false;
+    disconnectPhonePairing();
     stopStream();
     landmarkerRef.current = null;
     if (timerIdRef.current !== null) {
@@ -1587,6 +1603,7 @@ export function MockInterviewPage() {
               {pairingPanelOpen && (
                 <PhoneCameraPairingPanel
                   onRemoteStream={(stream) => void usePhoneCameraStream(stream)}
+                  onConnected={(disconnect) => { phonePairDisconnectRef.current = disconnect; }}
                   onClose={() => setPairingPanelOpen(false)}
                 />
               )}
