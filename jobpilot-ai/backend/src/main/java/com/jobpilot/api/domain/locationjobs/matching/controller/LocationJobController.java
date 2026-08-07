@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+//dd
 @RestController
 @RequestMapping("/api/location-jobs")
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
