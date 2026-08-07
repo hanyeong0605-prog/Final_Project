@@ -1471,8 +1471,17 @@ export function MockInterviewPage() {
     setStage(sessionQuestions.length > 0 ? "device-check" : "start");
   };
 
+  // 2026-08-07: "break"(답변 끝나고 쉬는 10초)도 추가했다 - 예전엔 이 단계에서 캠 화면이
+  // display:none으로 통째로 사라졌다가 다음 질문 카운트다운에서 다시 나타나서 "화면이
+  // 깜빡인다"는 피드백이 있었다. 카메라 자체는 계속 살아있는 스트림이라 굳이 안 보여줄
+  // 이유가 없고, 아래 오버레이(showBreakOverlay)로 "지금은 녹화 안 함"만 표시하면 된다.
   const showVideoPreview =
-    stage === "preparing" || stage === "testing-mic" || stage === "countdown" || stage === "get-ready" || stage === "recording";
+    stage === "preparing" ||
+    stage === "testing-mic" ||
+    stage === "countdown" ||
+    stage === "get-ready" ||
+    stage === "recording" ||
+    stage === "break";
 
   const hasSession = sessionQuestions.length > 0;
   // 2026-08-06: "countdown"(3초) 단계 자체는 아직 이전 질문 텍스트를 들고 있을 수 있어서
@@ -1558,9 +1567,28 @@ export function MockInterviewPage() {
                 pointerEvents: "none",
               }}
             />
+            {/* 2026-08-07: 쉬는 시간(break)엔 캠을 완전히 숨기는 대신 반투명 어두운 막만
+                덮어서 "지금은 녹화 중이 아님"을 표시한다 - 화면이 통째로 사라졌다 나타나는
+                깜빡임 대신 자연스러운 전환을 준다. */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 10,
+                background: "rgba(15, 17, 26, 0.6)",
+                display: stage === "break" ? "block" : "none",
+                pointerEvents: "none",
+              }}
+            />
           </div>
           {showVideoPreview && (
-            <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
+            <>
+              <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
+              {/* 2026-08-07: 영상이 서버에 저장/전송되는 걸로 오해할 수 있어서(실제로는
+                  브라우저 안에서만 프레임을 읽어 얼굴 지표를 계산하고, 서버로는 답변 음성만
+                  올라간다) 명시적으로 안내한다. */}
+              <span style={{ fontSize: 11, color: "#9098a7" }}>영상은 저장되지 않습니다</span>
+            </>
           )}
 
           {stage === "start" && (

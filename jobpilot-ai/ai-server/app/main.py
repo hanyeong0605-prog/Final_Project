@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,29 +8,14 @@ from app.domain.crawler.scheduler import start_scheduler
 from app.domain.interview.router import router as interview_router
 
 
-def _prewarm_whisper_model() -> None:
-    """2026-08-07: audio_analysis._get_whisper_model()은 원래 첫 실제 요청 때 지연 로딩된다
-    (모듈 docstring 참고 - 환경이 whisper를 못 돌리면 서버 자체는 뜨게 하려는 의도였음).
-    근데 배포 환경(EC2)에서 실측해보니 이 첫 로딩이 답변 분석 요청 하나를 ~35초씩 더 늦춰서
-    (컨테이너 켜지고 첫 면접 답변에서만) 사용자가 "다음 질문이 안 나온다"고 느낄 정도였다.
-    그래서 서버 기동 시 한 번 미리 불러 둔다 - 실패해도 그냥 넘어가면 기존처럼 첫 실제
-    요청 때 지연 로딩되니 fail-open이고, 로딩 자체가 안 되는 환경에서 서버가 죽는 일은 없다."""
-    try:
-        from app.domain.interview.audio_analysis import _get_whisper_model
-
-        _get_whisper_model()
-    except Exception:
-        pass
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 매일 06:00에 직행 크롤링 + 백엔드 저장을 자동으로 돌린다 (scheduler.py 참고).
     start_scheduler()
-    # 이벤트 루프를 막지 않도록 스레드로 돌린다 - health 체크나 다른 요청이 이 로딩 때문에
-    # 밀리면 안 되므로(도커 healthcheck의 start_period/retries가 넉넉하긴 하지만 그와
-    # 별개로 서버 자체는 즉시 응답 가능한 상태가 되는 게 맞다).
-    asyncio.create_task(asyncio.to_thread(_prewarm_whisper_model))
+    # 2026-08-07: STT를 로컬 whisper 모델에서 Google Cloud Speech-to-Text(REST API 호출)로
+    # 교체하면서 로컬에 미리 로드해둘 무거운 모델 자체가 없어졌다 - 그래서 이전에 여기 있던
+    # whisper 프리워밍 코드(_prewarm_whisper_model)를 제거했다. audio_analysis.py 모듈
+    # docstring의 2026-08-07 항목 참고.
     yield
 
 
