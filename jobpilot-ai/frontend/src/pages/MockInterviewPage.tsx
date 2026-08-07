@@ -633,6 +633,8 @@ export function MockInterviewPage() {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const phonePairDisconnectRef = useRef<(() => void) | null>(null);
+  const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
+  const phoneAutoStartRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const faceRafIdRef = useRef<number | null>(null);
@@ -876,6 +878,8 @@ export function MockInterviewPage() {
   const disconnectPhonePairing = () => {
     phonePairDisconnectRef.current?.();
     phonePairDisconnectRef.current = null;
+    phonePairStateRef.current = null;
+    phoneAutoStartRef.current = false;
   };
 
   const stopFaceLoop = () => {
@@ -902,8 +906,23 @@ export function MockInterviewPage() {
     startMeterLoop(stream);
     setCameraReady(true);
     setPairingPanelOpen(false);
+    // QR pairing hands the whole interview to the phone camera. It should not
+    // leave the user at a second manual "start" button on the PC.
+    phoneAutoStartRef.current = true;
     setStage("testing-mic");
   };
+
+  useEffect(() => {
+    if (!phoneAutoStartRef.current || stage !== "testing-mic" || sessionQuestions.length === 0) return;
+    phoneAutoStartRef.current = false;
+    beginInterviewCountdown();
+    // beginInterviewCountdown reads the latest prepared session questions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, sessionQuestions]);
+
+  useEffect(() => {
+    phonePairStateRef.current?.(stage, questionTextReady ? question : undefined, stage === "recording" ? elapsedSec : undefined);
+  }, [stage, question, questionTextReady, elapsedSec]);
 
   // 눈에 보이는 피드백이 있어야 "지금 분석되고 있다"는 게 체감된다 - 캔버스에 얼굴
   // 랜드마크 점을 실시간으로 그려준다. 녹음 시작 전(테스트 단계)부터 계속 돌리다가,
@@ -1603,7 +1622,10 @@ export function MockInterviewPage() {
               {pairingPanelOpen && (
                 <PhoneCameraPairingPanel
                   onRemoteStream={(stream) => void usePhoneCameraStream(stream)}
-                  onConnected={(disconnect) => { phonePairDisconnectRef.current = disconnect; }}
+                  onConnected={({ disconnect, sendInterviewState }) => {
+                    phonePairDisconnectRef.current = disconnect;
+                    phonePairStateRef.current = sendInterviewState;
+                  }}
                   onClose={() => setPairingPanelOpen(false)}
                 />
               )}

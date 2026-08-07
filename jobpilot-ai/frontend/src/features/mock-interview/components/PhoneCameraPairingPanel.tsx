@@ -6,7 +6,7 @@ import { createPeerConnection, openPairingSocket, type PairingSignal } from "../
 
 type Props = {
   onRemoteStream: (stream: MediaStream) => void;
-  onConnected: (disconnect: () => void) => void;
+  onConnected: (connection: { disconnect: () => void; sendInterviewState: (stage: string, question?: string, elapsedSec?: number) => void }) => void;
   onClose: () => void;
 };
 
@@ -64,11 +64,17 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
     peer.addTransceiver("video", { direction: "recvonly" });
     peer.addTransceiver("audio", { direction: "recvonly" });
     peer.ontrack = (event) => {
+      if (transferredRef.current) return;
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       transferredRef.current = true;
-      onConnected(() => {
-        socketRef.current?.close();
-        peer.close();
+      onConnected({
+        disconnect: () => {
+          socketRef.current?.close();
+          peer.close();
+        },
+        sendInterviewState: (stage, question, elapsedSec) => {
+          send({ type: "interview-state", stage, question, elapsedSec });
+        },
       });
       onRemoteStream(stream);
     };

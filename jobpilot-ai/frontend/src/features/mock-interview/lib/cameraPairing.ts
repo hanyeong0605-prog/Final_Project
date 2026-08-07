@@ -1,7 +1,8 @@
 export type PairingSignal =
   | { type: "peer-ready" | "peer-left" }
   | { type: "offer" | "answer"; sdp: RTCSessionDescriptionInit }
-  | { type: "ice-candidate"; candidate: RTCIceCandidateInit };
+  | { type: "ice-candidate"; candidate: RTCIceCandidateInit }
+  | { type: "interview-state"; stage: string; question?: string; elapsedSec?: number };
 
 export function pairingWebSocketUrl(ticket: string) {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
