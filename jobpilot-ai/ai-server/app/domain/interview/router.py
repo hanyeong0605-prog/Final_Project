@@ -96,7 +96,8 @@ async def analyze_answer(audio: UploadFile = File(...)):
             detail=f"지원하지 않는 파일 형식입니다 ({suffix or '확장자 없음'}). 허용: {sorted(ALLOWED_SUFFIXES)}",
         )
 
-    # whisper/librosa 둘 다 파일 경로를 받는 API라 업로드 스트림을 임시 파일로 먼저 내린다.
+    # transcribe/analyze_voice(audio_analysis.py) 둘 다 파일 경로를 받는 API라 업로드
+    # 스트림을 임시 파일로 먼저 내린다.
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         shutil.copyfileobj(audio.file, tmp)
         tmp_path = tmp.name
@@ -111,7 +112,7 @@ async def analyze_answer(audio: UploadFile = File(...)):
 
     return {
         "transcript": transcription.text,
-        # 2026-08-05: whisper 인식 확신도가 낮았던 답변인지 알려주는 참고 신호(audio_analysis.py
+        # 2026-08-05: STT 인식 확신도가 낮았던 답변인지 알려주는 참고 신호(audio_analysis.py
         # TranscriptionResult 설명 참고) - 프론트에서 "인식이 불안정했을 수 있어요" 경고용.
         "low_confidence_transcript": transcription.low_confidence,
         "metrics": metrics.to_dict(),

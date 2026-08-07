@@ -30,6 +30,17 @@ class Settings(BaseSettings):
     # 503을 돌려주고, 프론트는 그걸 보고 브라우저 기본 TTS로 자동 폴백한다.
     google_tts_api_key: str = ""
 
+    # 2026-08-07: 모의면접 답변 STT용 - 기존엔 openai-whisper를 서버에서 직접 돌렸는데,
+    # EC2 프리티어에서 디스크/메모리 부담이 크고 whisper의 다국어 범용 모델(특히 "small")이
+    # 한국어 전용으로 튜닝된 모델보다 정확도가 떨어질 가능성이 높아서 Google Cloud
+    # Speech-to-Text(REST, API 키 인증)로 교체했다 - google_tts_api_key와 같은 방식
+    # (서비스 계정 JSON 대신 API 키, 로컬 개발 환경 세팅이 훨씬 간단함). 없으면 기능은
+    # 그대로 동작한다 - transcribe()가 fail-open으로 빈 텍스트 + low_confidence=True를
+    # 반환한다(audio_analysis.py 참고). 보통 google_tts_api_key와 같은 GCP 프로젝트의
+    # 같은 키를 재사용해도 되지만(Speech-to-Text API도 그 프로젝트에서 활성화했다는 전제),
+    # 별도 키/프로젝트로 쿼터를 분리하고 싶으면 다른 값을 넣으면 된다.
+    google_stt_api_key: str = ""
+
     class Config:
         env_file = str(_ENV_FILE)
 

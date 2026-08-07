@@ -17,16 +17,18 @@ beautifulsoup4==4.12.3
 lxml==5.3.0
 apscheduler==3.10.4
 
-# mock interview - STT + voice feature analysis (requires ffmpeg on PATH for whisper)
+# mock interview - STT(Google Cloud Speech-to-Text REST) + voice feature analysis
+# (requires ffmpeg on PATH - 오디오 디코딩은 whisper 없이 직접 ffmpeg 서브프로세스 호출로 함)
 python-multipart==0.0.12
-openai-whisper==20240930
 numpy==1.26.4
 # 2026-08-05: librosa 뺐다 - librosa가 내부적으로 numba를 끌어들이는데(피치 추출 등에서
 # @numba.jit이 모듈 로드 시점에 실행됨), numba의 네이티브 DLL이 서명 미확인 상태라 Windows
 # 스마트 앱 컨트롤이 로드를 차단하는 환경이 실제로 있었다(팀원 PC에서 확인, "이 컴퓨터만"의
 # 문제가 아니라 같은 보안 정책이면 다른 PC/서버에서도 재현됨). audio_analysis.py를 numpy
-# 전용으로 다시 짜서 librosa/numba 의존성 자체를 없앴다 - 오디오 디코딩은 이미 있는
-# openai-whisper의 ffmpeg 기반 load_audio()를 재사용한다.
+# 전용으로 다시 짜서 librosa/numba 의존성 자체를 없앴다.
+# 2026-08-07: openai-whisper도 뺐다 - STT를 Google Cloud Speech-to-Text REST API로
+# 교체했다(audio_analysis.py 모듈 docstring 참고, EC2 프리티어 디스크/메모리 부담 + 한국어
+# 정확도 문제). requests는 이미 위에 있어서 새 의존성 추가 없이 그대로 재사용한다.
 
 # mock interview - question generator (polyglot-ko-1.3b + LoRA, see
 # app/domain/interview/model/question_generator_lora).
