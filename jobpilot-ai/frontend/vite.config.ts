@@ -24,6 +24,17 @@ export default defineConfig({
         target: "http://localhost:9000",
         changeOrigin: true,
       },
+      // 2026-08-07: 폰 카메라 페어링(CameraPairingWebSocketConfig, 스프링 백엔드 9000번의
+      // /ws/camera-pair)용 프록시가 빠져 있었다 - cameraPairing.ts의 pairingWebSocketUrl()이
+      // window.location.host(=Vite 개발서버 5173)로 접속을 시도하는데, Vite는 이 경로를
+      // 모르니 백엔드까지 연결이 안 닿아서 PC 쪽이 peer-ready 신호를 못 받고, 결국 offer를
+      // 못 보내 폰 카메라는 뜨는데 PC 화면엔 아무것도 안 나오는 증상으로 이어졌다.
+      // ws: true가 있어야 HTTP 프록시가 아니라 WebSocket 업그레이드를 그대로 전달한다.
+      "/ws": {
+        target: "http://localhost:9000",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

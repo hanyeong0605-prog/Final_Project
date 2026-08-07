@@ -86,7 +86,16 @@ export function CameraPairPage() {
         <p>{status}</p>
         {error && <p style={{ color: "#c0392b" }}>{error}</p>}
         {!streamRef.current && !error && <LoaderCircle className="spin" size={26} />}
-        <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", borderRadius: 12, background: "#111", marginTop: 12 }} />
+        {/* 2026-08-07: 전면(셀피) 카메라라 화면에 보여줄 때만 좌우 반전(CSS transform)한다.
+            실제 전송되는 MediaStream 트랙 데이터는 그대로라 PC 쪽 녹화/분석에는 영향 없다 -
+            "거울처럼 보이게" 하는 화면 표시용 트릭일 뿐이다. */}
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          style={{ width: "100%", borderRadius: 12, background: "#111", marginTop: 12, transform: "scaleX(-1)" }}
+        />
         {streamRef.current && <p style={{ color: "#2e9e5b", fontSize: 13 }}><CheckCircle2 size={15} /> PC에 카메라와 마이크를 전송하고 있습니다.</p>}
         {interviewState && (
           <section style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "#f3f5ff", textAlign: "left" }}>

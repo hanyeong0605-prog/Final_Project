@@ -37,12 +37,12 @@ def test_synthesize_calls_google_api_with_expected_voice(monkeypatch):
     fake_response.json.return_value = {"audioContent": base64.b64encode(fake_audio_bytes).decode()}
 
     with patch("requests.post", return_value=fake_response) as mock_post:
-        result = synthesize_speech("자기소개를 해주세요", voice_id="ko-c-neural")
+        result = synthesize_speech("자기소개를 해주세요", voice_id="ko-charon-hd")
 
     assert result == fake_audio_bytes
     _, kwargs = mock_post.call_args
     assert kwargs["params"] == {"key": "fake-key"}
-    assert kwargs["json"]["voice"]["name"] == "ko-KR-Neural2-C"
+    assert kwargs["json"]["voice"]["name"] == "ko-KR-Chirp3-HD-Charon"
     assert kwargs["json"]["voice"]["languageCode"] == "ko-KR"
     assert kwargs["json"]["input"]["text"] == "자기소개를 해주세요"
 

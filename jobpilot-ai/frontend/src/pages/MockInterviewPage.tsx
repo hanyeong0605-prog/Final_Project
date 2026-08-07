@@ -618,7 +618,13 @@ export function MockInterviewPage() {
     ["BACKEND", "백엔드"], ["FRONTEND", "프론트엔드"], ["FULLSTACK", "풀스택"],
     ["MOBILE", "모바일 (iOS/Android)"], ["DATA_AI", "데이터 · AI · 기타"],
   ] as const;
-  const [selectedRole, setSelectedRole] = useState("");
+  // 2026-08-07: 처음부터 "선택 안 함" 칩이 파랗게 켜져 있으면 마치 사용자가 이미 뭔가 고른
+  // 것처럼 보인다는 피드백으로, 초기값을 ""(선택 안 함을 명시적으로 고른 상태)이 아니라
+  // null(아직 아무것도 안 고른 상태)로 분리했다 - "선택 안 함" 칩은 selectedRole === ""일
+  // 때만 활성 표시되므로, 처음엔 null이라 어떤 칩도 안 켜져 있다가 사용자가 실제로 클릭해야
+  // 그 칩이 켜진다. buildSessionQuestions 쪽 로직(찾아서 없으면 undefined)은 null/""
+  // 둘 다 "매칭 없음"으로 동일하게 처리되므로 동작 자체는 그대로다.
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   // 2026-08-06: 카메라/채팅 카드를 클릭해서 고르는 라디오 방식으로 바꾸면서 다시 추가 -
   // 실제 시작은 맨 아래 단일 "모의면접 시작하기" 버튼이 이 값을 보고 분기한다.
   const [interviewMode, setInterviewMode] = useState<"camera" | "chat">("camera");
@@ -626,6 +632,19 @@ export function MockInterviewPage() {
   // 나머지 (개수-1)개를 카테고리를 돌려가며 생성한다(buildSessionQuestions 참고).
   const QUESTION_COUNT_OPTIONS = [3, 5, 7] as const;
   const [questionCount, setQuestionCount] = useState<number>(3);
+
+  // 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 코드/카테고리 튜플은
+  // ai-server question_generator.py의 INTERVIEW_TYPES와 반드시 이름을 맞춰야 한다(카테고리
+  // 문자열을 그대로 next-question 요청에 실어 보내므로). "전체"(기본값)는 6개 카테고리를
+  // 다 순환하는 기존 동작 그대로 - 유형을 명시적으로 고르면 그 유형에 속한 카테고리만 순환.
+  const INTERVIEW_TYPE_OPTIONS = [
+    ["인성면접", ["가치관_자기관리", "협업_리더십_커뮤니케이션"]],
+    ["역량면접", ["문제해결_도전경험", "강점_약점"]],
+    ["직무면접", ["기술_직무역량"]],
+  ] as const;
+  // 2026-08-07: selectedRole과 같은 이유로 null(미선택)과 ""("전체"를 명시적으로 고른 상태)을
+  // 분리했다 - 위 selectedRole 설계 메모 참고.
+  const [selectedInterviewType, setSelectedInterviewType] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -793,6 +812,17 @@ export function MockInterviewPage() {
     "기술_직무역량", "문제해결_도전경험", "협업_리더십_커뮤니케이션", "가치관_자기관리", "강점_약점",
   ] as const;
 
+  // 2026-08-07: tech_summary가 "VSCode 확장 프로그램 개발 경험"처럼 짧고 구체적인 한 줄일
+  // 때, 같은 job/tech_summary로 세션 안에서 여러 번(질문 개수만큼) 호출하면 매번 같은
+  // 소재로 질문이 수렴할 수 있다는 우려로 추가 - 질문마다 명시적으로 다른 관점을 지정해서
+  // 보낸다(question_generator.py generate_personalized_question의 angle_hint 설계 메모
+  // 참고). 특히 "직무면접" 유형만 골랐을 때(카테고리 풀이 기술_직무역량 하나뿐이라 매
+  // 질문이 다 이 카테고리를 씀) 효과가 크다.
+  const TECH_QUESTION_ANGLES = [
+    "기술 선택 이유", "트러블슈팅/문제 해결 경험", "설계·트레이드오프 판단",
+    "성능·품질 개선 경험", "협업 중 기술적 의견 차이 조율", "실무 적용 사례·한계",
+  ] as const;
+
   const buildSessionQuestions = async (): Promise<string[]> => {
     // 2026-08-06: 마이페이지에 목표 직무/기술 요약을 입력해둔 사용자는 그 값을 넘겨서
     // 맞춤 질문(Gemini 경로)을 받는다 - careerJob/careerTechSummary가 비어있으면(프로필
@@ -801,14 +831,27 @@ export function MockInterviewPage() {
     const selectedRoleLabel = INTERVIEW_ROLE_OPTIONS.find(([code]) => code === selectedRole)?.[1];
     const effectiveJob = selectedRoleLabel || careerJob || undefined;
 
+    // 2026-08-07: 면접 유형(역량/직무/인성)을 골랐으면 그 유형에 속한 카테고리만 순환시킨다 -
+    // 안 고르면("전체") 기존처럼 6개 카테고리 다 순환하는 동작 그대로 유지(하위 호환).
+    const selectedTypeCategories = INTERVIEW_TYPE_OPTIONS.find(
+      ([type]) => type === selectedInterviewType,
+    )?.[1];
+    const categoryPool = selectedTypeCategories ?? NON_INTRO_CATEGORIES;
+
     const categoriesNeeded = Math.max(0, questionCount - 1);
     const categories = Array.from(
       { length: categoriesNeeded },
-      (_, i) => NON_INTRO_CATEGORIES[i % NON_INTRO_CATEGORIES.length],
+      (_, i) => categoryPool[i % categoryPool.length],
     );
     const results = await Promise.allSettled(
-      categories.map((category) =>
-        fetchNextQuestion(effectiveJob, undefined, category, careerTechSummary || undefined),
+      categories.map((category, i) =>
+        fetchNextQuestion(
+          effectiveJob,
+          undefined,
+          category,
+          careerTechSummary || undefined,
+          TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length],
+        ),
       ),
     );
 
@@ -1477,7 +1520,21 @@ export function MockInterviewPage() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
-          <div style={{ position: "relative", display: showVideoPreview ? "block" : "none", width: 480, height: 360, maxWidth: "90vw" }}>
+          {/* 2026-08-07: 컨테이너 전체를 좌우 반전시킨다(video 하나만 반전하면 canvas에
+              그리는 얼굴 랜드마크 좌표가 화면상 얼굴 위치와 어긋나 버린다 - 부모를 통째로
+              뒤집으면 video/canvas가 같은 좌표계 그대로 유지된 채 화면에만 거울처럼 보인다).
+              MediaPipe 얼굴 인식은 이 CSS 표시 변환과 무관하게 videoRef의 원본 프레임
+              데이터를 그대로 읽으므로 분석/녹화 결과에는 영향이 없다. */}
+          <div
+            style={{
+              position: "relative",
+              display: showVideoPreview ? "block" : "none",
+              width: 480,
+              height: 360,
+              maxWidth: "90vw",
+              transform: "scaleX(-1)",
+            }}
+          >
             <video
               autoPlay
               muted
@@ -1539,13 +1596,42 @@ export function MockInterviewPage() {
                 </button>
               </div>
 
+              {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
+                  계열 질문(팀 갈등, 강점/약점 등)은 지원자의 경험을 묻는 거라 분야가 달라도
+                  질문 자체는 같아도 되지만, 직무(기술) 면접만 분야별로 내용이 달라야 한다는
+                  게 핵심 아이디어. "전체"(선택 안 함)는 기존처럼 6개 카테고리를 다 순환한다. */}
+              <div className="interview-option-group">
+                <span className="interview-option-label">면접 유형</span>
+                <div className="interview-option-row">
+                  <button
+                    type="button"
+                    className={`interview-option-chip${selectedInterviewType === "" ? " active" : ""}`}
+                    onClick={() => setSelectedInterviewType("")}
+                  >
+                    전체
+                  </button>
+                  {INTERVIEW_TYPE_OPTIONS.map(([type]) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`interview-option-chip${selectedInterviewType === type ? " active" : ""}`}
+                      onClick={() => setSelectedInterviewType(type)}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다 - 안 고르면 마이페이지에
                   입력해둔 목표 직무를 대신 쓰고, 둘 다 없으면 기존처럼 범용 ICT 신입 질문이
                   나온다(동작 변화 없음). 드롭다운 대신 라디오버튼처럼 클릭하는 카드(칩)
                   형태로 해달라는 요청으로 select를 버튼 그룹으로 바꿨다. */}
               <div className="interview-option-group">
                 <span className="interview-option-label">면접 분야</span>
-                <div className="interview-option-row">
+                {/* 2026-08-07: 선택 안 함 + 분야 5개 = 6개라 auto-fit이 5+1로 어색하게
+                    쪼개졌다 - 3열로 고정해서 3+3으로 깔끔하게 떨어지게 했다. */}
+                <div className="interview-option-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                   <button
                     type="button"
                     className={`interview-option-chip${selectedRole === "" ? " active" : ""}`}
