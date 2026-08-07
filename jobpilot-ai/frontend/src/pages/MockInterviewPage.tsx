@@ -4,6 +4,7 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  Camera,
   CheckCircle2,
   Clock,
   Eye,
@@ -30,6 +31,7 @@ import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/li
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
+import { PhoneCameraPairingPanel } from "../features/mock-interview/components/PhoneCameraPairingPanel";
 
 // 2026-08-04: KoGPT2+LoRA 질문 생성 모델(ai-server /interview/next-question)이 실제 질문을
 // 만들어준다. 이 배열은 이제 "기본값"이 아니라 폴백용 - 모델 서버가 아직 안 떠 있거나
@@ -561,6 +563,7 @@ export function MockInterviewPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
+  const [pairingPanelOpen, setPairingPanelOpen] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   // 2026-08-05: 마이크/카메라를 못 쓰거나 쓰기 부담스러운 사람을 위한 보조 경로 - 주 기능은
   // 여전히 녹음이라(device-check 화면에서 아주 작은 글씨 링크로만 노출) answerMode는
@@ -854,6 +857,21 @@ export function MockInterviewPage() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const usePhoneCameraStream = async (stream: MediaStream) => {
+    stopStream();
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+    }
+    const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
+    landmarkerRef.current = landmarker;
+    startFaceTrackingLoop(landmarker);
+    setCameraReady(true);
+    setPairingPanelOpen(false);
+    setStage("testing-mic");
   };
 
   // 눈에 보이는 피드백이 있어야 "지금 분석되고 있다"는 게 체감된다 - 캔버스에 얼굴
@@ -1563,6 +1581,15 @@ export function MockInterviewPage() {
               <button className="primary-button" onClick={() => void startDeviceTest()} type="button">
                 <Mic size={16} /> 마이크·카메라 테스트
               </button>
+              <button className="text-button" onClick={() => setPairingPanelOpen(true)} type="button">
+                <Camera size={15} /> 폰을 카메라로 연결
+              </button>
+              {pairingPanelOpen && (
+                <PhoneCameraPairingPanel
+                  onRemoteStream={(stream) => void usePhoneCameraStream(stream)}
+                  onClose={() => setPairingPanelOpen(false)}
+                />
+              )}
               <button
                 className="text-button"
                 onClick={startTypingForSession}

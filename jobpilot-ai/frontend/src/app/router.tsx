@@ -22,10 +22,12 @@ import { Test3 } from "../pages/Test3";
 import { Test4 } from "../pages/Test4";
 import CheckPage from "../pages/CheckPage";
 import WorkPage from "../pages/WorkPage";
+import { CameraPairPage } from "../pages/CameraPairPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
+  { path: "/camera-pair", element: <CameraPairPage /> },
 
   {
     path: "/",

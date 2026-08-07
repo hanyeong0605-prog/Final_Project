@@ -39,7 +39,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers(
                             "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",
-                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error").permitAll();
+                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error", "/ws/camera-pair").permitAll();
 
 //                     임시!@@@@#@@@@@ 지도용
                     authorize.requestMatchers("/api/location-jobs/**").permitAll();
