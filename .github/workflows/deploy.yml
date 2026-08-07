@@ -64,11 +64,14 @@ jobs:
             fi
 
             $COMPOSE ps
-            # A newly recreated Spring Boot container needs time for Flyway and
-            # its health check. Do not mark an otherwise successful deploy as
-            # failed merely because Nginx returns 502 during that short window.
+            # Check the backend container's own Compose health check. Going
+            # through host Nginx here is not reliable: the host proxy may be
+            # independently reconfigured for TLS and return a 404 even while
+            # the backend is healthy.
             for attempt in $(seq 1 24); do
-              if curl --fail --silent --show-error http://localhost/api/v1/health; then
+              BACKEND_CONTAINER="$($COMPOSE ps -q backend)"
+              if [ -n "$BACKEND_CONTAINER" ] && \
+                [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$BACKEND_CONTAINER")" = "healthy" ]; then
                 exit 0
               fi
               sleep 5
