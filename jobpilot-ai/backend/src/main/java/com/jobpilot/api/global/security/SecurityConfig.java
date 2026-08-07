@@ -46,6 +46,8 @@ public class SecurityConfig {
 
                     authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
                     authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
+                    authorize.requestMatchers("/api/qnet/**", "/api/v1/auth/**").permitAll(); //
+
 
                     if (developmentAuthenticationEnabled) {
                         authorize.requestMatchers("/api/v1/dev/auth/token").permitAll();

@@ -24,6 +24,12 @@ export default defineConfig({
         target: "http://localhost:9000",
         changeOrigin: true,
       },
+      '/openapi': {
+        target: 'http://openapi.q-net.or.kr',
+        changeOrigin: true,
+        // /openapi로 시작하는 요청을 Q-Net의 실제 서비스 경로로 통째로 바꿔줍니다.
+        rewrite: (path) => path.replace(/^\/openapi/, '/api/service/rest/InquiryListNationalQualifcationSVC/getList'),
+      }
     },
   },
 });
