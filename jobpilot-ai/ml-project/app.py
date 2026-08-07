@@ -41,12 +41,12 @@ STOPWORDS = {
 
 
 # 1. DB에서 데이터 가져오기
-def fetch_data_from_db() -> list[dict]:
-    """jobpilot DB의 job_requirements 테이블 전체 조회"""
+def get_job_postings_from_db(importance: str = "all") -> list[str]:
+    db_user = os.getenv("DB_USERNAME", "root")
+    db_password = os.getenv("DB_PASSWORD")
+    # DB_HOST, DB_NAME, DB_PORT는 .env에 없으면 기본값 사용
     db_host = os.getenv("DB_HOST", "localhost")
     db_port = int(os.getenv("DB_PORT", 3306))
-    db_user = os.getenv("DB_USER", "root")
-    db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME", "jobpilot")
 
     conn = pymysql.connect(
