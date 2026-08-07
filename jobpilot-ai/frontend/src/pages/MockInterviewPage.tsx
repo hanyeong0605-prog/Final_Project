@@ -1103,15 +1103,33 @@ export function MockInterviewPage() {
     // STT 서버에는 오디오만 보내면 되니, 녹음 자체는 오디오 트랙만 따로 담아서 만든다
     // (영상까지 녹화해서 올리면 용량도 크고 서버에 얼굴 영상을 보내는 셈이 되어버림).
     const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+    if (audioOnlyStream.getAudioTracks().length === 0) {
+      setErrorMessage("휴대폰 마이크 오디오를 받지 못했습니다. 휴대폰 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
+      setStage("error");
+      return;
+    }
     chunksRef.current = [];
-    const recorder = new MediaRecorder(audioOnlyStream);
+    // Chrome does not always choose a usable default container for a remote
+    // WebRTC audio track. Pick the first explicitly supported format instead.
+    const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
+      .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(audioOnlyStream, { mimeType })
+        : new MediaRecorder(audioOnlyStream);
+      recorder.start();
+    } catch (reason) {
+      setErrorMessage(`녹화를 시작하지 못했습니다. ${reason instanceof Error ? reason.message : "휴대폰의 마이크 권한을 다시 확인해 주세요."}`);
+      setStage("error");
+      return;
+    }
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onstop = () => void submitRecording();
 
     mediaRecorderRef.current = recorder;
-    recorder.start();
 
     // 얼굴 추적 자체는 이미 테스트 단계부터 돌고 있었고, 여기서는 지표 계산용
     // 샘플을 이제부터 모으라고 표시만 해준다 (faceFramesRef를 녹음 시작 시점에 비움).
