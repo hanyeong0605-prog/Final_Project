@@ -15,7 +15,7 @@ public class CheckController {
     @Value("${barun.api.key}")
     private String apiKey;
 
-    @PostMapping("/checks/correct")
+    @PostMapping("/correct")
     public ResponseEntity<String> getCheck(@RequestBody Map<String, String> requestBody) {
         String textToCorrect = requestBody.get("q"); // 프론트에서 보낸 텍스트
 

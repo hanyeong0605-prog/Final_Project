@@ -16,7 +16,7 @@ import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import { StatisticsDashboard } from "../pages/StatisticsDashboard";
 import { QuestionPage } from "../pages/QuestionPage";
-import { Test1 } from "../pages/Test1";
+import  {Test1}  from "../pages/Test1";
 import { Test2 } from "../pages/Test2";
 import { Test3 } from "../pages/Test3";
 import { Test4 } from "../pages/Test4";
@@ -27,6 +27,7 @@ import { SkillRelationView } from "../pages/SkillRelationView";
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
+  { path: "/camera-pair", element: <CameraPairPage /> },
 
   {
     path: "/",

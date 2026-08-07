@@ -51,11 +51,13 @@ class NextQuestionRequest(BaseModel):
 @router.post("/next-question")
 def next_question(body: NextQuestionRequest):
     try:
-        question = None
-        if body.wants_personalized():
-            question = generate_personalized_question(
-                job=body.job, tech_summary=body.tech_summary, category=body.category
-            )
+        # The trained LoRA artifact is intentionally not included in the Docker image.
+        # Use Gemini for every request when it is configured, including users who have
+        # not completed a career profile yet.  Without this fallback the default path
+        # tries to load the absent artifact and returns 503 in production.
+        question = generate_personalized_question(
+            job=body.job, tech_summary=body.tech_summary, category=body.category
+        )
         if question is None:
             question = generate_question(job=body.job, context=body.context, category=body.category)
     except RuntimeError as e:

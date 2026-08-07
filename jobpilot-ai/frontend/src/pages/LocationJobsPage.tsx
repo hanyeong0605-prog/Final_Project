@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Filter, MapPin, Navigation, Search } from "lucide-react";
-import { KakaoMapContainer } from "../features/location-jobs/components/KakaoMapContainer";
+import { KakaoMapContainer } from "../features/location-jobs/components/KaKaoMapContainer";
 import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
-import type { LocationJob } from "../features/location-jobs/types";
+import type { LocationJob } from "../features/location-jobs/model/types";
 import { JobPostingCard } from "../features/job-postings/components/JobPostingCard";
 import type { JobPosting } from "../features/job-postings/model/jobPosting.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
@@ -28,7 +28,7 @@ export function LocationJobsPage() {
   const fetchLocationJobs = async (lat: number, lng: number, radius: number) => {
     setStatus("loading");
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:9000";
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
       const response = await fetch(
         `${baseUrl}/api/location-jobs?latitude=${lat}&longitude=${lng}&radiusKm=${radius}`
       );

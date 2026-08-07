@@ -1,0 +1,83 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'jobpilot-ai/**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Update EC2 containers
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy changed services over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: 22
+          envs: REPO_READ_TOKEN
+          script: |
+            set -eu
+
+            cd /opt/jobpilot
+            CURRENT_COMMIT="$(git rev-parse HEAD)"
+            AUTH_HEADER="$(printf 'x-access-token:%s' "$REPO_READ_TOKEN" | base64 -w 0)"
+            GIT_TERMINAL_PROMPT=0 git -c http.extraheader="AUTHORIZATION: basic $AUTH_HEADER" fetch origin main
+            CHANGED_FILES="$(git diff --name-only "$CURRENT_COMMIT" origin/main)"
+            git merge --ff-only origin/main
+
+            cd /opt/jobpilot/jobpilot-ai
+            export ENV_FILE=/etc/jobpilot/jobpilot.env
+            COMPOSE="sudo -E docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml"
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
+              $COMPOSE build frontend
+              $COMPOSE up -d --no-deps frontend
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/backend/'; then
+              $COMPOSE build backend
+              $COMPOSE up -d --no-deps backend
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ai-server/'; then
+              $COMPOSE build ai-server
+              $COMPOSE up -d --no-deps ai-server
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
+              $COMPOSE up -d
+            fi
+
+            $COMPOSE ps
+            # Check the backend container's own Compose health check. Going
+            # through host Nginx here is not reliable: the host proxy may be
+            # independently reconfigured for TLS and return a 404 even while
+            # the backend is healthy.
+            for attempt in $(seq 1 24); do
+              BACKEND_CONTAINER="$($COMPOSE ps -q backend)"
+              if [ -n "$BACKEND_CONTAINER" ] && \
+                [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$BACKEND_CONTAINER")" = "healthy" ]; then
+                exit 0
+              fi
+              sleep 5
+            done
+
+            $COMPOSE ps
+            $COMPOSE logs --tail=120 backend
+            echo "Backend did not become healthy within 120 seconds." >&2
+            exit 1

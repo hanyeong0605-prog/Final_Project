@@ -4,6 +4,7 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  Camera,
   CheckCircle2,
   Clock,
   Eye,
@@ -30,6 +31,7 @@ import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/li
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
+import { PhoneCameraPairingPanel } from "../features/mock-interview/components/PhoneCameraPairingPanel";
 
 // 2026-08-04: KoGPT2+LoRA 질문 생성 모델(ai-server /interview/next-question)이 실제 질문을
 // 만들어준다. 이 배열은 이제 "기본값"이 아니라 폴백용 - 모델 서버가 아직 안 떠 있거나
@@ -561,6 +563,7 @@ export function MockInterviewPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
+  const [pairingPanelOpen, setPairingPanelOpen] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   // 2026-08-05: 마이크/카메라를 못 쓰거나 쓰기 부담스러운 사람을 위한 보조 경로 - 주 기능은
   // 여전히 녹음이라(device-check 화면에서 아주 작은 글씨 링크로만 노출) answerMode는
@@ -629,6 +632,9 @@ export function MockInterviewPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const phonePairDisconnectRef = useRef<(() => void) | null>(null);
+  const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
+  const phoneAutoStartRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const faceRafIdRef = useRef<number | null>(null);
@@ -845,6 +851,37 @@ export function MockInterviewPage() {
     audioContextRef.current = null;
   };
 
+  const startMeterLoop = (stream: MediaStream) => {
+    stopMeterLoop();
+    if (stream.getAudioTracks().length === 0) {
+      setMicLevel(0);
+      return;
+    }
+    const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let peak = 0;
+      for (const value of data) peak = Math.max(peak, Math.abs((value - 128) / 128));
+      setMicLevel(Math.min(100, Math.round(peak * 250)));
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+  };
+
+  const disconnectPhonePairing = () => {
+    phonePairDisconnectRef.current?.();
+    phonePairDisconnectRef.current = null;
+    phonePairStateRef.current = null;
+    phoneAutoStartRef.current = false;
+  };
+
   const stopFaceLoop = () => {
     if (faceRafIdRef.current !== null) cancelAnimationFrame(faceRafIdRef.current);
     faceRafIdRef.current = null;
@@ -855,6 +892,37 @@ export function MockInterviewPage() {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   };
+
+  const usePhoneCameraStream = async (stream: MediaStream) => {
+    stopStream();
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+    }
+    const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
+    landmarkerRef.current = landmarker;
+    startFaceTrackingLoop(landmarker);
+    startMeterLoop(stream);
+    setCameraReady(true);
+    setPairingPanelOpen(false);
+    // QR pairing hands the whole interview to the phone camera. It should not
+    // leave the user at a second manual "start" button on the PC.
+    phoneAutoStartRef.current = true;
+    setStage("testing-mic");
+  };
+
+  useEffect(() => {
+    if (!phoneAutoStartRef.current || stage !== "testing-mic" || sessionQuestions.length === 0) return;
+    phoneAutoStartRef.current = false;
+    beginInterviewCountdown();
+    // beginInterviewCountdown reads the latest prepared session questions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, sessionQuestions]);
+
+  useEffect(() => {
+    phonePairStateRef.current?.(stage, questionTextReady ? question : undefined, stage === "recording" ? elapsedSec : undefined);
+  }, [stage, question, questionTextReady, elapsedSec]);
 
   // 눈에 보이는 피드백이 있어야 "지금 분석되고 있다"는 게 체감된다 - 캔버스에 얼굴
   // 랜드마크 점을 실시간으로 그려준다. 녹음 시작 전(테스트 단계)부터 계속 돌리다가,
@@ -935,6 +1003,7 @@ export function MockInterviewPage() {
     setErrorMessage(null);
     setStage("preparing");
     try {
+      disconnectPhonePairing();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480 } });
       streamRef.current = stream;
 
@@ -950,25 +1019,7 @@ export function MockInterviewPage() {
       setCameraReady(true);
       startFaceTrackingLoop(landmarker);
 
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 1024;
-      source.connect(analyser);
-
-      const data = new Uint8Array(analyser.fftSize);
-      const tick = () => {
-        analyser.getByteTimeDomainData(data);
-        let peak = 0;
-        for (const value of data) {
-          const centered = Math.abs((value - 128) / 128);
-          if (centered > peak) peak = centered;
-        }
-        setMicLevel(Math.min(100, Math.round(peak * 250)));
-        rafIdRef.current = requestAnimationFrame(tick);
-      };
-      tick();
+      startMeterLoop(stream);
 
       setStage("testing-mic");
     } catch (error) {
@@ -989,6 +1040,7 @@ export function MockInterviewPage() {
     stopMeterLoop();
     stopFaceLoop();
     isRecordingRef.current = false;
+    disconnectPhonePairing();
     stopStream();
     setCameraReady(false);
     setStage("device-check");
@@ -1051,15 +1103,46 @@ export function MockInterviewPage() {
     // STT 서버에는 오디오만 보내면 되니, 녹음 자체는 오디오 트랙만 따로 담아서 만든다
     // (영상까지 녹화해서 올리면 용량도 크고 서버에 얼굴 영상을 보내는 셈이 되어버림).
     const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+    if (audioOnlyStream.getAudioTracks().length === 0) {
+      setErrorMessage("휴대폰 마이크 오디오를 받지 못했습니다. 휴대폰 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
+      setStage("error");
+      return;
+    }
     chunksRef.current = [];
-    const recorder = new MediaRecorder(audioOnlyStream);
+    // Chrome does not always choose a usable default container for a remote
+    // WebRTC audio track. Pick the first explicitly supported format instead.
+    const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
+      .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(audioOnlyStream, { mimeType })
+        : new MediaRecorder(audioOnlyStream);
+      recorder.start();
+    } catch (reason) {
+      // Some Chromium builds reject an audio-only MediaStream made from a
+      // remote WebRTC track. The AI server accepts WebM and extracts audio
+      // with ffmpeg, so use the original remote audio+video stream as a safe
+      // fallback instead of abandoning the interview.
+      const fallbackMimeType = ["video/webm;codecs=vp8,opus", "video/webm"]
+        .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+      try {
+        recorder = fallbackMimeType
+          ? new MediaRecorder(stream, { mimeType: fallbackMimeType })
+          : new MediaRecorder(stream);
+        recorder.start();
+      } catch (fallbackReason) {
+        setErrorMessage(`녹화를 시작하지 못했습니다. ${fallbackReason instanceof Error ? fallbackReason.message : reason instanceof Error ? reason.message : "휴대폰의 마이크 권한을 다시 확인해 주세요."}`);
+        setStage("error");
+        return;
+      }
+    }
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onstop = () => void submitRecording();
 
     mediaRecorderRef.current = recorder;
-    recorder.start();
 
     // 얼굴 추적 자체는 이미 테스트 단계부터 돌고 있었고, 여기서는 지표 계산용
     // 샘플을 이제부터 모으라고 표시만 해준다 (faceFramesRef를 녹음 시작 시점에 비움).
@@ -1313,6 +1396,7 @@ export function MockInterviewPage() {
     stopTtsAudio();
     window.speechSynthesis?.cancel();
     isRecordingRef.current = false;
+    disconnectPhonePairing();
     stopStream();
     landmarkerRef.current = null;
     if (timerIdRef.current !== null) {
@@ -1405,7 +1489,6 @@ export function MockInterviewPage() {
                 borderRadius: 10,
                 background: "#111",
                 objectFit: "cover",
-                transform: "scaleX(-1)",
               }}
             />
             <canvas
@@ -1415,7 +1498,6 @@ export function MockInterviewPage() {
                 inset: 0,
                 width: "100%",
                 height: "100%",
-                transform: "scaleX(-1)",
                 pointerEvents: "none",
               }}
             />
@@ -1563,6 +1645,19 @@ export function MockInterviewPage() {
               <button className="primary-button" onClick={() => void startDeviceTest()} type="button">
                 <Mic size={16} /> 마이크·카메라 테스트
               </button>
+              <button className="text-button" onClick={() => setPairingPanelOpen(true)} type="button">
+                <Camera size={15} /> 폰을 카메라로 연결
+              </button>
+              {pairingPanelOpen && (
+                <PhoneCameraPairingPanel
+                  onRemoteStream={(stream) => void usePhoneCameraStream(stream)}
+                  onConnected={({ disconnect, sendInterviewState }) => {
+                    phonePairDisconnectRef.current = disconnect;
+                    phonePairStateRef.current = sendInterviewState;
+                  }}
+                  onClose={() => setPairingPanelOpen(false)}
+                />
+              )}
               <button
                 className="text-button"
                 onClick={startTypingForSession}

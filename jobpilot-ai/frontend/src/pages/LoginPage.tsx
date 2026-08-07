@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
 
 // Vite's DEV is true only for `npm run dev`; production builds never show this button.
@@ -8,13 +8,17 @@ const developmentLoginEnabled = import.meta.env.DEV;
 export function LoginPage() {
   const { member, login, developmentLogin } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const requestedReturnTo = params.get("returnTo");
+  // Preserve only an internal phone-pairing route after login.
+  const returnTo = requestedReturnTo?.startsWith("/camera-pair?") ? requestedReturnTo : "/";
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [developmentSigningIn, setDevelopmentSigningIn] = useState(false);
 
-  if (member) return <Navigate to="/" replace />;
+  if (member) return <Navigate to={returnTo} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -23,7 +27,7 @@ export function LoginPage() {
 
     try {
       await login({ loginId, password });
-      navigate("/");
+      navigate(returnTo);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다.");
     } finally {
@@ -37,7 +41,7 @@ export function LoginPage() {
 
     try {
       await developmentLogin();
-      navigate("/");
+      navigate(returnTo);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "개발 계정 로그인에 실패했습니다.");
     } finally {
