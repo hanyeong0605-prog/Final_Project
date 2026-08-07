@@ -1,11 +1,13 @@
 -- Deployment-safe OpenAI Luna job-requirement seed.
 -- Coverage: 2,822 of the 2,833 Wanted job postings in
 -- wanted_jobs_merge_20260804_normal.sql.
--- The remaining 11 external IDs must be backfilled from the crawler/AI:
+-- The remaining 11 IDs have no row in the source requirement dump; backfill
+-- them from the crawler/AI only if requirement data is needed for them:
 -- 312163, 326794, 326795, 339163, 339485, 362485, 364367, 370778,
 -- 371383, 371991, 372177.
 -- This intentionally does not import openai_luna_requirement_seed.sql,
--- which is a separate full skills-catalog dump, not job-requirement data.
+-- a full local-DB dump containing skills, aliases, requirements, and
+-- job-skill rows that reference local numeric job_posting IDs.
 -- Prerequisites: Wanted job postings are imported and Flyway V10/V11 or newer has run.
 -- This file does not insert skills or aliases with local numeric IDs.
 SET NAMES utf8mb4;
