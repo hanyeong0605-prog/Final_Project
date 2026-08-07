@@ -36,9 +36,10 @@ def test_success_returns_question_reflecting_tech_summary(monkeypatch):
         text = "Spring Boot에서 JPA N+1 문제를 어떻게 해결해보셨나요?"
 
     class FakeModels:
-        def generate_content(self, model, contents):
+        def generate_content(self, model, contents, config=None):
             captured["model"] = model
             captured["prompt"] = contents
+            captured["config"] = config
             return FakeResponse()
 
     class FakeClient:
@@ -55,6 +56,62 @@ def test_success_returns_question_reflecting_tech_summary(monkeypatch):
     assert "백엔드 개발자" in captured["prompt"]
     assert "Spring Boot, JPA로 커머스 프로젝트 진행" in captured["prompt"]
     assert "카테고리: 기술_직무역량" in captured["prompt"]
+
+
+def test_angle_hint_included_in_prompt(monkeypatch):
+    """angle_hint를 넘기면 프롬프트에 그 관점이 명시적으로 포함돼야 한다 - tech_summary가
+    짧고 구체적일 때(예: "VSCode 확장 프로그램 개발 경험") 세션 안 여러 질문이 같은
+    소재로 수렴하지 않도록 호출부가 각도를 강제하는 기능이다."""
+    monkeypatch.setattr(question_generator.settings, "gemini_api_key", "fake-key")
+
+    captured = {}
+
+    class FakeResponse:
+        text = "VSCode 확장 프로그램을 만들 때 겪은 트러블슈팅 경험을 말씀해 주시겠습니까?"
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        question = generate_personalized_question(
+            job="백엔드 개발자",
+            tech_summary="VSCode 확장 프로그램 개발 경험",
+            category="기술_직무역량",
+            angle_hint="트러블슈팅/문제 해결 경험",
+        )
+
+    assert question is not None
+    assert "트러블슈팅/문제 해결 경험' 관점에서 만들어라" in captured["prompt"]
+
+
+def test_no_angle_hint_uses_generic_diversity_rule(monkeypatch):
+    """angle_hint를 안 넘기면 기존처럼 느슨한 다양성 지시(규칙 5)가 그대로 들어가야 한다."""
+    monkeypatch.setattr(question_generator.settings, "gemini_api_key", "fake-key")
+
+    captured = {}
+
+    class FakeResponse:
+        text = "질문"
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        generate_personalized_question(job="백엔드 개발자", tech_summary="Spring")
+
+    assert "매번 다른 각도" in captured["prompt"]
 
 
 def test_gemini_failure_returns_none(monkeypatch):

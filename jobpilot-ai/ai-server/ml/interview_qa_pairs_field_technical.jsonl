@@ -1,0 +1,596 @@
+{"job": "백엔드", "context": "", "question": "REST API를 설계할 때 URI 경로와 HTTP 메서드는 각각 어떤 기준으로 나누시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 트래픽에서 데이터베이스 락(Lock) 경합 문제를 해결해 본 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "JWT 기반 인증 방식을 사용할 때 토큰 탈취 문제와 만료 관리는 어떻게 처리하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 환경에서 분산 트랜잭션을 보장하기 위해 주로 어떤 패턴이나 기술을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Redis를 캐시로 사용할 때 발생할 수 있는 캐시 스탬피드 현상은 어떻게 방어하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "JPA를 사용할 때 N+1 문제가 발생하는 근본적인 원인과 이를 해결하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 인덱스가 동작하는 원리와 어떤 컬럼에 인덱스를 걸어야 하는지 기준을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "CI/CD 파이프라인을 구축하면서 배포 중 다운타임을 없애기 위해 어떤 전략을 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 트래픽으로 인해 데이터베이스 커넥션 풀이 고갈되는 상황은 어떻게 진단하고 해결하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "도커 컨테이너 내부의 로그나 에러를 효율적으로 모니터링하기 위해 어떤 스택을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "전통적인 관계형 데이터베이스와 NoSQL을 선정하는 본인만의 명확한 기준이 있으신가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "서버 부하 분산을 위해 로드밸런서를 도입할 때 Layer 4와 Layer 7의 차이는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "이력서에 작성하신 프로젝트에서 가장 성능을 극적으로 개선했던 경험과 수치를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 로그 데이터를 실시간으로 수집하고 분석하기 위해 어떤 아키텍처를 구상해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹 애플리케이션의 메모리 누수(Memory Leak)를 프로파일링하고 원인을 추적하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Spring Framework에서 빈(Bean)의 생명주기와 싱글톤 스코프 사용 시 주의할 점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "DB 이중화 환경에서 마스터와 슬레이브 간의 데이터 동기화 지연 문제는 어떻게 대응하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 구조에서 서비스 간 통신 시 gRPC와 REST API 중 어떤 기준으로 기술을 선택하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 데이터를 페이징 처리할 때 오프셋 기반 방식 대신 커서 기반 방식을 쓰는 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "git-flow 전략을 사용할 때 브랜치 간 병합 충돌을 최소화하기 위한 팀 내 규칙이 있으신가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "서버 간 통신 중 네트워크 타임아웃이나 일시적 장애가 발생할 때 서킷 브레이커는 어떻게 구현하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "관계형 데이터베이스에서 데드락(Deadlock)이 발생하는 상황을 재현하고 어떻게 해결하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Node.js나 Spring 등 사용하시는 주력 런타임의 비동기 처리 메커니즘을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 파일 업로드 기능을 구현할 때 서버 메모리 부하를 줄이기 위해 어떤 방식을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "API 버거(Versioning) 관리 전략으로 URI 경로 방식과 헤더 방식 중 어느 쪽을 선호하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹소켓(WebSocket)을 활용해 실시간 양방향 통신을 구현할 때 세션 관리는 어떻게 처리하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "ORM을 사용하는 것과 직접 SQL을 작성하는 것 사이의 트레이드오프를 어떻게 판단하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "서비스 장애 발생 시 신속한 원인 파악을 위해 로그에 반드시 포함해야 하는 정보는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 트래픽 분산을 위해 Kafka 같은 메시지 큐를 도입할 때 고려해야 할 핵심 요소는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "유닛 테스트와 통합 테스트의 작성 비율은 어떻게 가져가며, 테스트 커버리지는 어느 정도 유지하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "비관적 락과 낙관적 락의 동작 방식과 각각 어떤 비즈니스 로직에 적용해야 하는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 트래픽이 예상되는 이벤트를 앞두고 부하 테스트를 진행할 때 어떤 도구와 지표를 활용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "API 서버의 응답 속도가 갑자기 느려졌을 때 병목 지점을 찾아내는 구체적인 프로파일링 순서를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "클라우드 환경에서 오토스케일링을 설정할 때 기준이 되는 주요 메트릭은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 마이그레이션 도중 무중단으로 스키마를 변경하기 위한 브랜치 전략을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 데이터 조회 성능을 높이기 위해 데이터베이스 파티셔닝을 적용해 본 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "서버 간 통신 시 상호 인증(mTLS)이나 API 스펙 검증을 위해 어떤 보안 조치를 취하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "레거시 시스템을 새로운 아키텍처로 마이그레이션할 때 Strangler Fig 패턴을 어떻게 적용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 환경에서 분산 로깅(Distributed Tracing)을 구현하기 위해 어떤 헤더와 도구를 사용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 샤딩을 도입할 때 샤딩 키를 선정하는 본인만의 원칙과 주의할 점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "REST API 설계 시 GET과 POST 메서드의 캐시 가능성 차이에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 인덱스로 B-Tree를 주로 사용하는 이유와 동작 원리를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 트래픽 환경에서 관계형 데이터베이스의 샤딩 전략을 수립해 본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "레디스를 캐시로 사용할 때 발생할 수 있는 캐시 멍청(Cache Stampede) 현상의 해결책은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 환경에서 분산 트랜잭션을 처리하기 위해 SAGA 패턴을 적용해 본 적이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "JWT 기반 인증 시 토큰 탈취 문제에 대응하기 위한 보안 강화 방안을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "JPA 사용 시 발생하는 N+1 문제의 원인과 이를 해결하기 위한 페치 조인 활용법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 데드락(Deadlock)이 발생했을 때 이를 감지하고 해결했던 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 환경에서 서비스 간 통신 시 gRPC와 REST의 트레이드오프를 비교해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹 애플리케이션에서 대용량 파일 업로드 기능을 구현할 때 고려해야 할 성능 최적화 요소는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "도메인 주도 설계(DDD)를 적용할 때 애그리거트(Aggregate) 경계를 설정하는 기준이 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Spring Boot 기반 애플리케이션의 헬스체크(Health Check)와 그레이스풀 셧다운(Graceful Shutdown) 구현 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "NoSQL 데이터베이스인 MongoDB와 RDBMS를 어떤 기준으로 선택하여 사용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 커넥션 풀(Connection Pool)의 적정 크기를 산정하는 자신만의 기준이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 배치(Batch) 처리 시스템을 설계할 때 청크 기반 프로세싱의 장점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA에서 API Gateway를 도입함으로써 얻는 이점과 발생할 수 있는 병목 현상에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹 소켓(WebSocket)을 이용한 실시간 채팅 시스템을 구현할 때 세션 관리 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 쿼리 성능 저하(Slow Query)를 진단하고 실행 계획(Execution Plan)을 분석하는 절차를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "CI/CD 파이프라인을 구축할 때 무중단 배포(Blue-Green 또는 Canary)를 구현한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "객체지향 설계 5원칙(SOLID) 중 의존성 역전 원칙(DIP)이 실무에서 어떻게 적용되는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Java Garbage Collection의 동작 방식과 G1 GC의 특징에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 환경에서 분산 트레이싱(Distributed Tracing)을 구현하기 위해 어떤 도구를 사용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "레디스를 영속성 데이터 저장소로 사용할 때 AOF와 RDB 방식의 차이점과 장단점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 트래픽으로 인한 데이터베이스 부하를 분산시키기 위해 어떤 아키텍처 패턴을 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "OAuth 2.0 프로토콜의 인증 흐름(Authorization Code Grant)에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA에서 서비스 디스커버리(Service Discovery) 메커니즘의 필요성과 동작 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Spring Security를 활용한 필터 기반의 인증 및 인가 처리 구조를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "동시성 이슈가 발생할 수 있는 재고 감소 로직에서 비관적 락과 낙관적 락의 트레이드오프를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "HTTP/1.1과 HTTP/2의 주요 차이점과 백엔드 성능에 미치는 영향을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "Node.js 환경에서 싱글 스레드 이벤트 루프의 블로킹 문제를 어떻게 방지하고 계시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "ORM을 사용할 때 네이티브 쿼리와 JPQL을 혼용해야 하는 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "메시지 큐(Kafka, RabbitMQ 등)를 도입하여 비동기 처리를 구현할 때 메시지 유실 방지 대책을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 마이그레이션 도구(Flyway, Liquibase 등)를 사용할 때의 장점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹 애플리케이션 보안 취약점인 OWASP Top 10 중 SQL Injection과 XSS의 방어 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA에서 분산락(Distributed Lock)을 구현할 때 Redis와 Zookeeper 중 어떤 것을 선호하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 로그 수집 및 모니터링 시스템(ELK Stack 등)을 구축하거나 운영해 본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "도커 컨테이너 기반으로 애플리케이션을 패키징할 때 이미지 크기를 줄이기 위한 노하우가 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "쿠버네티스(Kubernetes) 환경에서 파드(Pod)의 오토스케일링(HPA) 기준을 어떻게 설정하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "API 버전을 관리할 때 URL Path 방식과 Header 방식 중 어떤 방식을 선호하며 그 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "레거시 시스템을 점진적으로 마이크로서비스로 전환하는 스트랭글러 피그(Strangler Fig) 패턴을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "REST API 설계 시 URI 명명 규칙으로 명사 중심과 동사 중심 중 어떤 방식을 선호하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 트래픽 환경에서 데이터베이스 커넥션 풀 크기는 어떤 기준으로 설정하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "MSA 환경에서 분산 트랜잭션을 처리하기 위해 주로 어떤 패턴을 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "JPA 사용 시 N+1 문제의 발생 원인과 이를 해결해 본 구체적인 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "레디스를 캐시로 사용할 때 발생할 수 있는 캐시 멍청 현상과 대책을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "RDB와 NoSQL 중 특정 도메인에 맞는 데이터베이스를 선택하는 본인만의 기준이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "JWT 기반 인증 방식의 장점과 토큰 탈취 문제에 대응하는 보안 전략을 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "CI/CD 파이프라인을 구축할 때 테스트 자동화와 빌드 속도 개선을 위해 어떤 도구를 쓰시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "서버의 CPU 사용량이 갑자기 치솟을 때 어떤 순서로 원인을 진단하고 해결하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "도커 컨테이너 내부에서 발생한 에러 로그를 효율적으로 수집하고 모니터링하는 방법은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 인덱스는 어떤 기준으로 생성하며, 인덱스가 무용지물이 되는 경우는 언제인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "객체지향 설계 5원칙 중 백엔드 API를 개발할 때 가장 중요하게 생각하는 원칙은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "동시성 이슈가 발생할 수 있는 결제 시스템에서 재고 차감 로직은 어떻게 구현하셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "비동기 메시지 큐로 카프카를 선택한 이유와 래빗MQ와의 주요 차이점은 무엇이라고 보시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹 애플리케이션 보안 취약점 중 OWASP Top 10에서 가장 경계하는 항목은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 데이터를 페이징 처리할 때 Offset 방식과 Cursor 방식의 성능 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "ORM을 사용하는 이유와 직접 SQL을 작성하는 네이티브 쿼리를 선호하는 상황은 언제인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "스프링 부트의 의존성 주입 방식 중 생성자 주입을 권장하는 기술적 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "마이크로서비스 간 통신에서 gRPC와 REST API를 각각 어떤 상황에 적용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "레디스의 싱글 스레드 특성이 성능에 미치는 영향과 주의해야 할 점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 격리 수준 중 Read Committed와 Repeatable Read의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 트래픽으로 인한 서버 다운을 방지하기 위해 서킷 브레이커 패턴을 어떻게 적용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "깃허브 액션을 활용해 무중단 배포 파이프라인을 구축해 본 경험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "관계형 데이터베이스에서 샤딩과 파티셔닝의 개념적 차이와 적용 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "API 서버의 응답 속도가 점차 느려질 때 병목 구간을 찾아내는 프로파일링 도구 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "스프링 시큐리티의 필터 체인 구조와 인증 인가 처리 흐름을 간략히 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "도커와 쿠버네티스를 활용해 오토스케일링 환경을 구성해 본 실무 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대용량 트래픽 환경에서 로그를 파일로 남길 때 성능 저하를 막기 위해 어떤 점을 고려하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 락의 종류인 공유 락과 배타적 락의 개념과 활용 사례를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "TDD 방식을 적용하여 비즈니스 로직을 구현할 때의 장점과 어려움을 겪은 적이 있나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "웹소켓을 활용한 실시간 알림 시스템을 구현할 때 고려해야 할 인프라적 제약은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "대규모 레거시 코드를 리팩토링할 때 안전성을 확보하기 위해 어떤 전략을 취하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "스프링 프레임워크의 AOP 개념을 활용해 주로 어떤 부가 기능을 구현해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "분산 시스템에서 고유한 ID를 생성하기 위해 어떤 알고리즘이나 방식을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "데이터베이스 슬레이브 증설을 통한 읽기 부하 분산 처리가 한계에 도달하면 어떻게 해결하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "스프링 배치 기반으로 대용량 데이터를 처리할 때 청크 기반 처리의 장점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "API 버전을 관리할 때 URL 패스 방식과 헤더 방식 중 어떤 방식을 더 선호하시나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "서버 메모리 누수 현상을 디버깅하고 힙 덤프를 분석해 본 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "마이크로서비스 아키텍처에서 분산 로깅과 추적을 위해 어떤 시스템을 연동해 보셨나요?", "category": "기술_직무역량"}
+{"job": "백엔드", "context": "", "question": "DB 데드락 상황을 실무에서 마주쳤을 때 어떻게 분석하고 쿼리를 개선하셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저의 렌더링 과정을 초기 파싱부터 페인트 단계까지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSR과 SSR의 차이점을 설명하고 각각 어떤 서비스에 적합한지 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "React의 Virtual DOM이 무엇이고 어떤 원리로 성능을 최적화하는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "클로저의 개념을 설명하고 프론트엔드 개발에서 실제로 유용하게 썼던 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "JavaScript의 이벤트 루프 동작 원리와 마이크로태스크 큐의 역할을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "상태 관리 라이브러리로 Redux 대신 Zustand를 선택했던 트레이드오프를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Webpack 대신 Vite를 도입했을 때 빌드 속도 측면에서 어떤 이점이 있었나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "대규모 리스트 렌더링 시 발생하는 성능 저하를 해결하기 위해 어떤 방법을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹페이지의 LCP와 CLS 지표를 개선하기 위해 구체적으로 어떤 최적화를 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "TypeScript의 `interface`와 `type` alias의 차이점과 언제 무엇을 쓰시는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "실무에서 발생한 CORS 에러의 원인과 이를 해결했던 다양한 방법을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "React 컴포넌트의 리렌더링을 유발하는 주요 원인과 이를 최적화하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "JavaScript의 프로토타입 기반 상속과 클래스 기반 상속의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSS Grid와 Flexbox의 핵심적인 차이점과 각각 어떤 레이아웃에 적합한지 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "모던 웹 애플리케이션에서 이미지 로딩 성능을 최적화하기 위해 어떤 전략을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 테스트 코드 작성 시 Jest와 Testing Library를 각각 어떻게 활용하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 접근성(a11y)을 고려하여 마크업을 작성할 때 가장 중요하게 보는 요소는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "SPA에서 JWT 기반 인증을 구현할 때 Access Token과 Refresh Token을 어디에 저장하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "JavaScript의 메모리 누수 원인과 Chrome DevTools를 통해 이를 진단하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Next.js의 App Router 도입 시 Pages Router 대비 느꼈던 장단점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 프로젝트에서 전역 상태와 지역 상태를 나누는 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "React의 커스텀 훅을 설계할 때 가장 중요하게 고려하는 원칙은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "debounce와 throttle의 차이점을 설명하고 실무에서 어떤 기능에 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 보안 취약점 중 XSS와 CSRF의 개념 및 방어 방법을 각각 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSS-in-JS와 CSS Modules의 성능 및 유지보수 관점에서의 차이를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "GraphQL을 REST API 대신 도입했을 때의 장단점을 프로젝트 경험을 바탕으로 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "비동기 통신 중 API 요청이 중복으로 발생할 때 이를 방지하기 위한 프론트엔드 대책이 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Tailwind CSS 같은 유틸리티 퍼스트 CSS를 사용하면서 느낀 장단점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 에러 바운더리(Error Boundary)를 활용해 예외 처리를 어떻게 구성하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저의 로컬 스토리지, 세션 스토리지, 쿠키의 차이와 보안적 특징을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "React `useEffect` 훅을 사용할 때 무한 루프를 방지하기 위해 어떤 점을 주의하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 폰트 로딩 시 발생하는 FOIT나 FOUT 현상을 완화하기 위한 전략을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "모바일 웹뷰 환경에서 네이티브 앱과 통신(Bridge)할 때 겪었던 트러블슈팅을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "JavaScript의 이벤트 버블링과 캡처링의 개념을 설명하고 이벤트 위임의 장점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 성능 모니터링을 위해 Sentry나 GA 같은 툴을 어떻게 활용하고 계시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Redux 미들웨어의 동작 원리를 설명하고 직접 커스텀 미들웨어를 만들어 본 적이 있으신가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "오픈소스 라이브러리를 프로젝트에 도입할 때 번들 사이즈와 유지보수성을 어떻게 검토하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "React Server Components(RSC)의 도입 배경과 기존 SSR과의 차이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 코드 리뷰 시 유지보수성과 가독성을 높이기 위해 주로 어떤 부분을 피드백하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저 캐시(Cache-Control 등) 전략을 어떻게 수립하여 정적 리소스 배포 문제를 해결하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "실무에서 웹 페이지의 초기 로딩 속도(LCP)를 개선해 본 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "React의 Virtual DOM이 무엇이고 실제 DOM과 비교해 어떤 이점이 있는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "컴포넌트 리렌더링 이슈를 최적화하기 위해 useMemo와 useCallback을 각각 언제 사용하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Redux와 Context API의 상태 관리 방식에서 오는 아키텍처적 차이와 트레이드오프를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "대규모 프론트엔드 프로젝트에서 상태 관리 라이브러리로 Zustand나 Recoil을 도입한 이유가 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "SSR과 CSR의 동작 방식 차이를 설명하고, SEO 관점에서 어떤 방식을 선택해야 하는지 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Next.js의 SSG와 ISR의 차이점과 각각 어떤 서비스 형태에 적합한지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSS Grid와 Flexbox의 핵심적인 차이점과 레이아웃 설계 시 각각 언제 활용하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSS 전처리기나 Tailwind CSS 같은 유틸리티 퍼스트 CSS를 도입했을 때의 장단점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "TypeScript를 사용하는 가장 큰 이유가 무엇이며, any 타입 사용을 지양해야 하는 이유를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "제네릭(Generic)을 활용해 재사용 가능한 컴포넌트나 함수를 작성해 본 경험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 접근성(a11y)을 고려하여 마크업을 작성할 때 가장 중요하게 생각하는 원칙이 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "크로스 브라우징 이슈를 해결하기 위해 주로 어떤 방식으로 디버깅을 진행하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 애플리케이션에서 발생한 메모리 누수를 감지하고 해결했던 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "비동기 통신 시 Axios와 Fetch API의 차이점과 에러 핸들링 전략을 어떻게 가져가시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Promise와 async/await의 동작 차이를 설명하고, 콜백 지옥을 해결하는 방식을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 보안 취약점인 XSS와 CSRF의 개념을 설명하고, 각각 어떻게 방어할 수 있는지 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "JWT를 이용한 인증 방식에서 토큰을 어디에 저장하는 것이 안전하며, 그 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "RESTful API와 GraphQL의 철학적 차이와 프론트엔드 관점에서의 장단점을 비교해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Webpack이나 Vite 같은 번들러의 동작 원리 차이와 개발 빌드 속도 개선 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "코드 스플리팅과 레이지 로딩을 구현해 본 경험과 이것이 성능에 미치는 영향을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Jest나 React Testing Library를 활용해 컴포넌트 테스트 코드를 작성할 때의 기준이 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "TDD 방식을 프론트엔드 개발에 적용해 본 경험이 있으신가요? 있다면 그 소감을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "Git 브랜치 전략으로 주로 무엇을 사용하시며, 충돌이 발생했을 때 어떻게 해결하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CI/CD 파이프라인을 구축하여 프론트엔드 배포를 자동화해 본 경험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "디바운싱과 쓰로틀링의 개념 차이를 설명하고, 실무에서 어떤 기능에 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "이벤트 버블링과 캡처링의 개념을 설명하고, 이벤트 위임을 사용하는 이유를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "클로저(Closure)가 무엇인지 설명하고, 프론트엔드 개발에서 이를 유용하게 활용한 사례가 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "자바스크립트의 프로토타입 기반 상속과 클래스 기반 문법의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "이벤트 루프의 동작 원리와 마이크로태스크 큐가 매크로태스크 큐보다 우선 처리되는 이유를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "PWA(Progressive Web App)를 구현해 본 경험이 있다면, 서비스 워커의 역할에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹소켓(WebSocket)과 SSE(Server-Sent Events)의 차이점과 실시간 기능 구현 시 선택 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저의 로컬 스토리지, 세션 스토리지, 쿠키의 용도별 차이점과 보안상 주의할 점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "모바일 웹 환경에서 발생할 수 있는 터치 지연이나 레이아웃 시프트(CLS) 문제를 어떻게 해결하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "디자인 시스템을 도입하거나 구축해 본 경험이 있다면, 컴포넌트 설계 시 가장 중요하게 고려한 점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "모노레포(Monorepo) 아키텍처를 도입해 본 경험이 있다면, 그 장단점에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 성능 모니터링을 위해 Sentry나 Lighthouse 같은 툴을 어떻게 활용하고 계시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "외부 라이브러리를 프로젝트에 도입할 때 고려하는 기준(번들 크기, 유지보수성 등)이 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "레거시 프론트엔드 코드를 리팩토링할 때 어떤 순서와 전략으로 접근하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "자바스크립트의 이벤트 루프와 마이크로태스크 큐의 동작 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저의 렌더링 파이프라인에서 리플로우와 리페인트가 발생하는 원인과 최적화 방법을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "리액트의 Virtual DOM이 무엇이고, 실제 DOM 조작과 비교해 어떤 성능 이점이 있는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "상태 관리 라이브러리를 선정할 때 Redux, Zustand, Recoil 중 어떤 기준으로 선택하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "대규모 웹 애플리케이션에서 컴포넌트 재사용성과 확장성을 높이기 위해 어떤 설계 원칙을 적용하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹페이지 초기 로딩 속도 개선을 위해 적용해 본 구체적인 최적화 기법을 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "클로저의 개념과 실무에서 메모리 누수 위험을 방지하며 유용하게 사용했던 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "타입스크립트를 사용할 때 인터페이스와 타입 앨리어스의 차이점과 각각 어떤 기준으로 사용하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 접근성을 고려하여 시멘틱 마크업을 작성하고 키보드 네비게이션을 구현해 본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "RESTful API와 GraphQL의 트레이드오프를 비교하고 프론트엔드 관점에서 어떤 상황에 유리한가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 테스트 코드를 작성할 때 유닛 테스트와 통합 테스트의 경계를 어떻게 나누시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "SSR과 CSR의 장단점을 비교하고, Next.js를 도입했을 때 얻을 수 있는 아키텍처적 이점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 브라우저의 CORS 정책이란 무엇이며, 실무에서 발생한 CORS 에러를 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSS Grid와 Flexbox의 주요 차이점과 레이아웃 설계 시 각각 어떤 상황에 선택하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 성능 모니터링을 위해 LCP, FID, CLS 같은 Web Vitals 지표를 어떻게 개선하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "자바스크립트 비동기 처리 방식인 콜백, Promise, async/await의 차이점과 에러 핸들링 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저 저장소인 LocalStorage, SessionStorage, Cookie의 보안적 차이와 용도 구분을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "상태 관리 시 전역 상태와 지역 상태를 나누는 기준은 무엇이며, 불필요한 렌더링을 어떻게 방지하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹펙이나 Vite 같은 번들러의 동작 원리와 코드 스플리팅을 통한 최적화 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "리액트 훅을 직접 커스텀 훅으로 만들어 재사용성을 높였던 구체적인 사례를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 애플리케이션에서 전역 에러 핸들링과 사용자 친화적인 피드백을 어떻게 구현하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "CSS 전처리기나 Tailwind CSS 같은 유틸리티 퍼스트 CSS를 사용할 때의 장단점을 평가해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹소켓이나 SSE를 활용해 실시간 양방향 통신 기능을 구현할 때 고려해야 할 점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 코드 리뷰 시 유지보수성과 확장성을 높이기 위해 주로 어떤 부분을 중점적으로 보시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "메모이제이션(useMemo, useCallback)을 무분별하게 사용할 때 발생하는 부작용과 올바른 적용 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "SPA 라우팅 방식에서 클라이언트 사이드 Routing과 서버 사이드 Routing의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 보안 취약점인 XSS와 CSRF의 공격 원리와 이를 방어하기 위한 보안 대책을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "대용량 리스트 데이터를 렌더링할 때 무한 스크롤이나 가상화(Virtualization) 기법을 구현한 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "프론트엔드 배포 파이프라인(CI/CD)을 구축하거나 운영해 보면서 겪었던 트러블슈팅 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "타입스크립트의 제네릭과 조건부 타입을 활용해 복잡한 컴포넌트 타입을 설계한 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "자바스크립트의 프로토타입 기반 상속과 클래스 기반 문법의 차이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "웹 브라우저의 캐시 전략(Cache-Control, ETag 등)을 이해하고 정적 리소스 캐싱을 최적화해 보셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "오픈소스 라이브러리를 프로젝트에 도입할 때 번들 크기나 유지보수성 측면에서 어떤 점을 검토하시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "모바일 웹 환경에서 발생하기 쉬운 터치 지연이나 레이아웃 흔들림 문제를 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "디바운스와 스로틀링의 개념적 차이를 설명하고, 실무에서 어떤 UI 이벤트에 각각 적용하셨나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "마이크로 프론트엔드 아키텍처의 개념과 도입 시 장점 및 발생할 수 있는 복잡성은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "SEO 최적화를 위해 메타 태그 관리나 Open Graph 설정 외에 기술적으로 어떤 부분을 신경 쓰시나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "브라우저의 가비지 컬렉션 동작 원리를 이해하고 메모리 누수를 프로파일링하여 해결한 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "상태 관리 라이브러리 없이 Context API를 사용할 때 성능상 한계와 이를 극복하는 방법은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "프론트엔드", "context": "", "question": "디자인 시스템을 구축하거나 Storybook을 활용해 컴포넌트를 문서화하고 협업한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "REST API 설계 시 GET과 POST 메서드의 캐싱 가능 여부와 그 이유를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "JWT를 활용한 인증 구현 시 토큰 탈취 문제에 대응하기 위한 보안 전략은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽 발생 시 데이터베이스 커넥션 풀 고갈을 방지하기 위한 대안을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "SPA 환경에서 초기 로딩 속도 개선을 위해 적용해 본 최적화 기법이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "마이크로서비스 아키텍처에서 분산 트랜잭션을 처리하기 위해 어떤 패턴을 사용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 상태 관리 라이브러리로 Redux 대신 Context API나 Zustand를 선택한 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Docker 컨테이너 이미지 크기를 줄이기 위해 멀티 스테이지 빌드를 어떻게 활용하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "CI/CD 파이프라인 구축 시 테스트 자동화 단계에서 빌드 속도를 단축한 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "NoSQL 데이터베이스를 RDBMS 대신 선택해야 하는 비즈니스 요구사항은 어떤 것이 있을까요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Redis를 캐시 스토리지로 활용할 때 만료 정책과 캐시 스탬피드 현상 방지 대책은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Nginx를 리버스 프록시로 설정하여 로드 밸런싱을 구현할 때 고려해야 할 핵심 요소는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "React 컴포넌트의 불필요한 렌더링을 방지하기 위해 useMemo와 useCallback을 어떻게 활용하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Node.js 환경에서 싱글 스레드 블로킹 문제를 해결하기 위해 비동기 처리를 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "ORM 사용 시 발생하는 N+1 쿼리 문제를 발견하고 해결해 본 구체적인 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 애플리케이션의 보안성을 높이기 위해 CORS와 CSRF 방어 설정을 어떻게 구현하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "GraphQL을 REST API 대신 도입했을 때 얻은 장점과 겪었던 트레이드오프는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Kubernetes 환경에서 Pod 간 통신과 서비스 디스커버리는 어떤 원리로 동작하나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대용량 로그 데이터를 실시간으로 수집하고 분석하기 위해 어떤 스택을 구성해 보셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹팩이나 바벨 같은 번들러의 설정을 직접 커스텀하여 빌드 성능을 개선한 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "데이터베이스 인덱스의 내부 동작 원리와 인덱스를 설계할 때 주의할 점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 에러 바운더리와 백엔드 전역 예외 처리를 연계하여 사용자 경험을 개선한 적이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "실시간 양방향 통신 구현 시 WebSocket과 Server-Sent Events 중 어떤 것을 선택하시겠습니까?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "서버리스 아키텍처를 도입했을 때 Cold Start 문제를 완화하기 위해 어떤 방안을 적용하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Git 브랜치 전략으로 Git-flow와 GitHub Flow 중 프로젝트 특성에 따라 어떤 것을 선호하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽 처리 중 데이터베이스 락킹으로 인한 교착 상태를 해결한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 테스트 코드 작성 시 유닛 테스트와 통합 테스트의 비율을 어떻게 가져가시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "OAuth 2.0 인증 흐름에서 Authorization Code Grant 방식을 권장하는 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "MSA 환경에서 서비스 간 통신 장애가 전체 시스템으로 전파되는 것을 막는 서킷 브레이커를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "CSS 전처리기나 Tailwind CSS 같은 유틸리티 퍼스트 프레임워크를 도입한 이유가 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "백엔드 API 서버의 응답 속도가 급격히 느려졌을 때 병목 구간을 진단하는 절차를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 접근성을 준수하기 위해 시멘틱 태그와 ARIA 속성을 어떻게 활용하고 계신가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대용량 파일 업로드 기능을 구현할 때 서버 부하를 줄이기 위해 어떤 방식을 사용하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 라우팅 처리 시 서버 사이드 렌더링과 클라이언트 사이드 렌더링의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "데이터베이스 샤딩이나 파티셔닝을 적용하여 성능을 개선해 본 실무 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "API 버전을 관리할 때 URL 경로 방식과 헤더 방식 중 어떤 방식을 더 선호하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 메모리 누수를 개발자 도구를 통해 탐지하고 해결해 본 경험을 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "도메인 주도 설계 원칙을 백엔드 프로젝트 구조 설계에 어떻게 녹여내고 계신가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 브라우저의 렌더링 최적화를 위해 Reflow와 Repaint 발생을 줄인 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "MSA 환경에서 각 서비스마다 분리된 데이터베이스 간의 데이터 일관성을 어떻게 유지하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "풀스택 개발자로서 프론트엔드와 백엔드 간의 API 인터페이스 계약을 효율적으로 조율하는 방법은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "REST API와 GraphQL의 핵심 차이점과 각각을 도입하기 좋은 실무 상황을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽 환경에서 데이터베이스 슬로우 쿼리를 분석하고 최적화한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "JWT 기반 인증 방식의 보안 취약점과 이를 보완하기 위해 어떤 전략을 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "React에서 불필요한 렌더링을 방지하기 위해 useMemo와 useCallback을 어떻게 활용하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Node.js 환경에서 싱글 스레드 기반의 비동기 처리가 블로킹될 때 어떻게 원인을 진단하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대용량 트래픽 처리 시 관계형 데이터베이스와 NoSQL의 장단점을 고려해 어떤 기준로 선택하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 빌드 최적화를 위해 웹팩이나 Vite 설정에서 어떤 부분들을 주로 손보시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Docker 컨테이너를 활용해 프론트엔드와 백엔드 서비스를 배포할 때 멀티 스테이지 빌드를 어떻게 쓰시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "마이크로서비스 아키텍처에서 서비스 간 통신 시 발생할 수 있는 장애 전파를 어떻게 방지하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Redux나 Zustand 같은 상태 관리 라이브러리를 선택할 때 어떤 기준으로 판단하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Spring Boot나 Express에서 전역 예외 처리(Global Exception Handler)를 어떻게 설계하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 웹 성능 지표인 LCP와 CLS를 개선하기 위해 구체적으로 어떤 시도를 해보셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "CI/CD 파이프라인을 구축할 때 테스트 자동화와 배포 안정성을 높이기 위해 어떤 도구를 연동하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Redis와 같은 인메모리 DB를 캐시로 도입할 때 캐시 무효화 전략은 어떻게 수립하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "TypeScript의 제네릭과 고급 타입을 활용해 컴파일 타임 안정성을 높인 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 애플리케이션의 보안성을 높이기 위해 CORS와 XSS, CSRF 대응을 어떻게 구현하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 데이터 목록을 다룰 때 무한 스크롤과 페이지네이션 중 어떤 방식을 선택하고 그 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "DB 인덱스의 동작 원리를 설명하고, 복합 인덱스를 설계할 때 컬럼 순서를 결정하는 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "N+1 문제의 발생 원인과 이를 ORM 레벨이나 쿼리 레벨에서 해결해 본 경험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹소켓(WebSocket)과 SSE(Server-Sent Events)의 차이점을 알고 실시간 채팅 기능에 어떤 것을 적용하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Git을 이용한 협업 시 브랜치 전략(Git-flow, GitHub flow 등)은 팀 내에서 어떻게 가져가시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 프론트엔드 프로젝트에서 컴포넌트 재사용성과 확장성을 높이기 위해 어떤 구조를 설계하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "백엔드 API 서버의 응답 속도를 개선하기 위해 로드 밸런싱과 리버스 프록시를 어떻게 활용하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "비동기 작업 중 발생한 에러를 프론트엔드와 백엔드 각각에서 어떻게 사용자 친화적으로 처리하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "ORM을 사용하는 것과 순수 SQL을 작성하는 것의 트레이드오프를 프로젝트 상황에 빗대어 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 라우팅에서 코드 슬리팅(Code Splitting)과 지연 로딩을 구현해 본 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "서버리스(Serverless) 아키텍처를 도입했을 때 겪은 장점과 콜드 스타트 같은 단점을 어떻게 극복하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "모바일 웹과 데스크톱 환경 모두에서 원활한 반응형 UI를 구현하기 위해 어떤 스타일링 전략을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "데이터베이스 트랜잭션의 격리 수준(Isolation Level)과 동시성 제어 문제를 해결한 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 접근성(a11y)과 SEO(검색 엔진 최적화)를 고려하여 프론트엔드 코드를 작성해 본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대용량 파일 업로드 기능을 구현할 때 서버 부하를 줄이기 위해 presigned URL 방식을 어떻게 적용하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "MSA 환경에서 분산 트랜잭션 문제를 해결하기 위해 사가(Saga) 패턴이나 2PC를 검토해 보신 적이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 테스트 코드 작성 시 유닛 테스트와 E2E 테스트의 비율을 어떻게 가져가고 어떤 도구를 쓰시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "백엔드 로그 수집 및 모니터링 시스템(ELK, Prometheus 등)을 구축하고 장애를 감지한 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "API 버저닝 전략을 수립할 때 URL 경로 방식과 헤더 방식 중 어떤 것을 선호하며 그 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "SPA의 초기 로딩 속도 저하 문제를 해결하기 위해 SSR이나 SSG를 도입한 경험과 그 효과를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽으로 인한 DB 부하를 줄이기 위해 읽기/쓰기 분산(Master-Slave)을 적용해 보신 적이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 브라우저의 렌더링 과정(Critical Rendering Path)을 이해하고 성능 개선에 활용해 본 적이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "레거시 모놀리식 시스템을 점진적으로 마이크로서비스로 전환하는 과정에서 겪은 노하우를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "풀스택 개발자로서 프론트엔드와 백엔드 간의 API 계약(Contract)을 효율적으로 맞추기 위해 어떤 방식을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽 환경에서 관계형 데이터베이스의 병목 현상을 해결해 본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대용량 데이터를 처리할 때 NoSQL과 RDBMS를 어떤 기준으로 선택하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드와 백엔드 간 CORS 이슈가 발생했을 때 해결했던 구체적인 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "React에서 불변성을 유지해야 하는 이유와 성능에 미치는 영향을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Redux나 Context API 같은 상태 관리 도구를 선택할 때 어떤 요소를 고려하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "SPA 환경에서 초기 로딩 속도를 개선하기 위해 어떤 최적화 기법을 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Node.js의 싱글 스레드 이벤트 루프 모델의 동작 방식과 블로킹 상황 대처법은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 애플리케이션의 메모리 누수를 감지하고 디버깅해 본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "데이터베이스 인덱스의 작동 원리와 복합 인덱스 설계 시 고려해야 할 점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "N+1 쿼리 문제가 무엇이고, 이를 ORM 환경에서 어떻게 해결할 수 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "MSA 환경에서 분산 트랜잭션을 처리하기 위해 주로 어떤 패턴을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Docker 컨테이너와 가상 머신의 근본적인 차이점과 각각의 장단점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "CI/CD 파이프라인을 구축하면서 배포 안정성을 높이기 위해 어떤 검증 단계를 넣으셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹소켓을 활용한 실시간 통신 구현 시 연결 끊김 현상에 어떻게 대처하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 테스트 자동화를 위해 유닛 테스트와 E2E 테스트를 어떻게 분담하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽에서 Redis를 캐시 레이어로 도입해 성능을 개선한 사례가 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "GraphQL을 REST API 대신 선택했던 프로젝트의 배경과 실제 트레이드오프는 무엇이었나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 보안 취약점 중 하나인 XSS와 CSRF의 차이점과 각각의 방어 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 번들러인 Webpack이나 Vite의 빌드 최적화 기법에 대해 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "백엔드 API 서버의 응답 속도가 갑자기 느려졌을 때 원인을 추적하는 절차가 어떻게 되나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "서버 사이드 렌더링(SSR)과 클라이언트 사이드 렌더링(CSR)의 장단점을 비교해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "Git을 이용한 협업 시 브랜치 전략으로 어떤 방식을 선호하며 그 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "오픈소스 라이브러리를 프로젝트에 도입할 때 라이선스와 보안 취약점을 어떻게 검토하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "비동기 프로그래밍 시 콜백 지옥이나 Promise chaining의 복잡성을 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 접근성(a11y)을 고려하여 프론트엔드를 개발해 본 경험과 주요 적용 사항은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "관계형 데이터베이스에서 트랜잭션의 격리 수준과 발생할 수 있는 동시성 이슈를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "마이크로서비스 아키텍처에서 서비스 간 통신 시 gRPC와 REST 중 어떤 것을 선호하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 폼 유효성 검증 로직을 구현할 때 컴포넌트 구조를 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "백엔드 로그 수집 및 모니터링을 위해 어떤 툴 스택을 사용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "브라우저의 렌더링 엔진 동작 과정과 리플로우, 리페인트 최적화 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "API 버Versioning을 관리하는 나만의 기준이나 선호하는 방식이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "서버리스 아키텍처(AWS Lambda 등)를 도입했을 때의 장점과 한계점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "프론트엔드 전역 상태 관리에서 발생하는 불필요한 렌더링을 어떻게 방지하시나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "대규모 트래픽 대비를 위한 부하 테스트(Load Test)를 진행해 본 도구와 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "웹 애플리케이션의 SEO를 극대화하기 위해 기술적으로 어떤 조치들을 취하셨나요?", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "ORM을 사용하는 것과 순수 SQL을 작성하는 것의 장단점을 비교해 주세요.", "category": "기술_직무역량"}
+{"job": "풀스택", "context": "", "question": "풀스택 개발자로서 프론트엔드와 백엔드 간의 기술 부채를 조율했던 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 ARC의 작동 방식과 순환 참조를 방지하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Activity 생명주기와 화면 회전 시 상태를 보존하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Swift의 Optional 개념과 강제 언래핑 시 발생할 수 있는 위험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Kotlin의 Coroutine과 Java Thread의 차이점 및 장점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "SwiftUI와 UIKit의 차이점과 각각 어떤 프로젝트에 적합한지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Jetpack Compose의 재구성(Recomposition) 최적화 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS 앱이 백그라운드로 진입할 때 실행할 수 있는 작업과 제한 사항을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Service와 WorkManager의 용도와 차이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "GCD(Grand Central Dispatch)에서 메인 스레드와 백그라운드 스레드의 역할을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Kotlin Flow와 LiveData의 차이점 및 적절한 사용 시기를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱의 메모리 누수를 감지하고 해결해 본 경험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 메모리 부족으로 프로세스가 종료될 때 대응하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Core Data와 Realm의 성능 및 구조적 차이를 비교해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Room 데이터베이스를 사용할 때 마이그레이션 처리 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱 초기 실행 속도(Cold Start)를 개선하기 위해 어떤 최적화를 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android 앱의 렌더링 지연(Jank)을 진단하고 해결한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "MVVM 아키텍처에서 ViewModel의 역할과 View와의 통신 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Clean Architecture를 모바일 앱에 도입했을 때의 장점과 구조를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Combine 프레임워크의 Publisher와 Subscriber 작동 원리를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android Dependency Injection으로 Hilt를 선택한 이유와 장점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 네트워크 통신 실패 시 재시도(Retry) 로직을 어떻게 구현하나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Retrofit을 사용할 때 Interceptor를 활용해 인증 토큰을 관리하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 Push Notification을 수신하고 처리하는 전체적인 흐름을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Firebase Cloud Messaging을 이용한 알림 구현 시 주의할 점을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "REST API와 GraphQL의 차이점과 모바일 환경에서의 장단점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 대용량 이미지를 캐싱하고 로딩할 때 고려해야 할 점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Custom View를 직접 구현해 본 경험과 측정 및 그리기 과정을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 Auto Layout 제약 조건 충돌을 디버깅하고 해결하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 ConstraintLayout을 사용할 때의 성능상 이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱 보안 강화를 위해 Certificate Pinning을 구현하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱의 로컬 저장소에 민감한 사용자 정보를 안전하게 암호화하여 저장하는 방법을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Unit Test와 UI Test를 작성할 때 각각 어떤 프레임워크를 사용하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "TDD(테스트 주도 개발)를 모바일 개발에 적용해 본 경험과 소감을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱 배포 자동화(CI/CD) 파이프라인을 구축해 본 경험을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "App Store나 Google Play 심사 거절을 경험하셨다면 어떤 사유였고 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "프로젝트에서 Git 브랜치 전략을 어떻게 가져갔는지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "오픈소스 라이브러리를 프로젝트에 도입할 때 어떤 기준으로 검토하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "레거시 Objective-C 코드를 Swift로 마이그레이션할 때 겪은 어려움은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Java 기반의 안드로이드 프로젝트를 Kotlin으로 전환하면서 느낀 가장 큰 장점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "실제 서비스 중인 앱에서 발생한 치명적인 크래시를 분석하고 해결했던 경험을 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 ARC의 메모리 관리 동작 방식과 순환 참조 해결 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Activity 생명주기와 화면 회전 시 데이터 유지 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Swift의 Protocol 지향 프로그래밍과 클래스 상속의 차이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Kotlin의 Coroutine과 RxJava의 비동기 처리 방식 차이와 장단점을 비교해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 DiffableDataSource를 도입하여 성능을 개선한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Jetpack Compose를 도입하면서 겪었던 UI 렌더링 성능 이슈를 어떻게 해결했나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "SwiftUI와 UIKit을 혼용할 때 발생할 수 있는 레이아웃 충돌 문제를 어떻게 해결하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Hilt를 활용한 의존성 주입 시 장점과 주의해야 할 점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS 앱의 백그라운드 진입 시 배터리 소모를 최소화하기 위한 작업 처리 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Room Database 사용 시 마이그레이션 전략과 주의사항을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 메모리 누수를 탐지하고 해결했던 구체적인 트러블슈팅 경험을 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS의 GCD와 OperationQueue는 각각 어떤 상황에서 선택하여 사용하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android의 Flow와 LiveData의 차이점과 각각 적절한 사용 사례를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 네트워크 환경이 불안정한 상황을 대비해 어떤 오프라인 캐싱 전략을 적용하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 Alamofire 대신 URLSession을 직접 사용할 때의 장단점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Paging 3 라이브러리를 활용해 대용량 리스트를 효율적으로 로드하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "클린 아키텍처를 모바일 프로젝트에 도입했을 때 도메인 레이어와 데이터 레이어의 분리 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS 앱 시작 속도(Cold Start)를 최적화하기 위해 어떤 프로파일링 도구를 사용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 ANR(Application Not Responding)이 발생하는 주된 원인과 예방 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Swift의 Codable을 이용해 복잡한 JSON 파싱 중 커스텀 에러를 처리하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 WorkManager를 사용해야 하는 백그라운드 작업 시나리오는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS 앱의 다크 모드 지원 과정에서 커스텀 색상 및 이미지Asset 관리 시 겪은 노하우를 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Custom View를 직접 구현할 때 onMeasure와 onLayout의 역할은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 푸시 알림(FCM, APNs) 수신 시 백그라운드 데이터 동기화 처리 구조를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 Combine 프레임워크를 활용하여 비동기 이벤트 스트림을 처리한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 Navigation Component 사용 시 Safe Args를 활용하는 이유를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱의 유닛 테스트(Unit Test) 작성 시 비즈니스 로직과 네트워크 통신을 어떻게 분리하여 테스트하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 Keychain을 활용하여 민감한 사용자 정보를 안전하게 저장하는 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 보안 강화를 위해 ProGuard나 R8을 적용할 때 주의해야 할 점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "MVVM 패턴 적용 시 ViewModel이 View나 Fragment에 직접 의존하지 않도록 설계하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 CollectionView의 셀 재사용 이슈로 인한 이미지 깜빡임 현상을 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 제스처 네비게이션 적용 시 터치 이벤트 충돌 문제를 어떻게 해결했나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱 빌드 및 배포 자동화(CI/CD) 파이프라인을 구축해 본 경험과 사용한 도구를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS의 Core Data와 Realm 중 프로젝트 요구사항에 따라 어떤 기준으로 DB를 선택하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 ViewBinding과 DataBinding의 차이점과 성능 관점에서의 선택 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱 내에서 대용량 파일을 다운로드하고 백그라운드에서 이어받는 기능을 어떻게 구현하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 Memory Warning 발생 시 뷰 컨트롤러에서 캐시 데이터를 효율적으로 비우는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 멀티모듈 아키텍처를 도입할 때 모듈 간의 의존성 방향 규칙을 어떻게 정의하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱 국제화(i18n) 및 지역화(L10n) 적용 시 동적 텍스트 포맷팅 문제를 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱스토어 또는 플레이스토어 심사 거절을 경험하셨을 때 어떤 사유였고 어떻게 대응하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Swift의 ARC 작동 원리와 강한 순환 참조 해결 방법을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android의 ViewModel 생명주기와 화면 회전 시 데이터 유지 방식을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS에서 GCD와 OperationQueue의 차이점과 각각 적절한 사용 시기를 알려주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android의 Coroutine에서 Dispatchers의 종류와 역할에 대해 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "UIKit의 UICollectionView와 SwiftUI의 LazyVGrid를 비교하여 각각의 장단점을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Jetpack Compose의 Recomposition이 발생하는 조건과 이를 최적화하는 방법을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 오프라인 모드를 구현할 때 로컬 DB와 서버 동기화 전략을 어떻게 세우시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS 앱의 백그라운드 태스크 제한 속에서 위치 정보를 안정적으로 수집하는 방법을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android에서 WorkManager를 사용해야 하는 상황과 그 이유를 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "RxSwift나 Kotlin Flow 같은 리액티브 프로그래밍을 도입했을 때의 장단점을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱의 초기 구동 속도(Cold Start)를 개선하기 위해 어떤 프로파일링과 최적화를 진행해보셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "메모리 누수를 탐지하고 해결했던 구체적인 디버깅 경험을 공유해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "MVVM 아키텍처를 적용할 때 View와 ViewModel 간의 통신 방식은 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Clean Architecture를 모바일 앱에 도입했을 때 얻는 이점과 구조적 트레이드오프는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Flutter나 React Native 같은 크로스플랫폼과 네이티브 개발 중 어떤 기준으로 기술을 선택하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 네트워크 보안을 강화하기 위해 SSL Pinning을 구현하는 방법을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱 내 결제(IAP) 시스템을 연동할 때 결제 누락이나 검증 실패 예외 처리는 어떻게 구현하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "iOS의 App Transport Security(ATS) 정책과 예외 처리 방법에 대해 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android의 ProGuard나 R8을 사용한 코드 난독화 및 최적화 경험을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "UI 테스트와 유닛 테스트의 비율을 어떻게 가져가며, 어떤 프레임워크를 주로 사용하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "CI/CD 파이프라인을 구축하여 TestFlight나 Play Console에 자동 배포하는 과정을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "대규모 이미지를 리스트에 로드할 때 메모리 캐싱과 디스크 캐싱 전략은 어떻게 구현하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "푸시 알림(APNs/FCM)의 페이로드 구조와 백그라운드 수신 시 처리 방법을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 다크 모드를 지원하기 위해 컬러 시스템과 에셋 관리는 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Custom View를 직접 구현해야 했던 상황과 당시 고려했던 렌더링 최적화 방안을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "딥링크와 유니버설 링크(App Links)를 구현할 때 라우팅 구조는 어떻게 설계하셨나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "BLE(Bluetooth Low Energy)를 활용한 주변 기기 탐색 및 통신 구현 시 겪었던 이슈를 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱 내부 데이터베이스(Room/Realm/CoreData)에서 스키마 마이그레이션을 처리했던 경험을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "권한(Permission) 요청 거부 시 사용자 경험(UX)을 해치지 않기 위해 어떻게 대응하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 앱에서 배터리 소모량을 줄이기 위해 로케이션이나 네트워크 폴링을 어떻게 최적화하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱 크래시 발생 시 원인 분석을 위해 어떤 Crashlytics 같은 모니터링 툴을 활용하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "RxJava나 Coroutines에서 예외(Exception)를 안전하게 핸들링하는 전략을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "SwiftUI의 @StateObject와 @ObservedObject의 차이점과 올바른 사용 기준을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Android의 Hilt나 Dagger를 사용한 의존성 주입의 장점과 컴파일 타임 검증 원리를 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "모바일 화면에서 텍스트 기반의 복잡한 동적 폼(Form) UI를 유연하게 렌더링하는 구조를 설계해본 적 있으신가요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "웹뷰(WebView)와 네이티브 코드 간의 원활한 브릿지 통신 구조를 어떻게 구현하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "Git 브랜치 전략(Git-flow, GitHub flow 등)을 팀 내에서 어떻게 가져가며 코드 리뷰는 어떤 기준으로 진행하시나요?", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "기존에 레거시 코드로 작성된 Objective-C 또는 Java 프로젝트를 Swift나 Kotlin으로 마이그레이션한 경험을 말씀해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "멀티모듈(Multi-module) 아키텍처를 도입하여 빌드 시간을 단축하고 의존성을 관리했던 경험을 설명해주세요.", "category": "기술_직무역량"}
+{"job": "모바일 (iOS/Android)", "context": "", "question": "앱의 국제화(i18n) 및 지역화(L10n)를 구현할 때 발생할 수 있는 레이아웃 깨짐 문제를 어떻게 방지하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 데이터 처리 시 배치 파이프라인의 멱등성을 어떻게 보장하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "Transformer 모델에서 Self-Attention 연산의 시간 복잡도 한계를 어떻게 극복하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 데이터 예측 모델 학습 시 미래 데이터 유출을 어떻게 방지하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "임베딩 벡터 검색 속도 개선을 위해 어떤 인덱싱 알고리즘을 도입해 보셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "LLM의 환각 현상을 줄이기 위해 RAG 시스템에서 청크 단위를 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "Kafka 파티션 키를 잘못 설정해 발생한 데이터 스큐 문제를 어떻게 해결하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "실시간 추천 시스템에서 콜드 스타트 문제를 완화하기 위해 어떤 전략을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "PyTorch 분산 학습 시 데이터 병렬화와 모델 병렬화 중 어떤 기준으로 선택하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "ML 파이프라인에서 데이터 drift를 감지하고 모델을 재학습하는 주기를 어떻게 정하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비정형 텍스트 데이터에서 개인정보를 마스킹하기 위해 어떤 NER 기법을 적용하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대용량 로그 분석을 위해 ClickHouse와 Elasticsearch 중 어떤 저장소를 선택하시겠나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "딥러닝 모델 경량화 시 양자화와 가지치기 중 성능 하락을 최소화하는 방법은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "Spark 스트리밍 처리 중 늦게 도착하는 late data를 처리하기 위해 어떤 윈도우 정책을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "이미지 분류 모델 학습 시 클래스 불균형 문제를 해결하기 위해 어떤 손실 함수를 쓰셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "A/B 테스트 설계 시 표본 크기와 유의수준을 결정하는 본인만의 기준이 있으신가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "Airflow DAG 작성 시 태스크 간 의존성과 리소스 격리를 어떻게 관리하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "고성능 서빙을 위해 Triton Inference Server를 도입했을 때의 장점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "벡터 DB에서 코사인 유사도와 유클리드 거리 중 데이터 특성에 따라 어떻게 선택하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "CNN 모델의 특정 레이어에서 그래디언트 소실 문제가 발생했을 때 어떻게 디버깅하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 사용자 로그를 수집하기 위해 Fluentd와 Logstash 중 어떤 에이전트를 선호하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "GNN을 활용해 사기 거래 탐지 모델을 구축할 때 노드 feature는 어떻게 설계하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "앙상블 모델 학습 시 과적합을 막기 위해 각 모델의 다양성을 어떻게 확보하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 레이크하우스 아키텍처에서 Delta Lake와 Apache Iceberg의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비지도 학습 기반 이상 탐지 모델의 성능 평가 지표로 주로 어떤 것을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "Kubernetes 환경에서 GPU 자원을 효율적으로 할당하기 위해 어떤 오케스트레이션을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "음성 인식 모델 학습 시 잡음이 많은 오디오 데이터 전처리는 어떻게 파이프라인화 하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "추천 시스템에서 협업 필터링과 콘텐츠 기반 필터링의 트레이드오프를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대형 언어 모델 파인튜닝 시 LoRA와 QLoRA의 메모리 효율성 차이가 발생하는 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "DB 락 대기 시간 증가로 인한 성능 저하를 모니터링하고 튜닝해본 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 이상 탐지에서 ARIMA 모델과 LSTM 오토인코더 중 어떤 상황에 각각 적용하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "CI/CD 파이프라인에 ML 모델 유효성 검증 단계를 어떻게 통합하고 계시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "그래프 DB인 Neo4j를 실제 서비스에 도입했을 때 가장 유용했던 쿼리 패턴은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "정형 데이터와 비정형 데이터를 결합한 멀티모달 모델을 설계할 때 융합 시점을 어디로 잡나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 마이그레이션 중 다운타임을 최소화하기 위해 이중화 전략을 어떻게 세우시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "강화학습에서 보상 설계가 잘못되어 에이전트가 엉뚱한 행동을 할 때 어떻게 수정하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 데이터 분산 처리 시 Shuffle 연산 비용을 줄이기 위해 어떤 최적화를 수행하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "프롬프트 엔지니어링만으로 해결되지 않는 복잡한 태스크에 파인튜닝을 적용한 경험이 있으신가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 데이터 결측치 처리 시 전방 채우기와 선형 보간법 중 어떤 기준으로 선택하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "오프라인 평가와 온라인 서빙 환경 간의 성능 지표 괴리가 발생했을 때 원인을 어떻게 찾으시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "ETL 작업 중 원천 데이터의 스키마가 예고 없이 변경되었을 때의 대응 방안을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 데이터셋에서 결측치를 처리할 때 삭제와 대치 중 어떤 기준을 적용하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "서로 다른 스키마를 가진 두 테이블을 조인할 때 발생할 수 있는 성능 저하를 어떻게 해결하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "트랜잭션 격리 수준을 낮췄을 때 발생할 수 있는 이상 현상과 이를 방어하는 전략을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "인덱스를 생성할 때 카디널리티가 높은 컬럼을 우선 선택해야 하는 이유를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대용량 로그 데이터를 실시간으로 수집하고 분석하기 위해 어떤 파이프라인 아키텍처를 구성해 보셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "샤딩(Sharding) 환경에서 발생하는 분산 트랜잭션 문제를 해결하기 위한 본인만의 노하우가 있으신가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 마이그레이션 도중 서비스 중단 없이 스키마를 변경해야 할 때 어떤 전략을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "SQL 쿼리 성능이 저하되었을 때 실행계획(Execution Plan)을 분석하는 구체적인 절차를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "오버fitting을 방지하기 위해 현업에서 주로 사용하는 규제 기법과 검증 전략은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "임베딩 벡터의 차원이 너무 높을 때 발생하는 차원의 저주를 해결하기 위해 어떤 차원 축소 기법을 쓰시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "트랜스포머 모델의 어텐션 메커니즘에서 시퀀스 길이가 길어질 때의 메모리 병목 현상을 어떻게 완화하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "사전학습된 LLM을 특정 도메인에 파인튜닝할 때 프롬프트 엔지니어링과 비교하여 어떤 장점을 기대할 수 있나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 데이터 예측 모델을 학습할 때 데이터 누수(Data Leakage)를 방지하는 교차 검증 방식을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "불균형 데이터셋을 다룰 때 언더샘플링과 오버샘플링 중 어떤 방식을 선택하며 그 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "이미지 분류 모델을 경량화하여 모바일 환경에 배포할 때 지식 증류(Knowledge Distillation)를 적용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "실시간 추천 시스템에서 콜드 스타트 문제를 해결하기 위해 어떤 하이브리드 접근법을 사용하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "머신러닝 모델 서빙 시 배치 추론과 실시간 추론 중 어떤 아키텍처를 선택할지 판단하는 기준은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "모델의 성능 지표로 정확도 대신 F1-score나 AUC를 선택해야 하는 비즈니스 상황을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비정형 텍스트 데이터를 벡터 DB에 저장하고 검색할 때 코사인 유사도와 유클리드 거리 중 어느 것을 선호하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "딥러닝 학습 도중 그래디언트 소실(Gradient Vanishing) 문제가 발생했을 때 어떤 방식으로 구조를 개선하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "RAG(검색 증강 생성) 시스템 구축 시 청크(Chunk) 크기에 따른 검색 정확도 변화를 어떻게 튜닝하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "분산 학습 환경에서 데이터 병렬화와 모델 병렬화의 트레이드오프를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "특성 중요도를 산출할 때 셔플 피처 임포턴스와 SHAP 값의 차이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "캐시 스탬피드(Cache Stampede) 현상을 방지하기 위해 레디스(Redis)와 같은 인메모리 DB를 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대용량 배치 작업 중 OOM(Out of Memory) 에러가 발생했을 때 이를 디버깅하고 해결한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "REST API와 GraphQL 중 데이터 분석 및 AI 서비스 연동 관점에서 어떤 상황에 각각 적합하다고 보시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "마이크로서비스 아키텍처에서 분산 로깅과 트레이싱을 위해 어떤 오픈소스 도구를 활용해 보셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "CI/CD 파이프라인에 머신러닝 모델 유효성 검증 단계를 어떻게 통합하고 자동화하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "컨테이너 기반 배포 환경에서 GPU 자원을 효율적으로 할당하고 모니터링하는 방법을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 분산 처리 프레임워크에서 셔플(Shuffle) 연산이 성능에 미치는 영향과 최적화 방안은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 데이터베이스와 일반적인 관계형 데이터베이스의 스토리지 구조적 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 품질 검증(Data Validation)을 자동화하기 위해 파이프라인 내에 어떤 단계를 구현하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "ETL 작업의 멱등성(Idempotency)을 보장하기 위해 데이터 파이프라인을 어떻게 설계하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비동기 메시지 큐를 사용할 때 컨슈머 장애로 인한 데이터 유실을 방지하는 안정성 확보 방안은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "머신러닝 모델의 데이터 드리프트(Data Drift)를 탐지하고 재학습 주기를 결정하는 기준을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대용량 그래프 데이터를 처리하고 탐색할 때 관계형 DB 대신 어떤 NoSQL 스토어를 선택하시겠습니까?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "분산 파일 시스템에서 블록 크기가 읽기 및 쓰기 성능에 미치는 영향을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "LLM 기반 애플리케이션의 할루시네이션(Hallucination) 현상을 정량적으로 평가하기 위해 어떤 지표를 쓰시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "웹 크롤링을 통해 대량의 데이터를 수집할 때 타겟 서버의 부하를 줄이고 차단을 우회하기 위한 아키텍처는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "실시간 이상 탐지(Anomaly Detection) 시스템에서 오탐지와 미탐지의 트레이드오프를 어떻게 조율하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 데이터셋에서 결측치를 처리할 때, 단순 대치법과 모델 기반 대치법의 장단점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "트랜스포머 모델의 셀프 어텐션 연산량이 시퀀스 길이에 따라 제곱으로 증가하는 문제를 어떻게 해결하나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "파인튜닝 시 오버피팅을 방지하기 위해 적용해 본 규제 기법과 그 효과를 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "임베딩 모델의 차원을 축소할 때 발생하는 정보 손실을 최소화하기 위한 접근법이 있나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비정형 텍스트 데이터를 벡터화할 때 TF-IDF와 임베딩 방식 중 어떤 기준으로 선택하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "추천 시스템에서 콜드 스타트 문제를 해결하기 위해 도입했던 실무적 대안을 소개해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 데이터 예측 모델을 학습할 때 데이터 누수를 방지하기 위한 교차 검증 전략은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "LLM을 파인튜닝할 때 PEFT나 LoRA 같은 기법을 선택한 구체적인 이유와 장점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "정밀도와 재현율 간의 트레이드오프 상황에서 비즈니스 지표에 따라 임계값을 어떻게 조정하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "분산 환경에서 딥러닝 모델을 학습할 때 데이터 병렬화와 모델 병렬화의 차이를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비즈니스 요구사항 변화로 인해 머신러닝 모델을 재학습 주기를 단축해야 할 때 고려할 점은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "배치 추론과 실시간 스트리밍 추론 시스템을 설계할 때 마주했던 가장 큰 기술적 난제는 무엇이었나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "특성 중요도가 매우 높은 변수에서 데이터 누수가 의심될 때 이를 진단하고 해결하는 절차를 말해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "생성형 AI 모델의 환각 현상을 줄이기 위해 RAG 시스템을 구축할 때 겪은 트러블슈팅 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "언밸런스드 데이터셋에서 성능 평가 지표로 F1-Score나 AUC-ROC를 선택하는 기준을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "딥러닝 학습 과정에서 그래디언트 소실이나 폭발 현상이 발생했을 때 취하는 디버깅 순서는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 데이터를 다루는 SQL 쿼리의 성능을 최적화하기 위해 실행 계획을 분석한 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "ETL 파이프라인에서 데이터 정합성 오류가 발생했을 때 이를 탐지하고 복구하는 아키텍처를 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "벡터 DB를 도입할 때 HNSW와 IVF 같은 인덱싱 알고리즘의 특성을 고려하여 어떻게 선정하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "MLOps 파이프라인에서 모델 레지스트리와 CI/CD 자동화를 연동할 때 중점을 둔 부분은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비지도 학습으로 군집화를 수행할 때 최적의 군집 수를 결정하기 위해 어떤 지표들을 활용하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "딥러닝 모델의 추론 속도를 개선하기 위해 양자화나 지식 증류를 적용해 본 경험을 공유해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대용량 로그 데이터를 실시간으로 수집하고 처리하기 위해 어떤 데이터 스택을 구성해 보셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "특성 공학 과정에서 도메인 지식을 활용해 새로운 파생 변수를 만들어 성능을 향상시킨 사례가 있나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "A/B 테스트를 설계할 때 표본 크기 산정과 p-value 해석 시 주의해야 할 점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "분류 모델의 예측 결과에 대한 설명력을 높이기 위해 SHAP이나 LIME을 적용해 본 적이 있나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "실무에서 딥러닝 모델을 서빙할 때 TorchScript나 ONNX 런타임을 도입한 이유는 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 레이크와 데이터 웨어하우스의 차이를 이해하고, 사내 아키텍처에 어떤 식으로 적용했나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "멀티모달 데이터를 처리하는 모델을 설계할 때 각 모달리티의 특징을 어떻게 융합하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "앙상블 모델을 구성할 때 배깅과 부스팅 방식의 차이점과 각각 어떨 때 유리한지 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "시계열 데이터에서 계절성과 트렌드 요소를 분해하여 예측력을 높였던 경험을 말씀해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 파이프라인에서 스키마 변경으로 인한 장애를 예방하기 위해 어떤 방어적 코딩을 하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "프롬프트 엔지니어링만으로 해결되지 않는 복잡한 태스크를 위해 어떤 에이전트 구조를 고려하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "이상치 탐지 문제를 해결하기 위해 오토인코더나 숲 기반 알고리즘 중 어떤 방식을 선택하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "대규모 데이터 분산 처리를 위해 Spark나 Flink를 사용하면서 성능 튜닝을 해본 경험이 있나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "딥러닝 옵티마이저로 AdamW를 주로 사용하는 이유와 기존 Adam과의 차이점을 설명해 주세요.", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "텍스트 요약 모델의 성능을 평가할 때 ROUGE 점수 외에 고려해야 할 정성적 평가 방법은 무엇인가요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "GPU 메모리 부족 에러가 발생했을 때 배치 크기 조정 외에 어떤 방식으로 최적화를 수행하시나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "비즈니스 지표와 머신러닝 성능 지표 간의 괴리가 발생했을 때 이를 어떻게 조율하셨나요?", "category": "기술_직무역량"}
+{"job": "데이터 · AI · 기타", "context": "", "question": "데이터 마스킹과 익명화 처리를 수행할 때 개인정보 보호를 위해 준수하는 원칙을 말씀해 주세요.", "category": "기술_직무역량"}

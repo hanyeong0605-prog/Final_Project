@@ -56,6 +56,21 @@ QUESTION_CATEGORIES = (
 # 해결처럼 준비가 필요한 카테고리는 제외했다.
 LIGHT_QUESTION_CATEGORIES = ("자기소개_지원동기", "가치관_자기관리", "협업_리더십_커뮤니케이션")
 
+# 2026-08-07: "면접 유형(역량/직무/인성)도 고를 수 있게 하자"는 요청으로 6개 카테고리를 3개
+# 유형으로 묶었다. 핵심 통찰: 인성/역량 계열 질문("팀 갈등을 어떻게 풀었나요", "본인의
+# 강점은?")은 지원자의 경험/가치관을 묻는 거라 분야(백엔드/프론트/...)가 달라도 질문 자체가
+# 달라질 이유가 없다 - 반면 직무(기술) 면접만 분야별로 실제 내용이 달라야 한다("Spring N+1"
+# vs "React 리렌더링"). 그래서 분야별 학습 데이터 확장도 FIELD_SENSITIVE_CATEGORIES 하나만
+# 하면 된다(전체 6개 x 5개 분야가 아니라 1개 x 5개 분야로 작업량이 크게 줄어듦).
+INTERVIEW_TYPES = {
+    "인성면접": ("가치관_자기관리", "협업_리더십_커뮤니케이션"),
+    "역량면접": ("문제해결_도전경험", "강점_약점"),
+    "직무면접": ("기술_직무역량",),
+}
+# 분야(job)에 따라 실제로 내용이 달라져야 하는 카테고리 - 학습 데이터를 분야별로 쪼개서
+# 만들어야 하는 대상은 지금은 이거 하나뿐이다. 나머지 카테고리는 기존 공통 데이터로 충분하다.
+FIELD_SENSITIVE_CATEGORIES = ("기술_직무역량",)
+
 # 2026-08-04: 재학습 없이 품질을 살짝 개선하려고 넣은 얕은 필터. "미리 만들어둔 질문 목록에서
 # 나쁜 걸 지우는" 방식이 아니라 - 생성기는 매번 새로 만들어내니까(무한 공급) - 이상하면
 # 그냥 한 번 더 생성해보고, 그래도 안 되면 마지막 결과라도 반환한다(항상 뭔가는 나오게).
@@ -180,7 +195,9 @@ def _gemini_polish(question: str) -> str | None:
         return question
 
 
-def generate_personalized_question(job: str, tech_summary: str, category: str = "") -> str | None:
+def generate_personalized_question(
+    job: str, tech_summary: str, category: str = "", angle_hint: str = ""
+) -> str | None:
     """스펙(목표 직무) 또는 기술/프로젝트 요약이 있는 사용자를 위한 맞춤 질문 생성.
 
     2026-08-06 설계 메모: generate_question()의 LoRA 모델은 학습 데이터가 전부 "ICT/신입"
@@ -197,17 +214,45 @@ def generate_personalized_question(job: str, tech_summary: str, category: str = 
     선택하고 프로필은 안 채운 경우) 호출되도록 조건을 완화했다 - tech_summary가 없으면
     프롬프트에서 그 줄만 빼고 job만으로 그 분야에 흔히 나오는 질문을 생성한다.
 
-    Gemini 키가 없거나 job/tech_summary가 둘 다 비어있거나 호출이 실패하면 None을
-    반환한다 - 호출부(router.py)가 generate_question()(LoRA 경로)으로 폴백한다.
+    2026-08-06 추가 수정: 처음엔 job/tech_summary가 둘 다 비어있으면 아예 호출하지 않고
+    LoRA 경로로 보냈는데, 사용자가 "면접 분야"에서 "선택 안 함"을 고르고 프로필도 안 채운
+    경우(꽤 흔한 케이스) 그대로 LoRA로 빠져서 "특정 분야에 전문성을 갖춘 사람이라면..."처럼
+    추상적이고 어색한 질문이 나오는 문제가 실사용 중 발견됐다. LoRA는 학습 데이터가 전부
+    "ICT/신입" 한 종류뿐이라 이런 정보 없는 케이스에서 품질이 특히 떨어진다 - 반면 Gemini는
+    job이 기본값(DEFAULT_JOB)이어도 카테고리만으로 훨씬 자연스러운 질문을 만든다. 그래서
+    이제 job/tech_summary 존재 여부와 무관하게 키만 있으면 항상 먼저 시도하고, LoRA는
+    Gemini 키가 없거나(로컬 개발 등) 호출 자체가 실패했을 때만 쓰는 진짜 최후 폴백으로
+    격하했다(router.py도 함께 수정 - 더 이상 wants_personalized()로 게이팅하지 않음).
+
+    Gemini 키가 없거나 호출이 실패하면 None을 반환한다 - 호출부(router.py)가
+    generate_question()(LoRA 경로)으로 폴백한다.
+
+    2026-08-07 angle_hint 추가: tech_summary가 "VSCode 확장 프로그램 개발 경험"처럼 아주
+    짧고 구체적인 한 줄인 경우, 세션 하나에서 같은 job/tech_summary로 여러 번(질문 개수만큼)
+    호출해도 매번 그 한 가지 소재로만 수렴하는 문제가 실사용 중 우려로 나왔다 - 아래 규칙 5)의
+    "매번 다른 각도로"는 모델 자율에 맡기는 느슨한 지시라, 세션 안의 여러 호출이 서로 뭘
+    생성했는지 모르는 채 병렬로 실행되면(프론트 buildSessionQuestions가 Promise.allSettled로
+    동시에 쏨) 결국 비슷한 질문이 나올 확률이 남아있다. 호출부가 세션 내 각 질문마다 명시적으로
+    다른 각도(angle_hint)를 지정해서 보내면, 모델의 자율적 판단에 기대지 않고 확정적으로
+    관점을 갈라놓을 수 있다 - 값이 없으면 기존처럼 규칙 5)의 느슨한 지시만 적용된다.
     """
-    if not settings.gemini_api_key or not (job.strip() or tech_summary.strip()):
+    if not settings.gemini_api_key:
         return None
     try:
         from google import genai
+        from google.genai import types
 
         client = genai.Client(api_key=settings.gemini_api_key)
         category_line = f"카테고리: {category}\n" if category else ""
         tech_line = f"기술/프로젝트 요약: {tech_summary}\n" if tech_summary.strip() else ""
+        angle_rule = (
+            f"5) 이번 질문은 반드시 '{angle_hint}' 관점에서 만들어라 - 같은 소재라도 이 "
+            "관점으로 한정해서 질문해라\n"
+            if angle_hint.strip()
+            else "5) 같은 직무/카테고리로 여러 번 요청받아도 매번 다른 각도(예: 기술 선택 이유, "
+            "트러블슈팅 경험, 트레이드오프 판단, 협업 시 의견 충돌 등)에서 질문해서 다양성을 "
+            "유지해라 - 항상 똑같은 패턴의 질문을 반복하지 마라\n"
+        )
         prompt = (
             "너는 IT 채용 면접관이다. 아래 지원자 정보를 참고해서, 이 지원자에게 실제로 물어볼 "
             "법한 한국어 면접 질문을 딱 하나만 만들어라.\n"
@@ -221,8 +266,16 @@ def generate_personalized_question(job: str, tech_summary: str, category: str = 
             "2) 질문 문장 하나만 출력해라 - 설명, 따옴표, 번호, 다른 말은 절대 붙이지 마라\n"
             "3) '~습니까/~니까/~나요/~주세요' 같은 정중한 면접 질문 어미로 끝내라\n"
             "4) 존댓말을 써라\n"
+            f"{angle_rule}"
         )
-        response = client.models.generate_content(model=settings.gemini_model, contents=prompt)
+        # 2026-08-06: temperature를 명시적으로 올려서(기본값에 맡기지 않고) 같은 직무/카테고리
+        # 조합으로 여러 번 호출해도(세션당 최대 6번, 사용자마다 매번) 문구가 겹치지 않도록
+        # 다양성을 확보했다 - "질문이 너무 밋밋/획일적"이라는 피드백으로 추가.
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=1.1),
+        )
         question = (response.text or "").strip().strip('"').strip()
         question = _normalize_addressing(question)
         if not question or len(question) > 150:

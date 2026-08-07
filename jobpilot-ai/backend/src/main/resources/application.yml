@@ -67,3 +67,10 @@ saramin-data:
   crawl-delay-ms: ${SARAMIN_CRAWL_DELAY_MS:500}
   connect-timeout-seconds: 10
   read-timeout-seconds: 20
+
+# 토스 테스트 결제 키
+toss:
+  secret-key: ${TOSS_SECRET_KEY:}
+
+
+

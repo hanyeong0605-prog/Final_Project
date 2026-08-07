@@ -95,16 +95,21 @@ export async function evaluateSession(
 // ai-server가 LoRA 대신 Gemini로 맞춤 질문을 생성한다(router.py/question_generator.py의
 // generate_personalized_question 설계 메모 참고). 프로필이 없는 사용자는 안 넘기면 기존과
 // 동일하게 동작한다.
+// 2026-08-07: angleHint는 세션 안에서 같은 job/tech_summary로 여러 번 호출할 때(질문
+// 개수만큼) tech_summary가 짧고 구체적인 경우 매번 같은 소재로 질문이 수렴하는 걸 막기
+// 위한 값 - MockInterviewPage.tsx buildSessionQuestions가 TECH_QUESTION_ANGLES를
+// 순환시키며 채워 보낸다. 안 넘기면 서버가 기존처럼 느슨한 다양성 지시만 적용한다.
 export async function fetchNextQuestion(
   job?: string,
   context?: string,
   category?: string,
   techSummary?: string,
+  angleHint?: string,
 ): Promise<NextQuestionResponse> {
   const response = await fetch("/ai-api/interview/next-question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ job, context, category, tech_summary: techSummary }),
+    body: JSON.stringify({ job, context, category, tech_summary: techSummary, angle_hint: angleHint }),
   });
 
   if (!response.ok) {
