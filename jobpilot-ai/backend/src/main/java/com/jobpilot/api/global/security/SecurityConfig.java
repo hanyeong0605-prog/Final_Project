@@ -39,11 +39,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers(
                             "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",
-                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error").permitAll();
+                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error", "/ws/camera-pair").permitAll();
 
 //                     임시!@@@@#@@@@@ 지도용
                     authorize.requestMatchers("/api/location-jobs/**").permitAll();
 
+                    authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
+                    authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
 
                     if (developmentAuthenticationEnabled) {
                         authorize.requestMatchers("/api/v1/dev/auth/token").permitAll();

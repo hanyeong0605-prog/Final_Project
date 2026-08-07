@@ -1,278 +1,65 @@
-// import React, { useState, useEffect } from "react";
-// import { Search, MapPin, Navigation, List, Filter, Loader2 } from "lucide-react";
-// import { KakaoMapContainer } from "../features/location-jobs/components/KakaoMapContainer";
-// import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
-// import { LocationJob } from "../features/location-jobs/types";
-
-// export const LocationJobsPage: React.FC = () => {
-//   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
-  
-//   // 기본 설정 주소 (서울시청 기준 예시)
-//   const [currentAddress, setCurrentAddress] = useState("서울특별시 중구 세종대로 110");
-//   const [center, setCenter] = useState<{ lat: number; lng: number }>({
-//     lat: 37.5665,
-//     lng: 126.9780,
-//   });
-
-//   const [radiusKm, setRadiusKm] = useState<number>(5);
-//   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
-
-//   // 백엔드에서 받아올 실제 공고 목록 및 로딩 상태
-//   const [jobs, setJobs] = useState<LocationJob[]>([]);
-//   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-//   // 1. 백엔드 API 호출 함수
-//   const fetchLocationJobs = async (lat: number, lng: number, radius: number) => {
-//     setIsLoading(true);
-//     try {
-//       // 백엔드 서버 (9000번 포트) 호출
-//       const response = await fetch(
-//         `http://localhost:9000/api/location-jobs?latitude=${lat}&longitude=${lng}&radiusKm=${radius}`
-//       );
-
-//       if (!response.ok) {
-//         throw new Error("채용 공고를 불러오는데 실패했습니다.");
-//       }
-
-//       const data: LocationJob[] = await response.json();
-//       setJobs(data);
-//     } catch (error) {
-//       console.error("API Fetch Error:", error);
-//     } finally {
-//       setIsLoading(false);
-//     }
-//   };
-
-//   // 2. 중심 좌표(center)나 반경(radiusKm) 변경 시 자동 조회
-//   useEffect(() => {
-//     fetchLocationJobs(center.lat, center.lng, radiusKm);
-//   }, [center, radiusKm]);
-
-//   // 주소 검색을 통해 주소 변경 시 좌표 변환 후 백엔드 조회
-//   const handleSelectAddress = (address: string) => {
-//     setCurrentAddress(address);
-//     setSelectedJobId(null);
-
-//     if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
-//       const geocoder = new window.kakao.maps.services.Geocoder();
-//       geocoder.addressSearch(address, (result: any[], status: any) => {
-//         if (status === window.kakao.maps.services.Status.OK) {
-//           setCenter({
-//             lat: parseFloat(result[0].y),
-//             lng: parseFloat(result[0].x),
-//           });
-//         }
-//       });
-//     }
-//   };
-
-//   // 기본 설정 주소로 재설정
-//   const handleResetToUserAddress = () => {
-//     handleSelectAddress("서울특별시 중구 세종대로 110");
-//   };
-
-//   return (
-//     <div style={{ display: "flex", width: "100%", height: "calc(100vh - 80px)", backgroundColor: "#f9fafb" }}>
-      
-//       {/* 좌측 검색 및 리스트 패널 */}
-//       <div style={{ width: "380px", minWidth: "380px", backgroundColor: "#ffffff", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", zIndex: 10 }}>
-//         <div style={{ padding: "16px", borderBottom: "1px solid #f3f4f6" }}>
-//           <h1 style={{ fontSize: "18px", fontWeight: "bold", color: "#1f2937", display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-//             <MapPin size={20} color="#2563eb" /> 우리 동네 채용공고
-//           </h1>
-
-//           {/* 주소 검색 바 */}
-//           <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
-//             <button
-//               onClick={() => setIsPostcodeOpen(true)}
-//               style={{
-//                 flex: 1,
-//                 display: "flex",
-//                 alignItems: "center",
-//                 justifyContent: "space-between",
-//                 padding: "8px 12px",
-//                 backgroundColor: "#f9fafb",
-//                 border: "1px solid #d1d5db",
-//                 borderRadius: "6px",
-//                 fontSize: "12px",
-//                 color: "#374151",
-//                 cursor: "pointer",
-//               }}
-//             >
-//               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentAddress}</span>
-//               <Search size={14} color="#9ca3af" />
-//             </button>
-            
-//             <button
-//               onClick={handleResetToUserAddress}
-//               style={{
-//                 padding: "8px",
-//                 backgroundColor: "#eff6ff",
-//                 border: "1px solid #bfdbfe",
-//                 borderRadius: "6px",
-//                 color: "#2563eb",
-//                 cursor: "pointer",
-//               }}
-//               title="내 기본 설정 주소로 이동"
-//             >
-//               <Navigation size={16} />
-//             </button>
-//           </div>
-
-//           {/* 반경 선택 Dropdown */}
-//           <div style={{ display: "flex", alignItems: "center", backgroundColor: "#f0f9ff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #e0f2fe" }}>
-//             <span style={{ fontSize: "12px", fontWeight: "600", color: "#0369a1", display: "flex", alignItems: "center", gap: "4px", flex: 1 }}>
-//               <Filter size={14} /> 탐색 반경 설정
-//             </span>
-//             <select
-//               value={radiusKm}
-//               onChange={(e) => {
-//                 setRadiusKm(Number(e.target.value));
-//                 setSelectedJobId(null);
-//               }}
-//               style={{ fontSize: "12px", fontWeight: "bold", color: "#0284c7", backgroundColor: "#ffffff", border: "1px solid #bae6fd", borderRadius: "4px", padding: "2px 6px", cursor: "pointer" }}
-//             >
-//               <option value={3}>3 km 이내</option>
-//               <option value={5}>5 km 이내</option>
-//               <option value={10}>10 km 이내</option>
-//               <option value={20}>20 km 이내</option>
-//             </select>
-//           </div>
-//         </div>
-
-//         {/* 채용 공고 카드 리스트 */}
-//         <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-//           <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "10px" }}>
-//             주변 공고 <strong style={{ color: "#2563eb" }}>{jobs.length}</strong>개
-//           </div>
-
-//           {isLoading ? (
-//             <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280", fontSize: "13px" }}>
-//               <Loader2 size={24} className="animate-spin" style={{ margin: "0 auto 8px" }} />
-//               주변 공고를 찾는 중입니다...
-//             </div>
-//           ) : jobs.length === 0 ? (
-//             <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af", fontSize: "12px" }}>
-//               <List size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-//               선택한 반경 내에 등록된 공고가 없습니다.
-//             </div>
-//           ) : (
-//             jobs.map((job) => {
-//               const isSelected = job.id === selectedJobId;
-//               return (
-//                 <div
-//                   key={job.id}
-//                   onClick={() => setSelectedJobId(job.id)}
-//                   style={{
-//                     padding: "12px",
-//                     border: isSelected ? "2px solid #2563eb" : "1px solid #e5e7eb",
-//                     borderRadius: "8px",
-//                     backgroundColor: isSelected ? "#eff6ff" : "#ffffff",
-//                     marginBottom: "10px",
-//                     cursor: "pointer",
-//                     transition: "all 0.2s",
-//                   }}
-//                 >
-//                   <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#111827", margin: "0 0 4px 0" }}>
-//                     {job.title || "채용 공고"}
-//                   </h3>
-//                   <p style={{ fontSize: "12px", color: "#4b5563", margin: "0 0 8px 0" }}>{job.companyName}</p>
-//                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#9ca3af" }}>
-//                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "200px" }}>
-//                       {job.address}
-//                     </span>
-//                     <span style={{ fontWeight: "bold", color: "#2563eb", backgroundColor: isSelected ? "#dbeafe" : "#eff6ff", padding: "2px 8px", borderRadius: "12px" }}>
-//                       {job.distanceKm}km
-//                     </span>
-//                   </div>
-//                 </div>
-//               );
-//             })
-//           )}
-//         </div>
-//       </div>
-
-//       {/* 우측 카카오 지도 */}
-//       <div style={{ flex: 1, height: "100%", position: "relative" }}>
-//         <KakaoMapContainer
-//           center={center}
-//           radiusKm={radiusKm}
-//           jobs={jobs}
-//           selectedJobId={selectedJobId}
-//           onSelectJob={(job) => setSelectedJobId(job.id)}
-//         />
-//       </div>
-
-//       <PostcodeSearchModal
-//         isOpen={isPostcodeOpen}
-//         onClose={() => setIsPostcodeOpen(false)}
-//         onSelectAddress={handleSelectAddress}
-//       />
-//     </div>
-//   );
-// };
-
-import React, { useState, useEffect } from "react";
-import { Search, MapPin, Navigation, List, Filter, Loader2 } from "lucide-react";
-import { KakaoMapContainer } from "../features/location-jobs/components/KakaoMapContainer";
+import { useEffect, useRef, useState } from "react";
+import { Filter, MapPin, Navigation, Search } from "lucide-react";
+import { KakaoMapContainer } from "../features/location-jobs/components/KaKaoMapContainer";
 import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
-import { LocationJob } from "../features/location-jobs/types";
+import type { LocationJob } from "../features/location-jobs/model/types";
 import { JobPostingCard } from "../features/job-postings/components/JobPostingCard";
-import type { JobPosting } from "../model/jobPosting.types";
+import type { JobPosting } from "../features/job-postings/model/jobPosting.types";
+import { DataStatePanel } from "../shared/components/DataStatePanel";
+import { PageHeading } from "../shared/components/PageHeading";
 
-export const LocationJobsPage: React.FC = () => {
+const DEFAULT_ADDRESS = "서울특별시 마포구 백범로 23";
+const DEFAULT_CENTER = { lat: 37.5528112 , lng: 126.9379482  };
+const PAGE_BG_COLOR = "#f5f7fb";
+
+export function LocationJobsPage() {
   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
-  
-  // 기본 설정 주소 (서울시청 기준 예시)
-  const [currentAddress, setCurrentAddress] = useState("서울특별시 중구 세종대로 110");
-  const [center, setCenter] = useState<{ lat: number; lng: number }>({
-    lat: 37.5665,
-    lng: 126.9780,
-  });
-
-  const [radiusKm, setRadiusKm] = useState<number>(5);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // 백엔드에서 받아올 실제 공고 목록 및 로딩 상태
+  const [currentAddress, setCurrentAddress] = useState(DEFAULT_ADDRESS);
+  const [center, setCenter] = useState<{ lat: number; lng: number }>(DEFAULT_CENTER);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
+
   const [jobs, setJobs] = useState<LocationJob[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  // 1. 백엔드 API 호출 함수
   const fetchLocationJobs = async (lat: number, lng: number, radius: number) => {
-    setIsLoading(true);
+    setStatus("loading");
     try {
-      // 백엔드 서버 (9000번 포트) 호출
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
       const response = await fetch(
-        `http://localhost:9000/api/location-jobs?latitude=${lat}&longitude=${lng}&radiusKm=${radius}`
+        `${baseUrl}/api/location-jobs?latitude=${lat}&longitude=${lng}&radiusKm=${radius}`
       );
 
-      if (!response.ok) {
-        throw new Error("채용 공고를 불러오는데 실패했습니다.");
-      }
+      if (!response.ok) throw new Error();
 
       const data: LocationJob[] = await response.json();
       setJobs(data);
-    } catch (error) {
-      console.error("API Fetch Error:", error);
-    } finally {
-      setIsLoading(false);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
     }
   };
 
-  // 2. 중심 좌표(center)나 반경(radiusKm) 변경 시 자동 조회
   useEffect(() => {
-    fetchLocationJobs(center.lat, center.lng, radiusKm);
+    if (selectedJobId !== null) {
+      cardRefs.current.get(selectedJobId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedJobId]);
+
+  useEffect(() => {
+    void fetchLocationJobs(center.lat, center.lng, radiusKm);
   }, [center, radiusKm]);
 
-  // 주소 검색을 통해 주소 변경 시 좌표 변환 후 백엔드 조회
   const handleSelectAddress = (address: string) => {
     setCurrentAddress(address);
     setSelectedJobId(null);
 
-    if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+    if (window.kakao?.maps?.services) {
       const geocoder = new window.kakao.maps.services.Geocoder();
-      geocoder.addressSearch(address, (result: any[], status: any) => {
-        if (status === window.kakao.maps.services.Status.OK) {
+      geocoder.addressSearch(address, (result: any[], statusResult: any) => {
+        if (statusResult === window.kakao.maps.services.Status.OK) {
           setCenter({
             lat: parseFloat(result[0].y),
             lng: parseFloat(result[0].x),
@@ -282,163 +69,214 @@ export const LocationJobsPage: React.FC = () => {
     }
   };
 
-  // 기본 설정 주소로 재설정
-  const handleResetToUserAddress = () => {
-    handleSelectAddress("서울특별시 중구 세종대로 110");
-  };
-
   return (
-    <div style={{ display: "flex", width: "100%", height: "calc(100vh - 80px)", backgroundColor: "#f9fafb" }}>
-      
-      {/* 좌측 검색 및 리스트 패널 */}
-      <div style={{ width: "380px", minWidth: "380px", backgroundColor: "#ffffff", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", zIndex: 10 }}>
-        <div style={{ padding: "16px", borderBottom: "1px solid #f3f4f6" }}>
-          <h1 style={{ fontSize: "18px", fontWeight: "bold", color: "#1f2937", display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <MapPin size={20} color="#2563eb" /> 우리 동네 채용공고
-          </h1>
+    <div style={{ backgroundColor: PAGE_BG_COLOR, minHeight: "100vh", width: "100%" }}>
+      <PageHeading
+        eyebrow="LOCATION BASED JOBS"
+        title="우리 동네 채용공고"
+        body="설정한 주소와 탐색 반경 내 위치한 개발 직무 공고를 한눈에 확인하세요."
+      />
 
-          {/* 주소 검색 바 */}
-          <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
-            <button
-              onClick={() => setIsPostcodeOpen(true)}
+      <div style={{ display: "flex", width: "100%", height: "calc(100vh - 110px)", overflow: "hidden" }}>
+        <aside
+          style={{
+            width: "380px",
+            minWidth: "380px",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 10,
+            padding: "0 0 16px 16px",
+          }}
+        >
+          <div
+            style={{
+              padding: "12px",
+              backgroundColor: "#ffffff",
+              borderRadius: "12px",
+              border: "1px solid #ebedf2",
+              boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              marginBottom: "10px",
+              marginRight: "12px",
+            }}
+          >
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button
+                type="button"
+                onClick={() => setIsPostcodeOpen(true)}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "7px 10px",
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #dce1ea",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  color: "#30394d",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                  <MapPin size={15} color="#526af3" />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentAddress}</span>
+                </div>
+                <Search size={14} color="#929aaa" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectAddress(DEFAULT_ADDRESS)}
+                style={{
+                  padding: "7px 9px",
+                  backgroundColor: "#eef2ff",
+                  border: "1px solid #cbd4ff",
+                  borderRadius: "8px",
+                  color: "#526af3",
+                }}
+                title="기본 설정 주소로 이동"
+              >
+                <Navigation size={15} />
+              </button>
+            </div>
+
+            <div
               style={{
-                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "8px 12px",
-                backgroundColor: "#f9fafb",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "12px",
-                color: "#374151",
-                cursor: "pointer",
+                backgroundColor: "#ffffff",
+                border: "1px solid #dce1ea",
+                padding: "6px 10px",
+                borderRadius: "8px",
               }}
             >
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentAddress}</span>
-              <Search size={14} color="#9ca3af" />
-            </button>
-            
-            <button
-              onClick={handleResetToUserAddress}
-              style={{
-                padding: "8px",
-                backgroundColor: "#eff6ff",
-                border: "1px solid #bfdbfe",
-                borderRadius: "6px",
-                color: "#2563eb",
-                cursor: "pointer",
-              }}
-              title="내 기본 설정 주소로 이동"
-            >
-              <Navigation size={16} />
-            </button>
-          </div>
-
-          {/* 반경 선택 Dropdown */}
-          <div style={{ display: "flex", alignItems: "center", backgroundColor: "#f0f9ff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #e0f2fe" }}>
-            <span style={{ fontSize: "12px", fontWeight: "600", color: "#0369a1", display: "flex", alignItems: "center", gap: "4px", flex: 1 }}>
-              <Filter size={14} /> 탐색 반경 설정
-            </span>
-            <select
-              value={radiusKm}
-              onChange={(e) => {
-                setRadiusKm(Number(e.target.value));
-                setSelectedJobId(null);
-              }}
-              style={{ fontSize: "12px", fontWeight: "bold", color: "#0284c7", backgroundColor: "#ffffff", border: "1px solid #bae6fd", borderRadius: "4px", padding: "2px 6px", cursor: "pointer" }}
-            >
-              <option value={3}>3 km 이내</option>
-              <option value={5}>5 km 이내</option>
-              <option value={10}>10 km 이내</option>
-              <option value={20}>20 km 이내</option>
-            </select>
-          </div>
-        </div>
-
-        {/* 채용 공고 카드 리스트 */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "10px" }}>
-            주변 공고 <strong style={{ color: "#2563eb" }}>{jobs.length}</strong>개
-          </div>
-
-          {isLoading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280", fontSize: "13px" }}>
-              <Loader2 size={24} className="animate-spin" style={{ margin: "0 auto 8px" }} />
-              주변 공고를 찾는 중입니다...
+              <span style={{ fontSize: "12px", fontWeight: "600", color: "#424b60", display: "flex", alignItems: "center", gap: "6px" }}>
+                <Filter size={13} color="#526af3" /> 탐색 반경
+              </span>
+              <select
+                value={radiusKm}
+                onChange={(e) => {
+                  setRadiusKm(Number(e.target.value));
+                  setSelectedJobId(null);
+                }}
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: "#526af3",
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #dce1ea",
+                  borderRadius: "6px",
+                  padding: "2px 6px",
+                }}
+              >
+                <option value={1}>1 km 이내</option>
+                <option value={3}>3 km 이내</option>
+                <option value={5}>5 km 이내</option>
+                <option value={10}>10 km 이내</option>
+                <option value={20}>20 km 이내</option>
+              </select>
             </div>
-          ) : jobs.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af", fontSize: "12px" }}>
-              <List size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-              선택한 반경 내에 등록된 공고가 없습니다.
-            </div>
-          ) : (
-            jobs.map((job: any) => {
-  const isSelected = job.id === selectedJobId;
-  
-  // JobPostingCard가 사용하는 필드명에 맞춰 안전하게 객체 조립
-  const postingData = {
-    ...job,
-    id: job.jobPostingId || job.id,
-    // 백엔드에서 들어올 수 있는 다양한 회사명/제목 필드 대처
-    companyName: job.companyName || job.company_name || job.company || "기업명 미지정",
-    title: job.title || job.jobTitle || "채용 공고",
-    location: job.address || job.locationText || job.location,
-    companyLogoUrl: job.companyLogoUrl || job.logoUrl,
-  } as unknown as JobPosting;
+          </div>
 
-  return (
-    <div
-      key={job.id}
-      onClick={() => setSelectedJobId(job.id)}
-      style={{
-        position: "relative",
-        borderRadius: "12px",
-        marginBottom: "12px",
-        border: isSelected ? "2px solid #2563eb" : "1px solid transparent",
-        boxShadow: isSelected ? "0 4px 12px rgba(37, 99, 235, 0.15)" : "none",
-        transition: "all 0.2s",
-      }}
-    >
-      {/* 거리(km) 뱃지 */}
-      {job.distanceKm !== undefined && (
-        <span
-          style={{
-            position: "absolute",
-            top: "14px",
-            right: "48px",
-            fontSize: "11px",
-            fontWeight: "bold",
-            color: "#2563eb",
-            backgroundColor: "#eff6ff",
-            padding: "2px 8px",
-            borderRadius: "12px",
-            zIndex: 2,
-            pointerEvents: "none",
-          }}
-        >
-          {job.distanceKm}km
-        </span>
-      )}
+          <div style={{ padding: "0 16px 6px 4px", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#7c8596" }}>
+            <strong>주변 공고 <span style={{ color: "#526af3" }}>{jobs.length.toLocaleString()}</span>개</strong>
+            <span>반경 {radiusKm}km 이내</span>
+          </div>
 
-      {/* 공통 JobPostingCard 재사용 */}
-      <JobPostingCard posting={postingData} />
-    </div>
-  );
-})
-          )}
-        </div>
-      </div>
+          <div style={{ flex: 1, overflowY: "auto", paddingRight: "10px" }}>
+            {status === "loading" && <DataStatePanel state="loading" />}
+            {status === "error" && <DataStatePanel state="error" />}
+            {status === "ready" && jobs.length === 0 && (
+              <DataStatePanel
+                state="empty"
+                emptyTitle="선택한 반경 내 공고가 없습니다"
+                emptyBody="탐색 반경을 넓히거나 다른 지역으로 변경해 보세요."
+              />
+            )}
 
-      {/* 우측 카카오 지도 */}
-      <div style={{ flex: 1, height: "100%", position: "relative" }}>
-        <KakaoMapContainer
-          center={center}
-          radiusKm={radiusKm}
-          jobs={jobs}
-          selectedJobId={selectedJobId}
-          onSelectJob={(job) => setSelectedJobId(job.id)}
-        />
+            {status === "ready" &&
+              jobs.map((job) => {
+                const isSelected = job.id === selectedJobId;
+                const postingData = {
+                  ...job,
+                  id: job.jobPostingId || job.id,
+                  companyName: job.companyName || job.company_name || job.company || "기업명 미지정",
+                  title: job.title || job.jobTitle || "채용 공고",
+                  location: job.address || job.locationText || job.location,
+                  companyLogoUrl: job.companyLogoUrl || job.logoUrl,
+                } as unknown as JobPosting;
+
+                return (
+                  <div
+                    key={job.id}
+                    ref={(el) => {
+                      if (el) cardRefs.current.set(job.id, el);
+                      else cardRefs.current.delete(job.id);
+                    }}
+                    onClick={() => setSelectedJobId(job.id)}
+                    style={{
+                      position: "relative",
+                      marginBottom: "8px",
+                      borderRadius: "10px",
+                      border: isSelected ? "2px solid #526af3" : "2px solid transparent",
+                      boxShadow: isSelected ? "0 4px 12px rgba(39, 63, 133, 0.12)" : "none",
+                      transition: "all 0.18s ease",
+                      cursor: "pointer",
+                      transform: "scale(0.96)",
+                      transformOrigin: "top left",
+                      width: "104%",
+                    }}
+                  >
+                    {job.distanceKm !== undefined && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "14px",
+                          fontSize: "10px",
+                          fontWeight: "800",
+                          color: "#526af3",
+                          backgroundColor: "#eef2ff",
+                          padding: "2px 6px",
+                          borderRadius: "20px",
+                          zIndex: 2,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {job.distanceKm}km
+                      </span>
+                    )}
+                    <JobPostingCard posting={postingData} />
+                  </div>
+                );
+              })}
+          </div>
+        </aside>
+
+        <main style={{ flex: 1, height: "100%", padding: "0 16px 16px 16px" }}>
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "13px",
+              border: "1px solid #e8ebf1",
+              overflow: "hidden",
+              boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)",
+            }}
+          >
+            <KakaoMapContainer
+              center={center}
+              radiusKm={radiusKm}
+              jobs={jobs}
+              selectedJobId={selectedJobId}
+              onSelectJob={(job) => setSelectedJobId(job.id)}
+            />
+          </div>
+        </main>
       </div>
 
       <PostcodeSearchModal
@@ -446,6 +284,6 @@ export const LocationJobsPage: React.FC = () => {
         onClose={() => setIsPostcodeOpen(false)}
         onSelectAddress={handleSelectAddress}
       />
-    </div>
+    </div>  //ㅁㄴㅇㄹ
   );
-};
+}

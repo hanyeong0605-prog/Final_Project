@@ -424,3 +424,60 @@ def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str =
 
     # 로컬 필터 통과한 후보가 전부 DISCARD당했거나 애초에 하나도 없었던 경우의 최후 폴백.
     return any_fallback or "질문 생성에 실패했습니다. 다시 시도해 주세요."
+
+
+def generate_validated_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
+    """generate_question()(LoRA)이 만든 결과가 실제로 그 분야/카테고리에 어울리는지
+    question_similarity.py로 검증하고, 기준 미달이면 question_corpus.py의 진짜 질문으로
+    조용히 대체한다.
+
+    2026-08-07 배경: 재학습(rank 16, 분야당 120개)으로 LoRA의 분야 혼동 빈도는 크게
+    줄었지만(test_field_questions.py로 직접 확인 - 예전엔 여러 개, 지금은 10개 중 1개꼴로
+    감소) 0%는 아니다. "~하지 마라"는 프롬프트 지시로는 못 고친다(question_similarity.py
+    상단 설계 메모 참고 - 작은 모델은 지시를 이해할 능력이 없다) - 그래서 생성 자체는 그대로
+    LoRA가 하게 두고, 결과가 나온 뒤에 검증해서 이상하면 실제 질문으로 바꿔치기하는 방식을
+    택했다. 이러면 LoRA가 매 요청마다 실제로 호출되면서도(그냥 "혹시 몰라 넣어둔 폴백"이
+    아니라 실제로 쓰이는 상태), 사용자는 절대 이상한 질문을 보지 않는다.
+
+    router.py에서 Gemini 실패 시 generate_question() 대신 이 함수를 호출한다.
+
+    2026-08-07 안전장치 추가: generate_question() 자체가 예외를 던지는 경우도 있다 - 지금은
+    모델 파일이 배포 이미지에 없는 경우(RuntimeError, question_generator.py docstring 참고)가
+    그렇고, 나중에 무료 티어를 Tailscale로 연결된 로컬/학원 컴퓨터의 LoRA 서버로 라우팅하게
+    되면 그 컴퓨터가 꺼져 있거나 네트워크가 끊긴 경우도 여기 해당된다. 이전엔 이 예외가 그대로
+    router.py까지 흘러가서 503/500으로 죽었는데(사용자가 질문을 아예 못 받음), 그러면
+    "이상한 질문이 나오는 것"은 막았어도 "질문이 아예 안 나오는 것"은 못 막는 셈이라 의미가
+    없다. 그래서 생성 실패도 검증 실패와 똑같이 코퍼스 폴백으로 처리한다 - 두 실패 모드
+    (내용이 이상함 / 아예 생성이 안 됨) 모두 같은 안전장치 하나로 커버한다."""
+    try:
+        candidate = generate_question(job=job, context=context, category=category)
+    except Exception:
+        candidate = None
+
+    if candidate is not None:
+        try:
+            from app.domain.interview import question_similarity
+
+            if question_similarity.is_topically_relevant(candidate, category=category, job=job):
+                return candidate
+        except Exception:
+            # 검증 인프라만 죽은 거면 생성 자체는 됐으니 원본을 그대로 믿는다(fail-open).
+            return candidate
+
+    # 2026-08-07: 코퍼스 조회 자체도 try로 감싼다 - 파일 손상/권한 문제 등 예상 못 한 이유로
+    # question_corpus.get_pool()이 예외를 던지는 극단적인 경우까지 포함해서, 이 함수는
+    # 어떤 상황에서도 절대 예외를 밖으로 흘려보내지 않는다(router.py가 503/500을 반환하는
+    # 일이 없다는 뜻) - 항상 뭔가는(원본 후보든, 코퍼스 대체든, 하드코딩 문장이든) 반환된다.
+    try:
+        from app.domain.interview import question_corpus
+
+        import random
+
+        pool = question_corpus.get_pool(category, job)
+        if pool:
+            return random.choice(pool)
+    except Exception:
+        pass
+    # 코퍼스 풀조차 못 얻은 극단적인 경우(파일 누락/손상 등)의 최후 보루 - 이 문장 하나는
+    # 항상 반환된다.
+    return candidate or "간단하게 자기소개 부탁드립니다."

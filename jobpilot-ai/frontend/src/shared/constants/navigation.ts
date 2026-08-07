@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BriefcaseBusiness, CalendarDays, Code2, LayoutDashboard, ListFilter, MapPin, Mic, Sparkles, Target, UserRound,BarChart3 } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, Code2, LayoutDashboard, ListFilter, MapPin, Mic, Sparkles, Target, UserRound,BarChart3} from "lucide-react";
 
 export interface NavigationItem {
   path: string;

@@ -16,7 +16,11 @@ from pydantic import BaseModel
 
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
-from app.domain.interview.question_generator import DEFAULT_JOB, generate_personalized_question, generate_question
+from app.domain.interview.question_generator import (
+    DEFAULT_JOB,
+    generate_personalized_question,
+    generate_validated_question,
+)
 from app.domain.interview.tts import DEFAULT_VOICE_ID, list_voice_options, synthesize_speech
 
 logger = logging.getLogger(__name__)
@@ -56,12 +60,16 @@ def next_question(body: NextQuestionRequest):
     # 확인했다(question_generator.py의 generate_personalized_question 설계 메모 참고).
     # 이제 정보 유무와 상관없이 Gemini를 항상 먼저 시도하고, LoRA는 Gemini 키가 없거나
     # 호출이 실패했을 때만 쓰는 폴백으로 격하한다.
+    # 2026-08-07 (조장 push분과 병합): 배포용 Docker 이미지에는 LoRA 모델 파일 자체가 안
+    # 들어가 있어서(app/domain/interview/model/은 이미지에서 제외됨), 이 폴백이 없으면
+    # 배포 환경에서 LoRA 경로를 타는 요청이 전부 503으로 실패한다 - 품질 이유뿐 아니라
+    # 배포 안정성 측면에서도 Gemini-우선이 맞다는 게 재확인됐다.
     try:
         question = generate_personalized_question(
             job=body.job, tech_summary=body.tech_summary, category=body.category, angle_hint=body.angle_hint
         )
         if question is None:
-            question = generate_question(job=body.job, context=body.context, category=body.category)
+            question = generate_validated_question(job=body.job, context=body.context, category=body.category)
     except RuntimeError as e:
         # 모델 파일이 없는 경우(아직 학습/배포 안 됨) - 500 대신 명확한 메시지로 알려준다.
         raise HTTPException(status_code=503, detail=str(e))

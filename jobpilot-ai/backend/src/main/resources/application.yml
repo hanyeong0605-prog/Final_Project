@@ -72,5 +72,20 @@ saramin-data:
 toss:
   secret-key: ${TOSS_SECRET_KEY:}
 
+# Imported postings are analyzed once with GPT-5.6 Luna, then reused for every member match.
+# The daily cap is persisted in MySQL, so restarting the server cannot exceed it.
+job-requirement-extraction:
+  backfill:
+    enabled: ${JOB_REQUIREMENT_BACKFILL_ENABLED:true}
+    daily-limit: ${JOB_REQUIREMENT_BACKFILL_DAILY_LIMIT:3000}
+    request-interval-ms: ${JOB_REQUIREMENT_BACKFILL_REQUEST_INTERVAL_MS:1000}
+    # A readiness check every 10 minutes. The MySQL daily cap still permits only 3,000 postings/day.
+    cron: "${JOB_REQUIREMENT_BACKFILL_CRON:0 */10 * * * *}"
 
+career:
+  api:
+    key: ${CAREER_API_KEY}
 
+barun:
+  api:
+    key: ${BARUN_API_KEY}

@@ -1,4 +1,6 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+// In development Vite proxies /api, and in production Nginx proxies it.
+// An explicit VITE_API_BASE_URL remains available for environments that need it.
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const tokenKey = "jobpilot.accessToken";
 
 export function getAccessToken() { return localStorage.getItem(tokenKey); }

@@ -11,7 +11,7 @@ public class Location {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 원본 JobPosting 테이블과 1:N / N:1 연관관계
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_posting_id")
     private JobPosting jobPosting;
@@ -31,7 +31,6 @@ public class Location {
     private Double latitude;
     private Double longitude;
 
-    // ================= Getters =================
 
     public Long getId() {
         return id;
