@@ -301,4 +301,5 @@ def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|pr
         "image_data": f"data:image/png;base64,{base64.b64encode(image_buffer.getvalue()).decode('ascii')}",
     }
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    is_reload = os.getenv("APP_ENV", "local").lower() != "production"
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=is_reload)
