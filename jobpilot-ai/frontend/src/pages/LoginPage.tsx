@@ -55,7 +55,7 @@ export function LoginPage() {
         <div className="auth-brand">
           <span className="brand-mark"><span>J</span></span>
           <div>
-            <strong>JobPilot AI</strong>
+            <strong>Job-A-Dream AI</strong>
             <small>career action coach</small>
           </div>
         </div>
