@@ -3,7 +3,7 @@ import { Bookmark, BriefcaseBusiness, ChevronRight, Target } from "lucide-react"
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "../features/dashboard/components/MetricCard";
 import { useInterests } from "../features/interests/model/InterestContext";
-import { getJobMatches } from "../features/jobs/api/jobMatchesApi";
+import { getJobMatchDetail, getJobMatches } from "../features/jobs/api/jobMatchesApi";
 import { CompactJobCard } from "../features/jobs/components/CompactJobCard";
 import { JobMatchDrawer } from "../features/jobs/components/JobMatchDrawer";
 import type { JobMatch } from "../features/jobs/model/job.types";
@@ -17,6 +17,10 @@ export function DashboardPage() {
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const { interestCount, isInterested, toggleInterest } = useInterests();
   const navigate = useNavigate();
+
+  const openJob = (job: JobMatch) => {
+    void getJobMatchDetail(job.id).then(setSelectedJob).catch(() => setSelectedJob(job));
+  };
 
   useEffect(() => {
     void getJobMatches()
@@ -65,7 +69,7 @@ export function DashboardPage() {
       </div>
       <section className="panel recommended-panel">
         <PanelTitle title="개인별 추천 공고" subtitle="현재 지원하거나 소수 요건 보완 후 도전할 수 있는 공고입니다." action={<button className="text-button" onClick={() => navigate("/jobs")}>전체 보기 <ChevronRight size={15} /></button>} />
-        {recommended.length === 0 ? <DataStatePanel state="empty" emptyTitle="추천 가능한 공고가 없습니다" emptyBody="현재 분석 결과에서는 지원 가능한 공고가 확인되지 않았습니다." /> : <div className="job-list">{recommended.map((job) => <CompactJobCard key={job.id} job={job} interested={isInterested(job.id)} onOpen={() => setSelectedJob(job)} onInterest={() => toggleInterest(job.id)} />)}</div>}
+        {recommended.length === 0 ? <DataStatePanel state="empty" emptyTitle="추천 가능한 공고가 없습니다" emptyBody="현재 분석 결과에서는 지원 가능한 공고가 확인되지 않았습니다." /> : <div className="job-list">{recommended.map((job) => <CompactJobCard key={job.id} job={job} interested={isInterested(job.id)} onOpen={() => openJob(job)} onInterest={() => toggleInterest(job.id)} />)}</div>}
       </section>
     </>}
 

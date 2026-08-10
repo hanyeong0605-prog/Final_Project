@@ -3,7 +3,7 @@ export type RequirementStatus = "DIRECT" | "RELATED" | "MISSING" | "CHECK_REQUIR
 
 export interface RequirementEvidence {
   requirement: string;
-  requirementType: "필수" | "우대";
+  requirementType: string;
   evidence: string;
   status: RequirementStatus;
   action: string;

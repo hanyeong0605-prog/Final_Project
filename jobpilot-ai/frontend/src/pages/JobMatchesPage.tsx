@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useInterests } from "../features/interests/model/InterestContext";
-import { getJobMatches } from "../features/jobs/api/jobMatchesApi";
+import { getJobMatchDetail, getJobMatches } from "../features/jobs/api/jobMatchesApi";
 import { JobCard } from "../features/jobs/components/JobCard";
 import { JobGradeFilter } from "../features/jobs/components/JobGradeFilter";
 import { JobMatchDrawer } from "../features/jobs/components/JobMatchDrawer";
@@ -22,6 +22,10 @@ export function JobMatchesPage() {
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const { isInterested, toggleInterest } = useInterests();
 
+  const openJob = (job: JobMatch) => {
+    void getJobMatchDetail(job.id).then(setSelectedJob).catch(() => setSelectedJob(job));
+  };
+
   useEffect(() => { setGrade(initialGrade); }, [initialGrade]);
 
   useEffect(() => {
@@ -39,7 +43,7 @@ export function JobMatchesPage() {
     {status === "ready" && jobs.length === 0 && <DataStatePanel state="empty" emptyTitle="분석된 채용공고가 없습니다" emptyBody="사람인 공고 수집과 회원별 매칭 분석이 완료되면 표시됩니다." />}
     {status === "ready" && jobs.length > 0 && <>
       <div className="list-heading"><strong>{jobs.length}개의 공고</strong><span>마감 임박순 <ChevronRight size={14} /></span></div>
-      <section className="job-card-grid">{jobs.map((job) => <JobCard key={job.id} job={job} interested={isInterested(job.id)} onOpen={() => setSelectedJob(job)} onInterest={() => void toggleInterest(job.id)} />)}</section>
+      <section className="job-card-grid">{jobs.map((job) => <JobCard key={job.id} job={job} interested={isInterested(job.id)} onOpen={() => openJob(job)} onInterest={() => void toggleInterest(job.id)} />)}</section>
     </>}
     {selectedJob && <JobMatchDrawer job={selectedJob} interested={isInterested(selectedJob.id)} onInterest={() => void toggleInterest(selectedJob.id)} onClose={() => setSelectedJob(null)} />}
   </>;
