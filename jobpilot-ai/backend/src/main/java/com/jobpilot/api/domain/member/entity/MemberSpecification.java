@@ -24,6 +24,13 @@ public class MemberSpecification {
         this.technicalSummary = technicalSummary; this.portfolioUrl = portfolioUrl;
         this.updatedAt = LocalDateTime.now();
     }
+    // 2026-08-10: 태스크 #63 "반영" 방향 - 이력서(자기소개서/프로젝트) 저장 시 기술 요약만
+    // 새로 합성해서 반영한다. update()는 온보딩 폼 전체 제출용이라 다른 필드까지 같이
+    // 덮어써버리므로, 이 용도로는 technicalSummary 하나만 건드리는 좁은 메서드가 필요하다.
+    public void updateTechnicalSummary(String technicalSummary) {
+        this.technicalSummary = technicalSummary;
+        this.updatedAt = LocalDateTime.now();
+    }
     public Long getMemberId() { return memberId; }
     public int getTotalCareerMonths() { return totalCareerMonths; }
     public String getTechnicalSummary() { return technicalSummary; }

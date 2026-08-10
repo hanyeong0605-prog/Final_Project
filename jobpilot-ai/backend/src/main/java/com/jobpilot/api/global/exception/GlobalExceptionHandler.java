@@ -1,5 +1,6 @@
 package com.jobpilot.api.global.exception;
 
+import com.jobpilot.api.domain.subscription.exception.SubscriptionException;
 import com.jobpilot.api.domain.projectanalysis.exception.ProjectAnalysisException;
 import com.jobpilot.api.domain.jobposting.provider.saramindata.exception.SaraminDataException;
 import com.jobpilot.api.domain.auth.exception.DuplicateMemberException;
@@ -75,6 +76,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                 "code", "RESOURCE_NOT_FOUND",
+                "message", exception.getMessage(),
+                "timestamp", Instant.now().toString()
+        ));
+    }
+
+    @ExceptionHandler(SubscriptionException.class)
+    public ResponseEntity<Map<String, Object>> handleSubscription(SubscriptionException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "code", "SUBSCRIPTION_OPERATION_FAILED",
                 "message", exception.getMessage(),
                 "timestamp", Instant.now().toString()
         ));

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   Activity,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { analyzeAnswer, evaluateSession, fetchNextQuestion, fetchTtsVoices, synthesizeSpeech } from "../features/mock-interview/api/mockInterviewApi";
 import { getCareerProfile } from "../features/profile/api/careerProfileApi";
+import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi";
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
@@ -269,9 +271,19 @@ function buildSummarySentence(result: AnswerAnalysis, fillerCount: number): stri
 function SessionReportPanel({
   answers,
   onEndSession,
+  role,
+  interviewMode,
+  interviewType,
 }: {
   answers: { question: string; result: AnswerAnalysis; faceMetrics: FaceMetrics | null }[];
   onEndSession: () => void;
+  // 2026-08-10: 개인 타임라인 기능(태스크 #67) - AI 분석이 끝나면 이 메타데이터와 함께
+  // Spring에 저장한다. 이전엔 이 값들이 MockInterviewPage 본문 상태에만 있고
+  // SessionReportPanel까지 안 내려와서, 세션이 끝난 뒤엔 "무슨 분야/유형이었는지"가 이미
+  // 사라진 상태였다(리서치로 확인됨) - 그래서 props로 새로 받는다.
+  role: string | null;
+  interviewMode: "camera" | "chat";
+  interviewType: string | null;
 }) {
   const [report, setReport] = useState<SessionEvaluationReport | null>(null);
   // 2026-08-06: 원래는 이 화면에 들어오자마자 자동으로 Gemini를 호출했는데, "처음엔 지표만
@@ -295,7 +307,31 @@ function SessionReportPanel({
         faceMetrics: a.faceMetrics,
       })),
     )
-      .then((res) => setReport(res.report))
+      .then((res) => {
+        setReport(res.report);
+        if (res.report.ok) {
+          // 2026-08-10: 타임라인 저장은 부가 기능이라 실패해도 지금 보고 있는 AI 분석
+          // 결과 자체에는 영향을 주면 안 된다 - 실패를 조용히 무시한다(에러를 화면에
+          // 보여주면 "저장은 안 됐는데 방금 본 분석 결과도 잘못된 건가" 하는 혼란만 준다).
+          void saveInterviewSessionRecord({
+            role,
+            interviewMode,
+            interviewType,
+            questionCount: answers.length,
+            overallScore: res.report.overall_score,
+            contentScore: res.report.content_score,
+            deliveryScore: res.report.delivery_score,
+            strengths: res.report.strengths,
+            improvements: res.report.improvements,
+            nextSteps: res.report.next_steps,
+            questions: res.report.questions.map((q) => ({
+              question: q.question,
+              feedback: q.feedback,
+              modelAnswer: q.model_answer,
+            })),
+          }).catch(() => {});
+        }
+      })
       .catch((error) => setLoadError(error instanceof Error ? error.message : "종합 평가를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
   };
@@ -453,13 +489,15 @@ function SessionReportPanel({
               ]
                 .filter((s): s is { label: string; value: number } => s.value !== null)
                 .map(({ label, value }) => {
-                  const tone = value >= 4 ? "score-high" : value === 3 ? "score-mid" : "score-low";
+                  // 2026-08-10: 점수를 1~5점에서 100점 만점으로 바꾸면서 등급 기준도 비례
+                  // 조정(4/5=80%, 3/5=60% 그대로 유지) - evaluation.py _clamp_score 참고.
+                  const tone = value >= 80 ? "score-high" : value >= 60 ? "score-mid" : "score-low";
                   return (
                     <div key={label} className={`interview-score-card ${tone}`}>
                       <span className="interview-score-ring">{value}</span>
                       <div>
                         <span className="interview-score-label">{label}</span>
-                        <strong>{value} / 5</strong>
+                        <strong>{value} / 100</strong>
                       </div>
                     </div>
                   );
@@ -624,7 +662,16 @@ export function MockInterviewPage() {
   // 때만 활성 표시되므로, 처음엔 null이라 어떤 칩도 안 켜져 있다가 사용자가 실제로 클릭해야
   // 그 칩이 켜진다. buildSessionQuestions 쪽 로직(찾아서 없으면 undefined)은 null/""
   // 둘 다 "매칭 없음"으로 동일하게 처리되므로 동작 자체는 그대로다.
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  // 2026-08-10: 태스크 #39 "이 부분 연습하기" 딥링크 - TimelinePage의 누적 인사이트/세션
+  // 리포트에서 "role=BACKEND&type=직무면접" 같은 쿼리로 이 페이지로 넘어오면 그 분야/유형을
+  // 미리 선택해둔다(자동 시작은 안 함 - 사용자가 직접 "모의면접 시작하기"를 눌러야 함,
+  // 갑자기 세션이 시작되면 당황스러우니까). 값이 옵션에 없으면(오타/구버전 링크 등) 그냥
+  // 미선택 상태로 둔다.
+  const [searchParams] = useSearchParams();
+  const [selectedRole, setSelectedRole] = useState<string | null>(() => {
+    const fromQuery = searchParams.get("role");
+    return INTERVIEW_ROLE_OPTIONS.some(([code]) => code === fromQuery) ? fromQuery : null;
+  });
   // 2026-08-06: 카메라/채팅 카드를 클릭해서 고르는 라디오 방식으로 바꾸면서 다시 추가 -
   // 실제 시작은 맨 아래 단일 "모의면접 시작하기" 버튼이 이 값을 보고 분기한다.
   const [interviewMode, setInterviewMode] = useState<"camera" | "chat">("camera");
@@ -644,7 +691,10 @@ export function MockInterviewPage() {
   ] as const;
   // 2026-08-07: selectedRole과 같은 이유로 null(미선택)과 ""("전체"를 명시적으로 고른 상태)을
   // 분리했다 - 위 selectedRole 설계 메모 참고.
-  const [selectedInterviewType, setSelectedInterviewType] = useState<string | null>(null);
+  const [selectedInterviewType, setSelectedInterviewType] = useState<string | null>(() => {
+    const fromQuery = searchParams.get("type");
+    return INTERVIEW_TYPE_OPTIONS.some(([type]) => type === fromQuery) ? fromQuery : null;
+  });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -698,9 +748,13 @@ export function MockInterviewPage() {
   // 아니고, 감 잡는 용도로만 색을 살짝 바꿔 보여준다.
   const RECOMMENDED_MIN_SEC = 30;
   const RECOMMENDED_MAX_SEC = 60;
-  const GET_READY_MS = 1500;
+  // 2026-08-11: 1.5초 고정 대기 대신 "3, 2, 1" 카운트다운으로 바꿨다(사용자 요청 - 질문을
+  // 다 읽어준 다음 "곧 녹화가 시작됩니다, 정면을 응시해주세요"와 숫자 카운트다운을 보여주고
+  // 카운트가 끝나는 순간 바로 답변할 수 있게 녹화가 시작되길 원함). "countdown"/"break"
+  // 단계와 같은 초당 useEffect 패턴을 재사용한다.
+  const GET_READY_COUNTDOWN_SECONDS = 3;
   const FIRST_COUNTDOWN_SECONDS = 3;
-  const BREAK_COUNTDOWN_SECONDS = 10;
+  const BREAK_COUNTDOWN_SECONDS = 7; // 2026-08-11: 10초 -> 7초로 단축(사용자 요청)
 
   // 2026-08-06: 마운트 시 서버에서 클라우드 TTS 음성 목록을 받아온다 - GOOGLE_TTS_API_KEY가
   // 없는 환경(로컬 개발 등)이면 /tts/voices도 실패할 수 있는데, 그 경우 그냥 빈 배열로 두고
@@ -843,6 +897,14 @@ export function MockInterviewPage() {
       { length: categoriesNeeded },
       (_, i) => categoryPool[i % categoryPool.length],
     );
+    // 2026-08-10 버그 수정: TECH_QUESTION_ANGLES("기술 선택 이유", "트러블슈팅 경험" 등)를
+    // 카테고리 상관없이 모든 질문에 무조건 붙이고 있었다 - angle_hint는 Gemini 프롬프트에서
+    // "반드시 이 관점에서 만들어라"는 강제 규칙이라, "가치관_자기관리"(인성면접) 같은
+    // 비기술 카테고리에도 기술 관점이 덮어써져서 인성면접을 골라도 기술 질문이 나오는
+    // 버그가 있었다("인성면접 눌렀는데 왜 기술 스택 질문이 나오냐" 리포트로 발견). 원래
+    // 의도(TECH_QUESTION_ANGLES 선언부 주석 참고)대로 "기술_직무역량" 카테고리일 때만
+    // 붙이고, 그 외 카테고리는 angle_hint 없이 보내서 Gemini가 기존 다양성 규칙(5번,
+    // question_generator.py generate_personalized_question 참고)을 대신 쓰게 한다.
     const results = await Promise.allSettled(
       categories.map((category, i) =>
         fetchNextQuestion(
@@ -850,7 +912,7 @@ export function MockInterviewPage() {
           undefined,
           category,
           careerTechSummary || undefined,
-          TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length],
+          category === "기술_직무역량" ? TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length] : undefined,
         ),
       ),
     );
@@ -1131,8 +1193,9 @@ export function MockInterviewPage() {
       setStage("error");
       return;
     }
+    setCountdownTotal(GET_READY_COUNTDOWN_SECONDS);
+    setCountdownValue(GET_READY_COUNTDOWN_SECONDS);
     setStage("get-ready");
-    window.setTimeout(beginActualRecording, GET_READY_MS);
   };
 
   const beginActualRecording = () => {
@@ -1224,6 +1287,20 @@ export function MockInterviewPage() {
     if (countdownValue <= 0) {
       const next = pendingQuestionRef.current;
       if (next) revealQuestionAndBeginRecording(next);
+      return;
+    }
+    const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, countdownValue]);
+
+  // 2026-08-11: 질문을 다 읽어준 뒤 "곧 녹화가 시작됩니다" 3-2-1 카운트다운 - 위
+  // "countdown"(질문 공개 전) 단계와 같은 패턴이지만, 끝났을 때 부르는 함수만 다르다
+  // (revealQuestionAndBeginRecording 대신 beginActualRecording).
+  useEffect(() => {
+    if (stage !== "get-ready") return;
+    if (countdownValue <= 0) {
+      beginActualRecording();
       return;
     }
     const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
@@ -1463,6 +1540,23 @@ export function MockInterviewPage() {
     setTypedAnswer("");
     setChatOnlyMode(false);
   };
+
+  // 2026-08-11: "session-report" 화면(마지막 질문까지 다 끝나고 결과를 보는 화면)에
+  // 도달하면 녹화는 이미 다 끝난 거라 카메라/마이크를 켜둘 이유가 없는데, 예전엔
+  // endSession()을 사용자가 리포트 화면의 "처음으로" 버튼을 눌러야만 호출해서(1965번째 줄
+  // 근처 SessionReportPanel의 onEndSession) 그 버튼을 안 누르고 리포트만 보고 있으면 캠이
+  // 계속 켜진 채로 남아있었다("면접 끝나면 꺼져야 하는데 계속 켜져있다" 피드백). endSession()
+  // 전체를 부르면 sessionAnswers 등 리포트가 필요로 하는 상태까지 지워버리니, 스트림/추적
+  // 루프만 멈추는 부분집합(cancelDeviceTest와 같은 조합)만 여기서 따로 정리한다.
+  useEffect(() => {
+    if (stage !== "session-report") return;
+    stopMeterLoop();
+    stopFaceLoop();
+    disconnectPhonePairing();
+    stopStream();
+    setCameraReady(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
 
   // 질문 준비는 이미 끝난 상태에서 생긴 오류(마이크 권한 거부 등)면 device-check로,
   // 질문 준비 자체가 안 된 상태의 오류면 처음(start)으로 돌아간다.
@@ -1918,7 +2012,12 @@ export function MockInterviewPage() {
             </>
           )}
 
-          {stage === "get-ready" && <strong style={{ color: "#596ff3", fontSize: 16 }}>곧 녹음이 시작됩니다, 준비하세요...</strong>}
+          {stage === "get-ready" && (
+            <>
+              <strong style={{ fontSize: 14, color: "#596ff3", fontWeight: 700 }}>곧 녹화가 시작됩니다. 정면을 응시해주세요</strong>
+              <CountdownRing value={countdownValue} total={countdownTotal} color="#596ff3" />
+            </>
+          )}
 
           {stage === "recording" && (
             <>
@@ -1962,7 +2061,15 @@ export function MockInterviewPage() {
         </div>
       </section>
 
-      {stage === "session-report" && <SessionReportPanel answers={sessionAnswers} onEndSession={endSession} />}
+      {stage === "session-report" && (
+        <SessionReportPanel
+          answers={sessionAnswers}
+          onEndSession={endSession}
+          role={selectedRole || null}
+          interviewMode={interviewMode}
+          interviewType={selectedInterviewType || null}
+        />
+      )}
     </>
   );
 }

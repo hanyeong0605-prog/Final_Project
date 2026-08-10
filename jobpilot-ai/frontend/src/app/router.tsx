@@ -5,8 +5,10 @@ import { JobMatchesPage } from "../pages/JobMatchesPage";
 import { OpportunitiesPage } from "../pages/OpportunitiesPage";
 import { PlannerPage } from "../pages/PlannerPage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { ResumePage } from "../pages/ResumePage";
 import { RepositoryAnalysisPage } from "../pages/RepositoryAnalysisPage";
 import { MockInterviewPage } from "../pages/MockInterviewPage";
+import { TimelinePage } from "../pages/TimelinePage";
 import { AllJobPostingsPage } from "../pages/AllJobPostingsPage";
 import { JobPostingDetailPage } from "../pages/JobPostingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
@@ -16,14 +18,10 @@ import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import { StatisticsDashboard } from "../pages/StatisticsDashboard";
 import { QuestionPage } from "../pages/QuestionPage";
-import  {Test1}  from "../pages/Test1";
-import { Test2 } from "../pages/Test2";
-import { Test3 } from "../pages/Test3";
-import { Test4 } from "../pages/Test4";
-import CheckPage from "../pages/CheckPage";
-import WorkPage from "../pages/WorkPage";
+import { CareerTestPage } from "../pages/CareerTestPage";
 import { SkillRelationView } from "../pages/SkillRelationView";
 import { CameraPairPage } from "../pages/CameraPairPage";
+import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -42,18 +40,17 @@ export const router = createBrowserRouter([
       { path: "opportunities", element: <OpportunitiesPage /> },
       { path: "planner", element: <PlannerPage /> },
       { path: "profile", element: <ProfilePage /> },
+      { path: "resume", element: <ResumePage /> },
       { path: "mock-interview", element: <MockInterviewPage /> },
+      { path: "timeline", element: <TimelinePage /> },
       { path: "account", element: <MyPage /> },
       { path: "repository-analysis", element: <RepositoryAnalysisPage /> },
       { path: "statistics", element: <StatisticsDashboard /> },
       { path: "question", element: <QuestionPage /> },
-      { path: "tests/career-development", element: <Test1 /> },
-      { path: "tests/major-efficacy", element: <Test2 /> },
-      { path: "tests/stem-major-suitability", element: <Test3 /> },
-      { path: "tests/job-value", element: <Test4 /> },
-      { path: "check", element: <CheckPage /> },
-      { path: "Work", element: <WorkPage /> },
+      { path: "tests/:testKey", element: <CareerTestPage /> },
       { path: "skill-relation", element: <SkillRelationView /> },
+      { path: "subscription/success", element: <SubscriptionResultPage /> },
+      { path: "subscription/fail", element: <SubscriptionResultPage /> },
     ],
   },
 ]);

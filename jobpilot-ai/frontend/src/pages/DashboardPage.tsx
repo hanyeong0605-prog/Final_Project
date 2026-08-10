@@ -41,7 +41,7 @@ export function DashboardPage() {
           <button className="outline-button" onClick={() => navigate("/question")}>
             <Target size={17} />진로 심리 검사
           </button>
-          <button className="outline-button" onClick={() => navigate("/check")}>
+          <button className="outline-button" onClick={() => navigate("/question?tab=check")}>
             <Target size={17} />맞춤법 검사기
           </button>
 

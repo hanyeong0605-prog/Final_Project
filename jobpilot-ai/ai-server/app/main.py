@@ -3,9 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.domain.assistant.router import router as assistant_router
 from app.domain.crawler.router import router as crawler_router
 from app.domain.crawler.scheduler import start_scheduler
 from app.domain.interview.router import router as interview_router
+from app.domain.resume.router import router as resume_router
+from app.domain.timeline.router import router as timeline_router
 
 
 @asynccontextmanager
@@ -33,6 +36,9 @@ app.add_middleware(
 
 app.include_router(crawler_router, prefix="/crawler", tags=["crawler"])
 app.include_router(interview_router, prefix="/interview", tags=["interview"])
+app.include_router(resume_router, prefix="/resume", tags=["resume"])
+app.include_router(assistant_router, prefix="/assistant", tags=["assistant"])
+app.include_router(timeline_router, prefix="/timeline", tags=["timeline"])
 
 
 @app.get("/health")
