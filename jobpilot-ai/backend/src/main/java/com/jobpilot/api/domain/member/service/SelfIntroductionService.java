@@ -7,6 +7,7 @@ import com.jobpilot.api.domain.member.repository.SelfIntroductionRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 
 // 2026-08-10: 이력서 작성 도우미 기능(태스크 - 이력서 먼저 끝내고 모의면접 질문 생성이랑
@@ -51,9 +52,16 @@ public class SelfIntroductionService {
 
     // 대표 자기소개서는 회원당 하나만 유지한다 - 새로 지정하는 대상(excludeId, 신규 생성이면
     // null)을 제외한 나머지의 primary 플래그를 전부 끈다.
+    //
+    // 2026-08-10: Objects.equals()로 바꿈 - other.getId().equals(excludeId)는
+    // other.getId()가 null이면(테스트에서 실제 DB에 저장되지 않은 엔티티를 쓸 때처럼) 바로
+    // NullPointerException이 났다(SelfIntroductionServiceTest.
+    // creatingNewPrimaryUnsetsExistingPrimaryEntries가 CI에서 이걸로 실패). 실제 운영에서는
+    // repository가 항상 DB에서 읽어온(id가 채워진) 엔티티만 돌려주므로 원래도 안전했지만,
+    // null-safe 비교로 방어적으로 고치는 게 맞다.
     private void clearOtherPrimaries(Long memberId, Long excludeId) {
         for (SelfIntroduction other : repository.findByMemberIdOrderByUpdatedAtDesc(memberId)) {
-            if (other.isPrimary() && !other.getId().equals(excludeId)) other.unsetPrimary();
+            if (other.isPrimary() && !Objects.equals(other.getId(), excludeId)) other.unsetPrimary();
         }
     }
 
