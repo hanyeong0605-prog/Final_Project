@@ -42,19 +42,24 @@ public class CareerEducationLookupService {
 
     public List<EducationMajorResponse> searchMajors(String query, String educationLevel, String schoolName) {
         String keyword = requiredKeyword(query);
-        JsonNode body = request("MAJOR", educationGroup(educationLevel), "searchTitle", keyword);
         Map<String, EducationMajorResponse> result = new LinkedHashMap<>();
         // The Major API is a nationwide dictionary. It has no dependable reverse lookup for
         // every major a school offers, so show all matching majors instead of hiding candidates.
-        for (JsonNode item : contents(body)) {
-            String name = text(item, "mClass");
-            if (name.isBlank()) continue;
-            String id = text(item, "majorSeq");
-            if (id.isBlank()) continue;
-            result.putIfAbsent(id.isBlank() ? name : id,
-                    new EducationMajorResponse(id, name, text(item, "lClass"), text(item, "facilName")));
+        for (String candidate : majorKeywords(keyword)) {
+            for (JsonNode item : contents(request("MAJOR", educationGroup(educationLevel), "searchTitle", candidate))) {
+                String name = text(item, "mClass");
+                if (name.isBlank()) continue;
+                String id = text(item, "majorSeq");
+                if (id.isBlank()) continue;
+                result.putIfAbsent(id, new EducationMajorResponse(id, name, text(item, "lClass"), text(item, "facilName")));
+            }
         }
         return List.copyOf(result.values());
+    }
+
+    private List<String> majorKeywords(String keyword) {
+        String broad = keyword.replaceFirst("(공학과|학과|공학|학부|과)$", "").trim();
+        return broad.length() >= 2 && !broad.equals(keyword) ? List.of(keyword, broad) : List.of(keyword);
     }
 
     private JsonNode request(String serviceCode, String group, String searchParameter, String keyword) {
