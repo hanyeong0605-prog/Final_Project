@@ -73,19 +73,21 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
 
     <div className="form-section"><h3>보유 자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
-      <label>국가자격 종목 검색<input value={certificateQuery} onChange={(event) => setCertificateQuery(event.target.value)} placeholder="예: 정보처리기사" /></label>
+      <div className="certificate-catalog-search"><label>국가자격 종목 검색<input value={certificateQuery} onChange={(event) => setCertificateQuery(event.target.value)} placeholder="예: 정보처리기사" /></label><span>검색 결과를 선택하면 자격증이 추가됩니다.</span></div>
       {certificateSearchError && <div className="auth-error">{certificateSearchError}</div>}
-      {certificateResults.length > 0 && <div className="search-results">{certificateResults.map((item) => <button type="button" key={item.code} className="search-result" onClick={() => { setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }]); setCertificateQuery(""); setCertificateResults([]); }}><strong>{item.name}</strong><small>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</small></button>)}</div>}
+      {certificateResults.length > 0 && <div className="certificate-search-results">{certificateResults.map((item) => <button type="button" key={item.code} onClick={() => { setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }]); setCertificateQuery(""); setCertificateResults([]); }}><strong>{item.name}</strong><small>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</small><b>선택</b></button>)}</div>}
       <div className="certificate-list">
-        {certificates.map((certificate, index) => <div className="form-fields certificate-row" key={certificate.id ?? `new-${index}`}>
-          <label>자격증명*<input required maxLength={255} value={certificate.name} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="예: 정보처리기사" /></label>
-          <label>발급기관<input maxLength={255} value={certificate.issuer ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, issuer: event.target.value || null } : item))} placeholder="예: 한국산업인력공단" /></label>
-          <label>취득일<input type="date" value={certificate.acquiredAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, acquiredAt: event.target.value || null } : item))} /></label>
-          <label>만료일(선택)<input type="date" value={certificate.expiresAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expiresAt: event.target.value || null } : item))} /></label>
-          <button type="button" className="outline-button certificate-remove" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>삭제</button>
+        {certificates.map((certificate, index) => <div className="certificate-card" key={certificate.id ?? `new-${index}`}>
+          <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>
+          <div className="form-fields">
+            <label>자격증명*<input required maxLength={255} value={certificate.name} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="예: 정보처리기사" /></label>
+            <label>발급기관<input maxLength={255} value={certificate.issuer ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, issuer: event.target.value || null } : item))} placeholder="예: 한국산업인력공단" /></label>
+            <label>취득일<input type="date" value={certificate.acquiredAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, acquiredAt: event.target.value || null } : item))} /></label>
+            <label>만료일(선택)<input type="date" value={certificate.expiresAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expiresAt: event.target.value || null } : item))} /></label>
+          </div>
         </div>)}
       </div>
-      <button type="button" className="outline-button" onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 자격증 추가</button>
+      <button type="button" className="outline-button certificate-manual-add" disabled={certificates.length >= 20 || certificates.some((certificate) => !certificate.name.trim())} onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 직접 입력</button>
     </div>
 
     <div className="form-section"><h3>학력</h3><div className="form-fields">

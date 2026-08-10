@@ -410,6 +410,16 @@ a { color: inherit; text-decoration: none; }
 .skill-search-results { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; left: 0; overflow: hidden; border: 1px solid #dbe2f2; border-radius: 10px; background: #fff; box-shadow: 0 12px 26px #26376220; }
 .skill-search-results button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-bottom: 1px solid #eef1f7; background: #fff; padding: 11px 13px; color: #344057; text-align: left; cursor: pointer; }
 .skill-search-results button:last-child { border-bottom: 0; }.skill-search-results button:hover { background: #f5f7ff; }.skill-search-results strong { font-size: 12px; }.skill-search-results span { color: #8792a4; font-size: 10px; }
+
+.form-hint { margin: -8px 0 13px; color: #8792a4; font-size: 11px; }
+.certificate-catalog-search { position: relative; margin-bottom: 12px; border: 1px solid #dfe5f4; border-radius: 12px; background: #f8faff; padding: 12px; }
+.certificate-catalog-search label { display: grid; gap: 6px; color: #526079; font-size: 11px; font-weight: 800; }
+.certificate-catalog-search input { width: 100%; border: 1px solid #cbd6f8; border-radius: 8px; background: #fff; padding: 10px 11px; color: #344057; font: inherit; }
+.certificate-catalog-search span { display: block; margin-top: 7px; color: #8894a8; font-size: 10px; }
+.certificate-search-results { overflow: hidden; margin: -5px 0 14px; border: 1px solid #d9e1f3; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px #26376216; }
+.certificate-search-results button { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; border: 0; border-bottom: 1px solid #edf0f6; background: #fff; padding: 11px 13px; color: #344057; text-align: left; cursor: pointer; }
+.certificate-search-results button:last-child { border-bottom: 0; }.certificate-search-results button:hover { background: #f5f7ff; }.certificate-search-results strong { font-size: 12px; }.certificate-search-results small { overflow: hidden; color: #8792a4; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.certificate-search-results b { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: #536cf1; font-size: 11px; }
+.certificate-list { display: grid; gap: 10px; }.certificate-card { position: relative; border: 1px solid #e3e8f2; border-radius: 12px; background: #fff; padding: 16px 42px 14px 14px; }.certificate-card .form-fields { gap: 11px; }.certificate-remove { position: absolute; top: 10px; right: 10px; display: grid; width: 24px; height: 24px; place-items: center; border: 0; border-radius: 50%; background: #f0f3f8; color: #6d788b; font-size: 19px; line-height: 1; cursor: pointer; }.certificate-remove:hover { background: #ffe9eb; color: #db5262; }.certificate-manual-add { margin-top: 12px; }.certificate-manual-add:disabled { cursor: not-allowed; opacity: .5; }
 .skill-empty { border: 1px dashed #d8e0ee; border-radius: 9px; background: #fbfcff; padding: 15px; color: #8a95a5; font-size: 11px; text-align: center; }
 .selected-skill-list { display: grid; gap: 8px; }
 .selected-skill { display: grid; grid-template-columns: minmax(115px, .8fr) minmax(140px, .8fr) minmax(180px, 1.6fr) 32px; align-items: end; gap: 9px; border: 1px solid #e3e8f2; border-radius: 10px; background: #fbfcff; padding: 11px; }

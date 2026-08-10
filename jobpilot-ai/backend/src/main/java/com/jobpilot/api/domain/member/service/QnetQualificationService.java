@@ -3,6 +3,7 @@ package com.jobpilot.api.domain.member.service;
 import com.jobpilot.api.domain.member.dto.QnetQualificationResponse;
 import java.io.StringReader;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -59,7 +61,9 @@ public class QnetQualificationService {
     private List<QnetQualificationResponse> requestCatalogue() {
         if (apiKey.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 키가 설정되지 않았습니다.");
         URI uri = UriComponentsBuilder.fromUriString(LIST_URL)
-                .queryParam("serviceKey", apiKey)
+                // The Public Data Portal displays both encoded and decoded keys. Normalize either
+                // form before UriComponents encodes it once for the actual HTTP request.
+                .queryParam("serviceKey", UriUtils.decode(apiKey, StandardCharsets.UTF_8))
                 .queryParam("numOfRows", 1000)
                 .build().encode().toUri();
         try {
