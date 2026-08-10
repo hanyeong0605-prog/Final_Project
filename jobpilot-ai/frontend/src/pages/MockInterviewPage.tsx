@@ -489,13 +489,15 @@ function SessionReportPanel({
               ]
                 .filter((s): s is { label: string; value: number } => s.value !== null)
                 .map(({ label, value }) => {
-                  const tone = value >= 4 ? "score-high" : value === 3 ? "score-mid" : "score-low";
+                  // 2026-08-10: 점수를 1~5점에서 100점 만점으로 바꾸면서 등급 기준도 비례
+                  // 조정(4/5=80%, 3/5=60% 그대로 유지) - evaluation.py _clamp_score 참고.
+                  const tone = value >= 80 ? "score-high" : value >= 60 ? "score-mid" : "score-low";
                   return (
                     <div key={label} className={`interview-score-card ${tone}`}>
                       <span className="interview-score-ring">{value}</span>
                       <div>
                         <span className="interview-score-label">{label}</span>
-                        <strong>{value} / 5</strong>
+                        <strong>{value} / 100</strong>
                       </div>
                     </div>
                   );

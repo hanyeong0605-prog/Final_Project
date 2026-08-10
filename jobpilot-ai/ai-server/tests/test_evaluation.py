@@ -60,9 +60,10 @@ def test_parse_json_response_broken_returns_none():
 
 
 def test_clamp_score_out_of_range_and_invalid():
-    assert _clamp_score(3) == 3
-    assert _clamp_score(0) == 1  # 하한 미만 -> 1로 클램프
-    assert _clamp_score(9) == 5  # 상한 초과 -> 5로 클램프
+    # 2026-08-10: 점수를 1~5점에서 100점 만점(0~100)으로 바꾸면서 클램프 범위도 같이 바뀜.
+    assert _clamp_score(73) == 73
+    assert _clamp_score(-5) == 0  # 하한 미만 -> 0으로 클램프
+    assert _clamp_score(150) == 100  # 상한 초과 -> 100으로 클램프
     assert _clamp_score("이상한 값") is None
     assert _clamp_score(None) is None
 

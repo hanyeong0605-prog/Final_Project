@@ -242,7 +242,7 @@ export function TimelinePage() {
             options={{
               responsive: true,
               plugins: { legend: { display: false } },
-              scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } } },
+              scales: { y: { min: 0, max: 100, ticks: { stepSize: 20 } } },
             }}
           />
         </section>
@@ -269,7 +269,7 @@ export function TimelinePage() {
               {s.overallScore !== null && (
                 <div style={{ textAlign: "center" }}>
                   <strong style={{ fontSize: 20, color: "#293349" }}>{s.overallScore}</strong>
-                  <div style={{ fontSize: 10, color: "#9098a7" }}>/ 5점</div>
+                  <div style={{ fontSize: 10, color: "#9098a7" }}>/ 100점</div>
                 </div>
               )}
               {expandedId === s.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
