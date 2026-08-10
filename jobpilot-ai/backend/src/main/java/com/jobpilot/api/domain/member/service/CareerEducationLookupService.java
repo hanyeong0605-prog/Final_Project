@@ -107,11 +107,12 @@ public class CareerEducationLookupService {
     private boolean isOfferedAt(String majorId, String educationLevel, String selectedSchool) {
         try {
             JsonNode details = request("MAJOR_VIEW", educationGroup(educationLevel), "majorSeq", majorId);
-            JsonNode major = details.path("dataSearch").path("content");
-            JsonNode schools = "HIGH_SCHOOL".equals(educationLevel)
-                    ? major.path("setshl")
-                    : major.path("university");
-            return nodes(schools).stream().map(item -> text(item, "schoolName"))
+            // CareerNet returns an object for some majors and an array for others.
+            // Checking path("university") directly on an array silently filters every result out.
+            return nodes(details.path("dataSearch").path("content")).stream()
+                    .flatMap(major -> nodes("HIGH_SCHOOL".equals(educationLevel)
+                            ? major.path("setshl") : major.path("university")).stream())
+                    .map(item -> text(item, "schoolName"))
                     .anyMatch(name -> sameSchool(name, selectedSchool));
         } catch (Exception ignored) {
             return false;
