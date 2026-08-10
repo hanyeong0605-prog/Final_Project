@@ -16,7 +16,7 @@ def fetch_job_requirements() -> list[str]:
         host="localhost",
         port=3306,
         user="root",
-        password="your_password",  # 👈 로컬 DB 비밀번호에 맞게 수정
+        password="mysql",  # 👈 로컬 DB 비밀번호에 맞게 수정
         db="jobpilot",
         charset="utf8mb4"
     )
