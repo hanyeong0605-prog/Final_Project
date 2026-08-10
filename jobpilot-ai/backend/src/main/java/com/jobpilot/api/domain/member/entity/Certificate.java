@@ -14,7 +14,22 @@ public class Certificate {
     @Column(name = "expires_at") private LocalDate expiresAt;
     @Column(name = "official_url", length = 1000) private String officialUrl;
     protected Certificate() {}
+
+    public Certificate(Long memberId, String name, String issuer, LocalDate acquiredAt,
+                       LocalDate expiresAt, String officialUrl) {
+        this.memberId = memberId;
+        this.name = name;
+        this.issuer = issuer;
+        this.acquiredAt = acquiredAt;
+        this.expiresAt = expiresAt;
+        this.officialUrl = officialUrl;
+    }
+
     public Long getId() { return id; }
     public Long getMemberId() { return memberId; }
     public String getName() { return name; }
+    public String getIssuer() { return issuer; }
+    public LocalDate getAcquiredAt() { return acquiredAt; }
+    public LocalDate getExpiresAt() { return expiresAt; }
+    public String getOfficialUrl() { return officialUrl; }
 }

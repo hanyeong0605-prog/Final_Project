@@ -13,6 +13,8 @@ import com.jobpilot.api.domain.member.entity.MemberProfile;
 import com.jobpilot.api.domain.member.entity.MemberSkill;
 import com.jobpilot.api.domain.member.entity.MemberSpecification;
 import com.jobpilot.api.domain.member.entity.Skill;
+import com.jobpilot.api.domain.member.entity.Certificate;
+import com.jobpilot.api.domain.member.repository.CertificateRepository;
 import com.jobpilot.api.domain.member.repository.MemberProfileRepository;
 import com.jobpilot.api.domain.member.repository.MemberSkillRepository;
 import com.jobpilot.api.domain.member.repository.MemberSpecificationRepository;
@@ -41,13 +43,16 @@ public class JobMatchGenerationService {
     private final SkillRepository skills;
     private final MemberProfileRepository profiles;
     private final MemberSpecificationRepository specifications;
+    private final CertificateRepository certificates;
 
     public JobMatchGenerationService(JobMatchRepository matches, JobMatchEvidenceRepository evidences,
             JobPostingRepository postings, JobRequirementRepository requirements,
             MemberSkillRepository memberSkills, SkillRepository skills,
-            MemberProfileRepository profiles, MemberSpecificationRepository specifications) {
+            MemberProfileRepository profiles, MemberSpecificationRepository specifications,
+            CertificateRepository certificates) {
         this.matches = matches; this.evidences = evidences; this.postings = postings; this.requirements = requirements;
         this.memberSkills = memberSkills; this.skills = skills; this.profiles = profiles; this.specifications = specifications;
+        this.certificates = certificates;
     }
 
     public int regenerateForMember(Long memberId) {
@@ -65,11 +70,12 @@ public class JobMatchGenerationService {
                 .map(item -> catalog.get(item.getSkillId())).filter(java.util.Objects::nonNull).toList();
         MemberProfile profile = profiles.findById(memberId).orElse(null);
         MemberSpecification specification = specifications.findById(memberId).orElse(null);
+        List<Certificate> memberCertificates = certificates.findByMemberId(memberId);
 
         int generated = 0;
         for (JobPosting posting : postings.findActiveWithRequirements()) {
             List<JobRequirement> postingRequirements = requirements.findByJobPostingId(posting.getId());
-            MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, profile, specification);
+            MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, memberCertificates, profile, specification);
             JobMatch saved = matches.save(new JobMatch(memberId, posting.getId(), draft.level(), draft.score(),
                     draft.summary(), draft.missingRequired()));
             evidences.saveAll(draft.evidences(saved.getId()));
@@ -102,14 +108,14 @@ public class JobMatchGenerationService {
                 .collect(java.util.stream.Collectors.toMap(Skill::getId, Function.identity()));
         List<Skill> memberSkillCatalog = savedSkills.stream().map(item -> catalog.get(item.getSkillId()))
                 .filter(java.util.Objects::nonNull).toList();
-        MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, profile, specification);
+        MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, certificates.findByMemberId(memberId), profile, specification);
         JobMatch saved = matches.save(new JobMatch(memberId, posting.getId(), draft.level(), draft.score(),
                 draft.summary(), draft.missingRequired()));
         evidences.saveAll(draft.evidences(saved.getId()));
     }
 
     private MatchDraft evaluate(JobPosting posting, List<JobRequirement> postingRequirements, List<Skill> memberSkills,
-                                MemberProfile profile, MemberSpecification specification) {
+                                List<Certificate> memberCertificates, MemberProfile profile, MemberSpecification specification) {
         int required = 0, covered = 0, missing = 0;
         List<EvidenceDraft> result = new ArrayList<>();
         for (JobRequirement requirement : postingRequirements) {
@@ -122,11 +128,14 @@ public class JobMatchGenerationService {
             }
             if (requiredItem) required++;
             Skill matchedSkill = type.equals("SKILL") ? memberSkills.stream().filter(skill -> containsSkill(content, skill)).findFirst().orElse(null) : null;
+            Certificate matchedCertificate = type.equals("CERTIFICATION") ? memberCertificates.stream()
+                    .filter(certificate -> containsCertificate(content, certificate)).findFirst().orElse(null) : null;
             boolean profileMatch = !type.equals("SKILL") && profileMatches(type, content, profile, specification);
-            if (matchedSkill != null || profileMatch) {
+            if (matchedSkill != null || matchedCertificate != null || profileMatch) {
                 if (requiredItem) covered++;
-                String evidenceType = matchedSkill != null ? "MEMBER_SKILL" : "PROFILE";
-                result.add(new EvidenceDraft(requirement, matchedSkill, "DIRECT", "내 스펙에서 확인되었습니다.", evidenceType));
+                String evidenceType = matchedSkill != null ? "MEMBER_SKILL" : matchedCertificate != null ? "CERTIFICATE" : "PROFILE";
+                Long evidenceId = matchedSkill != null ? matchedSkill.getId() : matchedCertificate != null ? matchedCertificate.getId() : null;
+                result.add(new EvidenceDraft(requirement, evidenceId, evidenceType, "DIRECT", "내 스펙에서 확인되었습니다.", null));
             } else {
                 if (requiredItem) missing++;
                 result.add(new EvidenceDraft(requirement, null, "MISSING", "아직 등록된 스펙에서 확인되지 않았습니다.",
@@ -151,6 +160,12 @@ public class JobMatchGenerationService {
     private boolean containsSkill(String requirement, Skill skill) {
         String name = normalize(skill.getName());
         return name.length() >= 2 && normalize(requirement).contains(name);
+    }
+
+    private boolean containsCertificate(String requirement, Certificate certificate) {
+        String expected = normalize(requirement);
+        String actual = normalize(certificate.getName());
+        return actual.length() >= 2 && (expected.contains(actual) || actual.contains(expected));
     }
 
     private boolean profileMatches(String type, String requirement, MemberProfile profile, MemberSpecification specification) {
@@ -179,11 +194,14 @@ public class JobMatchGenerationService {
                               List<EvidenceDraft> evidenceDrafts) {
         List<JobMatchEvidence> evidences(Long matchId) {
             return evidenceDrafts.stream().map(item -> new JobMatchEvidence(matchId, item.requirement().getId(),
-                    item.skill() == null ? null : item.skill().getId(), item.evidenceType() == null ? "NONE" : item.evidenceType(),
-                    null, item.status(), item.comment(), item.action())).toList();
+                    null, item.evidenceType(), item.memberEvidenceId(), item.status(), item.comment(), item.action())).toList();
         }
     }
-    private record EvidenceDraft(JobRequirement requirement, Skill skill, String status, String comment, String action) {
-        String evidenceType() { return skill == null ? null : "MEMBER_SKILL"; }
+    private record EvidenceDraft(JobRequirement requirement, Long memberEvidenceId, String evidenceType,
+                                 String status, String comment, String action) {
+        EvidenceDraft(JobRequirement requirement, Skill skill, String status, String comment, String action) {
+            this(requirement, skill == null ? null : skill.getId(), skill == null ? "NONE" : "MEMBER_SKILL",
+                    status, comment, action);
+        }
     }
 }
