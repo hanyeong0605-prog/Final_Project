@@ -9,7 +9,7 @@ from pathlib import Path
 from threading import Event, RLock, Thread
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-
+import uvicorn
 import pymysql
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -300,3 +300,5 @@ def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|pr
         "total_records": total_records,
         "image_data": f"data:image/png;base64,{base64.b64encode(image_buffer.getvalue()).decode('ascii')}",
     }
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
