@@ -60,7 +60,6 @@ public class QnetQualificationService {
                 // The Public Data Portal displays both encoded and decoded keys. Normalize either
                 // form before UriComponents encodes it once for the actual HTTP request.
                 .queryParam("serviceKey", UriUtils.decode(apiKey, StandardCharsets.UTF_8))
-                .queryParam("numOfRows", 1000)
                 .build().encode().toUri();
         try {
             String xml = restTemplate.getForObject(uri, String.class);
