@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.net.URI;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -59,7 +60,9 @@ public class CareerEducationLookupService {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("커리어넷 교육정보 API 키가 설정되지 않았습니다.");
         }
-        String uri = UriComponentsBuilder.fromUriString(CAREER_OPEN_API)
+        // Do not pass an already encoded URL as a String to RestTemplate: it encodes '%' again,
+        // turning Korean search text into a different query and returning an empty result set.
+        URI uri = UriComponentsBuilder.fromUriString(CAREER_OPEN_API)
                 .queryParam("apiKey", apiKey)
                 .queryParam("svcType", "api")
                 .queryParam("svcCode", serviceCode)
@@ -70,7 +73,7 @@ public class CareerEducationLookupService {
                 .queryParam(searchParameter, keyword)
                 .build()
                 .encode()
-                .toUriString();
+                .toUri();
         try {
             String rawResponse = restTemplate.getForObject(uri, String.class);
             if (rawResponse == null || rawResponse.isBlank()) throw new IllegalStateException("커리어넷 교육정보 응답이 비어 있습니다.");
