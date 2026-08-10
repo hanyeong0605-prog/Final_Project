@@ -20,6 +20,12 @@ export default defineConfig({
       },
       // 스프링 백엔드(로그인 등)도 같은 이유로 프록시한다 - 폰에서 ngrok으로 접속하면
       // "localhost:9000"은 폰 자신을 가리켜서 실패하기 때문.
+      // Word cloud FastAPI: /wordcloud-api/api/wordcloud -> localhost:8000/api/wordcloud
+      "/wordcloud-api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/wordcloud-api/, ""),
+      },
       "/api": {
         target: "http://localhost:9000",
         changeOrigin: true,

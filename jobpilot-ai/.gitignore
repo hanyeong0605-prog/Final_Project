@@ -3,6 +3,9 @@
 .npm-cache/
 **/dist/
 **/target/
+**/.venv/
+**/__pycache__/
+**/runtime-cache/
 *.tsbuildinfo
 .idea/
 .write_test

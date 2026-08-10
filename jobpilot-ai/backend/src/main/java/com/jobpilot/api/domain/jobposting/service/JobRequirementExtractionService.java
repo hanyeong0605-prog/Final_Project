@@ -7,6 +7,7 @@ import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.jobposting.repository.JobRequirementRepository;
 import com.jobpilot.api.domain.jobposting.repository.JobRequirementExtractionStatusRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
+import com.jobpilot.api.domain.matching.service.JobMatchGenerationService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,19 +25,22 @@ public class JobRequirementExtractionService {
     private final JobRequirementExtractionStatusRepository extractionStatusRepository;
     private final OpenAiJobRequirementClient openAiClient;
     private final JobRequirementExtractionPersistenceService persistenceService;
+    private final JobMatchGenerationService matchGenerationService;
 
     public JobRequirementExtractionService(
             JobPostingRepository jobPostingRepository,
             JobRequirementRepository jobRequirementRepository,
             JobRequirementExtractionStatusRepository extractionStatusRepository,
             OpenAiJobRequirementClient openAiClient,
-            JobRequirementExtractionPersistenceService persistenceService
+            JobRequirementExtractionPersistenceService persistenceService,
+            JobMatchGenerationService matchGenerationService
     ) {
         this.jobPostingRepository = jobPostingRepository;
         this.jobRequirementRepository = jobRequirementRepository;
         this.extractionStatusRepository = extractionStatusRepository;
         this.openAiClient = openAiClient;
         this.persistenceService = persistenceService;
+        this.matchGenerationService = matchGenerationService;
     }
 
     public JobRequirementExtractionResponse extract(JobRequirementExtractionRequest request) {
@@ -72,6 +76,7 @@ public class JobRequirementExtractionService {
                     continue;
                 }
                 persistenceService.replace(posting.getId(), requirements);
+                matchGenerationService.regenerateForPosting(posting.getId());
                 extracted++;
                 items.add(item(posting, "EXTRACTED", requirements.size(), null));
             } catch (OpenAiQuotaExhaustedException exception) {

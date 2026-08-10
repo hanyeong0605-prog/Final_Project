@@ -57,6 +57,18 @@ public class JobMatch {
 
     protected JobMatch() {}
 
+    public JobMatch(Long memberId, Long jobPostingId, RecommendationLevel recommendationLevel,
+                    BigDecimal readinessScore, String summaryComment, int missingRequiredCount) {
+        this.memberId = memberId;
+        this.jobPostingId = jobPostingId;
+        this.recommendationLevel = recommendationLevel;
+        this.readinessScore = readinessScore;
+        this.summaryComment = summaryComment;
+        this.missingRequiredCount = missingRequiredCount;
+        this.analyzedAt = LocalDateTime.now();
+        this.aiModel = "RULE_BASED_V1";
+    }
+
     public Long getId() { return id; }
     public Long getMemberId() { return memberId; }
     public Long getJobPostingId() { return jobPostingId; }

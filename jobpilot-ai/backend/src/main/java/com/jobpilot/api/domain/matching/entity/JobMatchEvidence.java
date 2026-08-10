@@ -40,6 +40,19 @@ public class JobMatchEvidence {
 
     protected JobMatchEvidence() {}
 
+    public JobMatchEvidence(Long jobMatchId, Long jobRequirementId, Long skillId,
+                            String memberEvidenceType, Long memberEvidenceId, String status,
+                            String comment, String gapAction) {
+        this.jobMatchId = jobMatchId;
+        this.jobRequirementId = jobRequirementId;
+        this.skillId = skillId;
+        this.memberEvidenceType = memberEvidenceType;
+        this.memberEvidenceId = memberEvidenceId;
+        this.status = status;
+        this.comment = comment;
+        this.gapAction = gapAction;
+    }
+
     public Long getId() { return id; }
     public Long getJobMatchId() { return jobMatchId; }
     public Long getJobRequirementId() { return jobRequirementId; }

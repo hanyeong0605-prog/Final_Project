@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.net.URI;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -41,36 +42,44 @@ public class CareerEducationLookupService {
 
     public List<EducationMajorResponse> searchMajors(String query, String educationLevel, String schoolName) {
         String keyword = requiredKeyword(query);
-        String selectedSchool = requiredSchool(schoolName);
-        JsonNode body = request("MAJOR", educationGroup(educationLevel), "searchTitle", keyword);
         Map<String, EducationMajorResponse> result = new LinkedHashMap<>();
-        for (JsonNode item : contents(body).stream().limit(10).toList()) {
-            String name = text(item, "mClass");
-            if (name.isBlank()) continue;
-            String id = text(item, "majorSeq");
-            if (id.isBlank() || !isOfferedAt(id, educationLevel, selectedSchool)) continue;
-            result.putIfAbsent(id.isBlank() ? name : id,
-                    new EducationMajorResponse(id, name, text(item, "lClass"), text(item, "facilName")));
+        // The Major API is a nationwide dictionary. It has no dependable reverse lookup for
+        // every major a school offers, so show all matching majors instead of hiding candidates.
+        for (String candidate : majorKeywords(keyword)) {
+            for (JsonNode item : contents(request("MAJOR", educationGroup(educationLevel), "searchTitle", candidate))) {
+                String name = text(item, "mClass");
+                if (name.isBlank()) continue;
+                String id = text(item, "majorSeq");
+                if (id.isBlank()) continue;
+                result.putIfAbsent(id, new EducationMajorResponse(id, name, text(item, "lClass"), text(item, "facilName")));
+            }
         }
         return List.copyOf(result.values());
+    }
+
+    private List<String> majorKeywords(String keyword) {
+        String broad = keyword.replaceFirst("(공학과|학과|공학|학부|과)$", "").trim();
+        return broad.length() >= 2 && !broad.equals(keyword) ? List.of(keyword, broad) : List.of(keyword);
     }
 
     private JsonNode request(String serviceCode, String group, String searchParameter, String keyword) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("커리어넷 교육정보 API 키가 설정되지 않았습니다.");
         }
-        String uri = UriComponentsBuilder.fromUriString(CAREER_OPEN_API)
+        // Do not pass an already encoded URL as a String to RestTemplate: it encodes '%' again,
+        // turning Korean search text into a different query and returning an empty result set.
+        URI uri = UriComponentsBuilder.fromUriString(CAREER_OPEN_API)
                 .queryParam("apiKey", apiKey)
                 .queryParam("svcType", "api")
                 .queryParam("svcCode", serviceCode)
                 .queryParam("contentType", "json")
                 .queryParam("gubun", group)
                 .queryParam("thisPage", 1)
-                .queryParam("perPage", 20)
+                .queryParam("perPage", 100)
                 .queryParam(searchParameter, keyword)
                 .build()
                 .encode()
-                .toUriString();
+                .toUri();
         try {
             String rawResponse = restTemplate.getForObject(uri, String.class);
             if (rawResponse == null || rawResponse.isBlank()) throw new IllegalStateException("커리어넷 교육정보 응답이 비어 있습니다.");
@@ -104,11 +113,12 @@ public class CareerEducationLookupService {
     private boolean isOfferedAt(String majorId, String educationLevel, String selectedSchool) {
         try {
             JsonNode details = request("MAJOR_VIEW", educationGroup(educationLevel), "majorSeq", majorId);
-            JsonNode major = details.path("dataSearch").path("content");
-            JsonNode schools = "HIGH_SCHOOL".equals(educationLevel)
-                    ? major.path("setshl")
-                    : major.path("university");
-            return nodes(schools).stream().map(item -> text(item, "schoolName"))
+            // CareerNet returns an object for some majors and an array for others.
+            // Checking path("university") directly on an array silently filters every result out.
+            return nodes(details.path("dataSearch").path("content")).stream()
+                    .flatMap(major -> nodes("HIGH_SCHOOL".equals(educationLevel)
+                            ? major.path("setshl") : major.path("university")).stream())
+                    .map(item -> text(item, "schoolName"))
                     .anyMatch(name -> sameSchool(name, selectedSchool));
         } catch (Exception ignored) {
             return false;

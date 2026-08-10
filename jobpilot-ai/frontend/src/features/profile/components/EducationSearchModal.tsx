@@ -14,7 +14,7 @@ export function EducationSearchModal({ kind, educationLevel, selectedSchool, val
   const isSchool = kind === "school";
   const label = isSchool ? "학교명" : "전공";
   const placeholder = isSchool ? "학교명 검색" : "전공명 검색";
-  const blocked = !educationLevel || (!isSchool && !selectedSchool);
+  const blocked = !educationLevel;
 
   useEffect(() => {
     if (!open || query.trim().length < 2) { setResults([]); return; }

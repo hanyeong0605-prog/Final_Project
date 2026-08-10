@@ -22,12 +22,13 @@ export function JobPostingDetailPage() {
   const { id } = useParams();
   const [posting, setPosting] = useState<JobPostingDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [companyImageFailed, setCompanyImageFailed] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     setStatus("loading");
     void getJobPosting(id)
-      .then((data) => { setPosting(data); setStatus("ready"); })
+      .then((data) => { setPosting(data); setCompanyImageFailed(false); setStatus("ready"); })
       .catch(() => { setPosting(null); setStatus("error"); });
   }, [id]);
 
@@ -54,12 +55,15 @@ export function JobPostingDetailPage() {
     ...(deadline ? [["마감일", deadline] as [string, string]] : []),
   ];
   const images = [...new Set(posting.imageUrls ?? [])].slice(0, 8);
+  const companyImageUrl = posting.thumbnailUrl || posting.companyLogoUrl;
 
   return <div className="job-detail-page">
     <Link className="job-detail-back" to="/job-postings"><ArrowLeft size={16} />전체 채용공고</Link>
     <section className="job-detail-hero">
       <div className="job-detail-company">
-        {posting.companyLogoUrl ? <img src={posting.companyLogoUrl} alt={`${posting.companyName ?? "회사"} 로고`} onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <Building2 size={30} />}
+        {hasText(companyImageUrl) && !companyImageFailed
+          ? <img src={companyImageUrl} alt={`${posting.companyName ?? "회사"} 로고`} onError={() => setCompanyImageFailed(true)} />
+          : <Building2 size={30} />}
         {hasText(posting.companyName) && <span>{posting.companyName}</span>}
       </div>
       <h1>{posting.title}</h1>

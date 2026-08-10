@@ -62,6 +62,12 @@ services:
     build:
       context: ./ml-project
     restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:?Set ENV_FILE to the absolute path of the server environment file}
+    environment:
+      WORDCLOUD_CACHE_REFRESH_ENABLED: ${WORDCLOUD_CACHE_REFRESH_ENABLED:-true}
+      WORDCLOUD_CACHE_REFRESH_ON_START: ${WORDCLOUD_CACHE_REFRESH_ON_START:-true}
+      WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-360}
     expose:
       - "8000"
     healthcheck:
