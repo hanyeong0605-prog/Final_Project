@@ -22,4 +22,23 @@ public record JobPostingCrawlItem(
         String sourceUpdatedAt,
         List<String> imageUrls
 ) {
+    /** 기존 크롤러와 테스트가 쓰던 13개 인자 생성자 호환용. */
+    public JobPostingCrawlItem(
+            String externalId,
+            String title,
+            String companyName,
+            String sourceUrl,
+            String career,
+            String employmentType,
+            String location,
+            String deadlineRaw,
+            boolean isRollingDeadline,
+            String originSite,
+            String jobCategory,
+            String description,
+            String sourceUpdatedAt) {
+        this(externalId, title, companyName, sourceUrl, career, employmentType, location,
+                deadlineRaw, isRollingDeadline, originSite, jobCategory, description,
+                sourceUpdatedAt, List.of());
+    }
 }
