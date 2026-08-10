@@ -3,7 +3,7 @@
 원래 zighang_scraper.py 안에 있었는데, 직행 크롤러를 없애면서 원티드/백엔드 전송
 쪽에서 계속 필요한 dataclass와 헬퍼만 이 파일로 옮겼다."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _as_dict(value) -> dict:
@@ -34,3 +34,4 @@ class ScrapedJobPosting:
     job_category: str | None
     description: str | None
     source_updated_at: str | None = None
+    image_urls: list[str] = field(default_factory=list)

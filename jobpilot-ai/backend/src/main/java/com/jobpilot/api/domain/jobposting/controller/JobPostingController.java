@@ -78,7 +78,10 @@ public class JobPostingController {
 
     private List<String> imageUrls(JsonNode rawPayload) {
         if (rawPayload == null) return List.of();
-        JsonNode urls = rawPayload.path("images").path("job_thumbnail_urls");
+        JsonNode urls = rawPayload.path("imageUrls");
+        if (!urls.isArray()) {
+            urls = rawPayload.path("images").path("job_thumbnail_urls");
+        }
         if (!urls.isArray()) return List.of();
 
         List<String> result = new ArrayList<>();
