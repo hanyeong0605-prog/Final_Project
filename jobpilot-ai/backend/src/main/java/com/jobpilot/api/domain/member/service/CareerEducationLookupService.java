@@ -42,14 +42,15 @@ public class CareerEducationLookupService {
 
     public List<EducationMajorResponse> searchMajors(String query, String educationLevel, String schoolName) {
         String keyword = requiredKeyword(query);
-        String selectedSchool = requiredSchool(schoolName);
         JsonNode body = request("MAJOR", educationGroup(educationLevel), "searchTitle", keyword);
         Map<String, EducationMajorResponse> result = new LinkedHashMap<>();
-        for (JsonNode item : contents(body).stream().limit(10).toList()) {
+        // The Major API is a nationwide dictionary. It has no dependable reverse lookup for
+        // every major a school offers, so show all matching majors instead of hiding candidates.
+        for (JsonNode item : contents(body)) {
             String name = text(item, "mClass");
             if (name.isBlank()) continue;
             String id = text(item, "majorSeq");
-            if (id.isBlank() || !isOfferedAt(id, educationLevel, selectedSchool)) continue;
+            if (id.isBlank()) continue;
             result.putIfAbsent(id.isBlank() ? name : id,
                     new EducationMajorResponse(id, name, text(item, "lClass"), text(item, "facilName")));
         }
@@ -69,7 +70,7 @@ public class CareerEducationLookupService {
                 .queryParam("contentType", "json")
                 .queryParam("gubun", group)
                 .queryParam("thisPage", 1)
-                .queryParam("perPage", 20)
+                .queryParam("perPage", 100)
                 .queryParam(searchParameter, keyword)
                 .build()
                 .encode()
