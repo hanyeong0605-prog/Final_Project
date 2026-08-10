@@ -8,6 +8,7 @@ import com.jobpilot.api.domain.member.dto.MemberCareerProfileResponse;
 import com.jobpilot.api.domain.member.entity.*;
 import com.jobpilot.api.domain.member.repository.*;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
+import com.jobpilot.api.domain.matching.service.JobMatchGenerationService;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -17,9 +18,10 @@ import org.springframework.stereotype.Service;
 public class MemberCareerProfileService {
     private final MemberRepository members; private final MemberProfileRepository profiles;
     private final MemberSpecificationRepository specifications; private final ObjectMapper objectMapper;
+    private final JobMatchGenerationService matchGenerationService;
     public MemberCareerProfileService(MemberRepository members, MemberProfileRepository profiles,
-            MemberSpecificationRepository specifications, ObjectMapper objectMapper) {
-        this.members = members; this.profiles = profiles; this.specifications = specifications; this.objectMapper = objectMapper;
+            MemberSpecificationRepository specifications, ObjectMapper objectMapper, JobMatchGenerationService matchGenerationService) {
+        this.members = members; this.profiles = profiles; this.specifications = specifications; this.objectMapper = objectMapper; this.matchGenerationService = matchGenerationService;
     }
     public MemberCareerProfileResponse get(Long memberId) {
         MemberProfile profile = profiles.findById(memberId).orElse(null);
@@ -38,6 +40,7 @@ public class MemberCareerProfileService {
         spec.update(clean(request.educationLevel()), clean(request.schoolName()), clean(request.major()),
                 clean(request.graduationStatus()), request.totalCareerMonths(), clean(request.technicalSummary()), clean(request.portfolioUrl()));
         profiles.save(profile); specifications.save(spec); member.completeOnboarding();
+        matchGenerationService.regenerateForMember(memberId);
         return response(profile, spec);
     }
     public MemberResponse skip(Long memberId) { Member member = member(memberId); member.completeOnboarding(); return MemberResponse.from(member); }

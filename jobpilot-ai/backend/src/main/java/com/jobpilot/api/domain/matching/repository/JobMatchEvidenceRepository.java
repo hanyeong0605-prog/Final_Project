@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JobMatchEvidenceRepository extends JpaRepository<JobMatchEvidence, Long> {
     List<JobMatchEvidence> findByJobMatchId(Long jobMatchId);
+    void deleteByJobMatchIdIn(List<Long> jobMatchIds);
 }

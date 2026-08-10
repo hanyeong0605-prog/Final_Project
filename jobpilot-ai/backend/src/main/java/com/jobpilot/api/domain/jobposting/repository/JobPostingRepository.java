@@ -11,6 +11,14 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     List<JobPosting> findByStatusOrderByPublishedAtDesc(String status);
 
     @Query(value = """
+            SELECT posting.* FROM job_postings posting
+            WHERE posting.status = 'ACTIVE'
+              AND EXISTS (SELECT 1 FROM job_requirements requirement WHERE requirement.job_posting_id = posting.id)
+            ORDER BY posting.deadline_at IS NULL, posting.deadline_at ASC, posting.published_at DESC
+            """, nativeQuery = true)
+    List<JobPosting> findActiveWithRequirements();
+
+    @Query(value = """
             SELECT posting.*
             FROM job_postings posting
             WHERE posting.status = 'ACTIVE'

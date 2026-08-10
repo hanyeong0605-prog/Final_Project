@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useInterests } from "../features/interests/model/InterestContext";
 import { getJobMatches } from "../features/jobs/api/jobMatchesApi";
 import { JobCard } from "../features/jobs/components/JobCard";
@@ -12,11 +13,16 @@ import { PageHeading } from "../shared/components/PageHeading";
 type LoadStatus = "loading" | "ready" | "error";
 
 export function JobMatchesPage() {
-  const [grade, setGrade] = useState<RecommendationLevel | "ALL">("ALL");
+  const [searchParams] = useSearchParams();
+  const requestedLevel = searchParams.get("level");
+  const initialGrade: RecommendationLevel | "ALL" = requestedLevel === "APPLY_NOW" || requestedLevel === "CHALLENGE_AFTER_GAPS" || requestedLevel === "DIFFICULT_NOW" ? requestedLevel : "ALL";
+  const [grade, setGrade] = useState<RecommendationLevel | "ALL">(initialGrade);
   const [jobs, setJobs] = useState<JobMatch[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const { isInterested, toggleInterest } = useInterests();
+
+  useEffect(() => { setGrade(initialGrade); }, [initialGrade]);
 
   useEffect(() => {
     setStatus("loading");
