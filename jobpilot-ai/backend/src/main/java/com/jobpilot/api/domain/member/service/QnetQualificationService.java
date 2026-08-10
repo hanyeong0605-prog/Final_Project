@@ -69,6 +69,10 @@ public class QnetQualificationService {
         try {
             String xml = restTemplate.getForObject(uri, String.class);
             if (xml == null || xml.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 응답이 비어 있습니다.");
+            // Q-Net occasionally prefixes the XML body with a byte-order mark. DOM rejects that
+            // as content before the XML declaration, although curl still displays valid-looking XML.
+            int xmlStart = xml.indexOf('<');
+            if (xmlStart > 0) xml = xml.substring(xmlStart);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
