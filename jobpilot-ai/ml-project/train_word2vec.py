@@ -1,6 +1,14 @@
+import os
+from pathlib import Path
 import pymysql
 from kiwipiepy import Kiwi
 from gensim.models import Word2Vec
+from dotenv import load_dotenv
+
+
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ENV_FILE = BASE_DIR.parent / ".env"
+load_dotenv(PROJECT_ENV_FILE, override=False)
 
 # 1. Kiwi 형태소 분석기 및 불용어 정의
 kiwi = Kiwi()
@@ -12,12 +20,16 @@ STOPWORDS = {
 
 def fetch_job_requirements() -> list[str]:
     """jobpilot DB의 job_requirements 테이블에서 content와 source_excerpt를 가져옵니다."""
+    db_user = os.getenv("DB_USERNAME", "root")
+    db_password = os.getenv("DB_PASSWORD", "mysql")
+
+ # 호스트 부분 수정 필요
     conn = pymysql.connect(
         host="localhost",
         port=3306,
-        user="root",
-        password="mysql",  # 👈 로컬 DB 비밀번호에 맞게 수정
-        db="jobpilot",
+        user=db_user,
+        password=db_password,  #
+        database="jobpilot",
         charset="utf8mb4"
     )
     try:
