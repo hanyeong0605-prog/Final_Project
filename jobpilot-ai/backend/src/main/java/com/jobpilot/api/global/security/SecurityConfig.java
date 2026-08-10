@@ -43,6 +43,9 @@ public class SecurityConfig {
 
 //                     임시!@@@@#@@@@@ 지도용
                     authorize.requestMatchers("/api/location-jobs/**").permitAll();
+                    // CareerNet school/major lookup contains public reference data only.
+                    // Keeping it public also lets the profile form work before a stale JWT is refreshed.
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/education/**").permitAll();
 
                     authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
                     authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
