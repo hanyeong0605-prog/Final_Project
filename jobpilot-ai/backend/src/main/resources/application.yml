@@ -86,6 +86,10 @@ career:
   api:
     key: ${CAREER_API_KEY}
 
+qnet:
+  api:
+    key: ${QNET_API_KEY:}
+
 barun:
   api:
     key: ${BARUN_API_KEY}

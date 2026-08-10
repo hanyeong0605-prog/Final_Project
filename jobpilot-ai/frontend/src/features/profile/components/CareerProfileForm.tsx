@@ -3,6 +3,7 @@ import { jobFamilies } from "../data/profileCatalog";
 import { emptyCareerProfile, type CareerProfile } from "../model/careerProfile.types";
 import type { MemberSkill } from "../model/memberSkill.types";
 import { emptyMemberCertificate, type MemberCertificate } from "../model/memberCertificate.types";
+import { searchQnetQualifications, type QnetQualification } from "../api/memberCertificatesApi";
 import { EducationSearchModal } from "./EducationSearchModal";
 import { RegionSelectionModal } from "./RegionSelectionModal";
 import { SkillProfileEditor } from "./SkillProfileEditor";
@@ -20,11 +21,24 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   const [form, setForm] = useState<CareerProfile>(initial ?? emptyCareerProfile());
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
   const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
+  const [certificateQuery, setCertificateQuery] = useState("");
+  const [certificateResults, setCertificateResults] = useState<QnetQualification[]>([]);
+  const [certificateSearchError, setCertificateSearchError] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => { if (initial) setForm(initial); }, [initial]);
   useEffect(() => { if (initialSkills) setSkills(initialSkills); }, [initialSkills]);
   useEffect(() => { if (initialCertificates) setCertificates(initialCertificates); }, [initialCertificates]);
+  useEffect(() => {
+    const query = certificateQuery.trim();
+    if (query.length < 2) { setCertificateResults([]); setCertificateSearchError(""); return; }
+    const timer = window.setTimeout(() => {
+      void searchQnetQualifications(query)
+        .then((result) => { setCertificateResults(result); setCertificateSearchError(""); })
+        .catch((reason) => { setCertificateResults([]); setCertificateSearchError(reason instanceof Error ? reason.message : "자격증 목록을 불러오지 못했습니다."); });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [certificateQuery]);
 
   const set = <K extends keyof CareerProfile>(key: K, value: CareerProfile[K]) => setForm((current) => ({ ...current, [key]: value }));
   const knownFamily = Object.hasOwn(jobFamilies, form.targetJobFamily);
@@ -59,6 +73,9 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
 
     <div className="form-section"><h3>보유 자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
+      <label>국가자격 종목 검색<input value={certificateQuery} onChange={(event) => setCertificateQuery(event.target.value)} placeholder="예: 정보처리기사" /></label>
+      {certificateSearchError && <div className="auth-error">{certificateSearchError}</div>}
+      {certificateResults.length > 0 && <div className="search-results">{certificateResults.map((item) => <button type="button" key={item.code} className="search-result" onClick={() => { setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }]); setCertificateQuery(""); setCertificateResults([]); }}><strong>{item.name}</strong><small>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</small></button>)}</div>}
       <div className="certificate-list">
         {certificates.map((certificate, index) => <div className="form-fields certificate-row" key={certificate.id ?? `new-${index}`}>
           <label>자격증명*<input required maxLength={255} value={certificate.name} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="예: 정보처리기사" /></label>
