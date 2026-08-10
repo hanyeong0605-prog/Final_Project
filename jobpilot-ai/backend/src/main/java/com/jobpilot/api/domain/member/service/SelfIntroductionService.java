@@ -53,15 +53,17 @@ public class SelfIntroductionService {
     // 대표 자기소개서는 회원당 하나만 유지한다 - 새로 지정하는 대상(excludeId, 신규 생성이면
     // null)을 제외한 나머지의 primary 플래그를 전부 끈다.
     //
-    // 2026-08-10: Objects.equals()로 바꿈 - other.getId().equals(excludeId)는
-    // other.getId()가 null이면(테스트에서 실제 DB에 저장되지 않은 엔티티를 쓸 때처럼) 바로
-    // NullPointerException이 났다(SelfIntroductionServiceTest.
-    // creatingNewPrimaryUnsetsExistingPrimaryEntries가 CI에서 이걸로 실패). 실제 운영에서는
-    // repository가 항상 DB에서 읽어온(id가 채워진) 엔티티만 돌려주므로 원래도 안전했지만,
-    // null-safe 비교로 방어적으로 고치는 게 맞다.
+    // 2026-08-10: other.getId().equals(excludeId)는 other.getId()가 null이면(테스트처럼
+    // 실제 DB에 저장 안 된 엔티티일 때) NPE가 났다. 이걸 Objects.equals(other.getId(),
+    // excludeId)로 바꿨더니 이번엔 신규 생성(excludeId=null)인데 other.getId()도 null인
+    // 경우 "둘 다 null이니 같다"고 오판해서 제외 대상이 아닌데도 안 꺼버리는 새 버그가 생겼다
+    // (CI에서 creatingNewPrimaryUnsetsExistingPrimaryEntries 재실패로 발견). excludeId가
+    // null이라는 건 "제외할 기존 엔트리가 아예 없다"(신규 생성)는 뜻이므로, excludeId가
+    // null이 아닐 때만 id 비교를 하도록 고쳤다.
     private void clearOtherPrimaries(Long memberId, Long excludeId) {
         for (SelfIntroduction other : repository.findByMemberIdOrderByUpdatedAtDesc(memberId)) {
-            if (other.isPrimary() && !Objects.equals(other.getId(), excludeId)) other.unsetPrimary();
+            boolean isExcluded = excludeId != null && Objects.equals(other.getId(), excludeId);
+            if (other.isPrimary() && !isExcluded) other.unsetPrimary();
         }
     }
 
