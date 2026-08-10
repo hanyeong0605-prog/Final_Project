@@ -1,24 +1,19 @@
 package com.jobpilot.api.domain.member.service;
 
 import com.jobpilot.api.domain.member.dto.QnetQualificationResponse;
-import java.io.StringReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Q-Net public qualification catalogue. A single cached upstream call prevents typing from spending API quota. */
 @Service
@@ -26,6 +21,7 @@ public class QnetQualificationService {
     private static final String LIST_URL = "http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList";
     private static final int MAX_RESULTS = 20;
     private static final long CACHE_SECONDS = 60 * 60 * 12;
+    private static final Pattern ITEM_PATTERN = Pattern.compile("<item>(.*?)</item>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 
     private final String apiKey;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -69,19 +65,10 @@ public class QnetQualificationService {
         try {
             String xml = restTemplate.getForObject(uri, String.class);
             if (xml == null || xml.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 응답이 비어 있습니다.");
-            // Q-Net occasionally prefixes the XML body with a byte-order mark. DOM rejects that
-            // as content before the XML declaration, although curl still displays valid-looking XML.
-            int xmlStart = xml.indexOf('<');
-            if (xmlStart > 0) xml = xml.substring(xmlStart);
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setExpandEntityReferences(false);
-            Document document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
-            NodeList items = document.getElementsByTagName("item");
             List<QnetQualificationResponse> result = new ArrayList<>();
-            for (int index = 0; index < items.getLength(); index++) {
-                Element item = (Element) items.item(index);
+            Matcher items = ITEM_PATTERN.matcher(xml);
+            while (items.find()) {
+                String item = items.group(1);
                 String name = text(item, "jmfldnm");
                 if (!name.isBlank()) result.add(new QnetQualificationResponse(text(item, "jmcd"), name,
                         text(item, "qualgbnm"), text(item, "obligfldnm"), text(item, "mdobligfldnm")));
@@ -100,9 +87,14 @@ public class QnetQualificationService {
         return query.trim();
     }
 
-    private String text(Element parent, String tag) {
-        NodeList values = parent.getElementsByTagName(tag);
-        return values.getLength() == 0 ? "" : values.item(0).getTextContent().trim();
+    private String text(String item, String tag) {
+        Matcher value = Pattern.compile("<" + tag + ">(.*?)</" + tag + ">", Pattern.DOTALL | Pattern.CASE_INSENSITIVE).matcher(item);
+        return value.find() ? unescape(value.group(1).trim()) : "";
+    }
+
+    private String unescape(String value) {
+        return value.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", "\"").replace("&apos;", "'");
     }
 
     private String normalize(String value) { return value == null ? "" : value.replaceAll("\\s+", "").toLowerCase(); }
