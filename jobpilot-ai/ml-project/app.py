@@ -10,19 +10,60 @@ from wordcloud import WordCloud
 
 BASE_DIR = Path(__file__).resolve().parent
 CACHE_FILE = BASE_DIR / "cache" / "wordcloud_cache.json"
-FONT_PATH = os.getenv("WORDCLOUD_FONT_PATH", "/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
+DEFAULT_LINUX_FONT = Path("/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
+WINDOWS_FONT_CANDIDATES = (
+    Path("C:/Windows/Fonts/malgun.ttf"),
+    Path("C:/Windows/Fonts/malgunbd.ttf"),
+)
 
 app = FastAPI(title="JobPilot Word Cloud Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
 
 
+def resolve_font_path() -> str:
+    configured_font = os.getenv("WORDCLOUD_FONT_PATH")
+    candidates = [Path(configured_font)] if configured_font else []
+
+    if os.name == "nt":
+        candidates.extend(WINDOWS_FONT_CANDIDATES)
+    candidates.append(DEFAULT_LINUX_FONT)
+
+    for font_path in candidates:
+        if font_path.is_file():
+            return str(font_path)
+
+    checked_paths = ", ".join(str(path) for path in candidates)
+    raise RuntimeError(
+        "A Korean font for word-cloud rendering was not found. "
+        f"Checked: {checked_paths}. Set WORDCLOUD_FONT_PATH to a valid .ttf file."
+    )
+
+
 def load_cache() -> dict:
     if not CACHE_FILE.exists():
-        raise RuntimeError(f"Word cloud cache is missing: {CACHE_FILE}")
-    with CACHE_FILE.open("r", encoding="utf-8") as cache_file:
-        return json.load(cache_file)
+        raise RuntimeError(
+            f"Word cloud cache is missing: {CACHE_FILE}. "
+            "This service uses the repository-managed precomputed cache; "
+            "restore ml-project/cache/wordcloud_cache.json before starting the server."
+        )
+
+    try:
+        with CACHE_FILE.open("r", encoding="utf-8") as cache_file:
+            cache = json.load(cache_file)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Word cloud cache is invalid JSON: {CACHE_FILE}") from error
+
+    required_groups = {"all", "required", "preferred"}
+    missing_groups = required_groups.difference(cache)
+    if missing_groups:
+        raise RuntimeError(
+            f"Word cloud cache is incomplete: {CACHE_FILE}. "
+            f"Missing groups: {', '.join(sorted(missing_groups))}."
+        )
+    return cache
 
 
+FONT_PATH = resolve_font_path()
 WORDCLOUD_CACHE = load_cache()
 
 
