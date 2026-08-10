@@ -6,7 +6,7 @@ import com.jobpilot.api.domain.member.entity.MemberSkill;
 import com.jobpilot.api.domain.member.entity.Skill;
 import com.jobpilot.api.domain.member.repository.MemberSkillRepository;
 import com.jobpilot.api.domain.member.repository.SkillRepository;
-import com.jobpilot.api.domain.matching.service.JobMatchGenerationService;
+import com.jobpilot.api.domain.matching.service.JobMatchRefreshScheduler;
 import jakarta.transaction.Transactional;
 import java.util.HashSet;
 import java.util.List;
@@ -23,12 +23,12 @@ public class MemberSkillService {
 
     private final MemberSkillRepository memberSkills;
     private final SkillRepository skills;
-    private final JobMatchGenerationService matchGenerationService;
+    private final JobMatchRefreshScheduler matchRefreshScheduler;
 
-    public MemberSkillService(MemberSkillRepository memberSkills, SkillRepository skills, JobMatchGenerationService matchGenerationService) {
+    public MemberSkillService(MemberSkillRepository memberSkills, SkillRepository skills, JobMatchRefreshScheduler matchRefreshScheduler) {
         this.memberSkills = memberSkills;
         this.skills = skills;
-        this.matchGenerationService = matchGenerationService;
+        this.matchRefreshScheduler = matchRefreshScheduler;
     }
 
     public List<MemberSkillResponse> get(Long memberId) {
@@ -63,7 +63,7 @@ public class MemberSkillService {
         List<MemberSkill> saved = memberSkills.saveAll(input.stream()
                 .map(item -> new MemberSkill(memberId, item.skillId(), level(item.selfReportedLevel()), clean(item.note())))
                 .toList());
-        matchGenerationService.regenerateForMember(memberId);
+        matchRefreshScheduler.enqueueForMember(memberId);
         return saved.stream().map(memberSkill -> toResponse(memberSkill, catalog.get(memberSkill.getSkillId()))).toList();
     }
 
