@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,6 +17,7 @@ import { generateTimelineInsight } from "../features/timeline/api/timelineAiApi"
 import type { TimelineInsightResult } from "../features/timeline/api/timelineAiApi";
 import type { InterviewSessionRecordDetail, InterviewSessionRecordSummary } from "../features/timeline/model/timeline.types";
 import { listProjects, listSelfIntroductions } from "../features/resume/api/resumeApi";
+import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
 import { PageHeading } from "../shared/components/PageHeading";
 
 // "유료 결제했다는 전제하에" 최근 몇 개 세션까지 상세 조회해서 인사이트에 쓸지 - 너무 많이
@@ -46,6 +48,18 @@ function formatDate(iso: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+// 2026-08-10: 태스크 #39 "이 부분 연습하기" 딥링크 - 부족한 점(반복 개선점/개별 리포트
+// 개선할 점)을 보여주는 것에서 끝나지 않고, 그 자리에서 바로 같은 분야/유형으로 모의면접을
+// 새로 시작할 수 있게 링크를 만든다. MockInterviewPage가 role/type 쿼리를 미리 선택해준다
+// (자동 시작은 안 함). role/type이 없으면(구버전 세션 등) 그냥 분야/유형 미지정으로 연결.
+function practiceLink(role: string | null, interviewType: string | null): string {
+  const params = new URLSearchParams();
+  if (role) params.set("role", role);
+  if (interviewType) params.set("type", interviewType);
+  const query = params.toString();
+  return query ? `/mock-interview?${query}` : "/mock-interview";
+}
+
 export function TimelinePage() {
   const [sessions, setSessions] = useState<InterviewSessionRecordSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +69,8 @@ export function TimelinePage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [insight, setInsight] = useState<TimelineInsightResult | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  // null = 아직 확인 중, 깜빡임(잠깐 "미구독" 문구가 떴다가 사라지는 것) 방지용.
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
 
   useEffect(() => {
     void listInterviewSessions()
@@ -63,12 +79,22 @@ export function TimelinePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    void getSubscriptionStatus()
+      .then((s) => setSubscribed(s.subscribed))
+      .catch(() => setSubscribed(false));
+  }, []);
+
   // 2026-08-10: 태스크 #69 "유료 결제 전제" 인사이트 - 세션이 2개 이상 쌓이면(반복 패턴을
   // 비교할 대상이 있어야 의미가 있음, insight.py의 _MIN_SESSIONS과 맞춤) 최근 세션 상세 +
-  // 이력서 내용을 모아 자동으로 한 번 생성한다. 결제 게이트는 아직 없어서(태스크 #40~44)
-  // 항상 시도한다 - 실패해도 목록/그래프는 그대로 보여야 하니 조용히 무시.
+  // 이력서 내용을 모아 자동으로 한 번 생성한다.
+  //
+  // 결제 게이트 연결(구독 기능 완성 후) - insight.py 자체 주석이 "프론트에서 API 부르기
+  // 전에 구독 여부만 확인하면 된다"고 미리 설계해둔 지점이라, 여기서 subscribed 체크만
+  // 추가했다(ai-server 모듈은 안 건드림 - 관심사 분리 그대로 유지). 미구독이면 아예
+  // 호출하지 않는다(Gemini 호출 비용 절감 + "유료 기능" 의미 유지).
   useEffect(() => {
-    if (sessions.length < 2) return;
+    if (sessions.length < 2 || !subscribed) return;
     setInsightLoading(true);
     const recentIds = sessions.slice(0, INSIGHT_SESSION_LIMIT).map((s) => s.id);
     Promise.all([
@@ -141,6 +167,19 @@ export function TimelinePage() {
         </section>
       )}
 
+      {sessions.length >= 2 && subscribed === false && (
+        <section className="panel" style={{ padding: "20px 24px", marginBottom: 20, borderLeft: "3px solid #d8ceff" }}>
+          <div className="interview-report-head" style={{ marginBottom: 8 }}>
+            <TrendingUp size={16} /> 누적 인사이트
+          </div>
+          <p style={{ margin: "0 0 12px", color: "#6a7383", fontSize: 13, lineHeight: 1.6 }}>
+            구독하면 지금까지의 모의면접 기록에서 반복적으로 지적된 점과, 이력서 내용과 연결된 맞춤 제안을 볼 수 있어요.
+          </p>
+          <Link to="/account" className="primary-button" style={{ display: "inline-block", textDecoration: "none" }}>
+            구독하기
+          </Link>
+        </section>
+      )}
       {insightLoading && (
         <section className="panel" style={{ padding: "18px 24px", marginBottom: 20 }}>
           <p style={{ display: "flex", alignItems: "center", gap: 8, margin: 0, color: "#6a7383", fontSize: 13 }}>
@@ -148,7 +187,7 @@ export function TimelinePage() {
           </p>
         </section>
       )}
-      {!insightLoading && insight?.ok && (insight.recurring_points.length > 0 || insight.resume_linked_suggestion) && (
+      {!insightLoading && subscribed && insight?.ok && (insight.recurring_points.length > 0 || insight.resume_linked_suggestion) && (
         <section className="panel" style={{ padding: "20px 24px", marginBottom: 20, borderLeft: "3px solid #596ff3" }}>
           <div className="interview-report-head" style={{ marginBottom: 14 }}>
             <TrendingUp size={16} /> 누적 인사이트
@@ -162,10 +201,19 @@ export function TimelinePage() {
             </div>
           )}
           {insight.resume_linked_suggestion && (
-            <div className="interview-model-answer" style={{ marginTop: 6, marginBottom: 0 }}>
+            <div className="interview-model-answer" style={{ marginTop: 6, marginBottom: insight.recurring_points.length > 0 ? 14 : 0 }}>
               <h4><Sparkles size={13} /> 이력서 기반 제안</h4>
               <p>{insight.resume_linked_suggestion}</p>
             </div>
+          )}
+          {insight.recurring_points.length > 0 && (
+            <Link
+              to={practiceLink(sessions[0]?.role ?? null, sessions[0]?.interviewType ?? null)}
+              className="primary-button"
+              style={{ display: "inline-block", textDecoration: "none" }}
+            >
+              이 부분 연습하기
+            </Link>
           )}
         </section>
       )}
@@ -252,6 +300,13 @@ export function TimelinePage() {
                       <ul className="interview-report-list improvements">
                         {detail.improvements.map((item, i) => <li key={i}><AlertTriangle size={14} />{item}</li>)}
                       </ul>
+                      <Link
+                        to={practiceLink(detail.role, detail.interviewType)}
+                        className="outline-button"
+                        style={{ display: "inline-flex", marginTop: 10, textDecoration: "none" }}
+                      >
+                        이 부분 연습하기
+                      </Link>
                     </div>
                   )}
                   {detail.nextSteps.length > 0 && (

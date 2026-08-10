@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"; /* useEffect 추가 */
 import { Bell, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, X } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
+import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
 import { navigationItems } from "../shared/constants/navigation";
 import { OnboardingModal } from "../features/profile/components/OnboardingModal";
 import { SiteAssistantWidget } from "../features/assistant/components/SiteAssistantWidget";
@@ -13,6 +14,16 @@ export function AppShell() {
   const location = useLocation();
   const activeItem = navigationItems.find((item) => item.path === location.pathname) ?? navigationItems[0];
   const { member, logout } = useAuth();
+  const [subscribed, setSubscribed] = useState(false);
+
+  // 2026-08-10: 사이드바 프로필 카드에 "구독중" 뱃지 표시용 - AppShell이 모든 페이지를
+  // 감싸는 공통 레이아웃이라 여기서 한 번만 조회하면 어느 페이지에서든 뜬다. 실패하면
+  // 그냥 뱃지를 안 보여준다(fail-closed - 구독 여부를 확신 못 하면 안 보여주는 게 맞다).
+  useEffect(() => {
+    void getSubscriptionStatus()
+      .then((s) => setSubscribed(s.subscribed))
+      .catch(() => setSubscribed(false));
+  }, []);
 
 // 카카오 스크립트 로딩으로 인한 렌더링 씹힘 방지용 마운트 훅
   useEffect(() => {
@@ -33,7 +44,7 @@ export function AppShell() {
   return <SiteAssistantWidgetProvider><div className="app-shell"><OnboardingModal />{!hideSiteAssistant && <SiteAssistantWidget />}
     <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
       <div className="brand"><span className="brand-mark"><span>J</span></span><div><strong>Job-A-Dream AI</strong><small>career action coach</small></div><button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="메뉴 닫기"><X size={19} /></button></div>
-      <div className="profile-card"><div className="avatar">{member?.nickname.slice(0, 1)}</div><div><strong>{member?.nickname}</strong><span>{member?.email}</span></div><button aria-label="로그아웃" title="로그아웃" onClick={logout}><LogOut size={17} /></button></div>
+      <div className="profile-card"><div className="avatar">{member?.nickname.slice(0, 1)}</div><div><strong>{member?.nickname}{subscribed && <span className="subscription-badge active sidebar-subscription-badge">구독중</span>}</strong><span>{member?.email}</span></div><button aria-label="로그아웃" title="로그아웃" onClick={logout}><LogOut size={17} /></button></div>
       <nav><span className="nav-label">WORKSPACE</span>{navigationItems.map((item) => { const Icon = item.icon; return <NavLink key={item.path} to={item.path} end={item.path === "/"} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"} onClick={() => setMenuOpen(false)}><Icon size={19} /><span>{item.label}</span></NavLink>; })}</nav>
       <div className="sidebar-bottom"><button className="github-connect"><Github size={18} /><span>GitHub 연결</span><span className="connected-dot" /></button><div className="source-note"><CircleHelp size={15} /><span>추천 결과는 지원 준비도를 안내합니다.<br />최종 지원 전 사람인 원문을 확인하세요.</span></div></div>
     </aside>

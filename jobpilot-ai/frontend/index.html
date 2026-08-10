@@ -8,6 +8,9 @@
   <title>Job-A-Dream AI </title>
   <script type="text/javascript"
     src="//dapi.kakao.com/v2/maps/sdk.js?appkey=%VITE_KAKAO_MAP_KEY%&libraries=services"></script>
+  <!-- 2026-08-10: 구독 기능 - 토스페이먼츠 결제창/자동결제(빌링) SDK(v1). SubscriptionSection.tsx의
+       window.TossPayments(...)가 이 스크립트로 전역에 노출된다. -->
+  <script src="https://js.tosspayments.com/v1/payment"></script>
 </head>
 
 <body>

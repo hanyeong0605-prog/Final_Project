@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   Activity,
@@ -659,7 +660,16 @@ export function MockInterviewPage() {
   // 때만 활성 표시되므로, 처음엔 null이라 어떤 칩도 안 켜져 있다가 사용자가 실제로 클릭해야
   // 그 칩이 켜진다. buildSessionQuestions 쪽 로직(찾아서 없으면 undefined)은 null/""
   // 둘 다 "매칭 없음"으로 동일하게 처리되므로 동작 자체는 그대로다.
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  // 2026-08-10: 태스크 #39 "이 부분 연습하기" 딥링크 - TimelinePage의 누적 인사이트/세션
+  // 리포트에서 "role=BACKEND&type=직무면접" 같은 쿼리로 이 페이지로 넘어오면 그 분야/유형을
+  // 미리 선택해둔다(자동 시작은 안 함 - 사용자가 직접 "모의면접 시작하기"를 눌러야 함,
+  // 갑자기 세션이 시작되면 당황스러우니까). 값이 옵션에 없으면(오타/구버전 링크 등) 그냥
+  // 미선택 상태로 둔다.
+  const [searchParams] = useSearchParams();
+  const [selectedRole, setSelectedRole] = useState<string | null>(() => {
+    const fromQuery = searchParams.get("role");
+    return INTERVIEW_ROLE_OPTIONS.some(([code]) => code === fromQuery) ? fromQuery : null;
+  });
   // 2026-08-06: 카메라/채팅 카드를 클릭해서 고르는 라디오 방식으로 바꾸면서 다시 추가 -
   // 실제 시작은 맨 아래 단일 "모의면접 시작하기" 버튼이 이 값을 보고 분기한다.
   const [interviewMode, setInterviewMode] = useState<"camera" | "chat">("camera");
@@ -679,7 +689,10 @@ export function MockInterviewPage() {
   ] as const;
   // 2026-08-07: selectedRole과 같은 이유로 null(미선택)과 ""("전체"를 명시적으로 고른 상태)을
   // 분리했다 - 위 selectedRole 설계 메모 참고.
-  const [selectedInterviewType, setSelectedInterviewType] = useState<string | null>(null);
+  const [selectedInterviewType, setSelectedInterviewType] = useState<string | null>(() => {
+    const fromQuery = searchParams.get("type");
+    return INTERVIEW_TYPE_OPTIONS.some(([type]) => type === fromQuery) ? fromQuery : null;
+  });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

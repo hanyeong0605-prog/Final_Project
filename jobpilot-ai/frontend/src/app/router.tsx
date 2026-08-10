@@ -21,6 +21,7 @@ import { QuestionPage } from "../pages/QuestionPage";
 import { CareerTestPage } from "../pages/CareerTestPage";
 import { SkillRelationView } from "../pages/SkillRelationView";
 import { CameraPairPage } from "../pages/CameraPairPage";
+import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -48,6 +49,8 @@ export const router = createBrowserRouter([
       { path: "question", element: <QuestionPage /> },
       { path: "tests/:testKey", element: <CareerTestPage /> },
       { path: "skill-relation", element: <SkillRelationView /> },
+      { path: "subscription/success", element: <SubscriptionResultPage /> },
+      { path: "subscription/fail", element: <SubscriptionResultPage /> },
     ],
   },
 ]);
