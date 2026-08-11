@@ -19,12 +19,16 @@ public class MemberConsentService {
     }
 
     public void recordSignupConsents(Member member, SignupRequest request) {
+        recordOAuthSignupConsents(member, request.termsAgreed(), request.privacyCollectionAgreed(), request.marketingEmailAgreed());
+    }
+
+    public void recordOAuthSignupConsents(Member member, boolean termsAgreed, boolean privacyCollectionAgreed,
+                                          boolean marketingEmailAgreed) {
         consents.saveAll(List.of(
-                new MemberConsent(member, ConsentType.TERMS_OF_SERVICE, SIGNUP_POLICY_VERSION, request.termsAgreed()),
+                new MemberConsent(member, ConsentType.TERMS_OF_SERVICE, SIGNUP_POLICY_VERSION, termsAgreed),
                 new MemberConsent(member, ConsentType.PRIVACY_COLLECTION, SIGNUP_POLICY_VERSION,
-                        request.privacyCollectionAgreed()),
-                new MemberConsent(member, ConsentType.MARKETING_EMAIL, SIGNUP_POLICY_VERSION,
-                        request.marketingEmailAgreed())
+                        privacyCollectionAgreed),
+                new MemberConsent(member, ConsentType.MARKETING_EMAIL, SIGNUP_POLICY_VERSION, marketingEmailAgreed)
         ));
     }
 }
