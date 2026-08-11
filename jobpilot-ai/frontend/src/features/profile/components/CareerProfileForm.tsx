@@ -76,7 +76,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
 
     <div className="form-section"><h3>보유 자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
-      <div className="certificate-catalog-search"><label>국가자격 종목 검색<input value={certificateQuery} onChange={(event) => setCertificateQuery(event.target.value)} placeholder="예: 정보처리기사" /></label><span>검색 결과를 선택하면 자격증이 추가됩니다.</span></div>
+      <div className="certificate-catalog-search"><label>국가자격 종목 검색<input value={certificateQuery} onChange={(event) => setCertificateQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} placeholder="예: 정보처리기사" /></label><span>검색 결과를 선택하면 자격증이 추가됩니다.</span></div>
       {certificateSearchError && <div className="auth-error">{certificateSearchError}</div>}
       {certificateResults.length > 0 && <div className="certificate-search-results">{certificateResults.map((item) => <div className="certificate-search-result-row" key={item.code}>
         <button type="button" onClick={() => { setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }]); setCertificateQuery(""); setCertificateResults([]); }}><strong>{item.name}</strong><small>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</small><b>선택</b></button>
