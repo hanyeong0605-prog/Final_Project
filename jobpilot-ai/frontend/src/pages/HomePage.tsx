@@ -36,7 +36,7 @@ export function HomePage() {
       <div className="home-hero-copy">
         <span className="eyebrow">CAREER ACTION PLATFORM</span>
         <h1>다음 커리어를 향한<br /><em>가장 현실적인 준비.</em></h1>
-        <p>Job-A-Dream과 함께 내 역량을 채용공고 요구사항과 비교하고, 지금 할 수 있는 지원부터 다음 성장 행동까지 준비해 보세요.</p>
+        <p>Job-A-Dream과 함께 내 역량을 채용공고 요구사항과 비교하고,<br />지금 할 수 있는 지원부터 다음 성장 행동까지 준비해 보세요.</p>
         <div className="home-hero-actions"><Link to="/jobs" className="primary-button">맞춤 채용공고 보기 <ArrowRight size={17} /></Link><Link to="/mock-interview" className="home-secondary-link">AI 모의면접 시작</Link></div>
       </div>
       <aside className="home-hero-summary">
