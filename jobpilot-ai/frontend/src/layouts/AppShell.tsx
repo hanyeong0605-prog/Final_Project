@@ -1,5 +1,5 @@
-import { type FormEvent, useEffect, useState } from "react";
-import { Bell, ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, ShieldCheck, X } from "lucide-react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Bell, ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, ShieldCheck, UserRound, X } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
@@ -26,6 +26,8 @@ export function AppShell() {
   const [openMobileMenu, setOpenMobileMenu] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const activeItem = navigationItems.find((item) => item.path === location.pathname)
@@ -44,7 +46,23 @@ export function AppShell() {
     setOpenDesktopMenu(null);
     setOpenMobileMenu(null);
     setSearchOpen(false);
+    setAccountMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const closeOnOutsidePress = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   const closeMenu = () => setMenuOpen(false);
   const searchResults = navigationItems.filter((item) => item.label.toLocaleLowerCase().includes(searchTerm.trim().toLocaleLowerCase())).slice(0, 6);
@@ -54,6 +72,11 @@ export function AppShell() {
     if (!query) return;
     const directMatch = navigationItems.find((item) => item.label === query);
     navigate(directMatch?.path ?? `/job-postings?query=${encodeURIComponent(query)}`);
+  };
+  const logoutFromAccountMenu = () => {
+    logout();
+    setAccountMenuOpen(false);
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -128,7 +151,15 @@ export function AppShell() {
               <button className="add-job"><Plus size={17} />공고 직접 등록</button>
               <button className="bell" aria-label="알림"><Bell size={19} /><span /></button>
               {member?.role === "ADMIN" && <NavLink to="/admin" className="admin-page-link"><ShieldCheck size={16} />관리자 페이지</NavLink>}
-              <NavLink to="/account" className="topbar-account" aria-label="마이페이지">{member?.nickname?.slice(0, 1) ?? "J"}</NavLink>
+              <div className="topbar-account-menu" ref={accountMenuRef}>
+                <button className="topbar-account" type="button" aria-label="계정 메뉴" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{member?.nickname?.slice(0, 1) ?? "J"}</button>
+                {accountMenuOpen && <div className="account-popover" role="menu">
+                  <div className="account-popover-head"><span>{member?.nickname ?? "사용자"}</span><small>{member?.email}</small></div>
+                  <NavLink to="/account" role="menuitem" onClick={() => setAccountMenuOpen(false)}><UserRound size={16} />마이페이지</NavLink>
+                  {member?.role === "ADMIN" && <NavLink to="/admin" role="menuitem" onClick={() => setAccountMenuOpen(false)}><ShieldCheck size={16} />관리자 페이지</NavLink>}
+                  <button type="button" role="menuitem" onClick={logoutFromAccountMenu}><LogOut size={16} />로그아웃</button>
+                </div>}
+              </div>
             </div>
             {openDesktopMenu && (() => {
               const group = navigationGroups.find((item) => item.label === openDesktopMenu);
