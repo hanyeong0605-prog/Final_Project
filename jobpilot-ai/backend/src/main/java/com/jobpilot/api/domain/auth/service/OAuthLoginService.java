@@ -55,10 +55,9 @@ public class OAuthLoginService {
                 .filter(OAuthPendingLogin::isUsable)
                 .orElseThrow(() -> new EmailVerificationException("소셜 로그인 확인 시간이 만료되었습니다. 다시 로그인해 주세요."));
         String email = request.email().trim().toLowerCase(Locale.ROOT);
-        boolean trustedGoogleEmail = pending.getProvider() == OAuthProvider.GOOGLE
-                && pending.getProviderEmail() != null
+        boolean trustedProviderEmail = pending.getProviderEmail() != null
                 && pending.getProviderEmail().equalsIgnoreCase(email);
-        if (!trustedGoogleEmail) {
+        if (!trustedProviderEmail) {
             emailVerificationService.consumeVerifiedEmail(email, request.emailVerificationToken());
         }
         Member member = members.findByEmail(email).orElseGet(() -> members.save(new Member(
