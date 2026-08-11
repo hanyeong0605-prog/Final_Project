@@ -77,6 +77,13 @@ export function LoginPage() {
           </button>
         </form>
 
+        <div className="oauth-login-separator"><span>간편 로그인</span></div>
+        <div className="oauth-login-buttons" aria-label="소셜 로그인">
+          <a className="oauth-login-button google" href="/oauth2/authorization/google">Google로 계속하기</a>
+          <a className="oauth-login-button naver" href="/oauth2/authorization/naver">NAVER로 계속하기</a>
+          <a className="oauth-login-button kakao" href="/oauth2/authorization/kakao">카카오로 계속하기</a>
+        </div>
+
         {developmentLoginEnabled && (
           <>
             <div className="dev-login-separator"><span>로컬 개발 모드</span></div>

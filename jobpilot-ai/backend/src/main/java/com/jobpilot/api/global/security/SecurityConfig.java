@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.jobpilot.api.domain.auth.service.OAuthAuthenticationSuccessHandler;
 
 //서큐리티 큰피구
 @Configuration
@@ -29,17 +30,20 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             @Value("${app.dev-auth.enabled:false}") boolean developmentAuthenticationEnabled,
-            InternalApiKeyFilter internalApiKeyFilter
+            InternalApiKeyFilter internalApiKeyFilter,
+            OAuthAuthenticationSuccessHandler oauthSuccessHandler
     ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // OAuth uses a short-lived session for the authorization state; APIs still authenticate by JWT.
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers(
                             "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",
                             "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error", "/ws/camera-pair").permitAll();
+                    authorize.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll();
 
 //                     임시!@@@@#@@@@@ 지도용
                     authorize.requestMatchers("/api/location-jobs/**").permitAll();
@@ -67,6 +71,7 @@ public class SecurityConfig {
                     authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/crawl-runs/**").permitAll();
                     authorize.anyRequest().authenticated();
                 })
+                .oauth2Login(oauth -> oauth.successHandler(oauthSuccessHandler))
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
                 .build();
     }

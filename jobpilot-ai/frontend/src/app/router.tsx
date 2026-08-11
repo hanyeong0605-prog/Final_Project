@@ -15,6 +15,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { SignupPage } from "../pages/SignupPage";
 import { MyPage } from "../pages/MyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
+import { RequireAdmin } from "../features/auth/components/RequireAdmin";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import { StatisticsDashboard } from "../pages/StatisticsDashboard";
 import { QuestionPage } from "../pages/QuestionPage";
@@ -23,10 +24,15 @@ import { SkillRelationView } from "../pages/SkillRelationView";
 import { CameraPairPage } from "../pages/CameraPairPage";
 import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 import { HomePage } from "../pages/HomePage";
+import { AdminPage } from "../pages/AdminPage";
+import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
+import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
+  { path: "/oauth/callback", element: <OAuthCallbackPage /> },
+  { path: "/oauth/complete", element: <OAuthCompletePage /> },
   { path: "/camera-pair", element: <CameraPairPage /> },
 
   {
@@ -53,6 +59,7 @@ export const router = createBrowserRouter([
       { path: "skill-relation", element: <SkillRelationView /> },
       { path: "subscription/success", element: <SubscriptionResultPage /> },
       { path: "subscription/fail", element: <SubscriptionResultPage /> },
+      { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
     ],
   },
 ]);
