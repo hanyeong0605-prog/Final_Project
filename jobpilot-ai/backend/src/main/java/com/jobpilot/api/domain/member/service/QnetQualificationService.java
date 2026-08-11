@@ -7,6 +7,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -59,7 +64,13 @@ public class QnetQualificationService {
                 .queryParam("serviceKey", apiKey)
                 .build().encode().toUri();
         try {
-            String xml = restTemplate.getForObject(uri, String.class);
+            // Q-Net's gateway does not reliably return the catalogue to bare Java requests.
+            // Send explicit browser-like request headers, equivalent to the successful curl check.
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, "Mozilla/5.0 (compatible; JobPilot/1.0)");
+            headers.setAccept(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML, MediaType.ALL));
+            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            String xml = response.getBody();
             if (xml == null || xml.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 응답이 비어 있습니다.");
             List<QnetQualificationResponse> result = new ArrayList<>();
             Matcher items = ITEM_PATTERN.matcher(xml);
