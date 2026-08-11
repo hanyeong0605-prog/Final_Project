@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useInterests } from "../features/interests/model/InterestContext";
 import { getRecommendedOpportunities } from "../features/opportunities/api/opportunitiesApi";
+import { CertificateOpportunitySection } from "../features/opportunities/components/CertificateOpportunitySection";
 import { OpportunityCard } from "../features/opportunities/components/OpportunityCard";
 import type { Opportunity } from "../features/opportunities/model/opportunity.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
@@ -19,6 +20,8 @@ export function OpportunitiesPage() {
 
   return <>
     <PageHeading eyebrow="GROWTH OPPORTUNITIES" title="부족한 근거를 채울 기회" body="매칭 분석에서 발견한 보완 항목을 기준으로 교육·자격증·공모전·청년지원을 연결합니다." />
+    <CertificateOpportunitySection />
+    <h2 className="opportunity-section-title">교육·공모전·청년지원</h2>
     {status === "loading" && <DataStatePanel state="loading" />}
     {status === "error" && <DataStatePanel state="error" />}
     {status === "ready" && opportunities.length === 0 && <DataStatePanel state="empty" emptyTitle="추천할 기회 정보가 없습니다" emptyBody="회원의 부족 역량과 연결된 실제 기회 데이터가 생기면 표시됩니다." />}
