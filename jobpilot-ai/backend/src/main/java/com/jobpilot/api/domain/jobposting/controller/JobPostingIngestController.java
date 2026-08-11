@@ -2,6 +2,10 @@ package com.jobpilot.api.domain.jobposting.controller;
 
 import com.jobpilot.api.domain.jobposting.dto.JobPostingCrawlBatchRequest;
 import com.jobpilot.api.domain.jobposting.dto.JobPostingIngestResult;
+import com.jobpilot.api.domain.jobposting.dto.JobCrawlRunCompleteRequest;
+import com.jobpilot.api.domain.jobposting.dto.JobCrawlRunStartRequest;
+import com.jobpilot.api.domain.jobposting.dto.JobCrawlRunStartResponse;
+import com.jobpilot.api.domain.jobposting.service.JobCrawlRunService;
 import com.jobpilot.api.domain.jobposting.service.JobPostingIngestService;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,14 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/job-postings")
 public class JobPostingIngestController {
     private final JobPostingIngestService jobPostingIngestService;
+    private final JobCrawlRunService jobCrawlRunService;
 
-    public JobPostingIngestController(JobPostingIngestService jobPostingIngestService) {
+    public JobPostingIngestController(JobPostingIngestService jobPostingIngestService, JobCrawlRunService jobCrawlRunService) {
         this.jobPostingIngestService = jobPostingIngestService;
+        this.jobCrawlRunService = jobCrawlRunService;
     }
 
     @PostMapping("/ingest")
     public JobPostingIngestResult ingest(@RequestBody JobPostingCrawlBatchRequest request) {
         return jobPostingIngestService.ingest(request);
+    }
+
+    @PostMapping("/crawl-runs/start")
+    public JobCrawlRunStartResponse startCrawlRun(@RequestBody JobCrawlRunStartRequest request) {
+        return jobCrawlRunService.start(request);
+    }
+
+    @PostMapping("/crawl-runs/{runId}/complete")
+    public void completeCrawlRun(@org.springframework.web.bind.annotation.PathVariable Long runId,
+                                 @RequestBody JobCrawlRunCompleteRequest request) {
+        jobCrawlRunService.complete(runId, request);
     }
 
     /**

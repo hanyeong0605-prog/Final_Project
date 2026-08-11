@@ -1,0 +1,20 @@
+CREATE TABLE job_crawl_runs (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    source_provider VARCHAR(30) NOT NULL,
+    trigger_type VARCHAR(20) NOT NULL,
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at DATETIME NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'RUNNING',
+    candidate_count INT NOT NULL DEFAULT 0,
+    detail_requests INT NOT NULL DEFAULT 0,
+    skipped_known_count INT NOT NULL DEFAULT 0,
+    collected_count INT NOT NULL DEFAULT 0,
+    received_count INT NOT NULL DEFAULT 0,
+    created_count INT NOT NULL DEFAULT 0,
+    updated_count INT NOT NULL DEFAULT 0,
+    skipped_count INT NOT NULL DEFAULT 0,
+    failure_count INT NOT NULL DEFAULT 0,
+    error_message TEXT NULL,
+    PRIMARY KEY (id),
+    KEY ix_job_crawl_runs_source_started (source_provider, started_at)
+);

@@ -200,6 +200,7 @@ def run_wanted_crawl(
     known_ids: set[str] | None = None,
     on_batch=None,
     batch_size: int = 200,
+    stats: dict | None = None,
 ) -> list[ScrapedJobPosting]:
     """
     limit: 모을 공고 개수 상한 (None이면 새로 발견된 id를 전부 수집).
@@ -212,6 +213,8 @@ def run_wanted_crawl(
     """
     known_ids = known_ids or set()
     ids = get_wanted_job_ids(job_group_id=job_group_id, max_ids=max_ids)
+    if stats is not None:
+        stats["candidateCount"] = len(ids)
     print(f"[wanted] 총 후보 id {len(ids)}개, 이미 아는 공고 {len(known_ids)}개")
 
     results: list[ScrapedJobPosting] = []
@@ -225,9 +228,13 @@ def run_wanted_crawl(
             break
         if str(job_id) in known_ids:
             skipped_known += 1
+            if stats is not None:
+                stats["skippedKnownCount"] = skipped_known
             continue
 
         scanned += 1
+        if stats is not None:
+            stats["detailRequests"] = scanned
         if scanned % PROGRESS_LOG_EVERY == 0:
             print(
                 f"[wanted] 진행 중: {scanned}건 상세 요청, 수집 {len(results)}건, "
@@ -239,6 +246,8 @@ def run_wanted_crawl(
             # 상세 요청/파싱 중 뭐가 터지든(네트워크, 예상 밖 JSON 구조 등) 그 한 건만
             # 건너뛰고 계속 진행한다 - zighang 크롤러에서 겪은 것과 같은 이유.
             fetch_errors += 1
+            if stats is not None:
+                stats["failureCount"] = fetch_errors
             if fetch_errors <= 5 or fetch_errors % 50 == 0:
                 print(f"[wanted] 상세 요청 실패 ({fetch_errors}번째, {type(e).__name__}): {e}")
             continue
@@ -247,6 +256,8 @@ def run_wanted_crawl(
         if item is None:
             continue
         results.append(item)
+        if stats is not None:
+            stats["collectedCount"] = len(results)
 
         if on_batch is not None:
             pending_batch.append(item)
@@ -268,4 +279,12 @@ def run_wanted_crawl(
         f"[wanted] 크롤링 종료: 총 {len(results)}건 수집 "
         f"({scanned}건 상세 요청, 이미 아는 공고 스킵 {skipped_known}건, 요청 실패 {fetch_errors}건)"
     )
+    if stats is not None:
+        stats.update({
+            "candidateCount": len(ids),
+            "detailRequests": scanned,
+            "skippedKnownCount": skipped_known,
+            "collectedCount": len(results),
+            "failureCount": fetch_errors,
+        })
     return results

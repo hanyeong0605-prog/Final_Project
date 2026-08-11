@@ -63,6 +63,37 @@ def fetch_existing_source_updated_at(
         return {}
 
 
+def start_crawl_run(backend_base_url: str, source_code: str, trigger_type: str) -> int | None:
+    """Create a durable audit row before a crawl starts. Crawling must continue if audit logging is unavailable."""
+    try:
+        response = requests.post(
+            f"{backend_base_url.rstrip('/')}/api/v1/job-postings/crawl-runs/start",
+            json={"sourceCode": source_code, "triggerType": trigger_type},
+            headers={"X-Internal-Api-Key": settings.internal_api_key},
+            timeout=DEFAULT_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+        return response.json().get("id")
+    except Exception as error:
+        print(f"[wanted] crawl run audit start failed: {error}")
+        return None
+
+
+def complete_crawl_run(backend_base_url: str, run_id: int | None, outcome: dict) -> None:
+    if run_id is None:
+        return
+    try:
+        response = requests.post(
+            f"{backend_base_url.rstrip('/')}/api/v1/job-postings/crawl-runs/{run_id}/complete",
+            json=outcome,
+            headers={"X-Internal-Api-Key": settings.internal_api_key},
+            timeout=DEFAULT_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+    except Exception as error:
+        print(f"[wanted] crawl run audit complete failed: {error}")
+
+
 def send_to_backend(
     postings: list[ScrapedJobPosting],
     backend_base_url: str,

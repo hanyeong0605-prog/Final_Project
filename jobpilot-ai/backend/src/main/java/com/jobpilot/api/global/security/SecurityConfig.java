@@ -61,6 +61,7 @@ public class SecurityConfig {
                     // 먼저 끊어낸다 (2026-08-04: 이게 안 열려있어서 크롤링 2836건 성공하고도
                     // DB엔 0건 저장되는 버그가 있었음).
                     authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/ingest").permitAll();
+                    authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/crawl-runs/**").permitAll();
                     authorize.anyRequest().authenticated();
                 })
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
