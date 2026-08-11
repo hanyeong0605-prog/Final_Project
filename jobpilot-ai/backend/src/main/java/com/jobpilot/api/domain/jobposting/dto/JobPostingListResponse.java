@@ -19,5 +19,7 @@ public record JobPostingListResponse(
         LocalDateTime publishedAt,
         LocalDateTime deadlineAt,
         boolean rollingDeadline,
-        String status
+        String status,
+        long viewCount,
+        long bookmarkCount
 ) {}

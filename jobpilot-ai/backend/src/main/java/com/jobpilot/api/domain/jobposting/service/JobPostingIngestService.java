@@ -85,9 +85,9 @@ public class JobPostingIngestService {
                     while (rs.next()) {
                         String externalId = rs.getString("external_job_id");
                         Timestamp ts = rs.getTimestamp("source_updated_at");
-                        if (ts != null) {
-                            map.put(externalId, ts.toLocalDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                        }
+                        // Wanted does not provide source_updated_at. Its external ID is still enough to
+                        // identify an existing posting, otherwise every scheduled crawl re-fetches all rows.
+                        map.put(externalId, ts == null ? "" : ts.toLocalDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                     }
                     return map;
                 },

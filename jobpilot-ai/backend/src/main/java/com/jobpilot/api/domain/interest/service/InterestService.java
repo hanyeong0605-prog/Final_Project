@@ -64,7 +64,7 @@ public class InterestService {
         return new JobPostingListResponse(posting.getId(), posting.getExternalJobId(), posting.getCompanyName(), posting.getCompanyLogoUrl(), thumbnailUrl(posting), posting.getTitle(),
                 posting.getSourceUrl(), posting.getLocation(), posting.getEmploymentType(), posting.getExperienceType(),
                 posting.getJobName(), posting.getSalary(), posting.getKeywords(), posting.getPublishedAt(), posting.getDeadlineAt(),
-                posting.isRollingDeadline(), posting.getStatus());
+                posting.isRollingDeadline(), posting.getStatus(), posting.getViewCount(), 0L);
     }
 
     private String thumbnailUrl(JobPosting posting) {

@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/model/AuthContext";
 
 interface InterestContextValue {
   interestCount: number;
+  interestIds: number[];
   isInterested: (targetId: number) => boolean;
   toggleInterest: (targetId: number) => Promise<void>;
 }
@@ -32,6 +33,7 @@ export function InterestProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<InterestContextValue>(() => ({
     interestCount: interestIds.length,
+    interestIds,
     isInterested: (targetId) => interestIds.includes(targetId),
     toggleInterest,
   }), [interestIds, toggleInterest]);

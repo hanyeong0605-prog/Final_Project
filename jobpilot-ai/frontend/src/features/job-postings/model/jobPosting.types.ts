@@ -16,9 +16,11 @@ export interface JobPosting {
   deadlineAt: string | null;
   rollingDeadline: boolean;
   status: string;
+  viewCount?: number;
+  bookmarkCount?: number;
 }
 
-export type JobPostingSort = "deadline_asc" | "deadline_desc" | "recent";
+export type JobPostingSort = "deadline_asc" | "deadline_desc" | "recent" | "popular";
 export type JobExperienceFilter = "" | "ENTRY" | "EXPERIENCED";
 
 export interface JobPostingSearchParams {
