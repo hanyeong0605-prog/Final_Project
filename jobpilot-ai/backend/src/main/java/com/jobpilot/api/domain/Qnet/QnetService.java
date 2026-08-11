@@ -61,7 +61,7 @@ public class QnetService {
             }
 
         } catch (Exception e) {
-            System.err.println("큐넷 데이터 동기화 중 에러 발생: " + e.getMessage());
+            System.err.println("큐넷 데이터 동기화 중 에러 발생 : " + e.getMessage());
             e.printStackTrace();
         }
     }

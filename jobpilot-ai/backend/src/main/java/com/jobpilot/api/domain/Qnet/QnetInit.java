@@ -13,7 +13,7 @@ public class QnetInit {
 
     @EventListener(ApplicationReadyEvent.class)
     public void initData() {
-        // 서버가 켜지자마자 데이터 동기화 함수 실행 (테스트용)
+        //   서버가 켜지자마자 데이터 동기화 함수 실행 (테스트용)
         qnetService.fetchAndSaveQualifications();
     }
 }

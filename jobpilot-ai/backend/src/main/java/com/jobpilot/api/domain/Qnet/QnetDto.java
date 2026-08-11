@@ -13,7 +13,7 @@ public class QnetDto {
 
 
     private String qualgbcd;    // 자격구분 (T 기술, S 전문)
-    private String qualgbnm;   // 자격구분명 국가기술자격,국가전문자격
+    private String qualgbnm;   // 자격구분명 국가기술자격 , 국가전문자격
     private int seriescd; // 계열코드
     private String seriesnm; // 계열명
     private int jmcd; // 종목코드

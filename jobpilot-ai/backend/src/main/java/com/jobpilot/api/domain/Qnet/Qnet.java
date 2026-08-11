@@ -20,7 +20,7 @@ public class Qnet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String qualgbcd;    // 자격구분 (T 기술, S 전문)
+    private String qualgbcd;    // 자격구분  (T 기술, S 전문)
     private String qualgbnm;   // 자격구분명
     private int seriescd;      // 계열코드
     private String seriesnm;   // 계열명

@@ -54,7 +54,7 @@ export const router = createBrowserRouter([
       { path: "skill-relation", element: <SkillRelationView /> },
       { path: "subscription/success", element: <SubscriptionResultPage /> },
       { path: "subscription/fail", element: <SubscriptionResultPage /> },
-      { path: "qualification", element: <Qualification /> },
+      { path: "qualification", element: <Qualification /> },  
 
     ],
   },

@@ -88,7 +88,7 @@ export default function Qualification() {
                         }}
                     >
                         {category}
-                    </button>
+                    </button>  
                 ))}
             </div>  */}
 
