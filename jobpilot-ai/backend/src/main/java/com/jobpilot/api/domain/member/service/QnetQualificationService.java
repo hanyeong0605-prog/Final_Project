@@ -2,7 +2,6 @@ package com.jobpilot.api.domain.member.service;
 
 import com.jobpilot.api.domain.member.dto.QnetQualificationResponse;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.web.util.UriUtils;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -57,9 +55,8 @@ public class QnetQualificationService {
     private List<QnetQualificationResponse> requestCatalogue() {
         if (apiKey.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 키가 설정되지 않았습니다.");
         URI uri = UriComponentsBuilder.fromUriString(LIST_URL)
-                // The Public Data Portal displays both encoded and decoded keys. Normalize either
-                // form before UriComponents encodes it once for the actual HTTP request.
-                .queryParam("serviceKey", UriUtils.decode(apiKey, StandardCharsets.UTF_8))
+                // serviceKey is an opaque credential: never decode or transform it before sending.
+                .queryParam("serviceKey", apiKey)
                 .build().encode().toUri();
         try {
             String xml = restTemplate.getForObject(uri, String.class);
