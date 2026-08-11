@@ -7,7 +7,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "oauth_pending_logins", uniqueConstraints = @UniqueConstraint(columnNames = {"provider", "provider_subject"}))
 public class OAuthPendingLogin {
-    @Id @Column(length = 36) private String id;
+    // The Flyway schema stores UUID strings as CHAR(36); declare it explicitly
+    // so Hibernate validation uses the same MySQL column type.
+    @Id @Column(length = 36, columnDefinition = "CHAR(36)") private String id;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private OAuthProvider provider;
     @Column(name = "provider_subject", nullable = false, length = 255) private String providerSubject;
     @Column(nullable = false, length = 80) private String nickname;
