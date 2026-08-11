@@ -338,7 +338,8 @@ a { color: inherit; text-decoration: none; }
 .ict-statistics-message { display: grid; grid-template-columns: 122px minmax(0, 1fr); gap: 15px; align-items: center; border: 1px solid #dce4ff; border-radius: 11px; background: linear-gradient(100deg, #f0f3ff, #fbfcff); padding: 15px 16px; }.ict-statistics-message span { color: #6578e6; font-family: "DM Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: .5px; }.ict-statistics-message p { display: grid; gap: 3px; margin: 0; color: #6d7a91; font-size: 11px; line-height: 1.55; }.ict-statistics-message b { color: #4056ae; font-size: 14px; letter-spacing: -.35px; }.ict-statistics-message small { color: #8792a7; font-size: 10px; }
 .home-growth-banner { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
 
-@media (max-width: 1050px) {
+/* The desktop navigation needs roughly 1,180px once search and action buttons are present. */
+@media (max-width: 1180px) {
   .desktop-brand, .desktop-navigation, .topbar-account { display: none; }
   .desktop-mega-menu { display: none; }
   .mobile-brand, .menu-button { display: inline-flex; }
