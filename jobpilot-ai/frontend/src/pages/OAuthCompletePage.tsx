@@ -13,7 +13,7 @@ export function OAuthCompletePage() {
   const ticket = params.get("ticket") ?? "";
   const provider = params.get("provider") ?? "social";
   const providerEmail = params.get("email") ?? "";
-  const trustsGoogleEmail = provider === "google" && Boolean(providerEmail);
+  const trustsProviderEmail = Boolean(providerEmail);
   const [email, setEmail] = useState(providerEmail);
   const [code, setCode] = useState("");
   const [verificationToken, setVerificationToken] = useState("");
@@ -75,10 +75,10 @@ export function OAuthCompletePage() {
     <main className="auth-page">
       <section className="auth-card oauth-complete-card">
         <span className="eyebrow">{provider.toUpperCase()} LOGIN</span>
-        <h1>{trustsGoogleEmail ? "Google 계정을 확인했어요" : "이메일을 확인해주세요"}</h1>
+        <h1>{trustsProviderEmail ? "소셜 계정을 확인했어요" : "이메일을 확인해주세요"}</h1>
         <p>
-          {trustsGoogleEmail
-            ? "Google에서 확인된 이메일입니다. 필수 약관에 동의하면 바로 가입이 완료됩니다."
+          {trustsProviderEmail
+            ? "소셜 계정에서 확인된 이메일입니다. 필수 약관에 동의하면 바로 가입이 완료됩니다."
             : "간편 로그인 계정을 안전하게 식별하고 기존 계정과 연결하기 위해 이메일 인증이 필요합니다."}
         </p>
         <form onSubmit={submit}>
@@ -88,14 +88,14 @@ export function OAuthCompletePage() {
               required
               type="email"
               value={email}
-              readOnly={trustsGoogleEmail}
+              readOnly={trustsProviderEmail}
               onChange={(event) => {
                 setEmail(event.target.value);
                 setVerificationToken("");
               }}
             />
           </label>
-          {!trustsGoogleEmail && (
+          {!trustsProviderEmail && (
             <>
               <button type="button" className="outline-button" onClick={() => void sendCode()}>
                 인증코드 보내기
@@ -138,7 +138,7 @@ export function OAuthCompletePage() {
           {error && <div className="auth-error">{error}</div>}
           <button
             className="primary-button"
-            disabled={(!trustsGoogleEmail && !verificationToken) || !termsAgreed || !privacyCollectionAgreed || submitting}
+            disabled={(!trustsProviderEmail && !verificationToken) || !termsAgreed || !privacyCollectionAgreed || submitting}
           >
             {submitting ? "계정 연결 중..." : "간편가입 완료"}
           </button>
