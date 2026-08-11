@@ -9,6 +9,7 @@ interface AuthContextValue {
   login: (input: LoginInput) => Promise<void>;
   developmentLogin: () => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
+  completeExternalLogin: (accessToken: string) => Promise<void>;
   logout: () => void;
   updateMember: (member: AuthMember) => void;
 }
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     login: async (input) => { const response = await requestLogin(input); setAccessToken(response.accessToken); setMember(response.member); },
     developmentLogin: async () => { const response = await requestDevelopmentLogin(); setAccessToken(response.accessToken); setMember(response.member); },
     signup: async (input) => { const response = await requestSignup(input); setAccessToken(response.accessToken); setMember(response.member); },
+    completeExternalLogin: async (accessToken) => { setAccessToken(accessToken); setMember(await getMe()); },
     logout: () => { clearAccessToken(); setMember(null); },
     updateMember: setMember,
   }), [member, loading]);

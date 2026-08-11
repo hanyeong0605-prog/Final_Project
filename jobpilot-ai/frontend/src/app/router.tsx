@@ -25,10 +25,14 @@ import { CameraPairPage } from "../pages/CameraPairPage";
 import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 import { HomePage } from "../pages/HomePage";
 import { AdminPage } from "../pages/AdminPage";
+import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
+import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
+  { path: "/oauth/callback", element: <OAuthCallbackPage /> },
+  { path: "/oauth/complete", element: <OAuthCompletePage /> },
   { path: "/camera-pair", element: <CameraPairPage /> },
 
   {
