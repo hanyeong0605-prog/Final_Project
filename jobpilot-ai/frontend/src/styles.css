@@ -345,7 +345,7 @@ a { color: inherit; text-decoration: none; }
   .desktop-brand, .desktop-navigation, .topbar-account { display: none; }
   .desktop-mega-menu { display: none; }
   .mobile-brand, .menu-button { display: inline-flex; }
-  .mobile-brand { align-items: center; gap: 8px; }.mobile-brand .brand-mark { width: 31px; height: 31px; border-radius: 9px; font-size: 16px; }.mobile-brand strong { font-size: 13px; }
+  .mobile-brand { align-items: center; gap: 10px; }.mobile-brand .brand-mark { width: 37px; height: 37px; border-radius: 11px; font-size: 18px; }.mobile-brand strong { font-size: 15px; letter-spacing: -.65px; }
   .topbar { height: 64px; gap: 13px; padding: 0 18px; }.menu-button { color: #4f5c6f; padding: 6px 0; }.top-actions { gap: 4px; }.add-job { padding: 8px 10px; font-size: 10px; }.global-search-trigger span { display: none; }.global-search-trigger { padding: 8px; }
   .mobile-menu-backdrop { display: block; position: fixed; z-index: 19; inset: 0; border: 0; background: #12203c70; }
   .sidebar { z-index: 20; display: flex; position: fixed; inset: 0 auto 0 0; width: min(310px, 86vw); flex-direction: column; border-right: 1px solid #e6eaf0; background: #fff; padding: 24px 16px 20px; box-shadow: 12px 0 30px #13254928; transform: translateX(-110%); transition: transform .22s ease; }
