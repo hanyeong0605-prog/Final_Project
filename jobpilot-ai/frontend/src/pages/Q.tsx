@@ -1,7 +1,7 @@
 /*
 국가기술자격증(개인)_진위여부
 /getCqCertificateCheck
-https://apis.data.go.kr/B552729/kcaApiService_cq2
+https://apis.data.go.kr/B552729/kcaApiService_cq2 / 폐기됨 개인정보이슈
 
 요청
 serviceKey 인증키

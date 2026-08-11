@@ -22,6 +22,7 @@ import { CareerTestPage } from "../pages/CareerTestPage";
 import { SkillRelationView } from "../pages/SkillRelationView";
 import { CameraPairPage } from "../pages/CameraPairPage";
 import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
+import Qualification from "../pages/Qualification";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -51,6 +52,8 @@ export const router = createBrowserRouter([
       { path: "skill-relation", element: <SkillRelationView /> },
       { path: "subscription/success", element: <SubscriptionResultPage /> },
       { path: "subscription/fail", element: <SubscriptionResultPage /> },
+      { path: "qualification", element: <Qualification /> },
+
     ],
   },
 ]);
