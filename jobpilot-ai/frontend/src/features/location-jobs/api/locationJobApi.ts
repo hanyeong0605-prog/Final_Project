@@ -1,15 +1,13 @@
-import { httpClient } from "../../../api/httpClient";
-import { LocationJob, LocationJobRequestParams } from "..model/types";
+import { getJson } from "../../../api/httpClient";
+import type { LocationJob, LocationJobRequestParams } from "../model/types";
 
 export const fetchLocationJobs = async (
   params: LocationJobRequestParams
 ): Promise<LocationJob[]> => {
-  const response = await httpClient.get<LocationJob[]>("/api/location-jobs", {
-    params: {
-      latitude: params.latitude,
-      longitude: params.longitude,
-      radius: params.radius ?? 20,
-    },
+  const query = new URLSearchParams({
+    latitude: String(params.latitude),
+    longitude: String(params.longitude),
+    radiusKm: String(params.radiusKm ?? params.radius ?? 20),
   });
-  return response.data;
+  return getJson<LocationJob[]>(`/api/location-jobs?${query}`);
 };

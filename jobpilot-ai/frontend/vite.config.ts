@@ -20,16 +20,27 @@ export default defineConfig({
       },
       // 스프링 백엔드(로그인 등)도 같은 이유로 프록시한다 - 폰에서 ngrok으로 접속하면
       // "localhost:9000"은 폰 자신을 가리켜서 실패하기 때문.
+      // Word cloud FastAPI: /wordcloud-api/api/wordcloud -> localhost:8000/api/wordcloud
+      "/wordcloud-api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/wordcloud-api/, ""),
+      },
       "/api": {
         target: "http://localhost:9000",
         changeOrigin: true,
       },
-      '/openapi': {
-        target: 'http://openapi.q-net.or.kr',
+      // 2026-08-07: 폰 카메라 페어링(CameraPairingWebSocketConfig, 스프링 백엔드 9000번의
+      // /ws/camera-pair)용 프록시가 빠져 있었다 - cameraPairing.ts의 pairingWebSocketUrl()이
+      // window.location.host(=Vite 개발서버 5173)로 접속을 시도하는데, Vite는 이 경로를
+      // 모르니 백엔드까지 연결이 안 닿아서 PC 쪽이 peer-ready 신호를 못 받고, 결국 offer를
+      // 못 보내 폰 카메라는 뜨는데 PC 화면엔 아무것도 안 나오는 증상으로 이어졌다.
+      // ws: true가 있어야 HTTP 프록시가 아니라 WebSocket 업그레이드를 그대로 전달한다.
+      "/ws": {
+        target: "http://localhost:9000",
         changeOrigin: true,
-        // /openapi로 시작하는 요청을 Q-Net의 실제 서비스 경로로 통째로 바꿔줍니다.
-        rewrite: (path) => path.replace(/^\/openapi/, '/api/service/rest/InquiryListNationalQualifcationSVC/getList'),
-      }
+        ws: true,
+      },
     },
   },
 });

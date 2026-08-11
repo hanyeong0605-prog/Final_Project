@@ -33,6 +33,7 @@ def _to_ingest_item(posting: ScrapedJobPosting) -> dict:
         "jobCategory": posting.job_category,
         "description": posting.description,
         "sourceUpdatedAt": posting.source_updated_at,
+        "imageUrls": posting.image_urls,
     }
 
 

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  Camera,
   CheckCircle2,
   Clock,
   Eye,
@@ -25,11 +27,13 @@ import {
 } from "lucide-react";
 import { analyzeAnswer, evaluateSession, fetchNextQuestion, fetchTtsVoices, synthesizeSpeech } from "../features/mock-interview/api/mockInterviewApi";
 import { getCareerProfile } from "../features/profile/api/careerProfileApi";
+import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi";
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
+import { PhoneCameraPairingPanel } from "../features/mock-interview/components/PhoneCameraPairingPanel";
 
 // 2026-08-04: KoGPT2+LoRA 질문 생성 모델(ai-server /interview/next-question)이 실제 질문을
 // 만들어준다. 이 배열은 이제 "기본값"이 아니라 폴백용 - 모델 서버가 아직 안 떠 있거나
@@ -267,9 +271,19 @@ function buildSummarySentence(result: AnswerAnalysis, fillerCount: number): stri
 function SessionReportPanel({
   answers,
   onEndSession,
+  role,
+  interviewMode,
+  interviewType,
 }: {
   answers: { question: string; result: AnswerAnalysis; faceMetrics: FaceMetrics | null }[];
   onEndSession: () => void;
+  // 2026-08-10: 개인 타임라인 기능(태스크 #67) - AI 분석이 끝나면 이 메타데이터와 함께
+  // Spring에 저장한다. 이전엔 이 값들이 MockInterviewPage 본문 상태에만 있고
+  // SessionReportPanel까지 안 내려와서, 세션이 끝난 뒤엔 "무슨 분야/유형이었는지"가 이미
+  // 사라진 상태였다(리서치로 확인됨) - 그래서 props로 새로 받는다.
+  role: string | null;
+  interviewMode: "camera" | "chat";
+  interviewType: string | null;
 }) {
   const [report, setReport] = useState<SessionEvaluationReport | null>(null);
   // 2026-08-06: 원래는 이 화면에 들어오자마자 자동으로 Gemini를 호출했는데, "처음엔 지표만
@@ -293,7 +307,31 @@ function SessionReportPanel({
         faceMetrics: a.faceMetrics,
       })),
     )
-      .then((res) => setReport(res.report))
+      .then((res) => {
+        setReport(res.report);
+        if (res.report.ok) {
+          // 2026-08-10: 타임라인 저장은 부가 기능이라 실패해도 지금 보고 있는 AI 분석
+          // 결과 자체에는 영향을 주면 안 된다 - 실패를 조용히 무시한다(에러를 화면에
+          // 보여주면 "저장은 안 됐는데 방금 본 분석 결과도 잘못된 건가" 하는 혼란만 준다).
+          void saveInterviewSessionRecord({
+            role,
+            interviewMode,
+            interviewType,
+            questionCount: answers.length,
+            overallScore: res.report.overall_score,
+            contentScore: res.report.content_score,
+            deliveryScore: res.report.delivery_score,
+            strengths: res.report.strengths,
+            improvements: res.report.improvements,
+            nextSteps: res.report.next_steps,
+            questions: res.report.questions.map((q) => ({
+              question: q.question,
+              feedback: q.feedback,
+              modelAnswer: q.model_answer,
+            })),
+          }).catch(() => {});
+        }
+      })
       .catch((error) => setLoadError(error instanceof Error ? error.message : "종합 평가를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
   };
@@ -451,13 +489,15 @@ function SessionReportPanel({
               ]
                 .filter((s): s is { label: string; value: number } => s.value !== null)
                 .map(({ label, value }) => {
-                  const tone = value >= 4 ? "score-high" : value === 3 ? "score-mid" : "score-low";
+                  // 2026-08-10: 점수를 1~5점에서 100점 만점으로 바꾸면서 등급 기준도 비례
+                  // 조정(4/5=80%, 3/5=60% 그대로 유지) - evaluation.py _clamp_score 참고.
+                  const tone = value >= 80 ? "score-high" : value >= 60 ? "score-mid" : "score-low";
                   return (
                     <div key={label} className={`interview-score-card ${tone}`}>
                       <span className="interview-score-ring">{value}</span>
                       <div>
                         <span className="interview-score-label">{label}</span>
-                        <strong>{value} / 5</strong>
+                        <strong>{value} / 100</strong>
                       </div>
                     </div>
                   );
@@ -561,6 +601,7 @@ export function MockInterviewPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
+  const [pairingPanelOpen, setPairingPanelOpen] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   // 2026-08-05: 마이크/카메라를 못 쓰거나 쓰기 부담스러운 사람을 위한 보조 경로 - 주 기능은
   // 여전히 녹음이라(device-check 화면에서 아주 작은 글씨 링크로만 노출) answerMode는
@@ -615,7 +656,22 @@ export function MockInterviewPage() {
     ["BACKEND", "백엔드"], ["FRONTEND", "프론트엔드"], ["FULLSTACK", "풀스택"],
     ["MOBILE", "모바일 (iOS/Android)"], ["DATA_AI", "데이터 · AI · 기타"],
   ] as const;
-  const [selectedRole, setSelectedRole] = useState("");
+  // 2026-08-07: 처음부터 "선택 안 함" 칩이 파랗게 켜져 있으면 마치 사용자가 이미 뭔가 고른
+  // 것처럼 보인다는 피드백으로, 초기값을 ""(선택 안 함을 명시적으로 고른 상태)이 아니라
+  // null(아직 아무것도 안 고른 상태)로 분리했다 - "선택 안 함" 칩은 selectedRole === ""일
+  // 때만 활성 표시되므로, 처음엔 null이라 어떤 칩도 안 켜져 있다가 사용자가 실제로 클릭해야
+  // 그 칩이 켜진다. buildSessionQuestions 쪽 로직(찾아서 없으면 undefined)은 null/""
+  // 둘 다 "매칭 없음"으로 동일하게 처리되므로 동작 자체는 그대로다.
+  // 2026-08-10: 태스크 #39 "이 부분 연습하기" 딥링크 - TimelinePage의 누적 인사이트/세션
+  // 리포트에서 "role=BACKEND&type=직무면접" 같은 쿼리로 이 페이지로 넘어오면 그 분야/유형을
+  // 미리 선택해둔다(자동 시작은 안 함 - 사용자가 직접 "모의면접 시작하기"를 눌러야 함,
+  // 갑자기 세션이 시작되면 당황스러우니까). 값이 옵션에 없으면(오타/구버전 링크 등) 그냥
+  // 미선택 상태로 둔다.
+  const [searchParams] = useSearchParams();
+  const [selectedRole, setSelectedRole] = useState<string | null>(() => {
+    const fromQuery = searchParams.get("role");
+    return INTERVIEW_ROLE_OPTIONS.some(([code]) => code === fromQuery) ? fromQuery : null;
+  });
   // 2026-08-06: 카메라/채팅 카드를 클릭해서 고르는 라디오 방식으로 바꾸면서 다시 추가 -
   // 실제 시작은 맨 아래 단일 "모의면접 시작하기" 버튼이 이 값을 보고 분기한다.
   const [interviewMode, setInterviewMode] = useState<"camera" | "chat">("camera");
@@ -624,11 +680,30 @@ export function MockInterviewPage() {
   const QUESTION_COUNT_OPTIONS = [3, 5, 7] as const;
   const [questionCount, setQuestionCount] = useState<number>(3);
 
+  // 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 코드/카테고리 튜플은
+  // ai-server question_generator.py의 INTERVIEW_TYPES와 반드시 이름을 맞춰야 한다(카테고리
+  // 문자열을 그대로 next-question 요청에 실어 보내므로). "전체"(기본값)는 6개 카테고리를
+  // 다 순환하는 기존 동작 그대로 - 유형을 명시적으로 고르면 그 유형에 속한 카테고리만 순환.
+  const INTERVIEW_TYPE_OPTIONS = [
+    ["인성면접", ["가치관_자기관리", "협업_리더십_커뮤니케이션"]],
+    ["역량면접", ["문제해결_도전경험", "강점_약점"]],
+    ["직무면접", ["기술_직무역량"]],
+  ] as const;
+  // 2026-08-07: selectedRole과 같은 이유로 null(미선택)과 ""("전체"를 명시적으로 고른 상태)을
+  // 분리했다 - 위 selectedRole 설계 메모 참고.
+  const [selectedInterviewType, setSelectedInterviewType] = useState<string | null>(() => {
+    const fromQuery = searchParams.get("type");
+    return INTERVIEW_TYPE_OPTIONS.some(([type]) => type === fromQuery) ? fromQuery : null;
+  });
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const phonePairDisconnectRef = useRef<(() => void) | null>(null);
+  const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
+  const phoneAutoStartRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const faceRafIdRef = useRef<number | null>(null);
@@ -673,9 +748,13 @@ export function MockInterviewPage() {
   // 아니고, 감 잡는 용도로만 색을 살짝 바꿔 보여준다.
   const RECOMMENDED_MIN_SEC = 30;
   const RECOMMENDED_MAX_SEC = 60;
-  const GET_READY_MS = 1500;
+  // 2026-08-11: 1.5초 고정 대기 대신 "3, 2, 1" 카운트다운으로 바꿨다(사용자 요청 - 질문을
+  // 다 읽어준 다음 "곧 녹화가 시작됩니다, 정면을 응시해주세요"와 숫자 카운트다운을 보여주고
+  // 카운트가 끝나는 순간 바로 답변할 수 있게 녹화가 시작되길 원함). "countdown"/"break"
+  // 단계와 같은 초당 useEffect 패턴을 재사용한다.
+  const GET_READY_COUNTDOWN_SECONDS = 3;
   const FIRST_COUNTDOWN_SECONDS = 3;
-  const BREAK_COUNTDOWN_SECONDS = 10;
+  const BREAK_COUNTDOWN_SECONDS = 7; // 2026-08-11: 10초 -> 7초로 단축(사용자 요청)
 
   // 2026-08-06: 마운트 시 서버에서 클라우드 TTS 음성 목록을 받아온다 - GOOGLE_TTS_API_KEY가
   // 없는 환경(로컬 개발 등)이면 /tts/voices도 실패할 수 있는데, 그 경우 그냥 빈 배열로 두고
@@ -787,6 +866,17 @@ export function MockInterviewPage() {
     "기술_직무역량", "문제해결_도전경험", "협업_리더십_커뮤니케이션", "가치관_자기관리", "강점_약점",
   ] as const;
 
+  // 2026-08-07: tech_summary가 "VSCode 확장 프로그램 개발 경험"처럼 짧고 구체적인 한 줄일
+  // 때, 같은 job/tech_summary로 세션 안에서 여러 번(질문 개수만큼) 호출하면 매번 같은
+  // 소재로 질문이 수렴할 수 있다는 우려로 추가 - 질문마다 명시적으로 다른 관점을 지정해서
+  // 보낸다(question_generator.py generate_personalized_question의 angle_hint 설계 메모
+  // 참고). 특히 "직무면접" 유형만 골랐을 때(카테고리 풀이 기술_직무역량 하나뿐이라 매
+  // 질문이 다 이 카테고리를 씀) 효과가 크다.
+  const TECH_QUESTION_ANGLES = [
+    "기술 선택 이유", "트러블슈팅/문제 해결 경험", "설계·트레이드오프 판단",
+    "성능·품질 개선 경험", "협업 중 기술적 의견 차이 조율", "실무 적용 사례·한계",
+  ] as const;
+
   const buildSessionQuestions = async (): Promise<string[]> => {
     // 2026-08-06: 마이페이지에 목표 직무/기술 요약을 입력해둔 사용자는 그 값을 넘겨서
     // 맞춤 질문(Gemini 경로)을 받는다 - careerJob/careerTechSummary가 비어있으면(프로필
@@ -795,14 +885,35 @@ export function MockInterviewPage() {
     const selectedRoleLabel = INTERVIEW_ROLE_OPTIONS.find(([code]) => code === selectedRole)?.[1];
     const effectiveJob = selectedRoleLabel || careerJob || undefined;
 
+    // 2026-08-07: 면접 유형(역량/직무/인성)을 골랐으면 그 유형에 속한 카테고리만 순환시킨다 -
+    // 안 고르면("전체") 기존처럼 6개 카테고리 다 순환하는 동작 그대로 유지(하위 호환).
+    const selectedTypeCategories = INTERVIEW_TYPE_OPTIONS.find(
+      ([type]) => type === selectedInterviewType,
+    )?.[1];
+    const categoryPool = selectedTypeCategories ?? NON_INTRO_CATEGORIES;
+
     const categoriesNeeded = Math.max(0, questionCount - 1);
     const categories = Array.from(
       { length: categoriesNeeded },
-      (_, i) => NON_INTRO_CATEGORIES[i % NON_INTRO_CATEGORIES.length],
+      (_, i) => categoryPool[i % categoryPool.length],
     );
+    // 2026-08-10 버그 수정: TECH_QUESTION_ANGLES("기술 선택 이유", "트러블슈팅 경험" 등)를
+    // 카테고리 상관없이 모든 질문에 무조건 붙이고 있었다 - angle_hint는 Gemini 프롬프트에서
+    // "반드시 이 관점에서 만들어라"는 강제 규칙이라, "가치관_자기관리"(인성면접) 같은
+    // 비기술 카테고리에도 기술 관점이 덮어써져서 인성면접을 골라도 기술 질문이 나오는
+    // 버그가 있었다("인성면접 눌렀는데 왜 기술 스택 질문이 나오냐" 리포트로 발견). 원래
+    // 의도(TECH_QUESTION_ANGLES 선언부 주석 참고)대로 "기술_직무역량" 카테고리일 때만
+    // 붙이고, 그 외 카테고리는 angle_hint 없이 보내서 Gemini가 기존 다양성 규칙(5번,
+    // question_generator.py generate_personalized_question 참고)을 대신 쓰게 한다.
     const results = await Promise.allSettled(
-      categories.map((category) =>
-        fetchNextQuestion(effectiveJob, undefined, category, careerTechSummary || undefined),
+      categories.map((category, i) =>
+        fetchNextQuestion(
+          effectiveJob,
+          undefined,
+          category,
+          careerTechSummary || undefined,
+          category === "기술_직무역량" ? TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length] : undefined,
+        ),
       ),
     );
 
@@ -845,6 +956,37 @@ export function MockInterviewPage() {
     audioContextRef.current = null;
   };
 
+  const startMeterLoop = (stream: MediaStream) => {
+    stopMeterLoop();
+    if (stream.getAudioTracks().length === 0) {
+      setMicLevel(0);
+      return;
+    }
+    const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let peak = 0;
+      for (const value of data) peak = Math.max(peak, Math.abs((value - 128) / 128));
+      setMicLevel(Math.min(100, Math.round(peak * 250)));
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+  };
+
+  const disconnectPhonePairing = () => {
+    phonePairDisconnectRef.current?.();
+    phonePairDisconnectRef.current = null;
+    phonePairStateRef.current = null;
+    phoneAutoStartRef.current = false;
+  };
+
   const stopFaceLoop = () => {
     if (faceRafIdRef.current !== null) cancelAnimationFrame(faceRafIdRef.current);
     faceRafIdRef.current = null;
@@ -855,6 +997,37 @@ export function MockInterviewPage() {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   };
+
+  const usePhoneCameraStream = async (stream: MediaStream) => {
+    stopStream();
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+    }
+    const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
+    landmarkerRef.current = landmarker;
+    startFaceTrackingLoop(landmarker);
+    startMeterLoop(stream);
+    setCameraReady(true);
+    setPairingPanelOpen(false);
+    // QR pairing hands the whole interview to the phone camera. It should not
+    // leave the user at a second manual "start" button on the PC.
+    phoneAutoStartRef.current = true;
+    setStage("testing-mic");
+  };
+
+  useEffect(() => {
+    if (!phoneAutoStartRef.current || stage !== "testing-mic" || sessionQuestions.length === 0) return;
+    phoneAutoStartRef.current = false;
+    beginInterviewCountdown();
+    // beginInterviewCountdown reads the latest prepared session questions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, sessionQuestions]);
+
+  useEffect(() => {
+    phonePairStateRef.current?.(stage, questionTextReady ? question : undefined, stage === "recording" ? elapsedSec : undefined);
+  }, [stage, question, questionTextReady, elapsedSec]);
 
   // 눈에 보이는 피드백이 있어야 "지금 분석되고 있다"는 게 체감된다 - 캔버스에 얼굴
   // 랜드마크 점을 실시간으로 그려준다. 녹음 시작 전(테스트 단계)부터 계속 돌리다가,
@@ -935,6 +1108,7 @@ export function MockInterviewPage() {
     setErrorMessage(null);
     setStage("preparing");
     try {
+      disconnectPhonePairing();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480 } });
       streamRef.current = stream;
 
@@ -950,25 +1124,7 @@ export function MockInterviewPage() {
       setCameraReady(true);
       startFaceTrackingLoop(landmarker);
 
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 1024;
-      source.connect(analyser);
-
-      const data = new Uint8Array(analyser.fftSize);
-      const tick = () => {
-        analyser.getByteTimeDomainData(data);
-        let peak = 0;
-        for (const value of data) {
-          const centered = Math.abs((value - 128) / 128);
-          if (centered > peak) peak = centered;
-        }
-        setMicLevel(Math.min(100, Math.round(peak * 250)));
-        rafIdRef.current = requestAnimationFrame(tick);
-      };
-      tick();
+      startMeterLoop(stream);
 
       setStage("testing-mic");
     } catch (error) {
@@ -989,6 +1145,7 @@ export function MockInterviewPage() {
     stopMeterLoop();
     stopFaceLoop();
     isRecordingRef.current = false;
+    disconnectPhonePairing();
     stopStream();
     setCameraReady(false);
     setStage("device-check");
@@ -1036,8 +1193,9 @@ export function MockInterviewPage() {
       setStage("error");
       return;
     }
+    setCountdownTotal(GET_READY_COUNTDOWN_SECONDS);
+    setCountdownValue(GET_READY_COUNTDOWN_SECONDS);
     setStage("get-ready");
-    window.setTimeout(beginActualRecording, GET_READY_MS);
   };
 
   const beginActualRecording = () => {
@@ -1051,15 +1209,46 @@ export function MockInterviewPage() {
     // STT 서버에는 오디오만 보내면 되니, 녹음 자체는 오디오 트랙만 따로 담아서 만든다
     // (영상까지 녹화해서 올리면 용량도 크고 서버에 얼굴 영상을 보내는 셈이 되어버림).
     const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+    if (audioOnlyStream.getAudioTracks().length === 0) {
+      setErrorMessage("휴대폰 마이크 오디오를 받지 못했습니다. 휴대폰 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
+      setStage("error");
+      return;
+    }
     chunksRef.current = [];
-    const recorder = new MediaRecorder(audioOnlyStream);
+    // Chrome does not always choose a usable default container for a remote
+    // WebRTC audio track. Pick the first explicitly supported format instead.
+    const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
+      .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(audioOnlyStream, { mimeType })
+        : new MediaRecorder(audioOnlyStream);
+      recorder.start();
+    } catch (reason) {
+      // Some Chromium builds reject an audio-only MediaStream made from a
+      // remote WebRTC track. The AI server accepts WebM and extracts audio
+      // with ffmpeg, so use the original remote audio+video stream as a safe
+      // fallback instead of abandoning the interview.
+      const fallbackMimeType = ["video/webm;codecs=vp8,opus", "video/webm"]
+        .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+      try {
+        recorder = fallbackMimeType
+          ? new MediaRecorder(stream, { mimeType: fallbackMimeType })
+          : new MediaRecorder(stream);
+        recorder.start();
+      } catch (fallbackReason) {
+        setErrorMessage(`녹화를 시작하지 못했습니다. ${fallbackReason instanceof Error ? fallbackReason.message : reason instanceof Error ? reason.message : "휴대폰의 마이크 권한을 다시 확인해 주세요."}`);
+        setStage("error");
+        return;
+      }
+    }
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onstop = () => void submitRecording();
 
     mediaRecorderRef.current = recorder;
-    recorder.start();
 
     // 얼굴 추적 자체는 이미 테스트 단계부터 돌고 있었고, 여기서는 지표 계산용
     // 샘플을 이제부터 모으라고 표시만 해준다 (faceFramesRef를 녹음 시작 시점에 비움).
@@ -1098,6 +1287,20 @@ export function MockInterviewPage() {
     if (countdownValue <= 0) {
       const next = pendingQuestionRef.current;
       if (next) revealQuestionAndBeginRecording(next);
+      return;
+    }
+    const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, countdownValue]);
+
+  // 2026-08-11: 질문을 다 읽어준 뒤 "곧 녹화가 시작됩니다" 3-2-1 카운트다운 - 위
+  // "countdown"(질문 공개 전) 단계와 같은 패턴이지만, 끝났을 때 부르는 함수만 다르다
+  // (revealQuestionAndBeginRecording 대신 beginActualRecording).
+  useEffect(() => {
+    if (stage !== "get-ready") return;
+    if (countdownValue <= 0) {
+      beginActualRecording();
       return;
     }
     const timer = window.setTimeout(() => setCountdownValue((v) => v - 1), 1000);
@@ -1313,6 +1516,7 @@ export function MockInterviewPage() {
     stopTtsAudio();
     window.speechSynthesis?.cancel();
     isRecordingRef.current = false;
+    disconnectPhonePairing();
     stopStream();
     landmarkerRef.current = null;
     if (timerIdRef.current !== null) {
@@ -1337,6 +1541,23 @@ export function MockInterviewPage() {
     setChatOnlyMode(false);
   };
 
+  // 2026-08-11: "session-report" 화면(마지막 질문까지 다 끝나고 결과를 보는 화면)에
+  // 도달하면 녹화는 이미 다 끝난 거라 카메라/마이크를 켜둘 이유가 없는데, 예전엔
+  // endSession()을 사용자가 리포트 화면의 "처음으로" 버튼을 눌러야만 호출해서(1965번째 줄
+  // 근처 SessionReportPanel의 onEndSession) 그 버튼을 안 누르고 리포트만 보고 있으면 캠이
+  // 계속 켜진 채로 남아있었다("면접 끝나면 꺼져야 하는데 계속 켜져있다" 피드백). endSession()
+  // 전체를 부르면 sessionAnswers 등 리포트가 필요로 하는 상태까지 지워버리니, 스트림/추적
+  // 루프만 멈추는 부분집합(cancelDeviceTest와 같은 조합)만 여기서 따로 정리한다.
+  useEffect(() => {
+    if (stage !== "session-report") return;
+    stopMeterLoop();
+    stopFaceLoop();
+    disconnectPhonePairing();
+    stopStream();
+    setCameraReady(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
   // 질문 준비는 이미 끝난 상태에서 생긴 오류(마이크 권한 거부 등)면 device-check로,
   // 질문 준비 자체가 안 된 상태의 오류면 처음(start)으로 돌아간다.
   const retryAfterError = () => {
@@ -1344,8 +1565,17 @@ export function MockInterviewPage() {
     setStage(sessionQuestions.length > 0 ? "device-check" : "start");
   };
 
+  // 2026-08-07: "break"(답변 끝나고 쉬는 10초)도 추가했다 - 예전엔 이 단계에서 캠 화면이
+  // display:none으로 통째로 사라졌다가 다음 질문 카운트다운에서 다시 나타나서 "화면이
+  // 깜빡인다"는 피드백이 있었다. 카메라 자체는 계속 살아있는 스트림이라 굳이 안 보여줄
+  // 이유가 없고, 아래 오버레이(showBreakOverlay)로 "지금은 녹화 안 함"만 표시하면 된다.
   const showVideoPreview =
-    stage === "preparing" || stage === "testing-mic" || stage === "countdown" || stage === "get-ready" || stage === "recording";
+    stage === "preparing" ||
+    stage === "testing-mic" ||
+    stage === "countdown" ||
+    stage === "get-ready" ||
+    stage === "recording" ||
+    stage === "break";
 
   const hasSession = sessionQuestions.length > 0;
   // 2026-08-06: "countdown"(3초) 단계 자체는 아직 이전 질문 텍스트를 들고 있을 수 있어서
@@ -1393,7 +1623,21 @@ export function MockInterviewPage() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
-          <div style={{ position: "relative", display: showVideoPreview ? "block" : "none", width: 480, height: 360, maxWidth: "90vw" }}>
+          {/* 2026-08-07: 컨테이너 전체를 좌우 반전시킨다(video 하나만 반전하면 canvas에
+              그리는 얼굴 랜드마크 좌표가 화면상 얼굴 위치와 어긋나 버린다 - 부모를 통째로
+              뒤집으면 video/canvas가 같은 좌표계 그대로 유지된 채 화면에만 거울처럼 보인다).
+              MediaPipe 얼굴 인식은 이 CSS 표시 변환과 무관하게 videoRef의 원본 프레임
+              데이터를 그대로 읽으므로 분석/녹화 결과에는 영향이 없다. */}
+          <div
+            style={{
+              position: "relative",
+              display: showVideoPreview ? "block" : "none",
+              width: 480,
+              height: 360,
+              maxWidth: "90vw",
+              transform: "scaleX(-1)",
+            }}
+          >
             <video
               autoPlay
               muted
@@ -1405,7 +1649,6 @@ export function MockInterviewPage() {
                 borderRadius: 10,
                 background: "#111",
                 objectFit: "cover",
-                transform: "scaleX(-1)",
               }}
             />
             <canvas
@@ -1415,13 +1658,31 @@ export function MockInterviewPage() {
                 inset: 0,
                 width: "100%",
                 height: "100%",
-                transform: "scaleX(-1)",
+                pointerEvents: "none",
+              }}
+            />
+            {/* 2026-08-07: 쉬는 시간(break)엔 캠을 완전히 숨기는 대신 반투명 어두운 막만
+                덮어서 "지금은 녹화 중이 아님"을 표시한다 - 화면이 통째로 사라졌다 나타나는
+                깜빡임 대신 자연스러운 전환을 준다. */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 10,
+                background: "rgba(15, 17, 26, 0.6)",
+                display: stage === "break" ? "block" : "none",
                 pointerEvents: "none",
               }}
             />
           </div>
           {showVideoPreview && (
-            <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
+            <>
+              <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
+              {/* 2026-08-07: 영상이 서버에 저장/전송되는 걸로 오해할 수 있어서(실제로는
+                  브라우저 안에서만 프레임을 읽어 얼굴 지표를 계산하고, 서버로는 답변 음성만
+                  올라간다) 명시적으로 안내한다. */}
+              <span style={{ fontSize: 11, color: "#9098a7" }}>영상은 저장되지 않습니다</span>
+            </>
           )}
 
           {stage === "start" && (
@@ -1457,13 +1718,42 @@ export function MockInterviewPage() {
                 </button>
               </div>
 
+              {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
+                  계열 질문(팀 갈등, 강점/약점 등)은 지원자의 경험을 묻는 거라 분야가 달라도
+                  질문 자체는 같아도 되지만, 직무(기술) 면접만 분야별로 내용이 달라야 한다는
+                  게 핵심 아이디어. "전체"(선택 안 함)는 기존처럼 6개 카테고리를 다 순환한다. */}
+              <div className="interview-option-group">
+                <span className="interview-option-label">면접 유형</span>
+                <div className="interview-option-row">
+                  <button
+                    type="button"
+                    className={`interview-option-chip${selectedInterviewType === "" ? " active" : ""}`}
+                    onClick={() => setSelectedInterviewType("")}
+                  >
+                    전체
+                  </button>
+                  {INTERVIEW_TYPE_OPTIONS.map(([type]) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`interview-option-chip${selectedInterviewType === type ? " active" : ""}`}
+                      onClick={() => setSelectedInterviewType(type)}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다 - 안 고르면 마이페이지에
                   입력해둔 목표 직무를 대신 쓰고, 둘 다 없으면 기존처럼 범용 ICT 신입 질문이
                   나온다(동작 변화 없음). 드롭다운 대신 라디오버튼처럼 클릭하는 카드(칩)
                   형태로 해달라는 요청으로 select를 버튼 그룹으로 바꿨다. */}
               <div className="interview-option-group">
                 <span className="interview-option-label">면접 분야</span>
-                <div className="interview-option-row">
+                {/* 2026-08-07: 선택 안 함 + 분야 5개 = 6개라 auto-fit이 5+1로 어색하게
+                    쪼개졌다 - 3열로 고정해서 3+3으로 깔끔하게 떨어지게 했다. */}
+                <div className="interview-option-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                   <button
                     type="button"
                     className={`interview-option-chip${selectedRole === "" ? " active" : ""}`}
@@ -1563,6 +1853,19 @@ export function MockInterviewPage() {
               <button className="primary-button" onClick={() => void startDeviceTest()} type="button">
                 <Mic size={16} /> 마이크·카메라 테스트
               </button>
+              <button className="text-button" onClick={() => setPairingPanelOpen(true)} type="button">
+                <Camera size={15} /> 폰을 카메라로 연결
+              </button>
+              {pairingPanelOpen && (
+                <PhoneCameraPairingPanel
+                  onRemoteStream={(stream) => void usePhoneCameraStream(stream)}
+                  onConnected={({ disconnect, sendInterviewState }) => {
+                    phonePairDisconnectRef.current = disconnect;
+                    phonePairStateRef.current = sendInterviewState;
+                  }}
+                  onClose={() => setPairingPanelOpen(false)}
+                />
+              )}
               <button
                 className="text-button"
                 onClick={startTypingForSession}
@@ -1709,7 +2012,12 @@ export function MockInterviewPage() {
             </>
           )}
 
-          {stage === "get-ready" && <strong style={{ color: "#596ff3", fontSize: 16 }}>곧 녹음이 시작됩니다, 준비하세요...</strong>}
+          {stage === "get-ready" && (
+            <>
+              <strong style={{ fontSize: 14, color: "#596ff3", fontWeight: 700 }}>곧 녹화가 시작됩니다. 정면을 응시해주세요</strong>
+              <CountdownRing value={countdownValue} total={countdownTotal} color="#596ff3" />
+            </>
+          )}
 
           {stage === "recording" && (
             <>
@@ -1753,7 +2061,15 @@ export function MockInterviewPage() {
         </div>
       </section>
 
-      {stage === "session-report" && <SessionReportPanel answers={sessionAnswers} onEndSession={endSession} />}
+      {stage === "session-report" && (
+        <SessionReportPanel
+          answers={sessionAnswers}
+          onEndSession={endSession}
+          role={selectedRole || null}
+          interviewMode={interviewMode}
+          interviewType={selectedInterviewType || null}
+        />
+      )}
     </>
   );
 }

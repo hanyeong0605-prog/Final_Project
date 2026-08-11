@@ -30,6 +30,33 @@ class Settings(BaseSettings):
     # 503을 돌려주고, 프론트는 그걸 보고 브라우저 기본 TTS로 자동 폴백한다.
     google_tts_api_key: str = ""
 
+    # 2026-08-07: 모의면접 답변 STT용 - 기존엔 openai-whisper를 서버에서 직접 돌렸는데,
+    # EC2 프리티어에서 디스크/메모리 부담이 크고 whisper의 다국어 범용 모델(특히 "small")이
+    # 한국어 전용으로 튜닝된 모델보다 정확도가 떨어질 가능성이 높아서 Google Cloud
+    # Speech-to-Text(REST, API 키 인증)로 교체했다 - google_tts_api_key와 같은 방식
+    # (서비스 계정 JSON 대신 API 키, 로컬 개발 환경 세팅이 훨씬 간단함). 없으면 기능은
+    # 그대로 동작한다 - transcribe()가 fail-open으로 빈 텍스트 + low_confidence=True를
+    # 반환한다(audio_analysis.py 참고). 보통 google_tts_api_key와 같은 GCP 프로젝트의
+    # 같은 키를 재사용해도 되지만(Speech-to-Text API도 그 프로젝트에서 활성화했다는 전제),
+    # 별도 키/프로젝트로 쿼터를 분리하고 싶으면 다른 값을 넣으면 된다.
+    google_stt_api_key: str = ""
+
+    # 2026-08-10: EC2 프리티어(디스크/메모리 제약)에는 LoRA 모델 파일 자체가 안 올라가 있어서
+    # (app/domain/interview/model/은 .gitignore로 저장소에서 제외됨 - 크기 문제가 아니라
+    # "직접 학습시킨 모델이 실서비스에서 실제로 동작한다"는 걸 보여줘야 해서, 지금까지처럼
+    # Gemini/코퍼스 폴백만으로는 부족하다는 판단), Tailscale(사설 메쉬 VPN)로 연결된 로컬/학원
+    # PC에서 이 ai-server 코드를 그대로 한 벌 더 띄워두고(그 PC엔 모델 파일이 있음), EC2가
+    # 그 PC의 /internal/lora/generate-candidates 엔드포인트를 원격 호출해서 실제 LoRA 추론
+    # 결과를 받아온다(question_generator.py _fetch_raw_candidates_remote 참고). 이 값이 비어
+    # 있으면 기존처럼 로컬에 모델 파일이 있을 때만 직접 로드해서 추론한다(로컬 개발 환경은
+    # 동작 변화 없음) - fail-open이 아니라 "설정 안 하면 옛날 방식 그대로"인 스위치.
+    # 예: http://100.x.y.z:8000 (Tailscale IP, 포트는 로컬에서 uvicorn 띄운 포트)
+    lora_server_url: str = ""
+    # Tailscale은 사설 네트워크라 인터넷에 안 열려 있지만, 그래도 최소한의 방어로 공유
+    # 비밀키를 헤더에 실어 보낸다(internal_api_key와 같은 패턴). EC2 쪽 lora_server_key와
+    # 로컬 PC 쪽 lora_server_key가 같은 값이어야 한다.
+    lora_server_key: str = ""
+
     class Config:
         env_file = str(_ENV_FILE)
 

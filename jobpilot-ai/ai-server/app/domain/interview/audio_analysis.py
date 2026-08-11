@@ -13,59 +13,40 @@
 
 2026-08-05 재작성: 원래 librosa(yin/effects.split/feature.rms)를 썼는데, librosa가 내부적으로
 numba를 끌어들이고(피치 추출 등에서 @numba.jit 데코레이터가 모듈 로드 시점에 바로 실행됨),
-numba의 네이티브 DLL(_dynfunc.cp3xx-win_amd64.pyd)이 서명 미확인 상태라 Windows 스마트 앱
-컨트롤이 로드 자체를 차단하는 환경이 실제로 있었다(팀원 PC에서 확인). "이 컴퓨터에서만
-설정을 바꾸면 되는" 문제가 아니라 - 다른 팀원 PC, 나중에 배포할 서버 어디서든 같은 보안
-정책이면 똑같이 막힌다 - librosa 의존성 자체를 없애고 numpy만으로 다시 짰다. 오디오
-디코딩(webm/mp4 등 -> PCM)은 이미 STT용으로 쓰고 있는 openai-whisper의 ffmpeg 기반
-load_audio()를 재사용한다 - 그래서 librosa/soundfile/audioread를 아예 안 거친다.
+numba의 네이티브 DLL이 서명 미확인 상태라 Windows 스마트 앱 컨트롤이 로드 자체를 차단하는
+환경이 실제로 있었다(팀원 PC에서 확인). librosa 의존성 자체를 없애고 numpy만으로 다시 짰다.
 
 정확도는 librosa.yin(YIN 알고리즘)보다 단순한 정규화 자기상관 방식이라 약간 떨어지지만,
 이 기능의 목적 자체가 "정밀한 피치 트래커"가 아니라 "말투의 경향을 보여주는 참고 지표"라서
 이 정도 단순화는 목적에 맞다고 판단했다.
 
-2026-08-05 추가 발견: librosa를 뺀 뒤에도 팀원 PC에서 완전히 똑같은 numba DLL 차단 에러가
-재현됐다. GitHub에서 openai-whisper 소스를 직접 확인해보니 원인은 whisper 자체에 있었다 -
-whisper/__init__.py가 최상단에서 `from .transcribe import transcribe`를 하고,
-transcribe.py는 다시 최상단에서 `from .timing import add_word_timestamps`를 하는데,
-timing.py 맨 위에 `import numba`가 있다. 즉 word_timestamps 옵션을 켜지 않아도(우리
-transcribe()는 켠 적 없음) "import whisper" 하는 순간 whisper 패키지 초기화 과정에서
-무조건 numba가 로드된다 - librosa와는 완전히 독립적인, whisper 자체의 의존성이었던 것.
-timing.py가 실제로 쓰는 numba API는 @numba.jit로 감싼 backtrace()/dtw_cpu() 두 함수뿐이고
-(둘 다 word_timestamps=True일 때만 실제로 호출됨), 우리는 그 옵션을 안 쓰므로 이 두 함수가
-호출될 일이 없다. 그래서 whisper를 import하기 전에 진짜 numba 로드가 실패하는 경우에만
-@numba.jit을 흉내내는 가짜 numba 모듈을 sys.modules에 먼저 심어서, timing.py의
-`import numba`가 이 가짜 모듈을 집어가게 만든다(_install_numba_stub_if_needed) - 아래
-_jit 스텁은 데코레이터를 그대로 통과시키기만 하고 실제 JIT 컴파일은 하지 않는데, 우리는
-그 함수들을 호출하지 않으니 문제없다. numba가 정상 로드되는 환경(팀원 전원이 이 문제를
-겪는 게 아닐 수 있음)에서는 진짜 numba를 그대로 쓴다 - 있으면 쓰고, 막히면 우회하는 방식.
+2026-08-07 재작성: STT를 openai-whisper(로컬 CPU 추론) 대신 Google Cloud Speech-to-Text
+(REST API, google_stt_api_key 인증 - tts.py와 동일한 방식)로 교체했다. 이유:
+1) EC2 프리티어에 실제 배포해보니 whisper+torch 패키지가 무거워서(디스크 용량 부족으로
+   배포 자체가 실패하는 사고가 있었음) 디스크/메모리 부담이 컸다.
+2) whisper의 "small" 사이즈는 리소스 제약 때문에 일부러 줄인 다국어 범용 모델이라, 한국어
+   전용으로 튜닝된 구글 모델보다 정확도가 떨어질 가능성이 높다(격음 오인식 등 실제로 겪은
+   문제들 - "통악"->"통학" 같은 사례, ml/debug_transcribe.py 참고).
+이 교체로 whisper/numba 관련 워크어라운드(_install_numba_stub_if_needed 등)가 전부
+필요 없어졌다 - openai-whisper 패키지 자체를 뺐다. 오디오 디코딩(webm/mp4 등 -> 16kHz
+모노 PCM)은 whisper.audio.load_audio()가 하던 것과 동일한 ffmpeg 서브프로세스 호출을
+직접 구현해서 대체한다(_load_audio_mono16k) - ffmpeg는 Dockerfile에서 이미 설치돼 있고,
+pitch/volume 분석(analyze_voice)도 이 함수가 반환하는 PCM 배열을 그대로 계속 쓴다.
 
-의존성: openai-whisper(STT + 오디오 디코딩), numpy만 사용한다(librosa 제거).
-Whisper는 내부적으로 ffmpeg를 호출하므로, 실행 전 ffmpeg가 PATH에 있어야 한다.
+의존성: numpy만 사용한다(librosa/openai-whisper 모두 제거). 오디오 디코딩에 ffmpeg가
+PATH에 있어야 한다(기존과 동일).
 """
 
-import sys
-import types
+import base64
+import subprocess
 from dataclasses import dataclass, asdict
-from functools import lru_cache
 
 import numpy as np
+import requests
 
 from app.core.config import settings
 
-# 2026-08-04: whisper를 파일 맨 위에서 바로 import하면, 이 모듈을 불러오는 순간(=서버
-# 기동 시점) whisper가 통째로 로드된다. 실제로 STT/오디오 분석을 쓸 때(_get_whisper_model,
-# analyze_voice 호출 시점)까지 import를 미룬다 - 서버는 항상 뜨고, 이 기능을 실제로 호출할
-# 때만 (환경이 막혀있다면) 에러가 난다.
-
-# 2026-08-05: base -> small로 변경. 실제 답변 오디오(카카오톡 mp4)로 base/small을
-# 직접 비교해보니(ml/debug_transcribe.py) small이 확신도(avg_logprob)도 높고, "통악"->
-# "통학", "공정계사원"->"공정개선"처럼 틀린 단어를 바로잡았고, 특히 "4%"->"46%"처럼
-# 숫자 자체가 잘못 인식되던 것까지 고쳐졌다(면접 답변에서 성과 수치 오인식은 치명적이라
-# 이 차이가 큼). 답변 1건당 추론 시간이 base 대비 +3초 정도 늘지만(2.1초 -> 5.4초,
-# CPU 기준), 실시간 스트리밍이 아니라 "답변 끝나면 분석" 방식이라 감수할 만하다고 판단.
-WHISPER_MODEL_NAME = "small"
-WHISPER_SAMPLE_RATE = 16000  # whisper.audio.load_audio 기본값과 동일하게 맞춤
+AUDIO_SAMPLE_RATE = 16000  # Google STT LINEAR16 권장값(16000이 "최적"이라고 공식 문서에 명시됨)
 
 # 무음 판정 기준(dB, 신호 자체 최대치 대비 상대값). 너무 낮추면 숨소리도 "말하는 중"으로
 # 잡히고, 너무 높이면 실제 침묵도 못 잡는다 - librosa 기본 예제들이 흔히 쓰는 30을 그대로
@@ -92,56 +73,39 @@ _PITCH_FMAX_HZ = 500.0
 _PITCH_CONFIDENCE_THRESHOLD = 0.3
 
 
-def _install_numba_stub_if_needed() -> None:
-    """whisper를 import하기 전에 반드시 호출한다 - 이유는 위 모듈 docstring의 "2026-08-05
-    추가 발견" 참고. 진짜 numba가 정상 로드되면 그대로 두고(return), DLL 차단 등으로 로드
-    자체가 실패할 때만 whisper/timing.py의 `import numba`를 가로챌 가짜 모듈을 등록한다.
-    가짜 모듈의 jit는 데코레이터를 그대로 통과시키기만 한다(실제 JIT 없음) - timing.py의
-    numba.jit 대상 함수(backtrace/dtw_cpu)는 word_timestamps=True일 때만 호출되는데
-    우리 코드는 그 옵션을 쓰지 않으므로 안전하다."""
-    if "numba" in sys.modules:
-        return
-    try:
-        import numba  # noqa: F401
-
-        return
-    except Exception:
-        pass  # DLL 차단 등으로 진짜 numba를 못 쓰는 환경 - 아래에서 가짜로 대체
-
-    stub = types.ModuleType("numba")
-
-    def _jit(*args, **kwargs):
-        if len(args) == 1 and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def _decorator(func):
-            return func
-
-        return _decorator
-
-    stub.jit = _jit
-    sys.modules["numba"] = stub
-
-
-@lru_cache(maxsize=1)
-def _get_whisper_model():
-    """프로세스당 한 번만 로드해서 재사용한다 (요청마다 로드하면 매번 몇 초씩 걸림)."""
-    _install_numba_stub_if_needed()
-    import whisper
-
-    return whisper.load_model(WHISPER_MODEL_NAME)
-
-
 def _load_audio_mono16k(audio_path: str) -> np.ndarray:
-    """webm/mp4/wav 등 어떤 포맷이든 whisper가 내부적으로 쓰는 ffmpeg 디코더로 16kHz
-    모노 float32 PCM 배열로 바꾼다. librosa.load 대신 이걸 쓰는 이유는 위 모듈 docstring
-    참고 - numba 의존성을 피하기 위함. `from whisper.audio import load_audio`도 whisper
-    패키지 초기화를 거치므로(=timing.py의 numba import를 탄다) 여기서도 스텁 설치가
-    먼저 필요하다."""
-    _install_numba_stub_if_needed()
-    from whisper.audio import load_audio
+    """webm/mp4/wav 등 어떤 포맷이든 ffmpeg로 16kHz 모노 float32 PCM 배열로 바꾼다.
 
-    return load_audio(audio_path, sr=WHISPER_SAMPLE_RATE)
+    2026-08-07: openai-whisper의 `whisper.audio.load_audio()`가 내부적으로 하던 것과
+    동일한 ffmpeg 서브프로세스 호출을 직접 구현한 것 - whisper 패키지를 뺐지만 이 디코딩
+    로직 자체는 그대로 필요해서(analyze_voice의 pitch/volume 분석이 이 PCM 배열을 씀)
+    가져왔다. ffmpeg는 Dockerfile에 이미 설치돼 있다."""
+    cmd = [
+        "ffmpeg",
+        "-nostdin",
+        "-threads",
+        "0",
+        "-i",
+        audio_path,
+        "-f",
+        "s16le",
+        "-ac",
+        "1",
+        "-acodec",
+        "pcm_s16le",
+        "-ar",
+        str(AUDIO_SAMPLE_RATE),
+        "-",
+    ]
+    try:
+        completed = subprocess.run(cmd, capture_output=True, check=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="ignore") if exc.stderr else ""
+        raise RuntimeError(f"오디오 디코딩에 실패했습니다: {stderr}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError("ffmpeg를 찾을 수 없습니다 - PATH를 확인하세요.") from exc
+
+    return np.frombuffer(completed.stdout, dtype=np.int16).astype(np.float32) / 32768.0
 
 
 @dataclass
@@ -159,14 +123,14 @@ class TranscriptionResult:
         return asdict(self)
 
 
-# STT에 문맥을 미리 알려주면(특히 whisper처럼 문맥 조건부 생성 모델은) 인식 방향이 좀 더
-# 안정된다 - "이건 면접 답변 오디오다"라는 걸 미리 알려주는 정도의 가벼운 힌트.
-_TRANSCRIBE_INITIAL_PROMPT = "채용 면접에서 지원자가 자연스러운 한국어 구어체로 답변하는 내용입니다."
+_STT_RECOGNIZE_URL = "https://speech.googleapis.com/v1/speech:recognize"
+_STT_TIMEOUT_SEC = 30
 
-# whisper 커뮤니티에서 경험적으로 쓰이는 기준값 - avg_logprob(세그먼트별 평균 로그 확률)이
-# 이보다 낮으면(더 음수) 모델이 그 구간 인식에 확신이 낮았다는 뜻. 공식 API가 보장하는 값은
-# 아니라서 "확실히 틀렸다"가 아니라 "믿을 만큼 확신하지 못했다" 정도의 참고 신호로만 쓴다.
-_LOW_CONFIDENCE_AVG_LOGPROB_THRESHOLD = -1.0
+# Google STT의 confidence는 0.0~1.0 스케일(공식 문서: "높을수록 인식 결과가 맞을 가능성이
+# 크다는 추정치"이고 "보장된 값은 아니다"라고 명시돼 있음 - 그래서 whisper의 avg_logprob
+# 때와 마찬가지로 "참고 신호"로만 쓴다). 이 밑이면 low_confidence로 표시한다 - 임의로 정한
+# 값이라 실사용 데이터를 더 모으면 조정할 수 있다.
+_LOW_CONFIDENCE_THRESHOLD = 0.6
 
 
 def _detect_speech_frames(y: np.ndarray) -> np.ndarray:
@@ -186,18 +150,18 @@ def _detect_speech_frames(y: np.ndarray) -> np.ndarray:
 
 
 def _trim_silence(y: np.ndarray, sr: int) -> np.ndarray:
-    """STT(whisper)에 넘기기 전에 답변 맨 앞/맨 뒤의 무음만 잘라낸다 - 중간에 있는 긴
-    침묵은 안 건드린다(analyze_voice의 긴 침묵 지표와는 무관한, whisper가 무음 구간에서
-    환각 텍스트를 만들어내는 경향을 줄이려는 목적일 뿐이라 범위를 앞뒤로만 한정했다).
-    말이 시작/끝나는 지점이 딱 붙어서 잘리지 않도록 짧게 패딩을 남긴다."""
+    """STT에 넘기기 전에 답변 맨 앞/맨 뒤의 무음만 잘라낸다 - 중간에 있는 긴 침묵은 안
+    건드린다(analyze_voice의 긴 침묵 지표와는 무관, STT 모델이 무음 구간에서 엉뚱한 텍스트를
+    만들어내는 경향을 줄이려는 목적일 뿐이라 범위를 앞뒤로만 한정했다). 말이 시작/끝나는
+    지점이 딱 붙어서 잘리지 않도록 짧게 패딩을 남긴다."""
     speaking = _detect_speech_frames(y)
     if speaking.size == 0:
         return y  # 전부 무음처럼 보이면 섣불리 자르지 않고 원본 그대로 넘긴다(호출부에서 별도 처리)
 
-    frame_sec = _HOP_LENGTH / WHISPER_SAMPLE_RATE
+    frame_sec = _HOP_LENGTH / AUDIO_SAMPLE_RATE
     pad_sec = 0.3
     start_sec = max(0.0, speaking[0] * frame_sec - pad_sec)
-    end_sec = min(len(y) / sr, speaking[-1] * frame_sec + _FRAME_LENGTH / WHISPER_SAMPLE_RATE + pad_sec)
+    end_sec = min(len(y) / sr, speaking[-1] * frame_sec + _FRAME_LENGTH / AUDIO_SAMPLE_RATE + pad_sec)
     return y[int(start_sec * sr) : int(end_sec * sr)]
 
 
@@ -239,37 +203,84 @@ def _gemini_correct_transcript(text: str) -> str:
         return text
 
 
-def transcribe(audio_path: str, language: str = "ko") -> TranscriptionResult:
+def _pcm16_bytes(y: np.ndarray) -> bytes:
+    """float32(-1.0~1.0) PCM 배열을 Google STT가 요구하는 LINEAR16(부호 있는 16비트) raw
+    바이트로 되돌린다 - _load_audio_mono16k가 원래 이 스케일로 정규화했던 걸 역변환."""
+    clipped = np.clip(y * 32768.0, -32768, 32767)
+    return clipped.astype(np.int16).tobytes()
+
+
+def transcribe(audio_path: str, language: str = "ko-KR") -> TranscriptionResult:
+    """Google Cloud Speech-to-Text(동기 recognize)로 답변 오디오를 텍스트로 바꾼다.
+
+    2026-08-07: openai-whisper 로컬 추론에서 교체 - 이유는 모듈 docstring 참고. 동기
+    recognize는 60초/10MB 제한이 있다(공식 문서 명시) - 면접 답변 권장 길이가 30~60초라
+    보통은 문제없지만, 사용자가 그보다 훨씬 길게 답하면 API가 에러를 반환할 수 있다. 그런
+    경우도 다른 실패와 마찬가지로 fail-open(빈 텍스트 + low_confidence=True)으로 처리한다 -
+    긴 답변 지원(비동기 longrunningrecognize)까지는 이번에 안 하고, 있는 그대로도 대부분의
+    실사용 케이스는 커버되므로 이후 필요성이 확인되면 별도로 붙인다."""
     y = _load_audio_mono16k(audio_path)
 
     # 2026-08-06: 실제로 겪은 버그 - 답변 오디오에 말소리가 거의/전혀 없으면(마이크에 소리가
-    # 안 잡혔거나, 답변을 안 하고 바로 답변 완료를 누른 경우 등) whisper가 initial_prompt
-    # 문구를 그대로 베껴서 "답변"인 것처럼 텍스트를 지어내는 환각을 일으켰다(실제 사례:
-    # initial_prompt가 "...자연스러운 한국어 구어체로 답변하는 내용입니다"였는데 인식
-    # 결과가 "이 내용은 한국어 구어체로 답변하는 내용입니다"로 나옴 - 우연이 아니라 무음/
-    # 저음량 오디오에서 흔히 보고되는 whisper 환각 패턴이다). avg_logprob 기반 low_confidence
-    # 체크만으로는 이미 지어낸 그럴듯한 문장을 걸러내지 못했다(문장 자체는 "자신 있게"
-    # 생성되기 때문) - 그래서 whisper 모델 로딩·호출 자체를 아예 건너뛰고 빈 결과를 바로
-    # 반환한다(모델 로딩도 미룬다 - _get_whisper_model()을 먼저 불러두면 안 쓸 때도 무거운
-    # 로딩 비용이 들고, 테스트에서도 "무음이면 whisper 쪽은 아예 안 건드렸는지"를 확인하기
-    # 쉬워진다). 없는 답변을 지어내는 것보다 "인식된 내용 없음"이 훨씬 낫다.
+    # 안 잡혔거나, 답변을 안 하고 바로 답변 완료를 누른 경우 등) STT가 엉뚱한 텍스트를
+    # 만들어내는(환각) 경우가 있었다. 그래서 말소리 자체가 감지 안 되면 API를 아예 호출하지
+    # 않고 빈 결과를 바로 반환한다 - 없는 답변을 지어내는 것보다 "인식된 내용 없음"이 낫다.
     if _detect_speech_frames(y).size == 0:
         return TranscriptionResult(text="", low_confidence=True)
 
-    model = _get_whisper_model()
-    trimmed = _trim_silence(y, WHISPER_SAMPLE_RATE)
-    result = model.transcribe(trimmed, language=language, initial_prompt=_TRANSCRIBE_INITIAL_PROMPT)
+    if not settings.google_stt_api_key:
+        # fail-open이지만 무음 케이스와 결과를 구분할 방법이 없다 - 둘 다 "텍스트 없음"으로
+        # 처리해도 호출부(evaluation.py 등) 입장에서는 동일하게 다뤄야 하는 상황이라 문제없다.
+        return TranscriptionResult(text="", low_confidence=True)
 
-    segments = result.get("segments") or []
-    avg_logprobs = [s["avg_logprob"] for s in segments if "avg_logprob" in s]
-    text = result["text"].strip()
+    trimmed = _trim_silence(y, AUDIO_SAMPLE_RATE)
+    audio_content_b64 = base64.b64encode(_pcm16_bytes(trimmed)).decode("ascii")
+
+    try:
+        response = requests.post(
+            _STT_RECOGNIZE_URL,
+            params={"key": settings.google_stt_api_key},
+            json={
+                "config": {
+                    "encoding": "LINEAR16",
+                    "sampleRateHertz": AUDIO_SAMPLE_RATE,
+                    "languageCode": language,
+                    "enableAutomaticPunctuation": True,
+                },
+                "audio": {"content": audio_content_b64},
+            },
+            timeout=_STT_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        # 네트워크 오류, 60초/10MB 초과로 인한 4xx, 그 외 예상 못 한 응답 전부 여기서
+        # 잡는다 - STT 실패가 전체 답변 분석 흐름을 죽이면 안 된다(fail-open).
+        return TranscriptionResult(text="", low_confidence=True)
+
+    results = data.get("results") or []
+    # SpeechRecognitionAlternative.transcript는 "각 결과를 구분자 없이 이어붙이면 전체
+    # 텍스트가 된다"고 공식 문서에 명시돼 있다(첫 결과가 아니면 앞에 공백이 이미 포함됨).
+    transcripts: list[str] = []
+    confidences: list[float] = []
+    for result in results:
+        alternatives = result.get("alternatives") or []
+        if not alternatives:
+            continue
+        top = alternatives[0]
+        transcripts.append(top.get("transcript", ""))
+        # confidence 기본값 0.0은 "설정 안 됨"을 뜻하는 sentinel이라고 문서에 명시돼 있어서
+        # 평균 계산에서 제외한다(0.0을 실제로 낮은 확신도로 취급하면 왜곡됨).
+        confidence = top.get("confidence")
+        if confidence:
+            confidences.append(confidence)
+
+    text = "".join(transcripts).strip()
     low_confidence = (
-        not text
-        or not segments
-        or (bool(avg_logprobs) and sum(avg_logprobs) / len(avg_logprobs) < _LOW_CONFIDENCE_AVG_LOGPROB_THRESHOLD)
+        not text or not confidences or (sum(confidences) / len(confidences)) < _LOW_CONFIDENCE_THRESHOLD
     )
     # low_confidence여도 UI에는 그대로 경고를 보여준다(원문이 그대로인지 Gemini가 교정한
-    # 텍스트인지와 무관하게, Whisper 자체가 확신하지 못했던 답변이라는 사실은 변하지 않음 -
+    # 텍스트인지와 무관하게, STT 자체가 확신하지 못했던 답변이라는 사실은 변하지 않음 -
     # Gemini 교정도 완벽을 보장하진 않으므로 "믿을 만큼 확신하지 못했다"는 신호를 계속 보여준다).
     if low_confidence and text:
         text = _gemini_correct_transcript(text)
@@ -368,7 +379,7 @@ def _silence_stats(rms: np.ndarray, total_duration_sec: float) -> tuple[float, i
         db_rel = 20 * np.log10(np.maximum(rms, 1e-10) / peak)
     speaking_frames = db_rel > -SILENCE_TOP_DB
 
-    frame_sec = _HOP_LENGTH / WHISPER_SAMPLE_RATE
+    frame_sec = _HOP_LENGTH / AUDIO_SAMPLE_RATE
     intervals: list[tuple[float, float]] = []
     run_start_frame: int | None = None
     for i, is_speaking in enumerate(speaking_frames):
@@ -376,12 +387,12 @@ def _silence_stats(rms: np.ndarray, total_duration_sec: float) -> tuple[float, i
             run_start_frame = i
         elif not is_speaking and run_start_frame is not None:
             start_sec = run_start_frame * frame_sec
-            end_sec = min(total_duration_sec, (i - 1) * frame_sec + _FRAME_LENGTH / WHISPER_SAMPLE_RATE)
+            end_sec = min(total_duration_sec, (i - 1) * frame_sec + _FRAME_LENGTH / AUDIO_SAMPLE_RATE)
             intervals.append((start_sec, end_sec))
             run_start_frame = None
     if run_start_frame is not None:
         start_sec = run_start_frame * frame_sec
-        end_sec = min(total_duration_sec, (len(speaking_frames) - 1) * frame_sec + _FRAME_LENGTH / WHISPER_SAMPLE_RATE)
+        end_sec = min(total_duration_sec, (len(speaking_frames) - 1) * frame_sec + _FRAME_LENGTH / AUDIO_SAMPLE_RATE)
         intervals.append((start_sec, end_sec))
 
     if not intervals:
@@ -400,7 +411,7 @@ def _silence_stats(rms: np.ndarray, total_duration_sec: float) -> tuple[float, i
 
 def analyze_voice(audio_path: str, transcript: str) -> VoiceMetrics:
     y = _load_audio_mono16k(audio_path)
-    sr = WHISPER_SAMPLE_RATE
+    sr = AUDIO_SAMPLE_RATE
     duration_sec = len(y) / sr if sr > 0 else 0.0
 
     pitch_mean, pitch_variation = _pitch_stats(y, sr)

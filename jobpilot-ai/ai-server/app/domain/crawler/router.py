@@ -34,12 +34,13 @@ def _run_crawl_and_ingest(
     job_group_id: int,
     max_ids: int | None,
     save: bool,
+    refresh_existing: bool = False,
 ) -> dict:
     """실제 크롤링+저장 로직. 동기 호출(기존 방식)과 백그라운드 호출 양쪽에서 이 함수를
     그대로 재사용한다 - 로직을 두 벌로 유지하지 않기 위해 분리했다."""
     known = (
         fetch_existing_source_updated_at(settings.backend_base_url, source_code="WANTED")
-        if save
+        if save and not refresh_existing
         else {}
     )
     known_ids = set(known.keys())
@@ -89,10 +90,10 @@ def _run_crawl_and_ingest(
     return response
 
 
-def _run_crawl_in_background(limit, job_group_id, max_ids, save):
+def _run_crawl_in_background(limit, job_group_id, max_ids, save, refresh_existing):
     _last_run_status.update({"state": "running", "crawled_so_far": 0})
     try:
-        outcome = _run_crawl_and_ingest(limit, job_group_id, max_ids, save)
+        outcome = _run_crawl_and_ingest(limit, job_group_id, max_ids, save, refresh_existing)
         _last_run_status.update({"state": "done", **outcome})
     except Exception as e:
         # _run_crawl_and_ingest 자체가 이미 대부분의 예외를 잡지만, 혹시 모를 진짜
@@ -109,6 +110,7 @@ def trigger_wanted_crawl(
     max_ids: int | None = None,
     save: bool = True,
     background: bool = False,
+    refresh_existing: bool = False,
     x_internal_api_key: str | None = Header(default=None),
 ):
     """원티드(IT개발·데이터, job_group_id=518) 트리거.
@@ -130,10 +132,10 @@ def trigger_wanted_crawl(
         _verify_internal_api_key(x_internal_api_key)
         if _last_run_status.get("state") == "running":
             raise HTTPException(status_code=409, detail="이미 크롤링이 진행 중입니다.")
-        background_tasks.add_task(_run_crawl_in_background, limit, job_group_id, max_ids, save)
+        background_tasks.add_task(_run_crawl_in_background, limit, job_group_id, max_ids, save, refresh_existing)
         return {"state": "started"}
 
-    return _run_crawl_and_ingest(limit, job_group_id, max_ids, save)
+    return _run_crawl_and_ingest(limit, job_group_id, max_ids, save, refresh_existing)
 
 
 @router.get("/wanted/status")

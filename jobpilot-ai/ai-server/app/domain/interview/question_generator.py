@@ -20,13 +20,24 @@ AI Hub "채용면접 인터뷰 데이터"(TL_05, ICT/신입, 5194건 - 남녀 �
   건너뛴다(fail-open, 원문 그대로 반환).
 - whisper와 마찬가지로, transformers/torch를 파일 맨 위에서 import하면 서버 기동 시점에 무거운
   라이브러리가 통째로 로드된다 - 실제로 질문 생성을 호출할 때(_get_loaded_model 호출 시점)까지 미룬다.
+
+2026-08-10 추가: EC2 배포 이미지에는 모델 파일이 없어서(app/domain/interview/model/은
+.gitignore로 저장소에서 제외됨), 실서비스에서 "직접 학습시킨 모델"이 실제로 동작하는 걸
+보여주려면 Tailscale로 연결된 로컬/학원 PC의 LoRA 추론을 원격 호출해야 한다. config.py의
+lora_server_url이 설정돼 있으면 _generate_raw_candidates()가 그 PC의
+/internal/lora/generate-candidates(router.py)를 먼저 시도하고, 없거나 실패하면 로컬 모델
+파일 로드를 시도한다 - 두 경로 다 실패하면 generate_validated_question()의 코퍼스 폴백으로
+이어진다(동작이 안 나오는 상황 자체는 없음).
 """
 
+import logging
 import threading
 from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # 학습된 LoRA 어댑터 + 토크나이저가 저장된 경로 (노트북 9단계에서 다운로드한 zip을 풀어서 여기 둠).
 MODEL_DIR = Path(__file__).parent / "model" / "question_generator_lora"
@@ -55,6 +66,45 @@ QUESTION_CATEGORIES = (
 # 체험판처럼 가볍게 답할 수 있는 카테고리만 노출하고 싶을 때 쓰는 부분집합 - 기술 심화/문제
 # 해결처럼 준비가 필요한 카테고리는 제외했다.
 LIGHT_QUESTION_CATEGORIES = ("자기소개_지원동기", "가치관_자기관리", "협업_리더십_커뮤니케이션")
+
+# 2026-08-07: "면접 유형(역량/직무/인성)도 고를 수 있게 하자"는 요청으로 6개 카테고리를 3개
+# 유형으로 묶었다. 핵심 통찰: 인성/역량 계열 질문("팀 갈등을 어떻게 풀었나요", "본인의
+# 강점은?")은 지원자의 경험/가치관을 묻는 거라 분야(백엔드/프론트/...)가 달라도 질문 자체가
+# 달라질 이유가 없다 - 반면 직무(기술) 면접만 분야별로 실제 내용이 달라야 한다("Spring N+1"
+# vs "React 리렌더링"). 그래서 분야별 학습 데이터 확장도 FIELD_SENSITIVE_CATEGORIES 하나만
+# 하면 된다(전체 6개 x 5개 분야가 아니라 1개 x 5개 분야로 작업량이 크게 줄어듦).
+INTERVIEW_TYPES = {
+    "인성면접": ("가치관_자기관리", "협업_리더십_커뮤니케이션"),
+    "역량면접": ("문제해결_도전경험", "강점_약점"),
+    "직무면접": ("기술_직무역량",),
+}
+# 분야(job)에 따라 실제로 내용이 달라져야 하는 카테고리 - 학습 데이터를 분야별로 쪼개서
+# 만들어야 하는 대상은 지금은 이거 하나뿐이다. 나머지 카테고리는 기존 공통 데이터로 충분하다.
+FIELD_SENSITIVE_CATEGORIES = ("기술_직무역량",)
+
+# 2026-08-10 추가: "직무면접"과 "역량면접"이 카테고리 라벨만으로는 실제로 질문 색깔이 잘
+# 안 갈린다는 피드백(사용자가 실제 채용 현장의 관례를 설명해줌) - 회사/전형 설계에 따라
+# 다르지만 보통 직무 면접은 "이력서에 적은 기술 스택·프로젝트 경험·전공 지식 등 실무 능력과
+# 전문성"을 검증하는 데 초점을 맞추고, 역량 면접은 기술 지식뿐 아니라 "문제 해결 능력·논리적
+# 사고·협업 태도·커뮤니케이션 방식 등 직무 수행에 필요한 전반적인 행동 양식/잠재력"을 더 넓게
+# 본다. 카테고리 문자열 자체(트레이닝 데이터/코퍼스와 맞춰야 해서 함부로 못 바꿈)는 그대로
+# 두고, Gemini 프롬프트에만 이 뉘앙스를 명시적으로 심어서 실제 생성 질문에 반영되게 한다.
+# LoRA 경로(generate_question)는 학습 때 이 프롬프트 형식을 안 봤으므로 건드리지 않는다.
+_CATEGORY_TO_INTERVIEW_TYPE = {
+    category: interview_type for interview_type, categories in INTERVIEW_TYPES.items() for category in categories
+}
+_INTERVIEW_TYPE_EMPHASIS = {
+    "직무면접": (
+        "이 질문은 '직무 면접' 성격이다 - 지원자가 이력서에 적었을 법한 기술 스택, 프로젝트 "
+        "경험, 전공 지식 등 '실무 능력과 전문성'을 구체적으로 검증하는 데 초점을 맞춰라."
+    ),
+    "역량면접": (
+        "이 질문은 '역량 면접' 성격이다 - 기술적 지식 하나만 확인하지 말고, 문제 해결 능력, "
+        "논리적 사고, 협업 태도, 커뮤니케이션 방식 등 직무 수행에 필요한 전반적인 행동 양식과 "
+        "잠재력을 넓게 평가하는 질문을 만들어라. 특정 기술 스택 이름을 몰라도 답할 수 있는 "
+        "수준으로 열어둬라."
+    ),
+}
 
 # 2026-08-04: 재학습 없이 품질을 살짝 개선하려고 넣은 얕은 필터. "미리 만들어둔 질문 목록에서
 # 나쁜 걸 지우는" 방식이 아니라 - 생성기는 매번 새로 만들어내니까(무한 공급) - 이상하면
@@ -180,7 +230,9 @@ def _gemini_polish(question: str) -> str | None:
         return question
 
 
-def generate_personalized_question(job: str, tech_summary: str, category: str = "") -> str | None:
+def generate_personalized_question(
+    job: str, tech_summary: str, category: str = "", angle_hint: str = ""
+) -> str | None:
     """스펙(목표 직무) 또는 기술/프로젝트 요약이 있는 사용자를 위한 맞춤 질문 생성.
 
     2026-08-06 설계 메모: generate_question()의 LoRA 모델은 학습 데이터가 전부 "ICT/신입"
@@ -197,17 +249,70 @@ def generate_personalized_question(job: str, tech_summary: str, category: str = 
     선택하고 프로필은 안 채운 경우) 호출되도록 조건을 완화했다 - tech_summary가 없으면
     프롬프트에서 그 줄만 빼고 job만으로 그 분야에 흔히 나오는 질문을 생성한다.
 
-    Gemini 키가 없거나 job/tech_summary가 둘 다 비어있거나 호출이 실패하면 None을
-    반환한다 - 호출부(router.py)가 generate_question()(LoRA 경로)으로 폴백한다.
+    2026-08-06 추가 수정: 처음엔 job/tech_summary가 둘 다 비어있으면 아예 호출하지 않고
+    LoRA 경로로 보냈는데, 사용자가 "면접 분야"에서 "선택 안 함"을 고르고 프로필도 안 채운
+    경우(꽤 흔한 케이스) 그대로 LoRA로 빠져서 "특정 분야에 전문성을 갖춘 사람이라면..."처럼
+    추상적이고 어색한 질문이 나오는 문제가 실사용 중 발견됐다. LoRA는 학습 데이터가 전부
+    "ICT/신입" 한 종류뿐이라 이런 정보 없는 케이스에서 품질이 특히 떨어진다 - 반면 Gemini는
+    job이 기본값(DEFAULT_JOB)이어도 카테고리만으로 훨씬 자연스러운 질문을 만든다. 그래서
+    이제 job/tech_summary 존재 여부와 무관하게 키만 있으면 항상 먼저 시도하고, LoRA는
+    Gemini 키가 없거나(로컬 개발 등) 호출 자체가 실패했을 때만 쓰는 진짜 최후 폴백으로
+    격하했다(router.py도 함께 수정 - 더 이상 wants_personalized()로 게이팅하지 않음).
+
+    Gemini 키가 없거나 호출이 실패하면 None을 반환한다 - 호출부(router.py)가
+    generate_question()(LoRA 경로)으로 폴백한다.
+
+    2026-08-07 angle_hint 추가: tech_summary가 "VSCode 확장 프로그램 개발 경험"처럼 아주
+    짧고 구체적인 한 줄인 경우, 세션 하나에서 같은 job/tech_summary로 여러 번(질문 개수만큼)
+    호출해도 매번 그 한 가지 소재로만 수렴하는 문제가 실사용 중 우려로 나왔다 - 아래 규칙 5)의
+    "매번 다른 각도로"는 모델 자율에 맡기는 느슨한 지시라, 세션 안의 여러 호출이 서로 뭘
+    생성했는지 모르는 채 병렬로 실행되면(프론트 buildSessionQuestions가 Promise.allSettled로
+    동시에 쏨) 결국 비슷한 질문이 나올 확률이 남아있다. 호출부가 세션 내 각 질문마다 명시적으로
+    다른 각도(angle_hint)를 지정해서 보내면, 모델의 자율적 판단에 기대지 않고 확정적으로
+    관점을 갈라놓을 수 있다 - 값이 없으면 기존처럼 규칙 5)의 느슨한 지시만 적용된다.
     """
-    if not settings.gemini_api_key or not (job.strip() or tech_summary.strip()):
+    if not settings.gemini_api_key:
         return None
     try:
         from google import genai
+        from google.genai import types
 
         client = genai.Client(api_key=settings.gemini_api_key)
         category_line = f"카테고리: {category}\n" if category else ""
         tech_line = f"기술/프로젝트 요약: {tech_summary}\n" if tech_summary.strip() else ""
+        # 2026-08-10: 카테고리 라벨만으로는 "직무면접 vs 역량면접"의 실제 질문 색깔이 잘 안
+        # 갈렸다는 피드백으로, 카테고리를 면접 유형으로 역매핑해서 그 유형의 뉘앙스를 규칙에
+        # 명시적으로 얹는다(_INTERVIEW_TYPE_EMPHASIS 정의 참고). 인성면접 카테고리는 기존에도
+        # 이미 잘 구분되던 편이라 별도 강조 없이 그대로 둔다.
+        interview_type = _CATEGORY_TO_INTERVIEW_TYPE.get(category)
+        emphasis_rule = (
+            f"6) {_INTERVIEW_TYPE_EMPHASIS[interview_type]}\n" if interview_type in _INTERVIEW_TYPE_EMPHASIS else ""
+        )
+        # 2026-08-10 버그 수정: 규칙 1)이 카테고리와 무관하게 "기술 요약이 없으면 기술
+        # 질문으로 만들어라"를 강제하고 있었다 - 그래서 "인성면접"(가치관_자기관리 등)을
+        # 골라도 "새로운 기술을 학습할 때", "기술 스택에 대한 의견 차이" 같은 기술 색이
+        # 진하게 밴 질문이 계속 나왔다("인성면접 눌렀는데 왜 이런 질문이 나오냐" 리포트로
+        # 발견 - angle_hint 버그를 고친 뒤에도 남아있던 문제). 이제 category가 비어있거나
+        # (기존 기본 호출 - 하위 호환 유지) "기술_직무역량"(직무면접)일 때만 기술 질문을
+        # 강제하고, 그 외 카테고리는 반대로 기술 용어/구현 세부사항을 넣지 말라고 명시한다.
+        is_tech_focused_category = not category or category == "기술_직무역량"
+        focus_rule = (
+            "1) 목표 직무(그리고 기술/프로젝트 요약이 있다면 그것도)를 실제로 반영한 구체적인 "
+            "질문이어야 한다 - '자기소개를 해주세요' 같은 뻔한 범용 질문은 피해라. "
+            "기술 요약이 없다면 해당 직무에서 흔히 물어보는 기술 질문으로 만들어라\n"
+            if is_tech_focused_category
+            else "1) 목표 직무는 배경으로만 참고하고, 특정 기술 스택 이름·구현 방식·버그/디버깅 "
+            "같은 기술적 세부사항은 절대 넣지 마라 - 아래 카테고리에 맞는 성격의 질문(경험, "
+            "가치관, 태도, 사고방식 등)이어야 한다\n"
+        )
+        angle_rule = (
+            f"5) 이번 질문은 반드시 '{angle_hint}' 관점에서 만들어라 - 같은 소재라도 이 "
+            "관점으로 한정해서 질문해라\n"
+            if angle_hint.strip()
+            else "5) 같은 직무/카테고리로 여러 번 요청받아도 매번 다른 각도(예: 기술 선택 이유, "
+            "트러블슈팅 경험, 트레이드오프 판단, 협업 시 의견 충돌 등)에서 질문해서 다양성을 "
+            "유지해라 - 항상 똑같은 패턴의 질문을 반복하지 마라\n"
+        )
         prompt = (
             "너는 IT 채용 면접관이다. 아래 지원자 정보를 참고해서, 이 지원자에게 실제로 물어볼 "
             "법한 한국어 면접 질문을 딱 하나만 만들어라.\n"
@@ -215,20 +320,38 @@ def generate_personalized_question(job: str, tech_summary: str, category: str = 
             f"{tech_line}"
             f"{category_line}"
             "규칙:\n"
-            "1) 목표 직무(그리고 기술/프로젝트 요약이 있다면 그것도)를 실제로 반영한 구체적인 "
-            "질문이어야 한다 - '자기소개를 해주세요' 같은 뻔한 범용 질문은 피해라. "
-            "기술 요약이 없다면 해당 직무에서 흔히 물어보는 기술 질문으로 만들어라\n"
+            f"{focus_rule}"
             "2) 질문 문장 하나만 출력해라 - 설명, 따옴표, 번호, 다른 말은 절대 붙이지 마라\n"
             "3) '~습니까/~니까/~나요/~주세요' 같은 정중한 면접 질문 어미로 끝내라\n"
             "4) 존댓말을 써라\n"
+            f"{angle_rule}"
+            f"{emphasis_rule}"
         )
-        response = client.models.generate_content(model=settings.gemini_model, contents=prompt)
+        # 2026-08-06: temperature를 명시적으로 올려서(기본값에 맡기지 않고) 같은 직무/카테고리
+        # 조합으로 여러 번 호출해도(세션당 최대 6번, 사용자마다 매번) 문구가 겹치지 않도록
+        # 다양성을 확보했다 - "질문이 너무 밋밋/획일적"이라는 피드백으로 추가.
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=1.1),
+        )
         question = (response.text or "").strip().strip('"').strip()
         question = _normalize_addressing(question)
         if not question or len(question) > 150:
+            logger.warning(
+                "Gemini 맞춤 질문이 비어있거나 너무 길어 폐기 - LoRA로 폴백함 (job=%r, category=%r, len=%d)",
+                job, category, len(question),
+            )
             return None
         return question
     except Exception:
+        # 2026-08-10: 원래 완전히 조용한 fail-open이었는데, "면접 유형/분야를 바꿔도 질문이
+        # 안 바뀌는 것 같다"는 문의를 받고 보니 - Gemini 호출이 매번 조용히 실패해서 LoRA로
+        # 빠지고 있어도(LoRA는 job을 거의 반영 못 함, 위 docstring 참고) 겉으로는 아무 에러도
+        # 안 보여서 원인 파악이 불가능했다. 사용자에게 보여줄 필요는 없지만(그대로 fail-open
+        # 유지) 서버 로그에는 남겨서 "지금 Gemini가 실제로 도는지 LoRA로 새고 있는지"를 콘솔
+        # 에서 바로 확인할 수 있게 한다.
+        logger.warning("Gemini 맞춤 질문 생성 실패 - LoRA로 폴백함 (job=%r, category=%r)", job, category, exc_info=True)
         return None
 
 
@@ -298,17 +421,10 @@ def _load_model() -> LoadedModel:
     return LoadedModel(tokenizer=tokenizer, model=model)
 
 
-def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
-    """면접 질문 하나를 생성한다.
-
-    job: 직무 (지금 학습 데이터가 전부 "ICT/신입"이라, 다른 값을 넣어도 그 스타일 질문이 나올 확률이
-         높다 - 다른 직무 데이터 추가 전까진 실질적인 분기가 안 된다는 점 인지하고 쓴다).
-    context: 이전 답변 텍스트 (선택). 지금 학습 데이터엔 진짜 문맥 연결이 없어서 효과가 제한적이다.
-    category: QUESTION_CATEGORIES 중 하나(선택). 학습 프롬프트에 포함된 값이라 지정하면 그
-              카테고리 스타일 질문이 나올 확률이 올라간다 - 안 넣으면 빈 문자열로 들어가서
-              카테고리 지정 효과 없이 무작위에 가깝게 나온다. 학습 데이터에 없는 값을 넣어도
-              에러는 안 나지만(그냥 프롬프트 텍스트일 뿐) 의미 있는 결과를 기대하기 어렵다.
-    """
+def _generate_raw_candidates_locally(job: str, context: str, category: str) -> list[str]:
+    """이 프로세스 안에서 직접 torch/transformers로 LoRA 추론을 돌려 후보 문장들을 뽑는다
+    (필터링/Gemini 다듬기 전 원본). 2026-08-10: 원격 라우팅(_fetch_raw_candidates_remote)과
+    대칭이 되도록 generate_question()에서 분리했다 - 로직 자체는 그대로다."""
     loaded = _get_loaded_model()
     tokenizer, model = loaded.tokenizer, loaded.model
 
@@ -348,6 +464,62 @@ def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str =
         candidate = _normalize_addressing(candidate)
         if candidate:
             candidates.append(candidate)
+    return candidates
+
+
+_LORA_SERVER_TIMEOUT_SEC = 15
+
+
+def _fetch_raw_candidates_remote(job: str, context: str, category: str) -> list[str]:
+    """2026-08-10: EC2 프리티어에는 LoRA 모델 파일이 없어서(config.py lora_server_url 설명
+    참고), Tailscale로 연결된 로컬/학원 PC에서 이 코드베이스를 그대로 한 벌 더 띄워두고 그
+    인스턴스의 /internal/lora/generate-candidates를 원격 호출한다. 네트워크 오류/타임아웃/그
+    PC가 꺼져 있는 경우 전부 fail-open으로 빈 리스트를 반환한다(예외를 던지지 않는다) -
+    호출부(_generate_raw_candidates)가 빈 리스트를 보고 로컬 시도로 넘어가거나(로컬에도 모델
+    파일이 있는 개발 환경), 그마저 없으면 RuntimeError가 나서 generate_validated_question의
+    코퍼스 폴백으로 이어진다."""
+    import requests
+
+    try:
+        response = requests.post(
+            f"{settings.lora_server_url.rstrip('/')}/internal/lora/generate-candidates",
+            headers={"X-Internal-Key": settings.lora_server_key},
+            json={"job": job, "context": context, "category": category},
+            timeout=_LORA_SERVER_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return []
+    return [c for c in data.get("candidates", []) if isinstance(c, str) and c]
+
+
+def _generate_raw_candidates(job: str, context: str, category: str) -> list[str]:
+    """lora_server_url이 설정돼 있으면 Tailscale 원격 서버를 먼저 시도하고, 응답이 비어
+    있으면(설정이 아예 없는 경우 포함) 이 프로세스에 모델 파일이 직접 있는지를 보고 로컬
+    추론으로 넘어간다. 로컬에도 모델이 있는 개발 PC에서는 원격 서버가 잠깐 꺼져 있어도
+    자동으로 로컬 추론으로 복구되고, EC2처럼 로컬에 모델 파일이 없는 환경에서는 원격도
+    실패하면 RuntimeError가 나서 (generate_validated_question이 처리하는) 코퍼스 폴백으로
+    이어진다."""
+    if settings.lora_server_url:
+        remote = _fetch_raw_candidates_remote(job, context, category)
+        if remote:
+            return remote
+    return _generate_raw_candidates_locally(job, context, category)
+
+
+def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
+    """면접 질문 하나를 생성한다.
+
+    job: 직무 (지금 학습 데이터가 전부 "ICT/신입"이라, 다른 값을 넣어도 그 스타일 질문이 나올 확률이
+         높다 - 다른 직무 데이터 추가 전까진 실질적인 분기가 안 된다는 점 인지하고 쓴다).
+    context: 이전 답변 텍스트 (선택). 지금 학습 데이터엔 진짜 문맥 연결이 없어서 효과가 제한적이다.
+    category: QUESTION_CATEGORIES 중 하나(선택). 학습 프롬프트에 포함된 값이라 지정하면 그
+              카테고리 스타일 질문이 나올 확률이 올라간다 - 안 넣으면 빈 문자열로 들어가서
+              카테고리 지정 효과 없이 무작위에 가깝게 나온다. 학습 데이터에 없는 값을 넣어도
+              에러는 안 나지만(그냥 프롬프트 텍스트일 뿐) 의미 있는 결과를 기대하기 어렵다.
+    """
+    candidates = _generate_raw_candidates(job, context, category)
 
     # 로컬 필터(끝맺음/길이)를 통과한 후보들을 순서대로 최선으로 삼고, 하나도 없으면 아무거나라도
     # 폴백으로 쓴다("아예 안 나오는" 것보단 낫다).
@@ -371,3 +543,60 @@ def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str =
 
     # 로컬 필터 통과한 후보가 전부 DISCARD당했거나 애초에 하나도 없었던 경우의 최후 폴백.
     return any_fallback or "질문 생성에 실패했습니다. 다시 시도해 주세요."
+
+
+def generate_validated_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
+    """generate_question()(LoRA)이 만든 결과가 실제로 그 분야/카테고리에 어울리는지
+    question_similarity.py로 검증하고, 기준 미달이면 question_corpus.py의 진짜 질문으로
+    조용히 대체한다.
+
+    2026-08-07 배경: 재학습(rank 16, 분야당 120개)으로 LoRA의 분야 혼동 빈도는 크게
+    줄었지만(test_field_questions.py로 직접 확인 - 예전엔 여러 개, 지금은 10개 중 1개꼴로
+    감소) 0%는 아니다. "~하지 마라"는 프롬프트 지시로는 못 고친다(question_similarity.py
+    상단 설계 메모 참고 - 작은 모델은 지시를 이해할 능력이 없다) - 그래서 생성 자체는 그대로
+    LoRA가 하게 두고, 결과가 나온 뒤에 검증해서 이상하면 실제 질문으로 바꿔치기하는 방식을
+    택했다. 이러면 LoRA가 매 요청마다 실제로 호출되면서도(그냥 "혹시 몰라 넣어둔 폴백"이
+    아니라 실제로 쓰이는 상태), 사용자는 절대 이상한 질문을 보지 않는다.
+
+    router.py에서 Gemini 실패 시 generate_question() 대신 이 함수를 호출한다.
+
+    2026-08-07 안전장치 추가: generate_question() 자체가 예외를 던지는 경우도 있다 - 지금은
+    모델 파일이 배포 이미지에 없는 경우(RuntimeError, question_generator.py docstring 참고)가
+    그렇고, 나중에 무료 티어를 Tailscale로 연결된 로컬/학원 컴퓨터의 LoRA 서버로 라우팅하게
+    되면 그 컴퓨터가 꺼져 있거나 네트워크가 끊긴 경우도 여기 해당된다. 이전엔 이 예외가 그대로
+    router.py까지 흘러가서 503/500으로 죽었는데(사용자가 질문을 아예 못 받음), 그러면
+    "이상한 질문이 나오는 것"은 막았어도 "질문이 아예 안 나오는 것"은 못 막는 셈이라 의미가
+    없다. 그래서 생성 실패도 검증 실패와 똑같이 코퍼스 폴백으로 처리한다 - 두 실패 모드
+    (내용이 이상함 / 아예 생성이 안 됨) 모두 같은 안전장치 하나로 커버한다."""
+    try:
+        candidate = generate_question(job=job, context=context, category=category)
+    except Exception:
+        candidate = None
+
+    if candidate is not None:
+        try:
+            from app.domain.interview import question_similarity
+
+            if question_similarity.is_topically_relevant(candidate, category=category, job=job):
+                return candidate
+        except Exception:
+            # 검증 인프라만 죽은 거면 생성 자체는 됐으니 원본을 그대로 믿는다(fail-open).
+            return candidate
+
+    # 2026-08-07: 코퍼스 조회 자체도 try로 감싼다 - 파일 손상/권한 문제 등 예상 못 한 이유로
+    # question_corpus.get_pool()이 예외를 던지는 극단적인 경우까지 포함해서, 이 함수는
+    # 어떤 상황에서도 절대 예외를 밖으로 흘려보내지 않는다(router.py가 503/500을 반환하는
+    # 일이 없다는 뜻) - 항상 뭔가는(원본 후보든, 코퍼스 대체든, 하드코딩 문장이든) 반환된다.
+    try:
+        from app.domain.interview import question_corpus
+
+        import random
+
+        pool = question_corpus.get_pool(category, job)
+        if pool:
+            return random.choice(pool)
+    except Exception:
+        pass
+    # 코퍼스 풀조차 못 얻은 극단적인 경우(파일 누락/손상 등)의 최후 보루 - 이 문장 하나는
+    # 항상 반환된다.
+    return candidate or "간단하게 자기소개 부탁드립니다."

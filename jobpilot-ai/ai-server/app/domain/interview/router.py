@@ -11,12 +11,18 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 
+from app.core.config import settings
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
-from app.domain.interview.question_generator import DEFAULT_JOB, generate_personalized_question, generate_question
+from app.domain.interview.question_generator import (
+    DEFAULT_JOB,
+    _generate_raw_candidates_locally,
+    generate_personalized_question,
+    generate_validated_question,
+)
 from app.domain.interview.tts import DEFAULT_VOICE_ID, list_voice_options, synthesize_speech
 
 logger = logging.getLogger(__name__)
@@ -39,25 +45,33 @@ class NextQuestionRequest(BaseModel):
     # generate_personalized_question docstring 설계 메모 참고. 프로필이 없거나 스킵한
     # 사용자는 빈 문자열이 오고, 기존 LoRA 경로가 그대로 적용된다(동작 변화 없음).
     tech_summary: str = ""
-
-    def wants_personalized(self) -> bool:
-        # 2026-08-06: job이 기본값(DEFAULT_JOB)이 아니라는 건 (a) 회원 프로필의 targetRole이
-        # 채워졌거나 (b) 모의면접 시작 화면에서 "분야"를 명시적으로 골랐다는 뜻이다 - 둘 중
-        # 하나라도, 또는 기술 요약이 있으면 Gemini 맞춤 질문 경로를 탄다. 아무 정보도 없는
-        # 사용자(job이 기본값 그대로, tech_summary도 빈 문자열)는 기존 LoRA 경로 그대로.
-        return self.tech_summary.strip() != "" or self.job.strip() not in ("", DEFAULT_JOB)
+    # 2026-08-07: tech_summary가 "VSCode 확장 프로그램 개발 경험"처럼 짧고 구체적인 한
+    # 줄이면, 세션 안에서 같은 job/tech_summary로 여러 번 호출해도(질문 개수만큼) 매번 같은
+    # 소재로 수렴하는 문제가 우려돼서 추가 - 프론트가 세션 내 질문 순서마다 다른 각도(예:
+    # "기술 선택 이유", "트러블슈팅 경험")를 명시적으로 지정해서 보낸다(question_generator.py
+    # generate_personalized_question의 angle_hint 설계 메모 참고). 안 보내면 기존처럼 모델이
+    # 알아서 다양성을 챙기는 느슨한 지시만 적용된다.
+    angle_hint: str = ""
 
 
 @router.post("/next-question")
 def next_question(body: NextQuestionRequest):
+    # 2026-08-06 수정: 원래는 job이 기본값이 아니거나 tech_summary가 있을 때만(=사용자가
+    # 뭔가 정보를 줬을 때만) Gemini 맞춤 경로를 탔는데, "면접 분야 선택 안 함" + 프로필
+    # 미입력 조합에서 LoRA 경로로 빠지면서 품질이 눈에 띄게 떨어지는 질문이 나오는 걸
+    # 확인했다(question_generator.py의 generate_personalized_question 설계 메모 참고).
+    # 이제 정보 유무와 상관없이 Gemini를 항상 먼저 시도하고, LoRA는 Gemini 키가 없거나
+    # 호출이 실패했을 때만 쓰는 폴백으로 격하한다.
+    # 2026-08-07 (조장 push분과 병합): 배포용 Docker 이미지에는 LoRA 모델 파일 자체가 안
+    # 들어가 있어서(app/domain/interview/model/은 이미지에서 제외됨), 이 폴백이 없으면
+    # 배포 환경에서 LoRA 경로를 타는 요청이 전부 503으로 실패한다 - 품질 이유뿐 아니라
+    # 배포 안정성 측면에서도 Gemini-우선이 맞다는 게 재확인됐다.
     try:
-        question = None
-        if body.wants_personalized():
-            question = generate_personalized_question(
-                job=body.job, tech_summary=body.tech_summary, category=body.category
-            )
+        question = generate_personalized_question(
+            job=body.job, tech_summary=body.tech_summary, category=body.category, angle_hint=body.angle_hint
+        )
         if question is None:
-            question = generate_question(job=body.job, context=body.context, category=body.category)
+            question = generate_validated_question(job=body.job, context=body.context, category=body.category)
     except RuntimeError as e:
         # 모델 파일이 없는 경우(아직 학습/배포 안 됨) - 500 대신 명확한 메시지로 알려준다.
         raise HTTPException(status_code=503, detail=str(e))
@@ -69,6 +83,33 @@ def next_question(body: NextQuestionRequest):
         raise HTTPException(status_code=500, detail=f"질문 생성 중 오류: {type(e).__name__}: {e}")
 
     return {"question": question}
+
+
+class LoraCandidatesRequest(BaseModel):
+    job: str = DEFAULT_JOB
+    context: str = ""
+    category: str = ""
+
+
+# 2026-08-10: EC2 프리티어에는 LoRA 모델 파일이 없어서(question_generator.py 모듈 docstring
+# 참고), Tailscale로 연결된 로컬/학원 PC에서 이 ai-server 코드를 그대로 한 벌 더 띄워두고
+# EC2가 이 엔드포인트를 원격 호출하는 용도다 - 이 PC에 실제 모델 파일이 있을 때만 의미가
+# 있고, 프론트/사용자가 직접 부르는 엔드포인트가 아니다.
+@router.post("/internal/lora/generate-candidates")
+def internal_lora_generate_candidates(body: LoraCandidatesRequest, x_internal_key: str = Header(default="")):
+    # lora_server_key를 설정 안 한 로컬 개발 환경(둘 다 빈 문자열)은 그냥 통과시킨다 - 키를
+    # 안 정했다는 건 아직 Tailscale로 외부에 노출할 계획이 없다는 뜻이라 굳이 막지 않는다.
+    if settings.lora_server_key and x_internal_key != settings.lora_server_key:
+        raise HTTPException(status_code=401, detail="인증 실패")
+    try:
+        candidates = _generate_raw_candidates_locally(job=body.job, context=body.context, category=body.category)
+    except RuntimeError as e:
+        # 이 PC에도 모델 파일이 없는 경우(설정 실수 등) - 503으로 명확히 알려준다. 호출부
+        # (EC2)는 어차피 requests 예외/4xx/5xx를 전부 fail-open으로 처리하므로 그대로 로컬
+        # 추론 시도나 코퍼스 폴백으로 넘어간다(question_generator.py 참고).
+        raise HTTPException(status_code=503, detail=str(e))
+    return {"candidates": candidates}
+
 
 # 브라우저 MediaRecorder 기본 산출물(webm/opus)과 흔한 업로드 포맷을 넉넉히 허용.
 # mp4/mkv는 영상 컨테이너지만 ffmpeg가 오디오 트랙만 알아서 뽑아내므로 그대로 처리 가능.
@@ -84,7 +125,8 @@ async def analyze_answer(audio: UploadFile = File(...)):
             detail=f"지원하지 않는 파일 형식입니다 ({suffix or '확장자 없음'}). 허용: {sorted(ALLOWED_SUFFIXES)}",
         )
 
-    # whisper/librosa 둘 다 파일 경로를 받는 API라 업로드 스트림을 임시 파일로 먼저 내린다.
+    # transcribe/analyze_voice(audio_analysis.py) 둘 다 파일 경로를 받는 API라 업로드
+    # 스트림을 임시 파일로 먼저 내린다.
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         shutil.copyfileobj(audio.file, tmp)
         tmp_path = tmp.name
@@ -99,7 +141,7 @@ async def analyze_answer(audio: UploadFile = File(...)):
 
     return {
         "transcript": transcription.text,
-        # 2026-08-05: whisper 인식 확신도가 낮았던 답변인지 알려주는 참고 신호(audio_analysis.py
+        # 2026-08-05: STT 인식 확신도가 낮았던 답변인지 알려주는 참고 신호(audio_analysis.py
         # TranscriptionResult 설명 참고) - 프론트에서 "인식이 불안정했을 수 있어요" 경고용.
         "low_confidence_transcript": transcription.low_confidence,
         "metrics": metrics.to_dict(),

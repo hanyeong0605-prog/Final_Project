@@ -1,0 +1,8 @@
+.env
+.venv
+__pycache__
+*.pyc
+ml
+app.zip
+tests
+.git

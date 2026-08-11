@@ -10,4 +10,6 @@ public interface JobMatchRepository extends JpaRepository<JobMatch, Long> {
     List<JobMatch> findByMemberIdOrderByReadinessScoreDesc(Long memberId);
     List<JobMatch> findByMemberIdAndRecommendationLevelOrderByReadinessScoreDesc(Long memberId, RecommendationLevel level);
     Optional<JobMatch> findByMemberIdAndJobPostingId(Long memberId, Long jobPostingId);
+    void deleteByMemberId(Long memberId);
+    void deleteByMemberIdAndJobPostingId(Long memberId, Long jobPostingId);
 }

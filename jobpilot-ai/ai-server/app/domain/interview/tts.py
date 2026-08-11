@@ -46,18 +46,20 @@ class VoiceOption:
         return {"id": self.id, "label": self.label, "gender": self.gender}
 
 
-# 2026-08-06: "귀엽고 자연스러운" 요청에 맞춰 Neural2(가장 자연스러운 일반 음성 등급)를 기본으로
-# 두고, 비용을 아끼고 싶을 때 쓸 수 있는 Standard 등급도 같이 제공한다. label은 프론트 선택
-# UI에 그대로 노출된다.
+# 2026-08-07: 8개(Standard 2 + Neural2 2 + Chirp3 HD 4)까지 늘렸었는데, 선택 화면에서 칩이
+# 3줄로 넘치고 "목소리가 너무 많다"는 피드백을 받았다. Standard(가장 기계음성 느낌 강함)와
+# Neural2(1번/3번이 비슷하게 들린다는 피드백의 원인이었던 등급)를 빼고, 애초에 "더 자연스럽고
+# 감정 표현 풍부한 목소리"를 원해서 추가했던 Chirp3 HD 4개(여성 2 + 남성 2)만 남겼다 - 품질도
+# 가장 좋고 성별도 균형 잡혀 있어서 4개로 줄여도 선택지가 부족하지 않다.
+# 2026-08-07 추가: label에 "(하이엔드)"를 붙였던 건 Standard/Neural2와 구분하기 위해서였는데,
+# 이제 4개 다 Chirp3 HD뿐이라 구분할 대상이 없어졌다 - 그런데도 계속 붙어 있어서 칩 안에서
+# "하이엔 드"처럼 단어가 잘리고 글씨가 눈에 안 들어온다는 피드백을 받았다. 의미 없어진 접미사라
+# 그냥 뺐다.
 VOICE_OPTIONS: list[VoiceOption] = [
-    VoiceOption(id="ko-a-neural", label="차분한 여성 (자연스러움)", google_voice_name="ko-KR-Neural2-A", gender="FEMALE"),
-    VoiceOption(id="ko-c-neural", label="차분한 남성 (자연스러움)", google_voice_name="ko-KR-Neural2-C", gender="MALE"),
-    VoiceOption(id="ko-kore-hd", label="안정적인 여성 (하이엔드)", google_voice_name="ko-KR-Chirp3-HD-Kore", gender="FEMALE"),
-    VoiceOption(id="ko-leda-hd", label="다정한 여성 (하이엔드)", google_voice_name="ko-KR-Chirp3-HD-Leda", gender="FEMALE"),
-    VoiceOption(id="ko-charon-hd", label="묵직한 남성 (하이엔드)", google_voice_name="ko-KR-Chirp3-HD-Charon", gender="MALE"),
-    VoiceOption(id="ko-orus-hd", label="편안한 남성 (하이엔드)", google_voice_name="ko-KR-Chirp3-HD-Orus", gender="MALE"),
-    VoiceOption(id="ko-a-standard", label="여성 (기본)", google_voice_name="ko-KR-Standard-A", gender="FEMALE"),
-    VoiceOption(id="ko-b-standard", label="남성 (기본)", google_voice_name="ko-KR-Standard-B", gender="MALE"),
+    VoiceOption(id="ko-kore-hd", label="안정적인 여성", google_voice_name="ko-KR-Chirp3-HD-Kore", gender="FEMALE"),
+    VoiceOption(id="ko-leda-hd", label="다정한 여성", google_voice_name="ko-KR-Chirp3-HD-Leda", gender="FEMALE"),
+    VoiceOption(id="ko-charon-hd", label="묵직한 남성", google_voice_name="ko-KR-Chirp3-HD-Charon", gender="MALE"),
+    VoiceOption(id="ko-orus-hd", label="편안한 남성", google_voice_name="ko-KR-Chirp3-HD-Orus", gender="MALE"),
 ]
 DEFAULT_VOICE_ID = VOICE_OPTIONS[0].id
 

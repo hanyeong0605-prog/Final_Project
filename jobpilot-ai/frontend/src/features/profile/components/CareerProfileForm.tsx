@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { jobFamilies } from "../data/profileCatalog";
 import { emptyCareerProfile, type CareerProfile } from "../model/careerProfile.types";
 import type { MemberSkill } from "../model/memberSkill.types";
+import { emptyMemberCertificate, type MemberCertificate } from "../model/memberCertificate.types";
+import { searchQnetQualifications, type QnetQualification } from "../api/memberCertificatesApi";
 import { EducationSearchModal } from "./EducationSearchModal";
 import { RegionSelectionModal } from "./RegionSelectionModal";
 import { SkillProfileEditor } from "./SkillProfileEditor";
@@ -9,18 +11,34 @@ import { SkillProfileEditor } from "./SkillProfileEditor";
 type Props = {
   initial?: CareerProfile;
   initialSkills?: MemberSkill[];
-  onSave: (value: CareerProfile, skills: MemberSkill[]) => Promise<void>;
+  initialCertificates?: MemberCertificate[];
+  onSave: (value: CareerProfile, skills: MemberSkill[], certificates: MemberCertificate[]) => Promise<void>;
   onCancel?: () => void;
   saveLabel?: string;
 };
 
-export function CareerProfileForm({ initial, initialSkills, onSave, onCancel, saveLabel = "정보 저장하기" }: Props) {
+export function CareerProfileForm({ initial, initialSkills, initialCertificates, onSave, onCancel, saveLabel = "정보 저장하기" }: Props) {
   const [form, setForm] = useState<CareerProfile>(initial ?? emptyCareerProfile());
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
+  const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
+  const [certificateQuery, setCertificateQuery] = useState("");
+  const [certificateResults, setCertificateResults] = useState<QnetQualification[]>([]);
+  const [certificateSearchError, setCertificateSearchError] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => { if (initial) setForm(initial); }, [initial]);
   useEffect(() => { if (initialSkills) setSkills(initialSkills); }, [initialSkills]);
+  useEffect(() => { if (initialCertificates) setCertificates(initialCertificates); }, [initialCertificates]);
+  useEffect(() => {
+    const query = certificateQuery.trim();
+    if (query.length < 2) { setCertificateResults([]); setCertificateSearchError(""); return; }
+    const timer = window.setTimeout(() => {
+      void searchQnetQualifications(query)
+        .then((result) => { setCertificateResults(result); setCertificateSearchError(""); })
+        .catch((reason) => { setCertificateResults([]); setCertificateSearchError(reason instanceof Error ? reason.message : "자격증 목록을 불러오지 못했습니다."); });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [certificateQuery]);
 
   const set = <K extends keyof CareerProfile>(key: K, value: CareerProfile[K]) => setForm((current) => ({ ...current, [key]: value }));
   const knownFamily = Object.hasOwn(jobFamilies, form.targetJobFamily);
@@ -28,7 +46,11 @@ export function CareerProfileForm({ initial, initialSkills, onSave, onCancel, sa
   const knownRole = roles.includes(form.targetRole);
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError(""); setSaving(true);
-    try { await onSave(form, skills); }
+    try {
+      const validCertificates = certificates.filter((certificate) => certificate.name.trim());
+      if (validCertificates.length !== certificates.length) throw new Error("자격증명은 비워 둘 수 없습니다.");
+      await onSave(form, skills, validCertificates);
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : "저장에 실패했습니다."); }
     finally { setSaving(false); }
   };
@@ -49,6 +71,24 @@ export function CareerProfileForm({ initial, initialSkills, onSave, onCancel, sa
     </div></div>
 
     <div className="form-section"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
+
+    <div className="form-section"><h3>보유 자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
+      <div className="certificate-catalog-search"><label>국가자격 종목 검색<input value={certificateQuery} onChange={(event) => setCertificateQuery(event.target.value)} placeholder="예: 정보처리기사" /></label><span>검색 결과를 선택하면 자격증이 추가됩니다.</span></div>
+      {certificateSearchError && <div className="auth-error">{certificateSearchError}</div>}
+      {certificateResults.length > 0 && <div className="certificate-search-results">{certificateResults.map((item) => <button type="button" key={item.code} onClick={() => { setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }]); setCertificateQuery(""); setCertificateResults([]); }}><strong>{item.name}</strong><small>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</small><b>선택</b></button>)}</div>}
+      <div className="certificate-list">
+        {certificates.map((certificate, index) => <div className="certificate-card" key={certificate.id ?? `new-${index}`}>
+          <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>
+          <div className="form-fields">
+            <label>자격증명*<input required maxLength={255} value={certificate.name} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="예: 정보처리기사" /></label>
+            <label>발급기관<input maxLength={255} value={certificate.issuer ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, issuer: event.target.value || null } : item))} placeholder="예: 한국산업인력공단" /></label>
+            <label>취득일<input type="date" value={certificate.acquiredAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, acquiredAt: event.target.value || null } : item))} /></label>
+            <label>만료일(선택)<input type="date" value={certificate.expiresAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expiresAt: event.target.value || null } : item))} /></label>
+          </div>
+        </div>)}
+      </div>
+      <button type="button" className="outline-button certificate-manual-add" disabled={certificates.length >= 20 || certificates.some((certificate) => !certificate.name.trim())} onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 직접 입력</button>
+    </div>
 
     <div className="form-section"><h3>학력</h3><div className="form-fields">
       <label>최종 학력<select value={form.educationLevel ?? ""} onChange={(event) => { const next = event.target.value || null; set("educationLevel", next); set("schoolName", null); set("major", null); }}><option value="">선택 안 함</option><option value="HIGH_SCHOOL">고등학교</option><option value="COLLEGE">전문대</option><option value="BACHELOR">대학교</option><option value="MASTER">대학원</option></select></label>

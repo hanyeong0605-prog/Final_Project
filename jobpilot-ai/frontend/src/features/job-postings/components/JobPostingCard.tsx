@@ -1,4 +1,5 @@
 import { Bookmark, BriefcaseBusiness, Building2, CalendarDays, MapPin } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInterests } from "../../interests/model/InterestContext";
 import type { JobPosting } from "../model/jobPosting.types";
@@ -21,7 +22,9 @@ function scheduleLabel(posting: JobPosting): string | null {
 export function JobPostingCard({ posting }: { posting: JobPosting }) {
   const { isInterested, toggleInterest } = useInterests();
   const navigate = useNavigate();
+  const [imageFailed, setImageFailed] = useState(false);
   const interested = isInterested(posting.id);
+  const companyImageUrl = posting.thumbnailUrl || posting.companyLogoUrl;
   const skills = (posting.jobName || posting.keywords || "").split(",").map((value) => value.trim()).filter(Boolean).slice(0, 5);
   const workType = [posting.experienceType, posting.employmentType].filter(hasText).join(" · ");
   const schedule = scheduleLabel(posting);
@@ -29,7 +32,9 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
   return <article className="posting-card">
     <div className="posting-card-top">
       <div className="posting-company-identity">
-        {hasText(posting.companyLogoUrl) ? <img src={posting.companyLogoUrl} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <Building2 size={17} />}
+        {hasText(companyImageUrl) && !imageFailed
+          ? <img src={companyImageUrl} alt="" onError={() => setImageFailed(true)} />
+          : <Building2 size={17} />}
         {hasText(posting.companyName) && <span className="company-name">{posting.companyName}</span>}
       </div>
       <button className={interested ? "bookmark active" : "bookmark"} onClick={() => void toggleInterest(posting.id)} aria-label="관심 공고 등록"><Bookmark size={19} fill={interested ? "currentColor" : "none"} /></button>

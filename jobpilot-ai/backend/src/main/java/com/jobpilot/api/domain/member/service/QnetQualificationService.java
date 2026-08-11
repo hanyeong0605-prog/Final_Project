@@ -1,0 +1,108 @@
+package com.jobpilot.api.domain.member.service;
+
+import com.jobpilot.api.domain.member.dto.QnetQualificationResponse;
+import java.net.URI;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/** Q-Net public qualification catalogue. A single cached upstream call prevents typing from spending API quota. */
+@Service
+public class QnetQualificationService {
+    private static final String LIST_URL = "http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList";
+    private static final int MAX_RESULTS = 20;
+    private static final long CACHE_SECONDS = 60 * 60 * 12;
+    private static final Pattern ITEM_PATTERN = Pattern.compile("<item>(.*?)</item>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+    private final String apiKey;
+    private final RestTemplate restTemplate = new RestTemplate();
+    private volatile List<QnetQualificationResponse> catalogue = List.of();
+    private volatile Instant loadedAt = Instant.EPOCH;
+
+    public QnetQualificationService(@Value("${qnet.api.key:}") String apiKey) {
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
+    }
+
+    public List<QnetQualificationResponse> search(String query) {
+        String keyword = requireKeyword(query);
+        List<QnetQualificationResponse> all = catalog();
+        String normalized = normalize(keyword);
+        return all.stream()
+                .filter(item -> normalize(item.name()).contains(normalized))
+                .sorted(Comparator.comparing((QnetQualificationResponse item) -> normalize(item.name()).startsWith(normalized) ? 0 : 1)
+                        .thenComparing(QnetQualificationResponse::name))
+                .limit(MAX_RESULTS)
+                .toList();
+    }
+
+    private List<QnetQualificationResponse> catalog() {
+        if (!catalogue.isEmpty() && loadedAt.plusSeconds(CACHE_SECONDS).isAfter(Instant.now())) return catalogue;
+        synchronized (this) {
+            if (!catalogue.isEmpty() && loadedAt.plusSeconds(CACHE_SECONDS).isAfter(Instant.now())) return catalogue;
+            catalogue = requestCatalogue();
+            loadedAt = Instant.now();
+            return catalogue;
+        }
+    }
+
+    private List<QnetQualificationResponse> requestCatalogue() {
+        if (apiKey.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 키가 설정되지 않았습니다.");
+        URI uri = UriComponentsBuilder.fromUriString(LIST_URL)
+                // serviceKey is an opaque credential: never decode or transform it before sending.
+                .queryParam("serviceKey", apiKey)
+                .build().encode().toUri();
+        try {
+            // Q-Net's gateway does not reliably return the catalogue to bare Java requests.
+            // Send explicit browser-like request headers, equivalent to the successful curl check.
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, "Mozilla/5.0 (compatible; JobPilot/1.0)");
+            headers.setAccept(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML, MediaType.ALL));
+            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            String xml = response.getBody();
+            if (xml == null || xml.isBlank()) throw new IllegalStateException("Q-Net 자격증 API 응답이 비어 있습니다.");
+            List<QnetQualificationResponse> result = new ArrayList<>();
+            Matcher items = ITEM_PATTERN.matcher(xml);
+            while (items.find()) {
+                String item = items.group(1);
+                String name = text(item, "jmfldnm");
+                if (!name.isBlank()) result.add(new QnetQualificationResponse(text(item, "jmcd"), name,
+                        text(item, "qualgbnm"), text(item, "obligfldnm"), text(item, "mdobligfldnm")));
+            }
+            if (result.isEmpty()) throw new IllegalStateException("Q-Net 자격증 목록을 가져오지 못했습니다.");
+            return List.copyOf(result);
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Q-Net 자격증 목록을 조회하지 못했습니다.");
+        }
+    }
+
+    private String requireKeyword(String query) {
+        if (query == null || query.trim().length() < 2) throw new IllegalArgumentException("두 글자 이상 입력해 검색해 주세요.");
+        return query.trim();
+    }
+
+    private String text(String item, String tag) {
+        Matcher value = Pattern.compile("<" + tag + ">(.*?)</" + tag + ">", Pattern.DOTALL | Pattern.CASE_INSENSITIVE).matcher(item);
+        return value.find() ? unescape(value.group(1).trim()) : "";
+    }
+
+    private String unescape(String value) {
+        return value.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", "\"").replace("&apos;", "'");
+    }
+
+    private String normalize(String value) { return value == null ? "" : value.replaceAll("\\s+", "").toLowerCase(); }
+}

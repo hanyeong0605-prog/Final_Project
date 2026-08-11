@@ -68,6 +68,10 @@ saramin-data:
   connect-timeout-seconds: 10
   read-timeout-seconds: 20
 
+# 토스 테스트 결제 키
+toss:
+  secret-key: ${TOSS_SECRET_KEY:}
+
 # Imported postings are analyzed once with GPT-5.6 Luna, then reused for every member match.
 # The daily cap is persisted in MySQL, so restarting the server cannot exceed it.
 job-requirement-extraction:
@@ -81,6 +85,10 @@ job-requirement-extraction:
 career:
   api:
     key: ${CAREER_API_KEY}
+
+qnet:
+  api:
+    key: ${QNET_API_KEY:}
 
 barun:
   api:

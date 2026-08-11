@@ -39,10 +39,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers(
                             "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",
-                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error").permitAll();
+                            "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error", "/ws/camera-pair").permitAll();
 
 //                     임시!@@@@#@@@@@ 지도용
                     authorize.requestMatchers("/api/location-jobs/**").permitAll();
+                    // CareerNet school/major lookup contains public reference data only.
+                    // Keeping it public also lets the profile form work before a stale JWT is refreshed.
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/education/**").permitAll();
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/certifications/catalog").permitAll();
 
                     authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
                     authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용

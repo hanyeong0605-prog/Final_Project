@@ -13,8 +13,11 @@ fail-open으로 대충 채우지 않고 명확한 안내 메시지를 반환한�
 2026-08-05 추가: 원래는 250자 내외 문단 하나만 반환했는데, DeepInterview(오픈소스 AI
 면접관)의 rubric 기반 ScoreCard(역량별 점수 + 강점/개선점 + 모범답안 + 다음 학습 방향)를
 참고해서 구조화된 형태로 바꿨다. 점수는 "긴장도 68%"류의 심리 상태 추정이 아니라 답변
-내용/전달력 자체에 대한 평가라서 수치화해도 앞서 말한 원칙과 충돌하지 않는다 - 다만 과도한
-정밀도로 보이지 않게 1~5 정수 범위로만 준다."""
+내용/전달력 자체에 대한 평가라서 수치화해도 앞서 말한 원칙과 충돌하지 않는다.
+
+2026-08-10: 점수 표기를 1~5점에서 100점 만점(0~100 정수)으로 바꿨다 - 원래 1~5는
+"과도한 정밀도로 보이지 않게" 일부러 좁힌 범위였는데, 100점 만점 요청에 맞춰 프롬프트에
+"5점 단위로" 권장 문구를 넣어서 그 취지(가짜 정밀도 방지)는 유지했다."""
 
 import json
 from dataclasses import dataclass, field
@@ -39,9 +42,9 @@ class EvaluationReport:
 
     ok: bool
     message: str | None = None  # ok=False일 때 사용자에게 보여줄 안내/에러 메시지
-    overall_score: int | None = None  # 총평 (1~5)
-    content_score: int | None = None  # 답변 내용(직무 적합성/논리성/구체성) (1~5)
-    delivery_score: int | None = None  # 전달력(음성 리듬·침묵, 얼굴 지표 있으면 반영) (1~5)
+    overall_score: int | None = None  # 총평 (0~100)
+    content_score: int | None = None  # 답변 내용(직무 적합성/논리성/구체성) (0~100)
+    delivery_score: int | None = None  # 전달력(음성 리듬·침묵, 얼굴 지표 있으면 반영) (0~100)
     strengths: list[str] = field(default_factory=list)
     improvements: list[str] = field(default_factory=list)
     model_answer: str | None = None  # 이 질문에 대한 모범 답안 예시
@@ -106,13 +109,13 @@ class SessionEvaluationReport:
 
 
 def _clamp_score(value: object) -> int | None:
-    """Gemini가 범위를 벗어난 값(0, 6, "4점" 같은 문자열 등)을 줄 수 있어서 방어적으로
-    정수화 + 1~5 범위로 자른다. 변환 자체가 안 되면 점수 없음(None)으로 처리한다."""
+    """Gemini가 범위를 벗어난 값(-10, 105, "73점" 같은 문자열 등)을 줄 수 있어서 방어적으로
+    정수화 + 0~100 범위로 자른다. 변환 자체가 안 되면 점수 없음(None)으로 처리한다."""
     try:
         n = int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
-    return max(1, min(5, n))
+    return max(0, min(100, n))
 
 
 def _as_str_list(value: object) -> list[str]:
@@ -201,10 +204,12 @@ def generate_report(
         "마라 - 사람마다 원래 목소리 톤이 다르므로 그 자체는 문제가 아니다. 대신 변동폭이 "
         "작으면(단조로운 톤) '억양 변화가 적어 다소 단조롭게 들릴 수 있다', 변동폭이 크면 "
         "'억양에 강약이 있어 생동감 있게 들린다'처럼 톤의 '변화 패턴'을 근거로 서술해라\n"
-        "3. overall_score/content_score는 1~5 정수로, 답변 내용(직무 적합성/논리성/구체성)을 "
-        "가장 비중 있게 반영해라 - 음성/얼굴 지표는 content_score에 영향을 주지 마라\n"
+        "3. overall_score/content_score는 100점 만점(0~100 정수, 5점 단위로 주는 것을 "
+        "권장 - 과도하게 정밀한 인상을 주지 않기 위함)으로, 답변 내용(직무 적합성/논리성/"
+        "구체성)을 가장 비중 있게 반영해라 - 음성/얼굴 지표는 content_score에 영향을 주지 마라\n"
         + (
-            "3-1. delivery_score는 1~5 정수로, 음성/얼굴 지표를 근거로 평가해라\n"
+            "3-1. delivery_score는 100점 만점(0~100 정수, 5점 단위 권장)으로, 음성/얼굴 "
+            "지표를 근거로 평가해라\n"
             if has_delivery_signal
             else "3-1. 음성/얼굴 지표가 전혀 없으므로(텍스트로만 답변함) delivery_score는 "
             "억지로 만들지 말고 반드시 null로 출력해라 - 전달력을 평가할 근거 자체가 없다\n"
@@ -218,9 +223,9 @@ def generate_report(
         "6. next_steps(다음에 연습하면 좋을 점)는 1~3개, 실천 가능한 조언으로 작성해라\n"
         "7. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
         "{\n"
-        '  "overall_score": 1~5 정수,\n'
-        '  "content_score": 1~5 정수,\n'
-        '  "delivery_score": 1~5 정수 또는 null,\n'
+        '  "overall_score": 0~100 정수,\n'
+        '  "content_score": 0~100 정수,\n'
+        '  "delivery_score": 0~100 정수 또는 null,\n'
         '  "strengths": ["문장", ...],\n'
         '  "improvements": ["문장", ...],\n'
         '  "model_answer": "문단",\n'
@@ -307,11 +312,13 @@ def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
         "마라 - 사람마다 원래 목소리 톤이 다르므로 그 자체는 문제가 아니다. 대신 변동폭이 "
         "작으면(단조로운 톤) '억양 변화가 적어 다소 단조롭게 들릴 수 있다', 변동폭이 크면 "
         "'억양에 강약이 있어 생동감 있게 들린다'처럼 톤의 '변화 패턴'을 근거로 서술해라\n"
-        "3. overall_score/content_score는 1~5 정수로, 면접 전체의 답변 내용(직무 적합성/"
-        "논리성/구체성)을 가장 비중 있게 반영해라 - 음성/얼굴 지표는 content_score에 영향을 "
-        "주지 마라\n"
+        "3. overall_score/content_score는 100점 만점(0~100 정수, 5점 단위로 주는 것을 "
+        "권장 - 과도하게 정밀한 인상을 주지 않기 위함)으로, 면접 전체의 답변 내용(직무 "
+        "적합성/논리성/구체성)을 가장 비중 있게 반영해라 - 음성/얼굴 지표는 content_score에 "
+        "영향을 주지 마라\n"
         + (
-            "3-1. delivery_score는 1~5 정수로, 음성/얼굴 지표를 근거로 평가해라\n"
+            "3-1. delivery_score는 100점 만점(0~100 정수, 5점 단위 권장)으로, 음성/얼굴 "
+            "지표를 근거로 평가해라\n"
             if has_delivery_signal
             else "3-1. 음성/얼굴 지표가 전혀 없으므로(텍스트로만 답변함) delivery_score는 "
             "억지로 만들지 말고 반드시 null로 출력해라 - 전달력을 평가할 근거 자체가 없다\n"
@@ -326,9 +333,9 @@ def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
         "더 구체적이고 논리적으로 다듬은 버전)로 구성해라\n"
         "7. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
         "{\n"
-        '  "overall_score": 1~5 정수,\n'
-        '  "content_score": 1~5 정수,\n'
-        '  "delivery_score": 1~5 정수 또는 null,\n'
+        '  "overall_score": 0~100 정수,\n'
+        '  "content_score": 0~100 정수,\n'
+        '  "delivery_score": 0~100 정수 또는 null,\n'
         '  "strengths": ["문장", ...],\n'
         '  "improvements": ["문장", ...],\n'
         '  "next_steps": ["문장", ...],\n'

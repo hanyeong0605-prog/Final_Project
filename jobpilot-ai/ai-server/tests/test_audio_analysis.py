@@ -1,9 +1,14 @@
-"""audio_analysis.py의 _gemini_correct_transcript, transcribe() 무음 가드 단위 테스트.
+"""audio_analysis.py의 _gemini_correct_transcript, transcribe() 단위 테스트.
 
-Whisper 모델 로딩 자체(실제 STT 추론)는 무겁고 이 테스트의 목적과 무관해서 다루지 않는다 -
-_get_whisper_model/_load_audio_mono16k를 모킹해서 whisper 내부를 타지 않게 한다.
+2026-08-07: STT가 로컬 whisper에서 Google Cloud Speech-to-Text(REST)로 바뀌면서, 실제
+네트워크 호출은 tts.py 테스트와 같은 패턴(requests.post 모킹)으로 대체한다. 오디오 디코딩
+(_load_audio_mono16k)은 ffmpeg 서브프로세스를 직접 부르는 순수 함수라 실제 ffmpeg로
+합성음(사인파)을 만들어 왕복 검증한다 - 이 샌드박스/CI 이미지 둘 다 ffmpeg가 이미 깔려있다
+(Dockerfile, 오디오 분석 기능 자체의 전제조건).
 """
 
+import subprocess
+import tempfile
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -94,37 +99,139 @@ def test_detect_speech_frames_nonempty_for_loud_signal():
     assert audio_analysis._detect_speech_frames(loud).size > 0
 
 
-def test_transcribe_returns_empty_without_calling_whisper_when_silent(monkeypatch):
-    """핵심 회귀 테스트 - 오디오가 무음이면 whisper 모델을 아예 호출하지 않고(환각 방지)
+def _loud_signal() -> np.ndarray:
+    t = np.linspace(0, 1, 16000, dtype=np.float32)
+    return (0.8 * np.sin(2 * np.pi * 200 * t)).astype(np.float32)
+
+
+def _fake_stt_response(transcript: str, confidence: float):
+    fake_response = Mock()
+    fake_response.raise_for_status = Mock()
+    fake_response.json.return_value = {
+        "results": [{"alternatives": [{"transcript": transcript, "confidence": confidence}]}]
+    }
+    return fake_response
+
+
+def test_transcribe_returns_empty_without_calling_api_when_silent(monkeypatch):
+    """핵심 회귀 테스트 - 오디오가 무음이면 Google STT API를 아예 호출하지 않고(환각 방지)
     바로 빈 텍스트 + low_confidence=True를 반환해야 한다."""
     silence = np.zeros(16000 * 2, dtype=np.float32)
     monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: silence)
+    monkeypatch.setattr(audio_analysis.settings, "google_stt_api_key", "fake-key")
 
-    whisper_model_getter = Mock(side_effect=AssertionError("무음인데 whisper 모델을 호출하면 안 된다"))
-    monkeypatch.setattr(audio_analysis, "_get_whisper_model", whisper_model_getter)
-
-    result = audio_analysis.transcribe("dummy_path.webm")
+    with patch("requests.post") as mock_post:
+        result = audio_analysis.transcribe("dummy_path.webm")
 
     assert result.text == ""
     assert result.low_confidence is True
-    whisper_model_getter.assert_not_called()
+    mock_post.assert_not_called()
 
 
-def test_transcribe_calls_whisper_when_speech_detected(monkeypatch):
-    """반대로 말소리가 감지되면 정상적으로 whisper까지 호출돼야 한다(가드가 정상 케이스까지
-    막아버리는 회귀가 없는지 확인)."""
-    t = np.linspace(0, 1, 16000, dtype=np.float32)
-    loud = (0.8 * np.sin(2 * np.pi * 200 * t)).astype(np.float32)
-    monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: loud)
+def test_no_api_key_returns_empty_without_calling_api(monkeypatch):
+    """키가 없으면(fail-open) API를 호출하지 않고 빈 텍스트 + low_confidence=True를
+    반환해야 한다 - router.py가 이 결과를 받아도 예외 없이 처리할 수 있어야 한다."""
+    monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: _loud_signal())
+    monkeypatch.setattr(audio_analysis.settings, "google_stt_api_key", "")
 
-    fake_model = Mock()
-    fake_model.transcribe.return_value = {
-        "text": "안녕하세요 반갑습니다",
-        "segments": [{"avg_logprob": -0.2}],
-    }
-    monkeypatch.setattr(audio_analysis, "_get_whisper_model", lambda: fake_model)
+    with patch("requests.post") as mock_post:
+        result = audio_analysis.transcribe("dummy_path.webm")
 
-    result = audio_analysis.transcribe("dummy_path.webm")
+    assert result.text == ""
+    assert result.low_confidence is True
+    mock_post.assert_not_called()
+
+
+def test_transcribe_calls_google_stt_when_speech_detected(monkeypatch):
+    """말소리가 감지되면 Google STT API를 호출하고, 응답의 transcript를 그대로 반환해야
+    한다(가드가 정상 케이스까지 막아버리는 회귀가 없는지 확인)."""
+    monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: _loud_signal())
+    monkeypatch.setattr(audio_analysis.settings, "google_stt_api_key", "fake-key")
+
+    fake_response = _fake_stt_response("안녕하세요 반갑습니다", confidence=0.95)
+
+    with patch("requests.post", return_value=fake_response) as mock_post:
+        result = audio_analysis.transcribe("dummy_path.webm")
 
     assert result.text == "안녕하세요 반갑습니다"
-    fake_model.transcribe.assert_called_once()
+    assert result.low_confidence is False
+    mock_post.assert_called_once()
+    _, kwargs = mock_post.call_args
+    assert kwargs["params"] == {"key": "fake-key"}
+    assert kwargs["json"]["config"]["encoding"] == "LINEAR16"
+    assert kwargs["json"]["config"]["sampleRateHertz"] == audio_analysis.AUDIO_SAMPLE_RATE
+    assert kwargs["json"]["config"]["languageCode"] == "ko-KR"
+
+
+def test_low_confidence_below_threshold_triggers_gemini_correction(monkeypatch):
+    """confidence가 임계값보다 낮으면 low_confidence=True로 표시되고, Gemini 교정이
+    시도돼야 한다(_gemini_correct_transcript 호출 여부로 확인)."""
+    monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: _loud_signal())
+    monkeypatch.setattr(audio_analysis.settings, "google_stt_api_key", "fake-key")
+
+    fake_response = _fake_stt_response("애매한 인식 결과", confidence=0.2)
+    correction = Mock(return_value="교정된 결과")
+    monkeypatch.setattr(audio_analysis, "_gemini_correct_transcript", correction)
+
+    with patch("requests.post", return_value=fake_response):
+        result = audio_analysis.transcribe("dummy_path.webm")
+
+    assert result.low_confidence is True
+    assert result.text == "교정된 결과"
+    correction.assert_called_once_with("애매한 인식 결과")
+
+
+def test_empty_results_is_low_confidence(monkeypatch):
+    """Google STT가 results를 아예 안 주면(인식 실패) low_confidence=True + 빈 텍스트로
+    처리해야 한다."""
+    monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: _loud_signal())
+    monkeypatch.setattr(audio_analysis.settings, "google_stt_api_key", "fake-key")
+
+    fake_response = Mock()
+    fake_response.raise_for_status = Mock()
+    fake_response.json.return_value = {"results": []}
+
+    with patch("requests.post", return_value=fake_response):
+        result = audio_analysis.transcribe("dummy_path.webm")
+
+    assert result.text == ""
+    assert result.low_confidence is True
+
+
+def test_api_failure_is_fail_open(monkeypatch):
+    """네트워크 오류나 4xx/5xx(예: 60초 초과로 인한 에러) 등 requests가 예외를 던지는
+    모든 경우에 fail-open으로 빈 텍스트 + low_confidence=True를 반환해야 한다 - 답변 분석
+    전체 흐름이 STT 실패 때문에 죽으면 안 된다."""
+    monkeypatch.setattr(audio_analysis, "_load_audio_mono16k", lambda path: _loud_signal())
+    monkeypatch.setattr(audio_analysis.settings, "google_stt_api_key", "fake-key")
+
+    with patch("requests.post", side_effect=RuntimeError("network down")):
+        result = audio_analysis.transcribe("dummy_path.webm")
+
+    assert result.text == ""
+    assert result.low_confidence is True
+
+
+def test_load_audio_mono16k_decodes_real_wav_via_ffmpeg():
+    """_load_audio_mono16k는 whisper 없이 ffmpeg 서브프로세스를 직접 호출한다 - 실제
+    ffmpeg로 만든 짧은 사인파 WAV를 디코딩해서 예상한 길이/타입의 배열이 나오는지 확인한다
+    (모킹이 아니라 실제 왕복 검증 - 이 함수 자체가 순수 subprocess 호출이라 모킹하면 로직을
+    검증하는 의미가 없다)."""
+    with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=200:duration=1",
+                "-ar", "48000", "-ac", "2", f.name,
+            ],
+            capture_output=True,
+            check=True,
+        )
+        y = audio_analysis._load_audio_mono16k(f.name)
+
+    assert y.dtype == np.float32
+    # 1초짜리 오디오를 16kHz 모노로 디코딩했으니 대략 16000 샘플이어야 한다(리샘플링
+    # 오차로 정확히 일치하지 않을 수 있어 근사치로 확인).
+    assert abs(len(y) - 16000) < 100
+    # ffmpeg lavfi sine 소스 기본 진폭이 크지 않아(실측 ~0.09) 낮은 임계값으로 확인한다 -
+    # 목적은 "완전한 무음(전부 0)이 아니라 실제 신호가 들어있는지"뿐이라 이걸로 충분하다.
+    assert np.max(np.abs(y)) > 0.01

@@ -137,6 +137,22 @@ def _build_description(detail: dict) -> str | None:
     return "\n\n".join(parts) if parts else None
 
 
+def _image_urls(job: dict, detail: dict) -> list[str]:
+    """원티드 상세 응답의 공고/회사 이미지 URL을 보존한다."""
+    candidates = [
+        _as_dict(job.get("images")).get("job_thumbnail_urls"),
+        _as_dict(detail.get("images")).get("job_thumbnail_urls"),
+    ]
+    result: list[str] = []
+    for urls in candidates:
+        if not isinstance(urls, list):
+            continue
+        for url in urls:
+            if isinstance(url, str) and url.startswith(("https://", "http://")) and url not in result:
+                result.append(url)
+    return result
+
+
 def parse_wanted_job_detail(job_id: int) -> ScrapedJobPosting | None:
     payload = _fetch_json(DETAIL_URL_TMPL.format(id=job_id))
 
@@ -173,6 +189,7 @@ def parse_wanted_job_detail(job_id: int) -> ScrapedJobPosting | None:
         job_category=parent_tag.get("text"),
         description=_build_description(detail),
         source_updated_at=None,  # 목록 API에 수정시각이 없어서 변경 감지엔 못 씀.
+        image_urls=_image_urls(job, detail),
     )
 
 

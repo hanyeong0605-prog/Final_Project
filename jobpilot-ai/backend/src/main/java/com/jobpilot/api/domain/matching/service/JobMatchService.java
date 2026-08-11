@@ -80,7 +80,7 @@ public class JobMatchService {
                 requirement == null ? null : requirement.getContent(),
                 requirement == null ? null : requirement.getType(),
                 requirement == null ? null : requirement.getSourceExcerpt(),
-                evidence.getMemberEvidenceType(), evidence.getMemberEvidenceId(), evidence.getStatus(), evidence.getComment()
+                evidence.getMemberEvidenceType(), evidence.getMemberEvidenceId(), evidence.getStatus(), evidence.getComment(), evidence.getGapAction()
         );
     }
 
