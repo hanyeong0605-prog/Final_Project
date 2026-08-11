@@ -67,7 +67,8 @@ public class JobPostingSearchService {
                 + "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null'), company_logo_url) AS thumbnail_url, "
                 + "title, source_url, location, employment_type, "
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
-                + "is_rolling_deadline, status "
+                + "is_rolling_deadline, status, COALESCE(view_count, 0) AS view_count, "
+                + "(SELECT COUNT(*) FROM user_interests interest WHERE interest.target_type = 'JOB_POSTING' AND interest.target_id = job_postings.id) AS bookmark_count "
                 + "FROM job_postings" + where + " ORDER BY " + orderBy(normalizedSort) + " LIMIT :limit OFFSET :offset";
         List<JobPostingListResponse> content = jdbcTemplate.query(sql, parameters, JOB_POSTING_ROW_MAPPER);
         int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeSize);
@@ -137,6 +138,7 @@ public class JobPostingSearchService {
     private String normalizeSort(String sort) {
         if ("deadline_desc".equalsIgnoreCase(sort)) return "deadline_desc";
         if ("recent".equalsIgnoreCase(sort)) return "recent";
+        if ("popular".equalsIgnoreCase(sort)) return "popular";
         return "deadline_asc";
     }
 
@@ -144,6 +146,7 @@ public class JobPostingSearchService {
         return switch (sort) {
             case "deadline_desc" -> "CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at DESC, id DESC";
             case "recent" -> "fetched_at DESC, id DESC";
+            case "popular" -> "(COALESCE(view_count, 0) + ((SELECT COUNT(*) FROM user_interests interest WHERE interest.target_type = 'JOB_POSTING' AND interest.target_id = job_postings.id) * 5)) DESC, COALESCE(view_count, 0) DESC, fetched_at DESC";
             default -> "CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id DESC";
         };
     }
@@ -158,7 +161,8 @@ public class JobPostingSearchService {
                     resultSet.getString("company_logo_url"), resultSet.getString("thumbnail_url"), resultSet.getString("title"), resultSet.getString("source_url"), resultSet.getString("location"),
                     resultSet.getString("employment_type"), resultSet.getString("experience_type"), resultSet.getString("job_name"),
                     resultSet.getString("salary"), resultSet.getString("keywords"), date(resultSet, "published_at"),
-                    date(resultSet, "deadline_at"), resultSet.getBoolean("is_rolling_deadline"), resultSet.getString("status"));
+                    date(resultSet, "deadline_at"), resultSet.getBoolean("is_rolling_deadline"), resultSet.getString("status"),
+                    resultSet.getLong("view_count"), resultSet.getLong("bookmark_count"));
 
     private static LocalDateTime date(ResultSet resultSet, String column) throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);

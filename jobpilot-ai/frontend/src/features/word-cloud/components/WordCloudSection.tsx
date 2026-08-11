@@ -4,7 +4,7 @@ import { WordCloudViewer } from './WordCloudViewer';
 
 type ImportanceType = 'all' | 'required' | 'preferred';
 
-export const WordCloudSection: React.FC = () => {
+export const WordCloudSection: React.FC<{ showHeader?: boolean; compact?: boolean }> = ({ showHeader = true, compact = false }) => {
   const [importance, setImportance] = useState<ImportanceType>('all');
   const [data, setData] = useState<WordCloudResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -32,13 +32,12 @@ export const WordCloudSection: React.FC = () => {
       style={{
         maxWidth: '800px',
         margin: '0 auto',
-        padding: '16px 0',
+        padding: compact ? '8px 0 0' : '16px 0',
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
     >
-      {/* Header Section */}
-      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+      {showHeader && <div style={{ textAlign: 'center', marginBottom: '28px' }}>
         <p
           style={{
             fontSize: '11px',
@@ -67,7 +66,7 @@ export const WordCloudSection: React.FC = () => {
           {importance === 'required' && '채용 공고에서 필수 자격요건으로 지정된 스택 키워드입니다.'}
           {importance === 'preferred' && '우대사항 항목에 등재된 차별화 기술 스택 키워드입니다.'}
         </p>
-      </div>
+      </div>}
 
       {/* Segmented Control Filter Tabs */}
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
@@ -143,7 +142,7 @@ export const WordCloudSection: React.FC = () => {
       )}
 
       
-      <WordCloudViewer imageData={data?.image_data || null} loading={loading} />
+      <WordCloudViewer imageData={data?.image_data || null} loading={loading} compact={compact} />
     </div>
   );
 };

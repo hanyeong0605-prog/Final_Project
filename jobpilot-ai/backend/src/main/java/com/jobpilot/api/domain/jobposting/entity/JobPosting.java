@@ -84,6 +84,9 @@ public class JobPosting {
     @Column(name = "crawled_at")
     private LocalDateTime crawledAt;
 
+    @Column(name = "view_count", nullable = false)
+    private long viewCount;
+
     @Column(name = "raw_payload", columnDefinition = "JSON")
     @JdbcTypeCode(SqlTypes.JSON)
     private JsonNode rawPayload;
@@ -159,5 +162,6 @@ public class JobPosting {
     public boolean isRollingDeadline() { return rollingDeadline; }
     public String getStatus() { return status; }
     public String getCrawlStatus() { return crawlStatus; }
+    public long getViewCount() { return viewCount; }
     public JsonNode getRawPayload() { return rawPayload; }
 }

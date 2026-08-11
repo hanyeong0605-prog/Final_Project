@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { getJobPostings } from "../features/job-postings/api/jobPostingsApi";
 import { JobPostingCard } from "../features/job-postings/components/JobPostingCard";
 import type { JobExperienceFilter, JobPostingPage, JobPostingSearchParams, JobPostingSort } from "../features/job-postings/model/jobPosting.types";
@@ -19,6 +20,7 @@ const sortLabel: Record<JobPostingSort, string> = {
   deadline_asc: "마감 임박순",
   deadline_desc: "마감일 늦은순",
   recent: "최근 수집순",
+  popular: "인기순",
 };
 
 type Filters = {
@@ -34,9 +36,20 @@ const initialFilters: Filters = {
   query: "", roles: [], experience: "", location: "", employmentType: "", sort: "deadline_asc",
 };
 
+function isSort(value: string | null): value is JobPostingSort {
+  return value === "deadline_asc" || value === "deadline_desc" || value === "recent" || value === "popular";
+}
+
+function sortFromParams(value: string | null): JobPostingSort {
+  return isSort(value) ? value : "deadline_asc";
+}
+
 export function AllJobPostingsPage() {
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<Filters>(initialFilters);
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get("query")?.trim() ?? "";
+  const initialSort = sortFromParams(searchParams.get("sort"));
+  const [query, setQuery] = useState(initialQuery);
+  const [filters, setFilters] = useState<Filters>({ ...initialFilters, query: initialQuery, sort: initialSort });
   const [roleDraft, setRoleDraft] = useState<string[]>([]);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [page, setPage] = useState(0);
@@ -52,6 +65,14 @@ export function AllJobPostingsPage() {
       .catch(() => { if (active) { setResult(null); setStatus("error"); } });
     return () => { active = false; };
   }, [filters, page]);
+
+  useEffect(() => {
+    const nextQuery = searchParams.get("query")?.trim() ?? "";
+    const nextSort = sortFromParams(searchParams.get("sort"));
+    setQuery(nextQuery);
+    setFilters((current) => current.query === nextQuery && current.sort === nextSort ? current : { ...current, query: nextQuery, sort: nextSort });
+    setPage(0);
+  }, [searchParams]);
 
   const pages = useMemo(() => {
     if (!result || result.totalPages < 2) return [];
@@ -120,7 +141,7 @@ export function AllJobPostingsPage() {
       <label className="filter-select"><span className="sr-only">경력</span><select value={filters.experience} onChange={(event) => updateFilter("experience", event.target.value as JobExperienceFilter)}><option value="">경력 전체</option><option value="ENTRY">신입 가능</option><option value="EXPERIENCED">경력</option></select><ChevronDown size={15} /></label>
       <label className="filter-select"><span className="sr-only">지역</span><select value={filters.location} onChange={(event) => updateFilter("location", event.target.value)}><option value="">지역 전체</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대전">대전</option><option value="대구">대구</option><option value="광주">광주</option><option value="울산">울산</option><option value="세종">세종</option><option value="제주">제주</option></select><ChevronDown size={15} /></label>
       <label className="filter-select"><span className="sr-only">고용 형태</span><select value={filters.employmentType} onChange={(event) => updateFilter("employmentType", event.target.value)}><option value="">고용 형태 전체</option><option value="regular">정규직</option><option value="contract">계약직</option><option value="intern">인턴</option></select><ChevronDown size={15} /></label>
-      <label className="filter-select sort-select"><span className="sr-only">정렬</span><select value={filters.sort} onChange={(event) => updateFilter("sort", event.target.value as JobPostingSort)}><option value="deadline_asc">마감 임박순</option><option value="deadline_desc">마감일 늦은순</option><option value="recent">최근 수집순</option></select><ChevronDown size={15} /></label>
+      <label className="filter-select sort-select"><span className="sr-only">정렬</span><select value={filters.sort} onChange={(event) => updateFilter("sort", event.target.value as JobPostingSort)}><option value="deadline_asc">마감 임박순</option><option value="popular">인기순 (조회·찜)</option><option value="deadline_desc">마감일 늦은순</option><option value="recent">최근 수집순</option></select><ChevronDown size={15} /></label>
     </section>
 
     {filters.roles.length > 0 && <div className="selected-filter-chips">{filters.roles.map((role) => <button key={role} type="button" onClick={() => { setFilters((current) => ({ ...current, roles: current.roles.filter((item) => item !== role) })); setPage(0); }}>{roleName(role)}<X size={13} /></button>)}<button type="button" className="clear-filter-chip" onClick={clearRoles}>직무 초기화</button></div>}
