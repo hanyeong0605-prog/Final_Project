@@ -164,4 +164,5 @@ public class JobPosting {
     public String getCrawlStatus() { return crawlStatus; }
     public long getViewCount() { return viewCount; }
     public JsonNode getRawPayload() { return rawPayload; }
+    public void changeStatus(String status) { this.status = status; }
 }

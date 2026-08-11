@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Bell, ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, ShieldCheck, X } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
@@ -74,7 +74,7 @@ export function AppShell() {
 
           <div className="profile-card">
             <div className="avatar">{member?.nickname?.slice(0, 1) ?? "J"}</div>
-            <div><strong>{member?.nickname}{subscribed && <span className="subscription-badge active sidebar-subscription-badge">구독중</span>}</strong><span>{member?.email}</span></div>
+            <div><strong>{member?.nickname}{member?.role === "ADMIN" ? <span className="subscription-badge active sidebar-subscription-badge">관리자</span> : subscribed && <span className="subscription-badge active sidebar-subscription-badge">구독중</span>}</strong><span>{member?.email}</span></div>
             <button aria-label="로그아웃" title="로그아웃" onClick={logout}><LogOut size={17} /></button>
           </div>
 
@@ -127,6 +127,7 @@ export function AppShell() {
               <form className="global-search-inline" onSubmit={submitGlobalSearch}><Search size={16} /><input value={searchTerm} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearchTerm(event.target.value); setSearchOpen(true); }} placeholder="통합검색" aria-label="통합검색" /><button type="submit" aria-label="검색 실행"><ChevronRight size={15} /></button></form>
               <button className="add-job"><Plus size={17} />공고 직접 등록</button>
               <button className="bell" aria-label="알림"><Bell size={19} /><span /></button>
+              {member?.role === "ADMIN" && <NavLink to="/admin" className="admin-page-link"><ShieldCheck size={16} />관리자 페이지</NavLink>}
               <NavLink to="/account" className="topbar-account" aria-label="마이페이지">{member?.nickname?.slice(0, 1) ?? "J"}</NavLink>
             </div>
             {openDesktopMenu && (() => {

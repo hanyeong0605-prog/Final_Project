@@ -11,6 +11,7 @@ export interface SubscriptionStatus {
   priceWon: number;
   currentPeriodEnd: string | null;
   nextBillingAt: string | null;
+  admin: boolean;
 }
 
 export interface SubscriptionCheckout {
