@@ -149,7 +149,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
     }
 
   
-    const redMarkerImageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png";
+    const redMarkerImageSrc = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='29' height='42' viewBox='0 0 29 42'><path fill='%23ef4444' stroke='%23b91c1c' stroke-width='1.5' d='M14.5 1C7.04 1 1 7.04 1 14.5C1 24.63 14.5 41 14.5 41C14.5 41 28 24.63 28 14.5C28 7.04 21.96 1 14.5 1Z'/><circle cx='14.5' cy='14.5' r='5.5' fill='white'/></svg>";
     const imageSize = new window.kakao.maps.Size(31, 35);
     const markerImage = new window.kakao.maps.MarkerImage(redMarkerImageSrc, imageSize);
 

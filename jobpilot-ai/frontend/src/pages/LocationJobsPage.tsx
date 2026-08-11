@@ -10,7 +10,7 @@ import { PageHeading } from "../shared/components/PageHeading";
 // import { WordCloudSection } from '../features/word-cloud/components/WordCloudSection';
 
 const DEFAULT_ADDRESS = "서울특별시 마포구 백범로 23";
-const DEFAULT_CENTER = { lat: 37.5528112 , lng: 126.9379482  };
+const DEFAULT_CENTER = { lat: 37.5528112, lng: 126.9379482 };
 const PAGE_BG_COLOR = "#f5f7fb";
 
 export function LocationJobsPage() {
@@ -19,7 +19,7 @@ export function LocationJobsPage() {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const [currentAddress, setCurrentAddress] = useState(DEFAULT_ADDRESS);
-  const [center, setCenter] = useState<{ lat: number; lng: number }>(DEFAULT_CENTER);
+  const [center, setCenter] = useState(DEFAULT_CENTER);
   const [radiusKm, setRadiusKm] = useState<number>(5);
 
   const [jobs, setJobs] = useState<LocationJob[]>([]);
@@ -32,11 +32,8 @@ export function LocationJobsPage() {
       const response = await fetch(
         `${baseUrl}/api/location-jobs?latitude=${lat}&longitude=${lng}&radiusKm=${radius}`
       );
-
       if (!response.ok) throw new Error();
-
-      const data: LocationJob[] = await response.json();
-      setJobs(data);
+      setJobs(await response.json());
       setStatus("ready");
     } catch {
       setStatus("error");
@@ -57,17 +54,11 @@ export function LocationJobsPage() {
     setCurrentAddress(address);
     setSelectedJobId(null);
 
-    if (window.kakao?.maps?.services) {
-      const geocoder = new window.kakao.maps.services.Geocoder();
-      geocoder.addressSearch(address, (result: any[], statusResult: any) => {
-        if (statusResult === window.kakao.maps.services.Status.OK) {
-          setCenter({
-            lat: parseFloat(result[0].y),
-            lng: parseFloat(result[0].x),
-          });
-        }
-      });
-    }
+    window.kakao?.maps?.services?.Geocoder().addressSearch(address, (result: any[], statusResult: any) => {
+      if (statusResult === window.kakao.maps.services.Status.OK) {
+        setCenter({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
+      }
+    });
   };
 
   return (
@@ -79,51 +70,14 @@ export function LocationJobsPage() {
       />
 
       <div style={{ display: "flex", width: "100%", height: "calc(100vh - 110px)", overflow: "hidden" }}>
-        <aside
-          style={{
-            width: "380px",
-            minWidth: "380px",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 10,
-            padding: "0 0 16px 16px",
-          }}
-        >
-          <div
-            style={{
-              padding: "12px",
-              backgroundColor: "#ffffff",
-              borderRadius: "12px",
-              border: "1px solid #ebedf2",
-              boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              marginBottom: "10px",
-              marginRight: "12px",
-            }}
-          >
+        {/* 좌측 사이드바 */}
+        <aside style={styles.aside}>
+          <div style={styles.filterBox}>
             <div style={{ display: "flex", gap: "6px" }}>
-              <button
-                type="button"
-                onClick={() => setIsPostcodeOpen(true)}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "7px 10px",
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #dce1ea",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  color: "#30394d",
-                }}
-              >
+              <button type="button" onClick={() => setIsPostcodeOpen(true)} style={styles.addressBtn}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
                   <MapPin size={15} color="#526af3" />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentAddress}</span>
+                  <span style={styles.ellipsis}>{currentAddress}</span>
                 </div>
                 <Search size={14} color="#929aaa" />
               </button>
@@ -131,31 +85,15 @@ export function LocationJobsPage() {
               <button
                 type="button"
                 onClick={() => handleSelectAddress(DEFAULT_ADDRESS)}
-                style={{
-                  padding: "7px 9px",
-                  backgroundColor: "#eef2ff",
-                  border: "1px solid #cbd4ff",
-                  borderRadius: "8px",
-                  color: "#526af3",
-                }}
+                style={styles.navBtn}
                 title="기본 설정 주소로 이동"
               >
                 <Navigation size={15} />
               </button>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: "#ffffff",
-                border: "1px solid #dce1ea",
-                padding: "6px 10px",
-                borderRadius: "8px",
-              }}
-            >
-              <span style={{ fontSize: "12px", fontWeight: "600", color: "#424b60", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={styles.selectRow}>
+              <span style={styles.selectLabel}>
                 <Filter size={13} color="#526af3" /> 탐색 반경
               </span>
               <select
@@ -164,26 +102,16 @@ export function LocationJobsPage() {
                   setRadiusKm(Number(e.target.value));
                   setSelectedJobId(null);
                 }}
-                style={{
-                  fontSize: "11px",
-                  fontWeight: "bold",
-                  color: "#526af3",
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #dce1ea",
-                  borderRadius: "6px",
-                  padding: "2px 6px",
-                }}
+                style={styles.select}
               >
-                <option value={1}>1 km 이내</option>
-                <option value={3}>3 km 이내</option>
-                <option value={5}>5 km 이내</option>
-                <option value={10}>10 km 이내</option>
-                <option value={20}>20 km 이내</option>
+                {[1, 3, 5, 10, 20].map((r) => (
+                  <option key={r} value={r}>{r} km 이내</option>
+                ))}
               </select>
             </div>
           </div>
 
-          <div style={{ padding: "0 16px 6px 4px", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#7c8596" }}>
+          <div style={styles.countHeader}>
             <strong>주변 공고 <span style={{ color: "#526af3" }}>{jobs.length.toLocaleString()}</span>개</strong>
             <span>반경 {radiusKm}km 이내</span>
           </div>
@@ -214,42 +142,16 @@ export function LocationJobsPage() {
                 return (
                   <div
                     key={job.id}
-                    ref={(el) => {
-                      if (el) cardRefs.current.set(job.id, el);
-                      else cardRefs.current.delete(job.id);
-                    }}
+                    ref={(el) => { el ? cardRefs.current.set(job.id, el) : cardRefs.current.delete(job.id); }}
                     onClick={() => setSelectedJobId(job.id)}
                     style={{
-                      position: "relative",
-                      marginBottom: "8px",
-                      borderRadius: "10px",
+                      ...styles.cardWrapper,
                       border: isSelected ? "2px solid #526af3" : "2px solid transparent",
                       boxShadow: isSelected ? "0 4px 12px rgba(39, 63, 133, 0.12)" : "none",
-                      transition: "all 0.18s ease",
-                      cursor: "pointer",
-                      transform: "scale(0.96)",
-                      transformOrigin: "top left",
-                      width: "104%",
                     }}
                   >
                     {job.distanceKm !== undefined && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: "10px",
-                          right: "14px",
-                          fontSize: "10px",
-                          fontWeight: "800",
-                          color: "#526af3",
-                          backgroundColor: "#eef2ff",
-                          padding: "2px 6px",
-                          borderRadius: "20px",
-                          zIndex: 2,
-                          pointerEvents: "none",
-                        }}
-                      >
-                        {job.distanceKm}km
-                      </span>
+                      <span style={styles.distanceBadge}>{job.distanceKm}km</span>
                     )}
                     <JobPostingCard posting={postingData} />
                   </div>
@@ -258,17 +160,9 @@ export function LocationJobsPage() {
           </div>
         </aside>
 
+        {/* 우측 지도 */}
         <main style={{ flex: 1, height: "100%", padding: "0 16px 16px 16px" }}>
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              borderRadius: "13px",
-              border: "1px solid #e8ebf1",
-              overflow: "hidden",
-              boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)",
-            }}
-          >
+          <div style={styles.mapContainer}>
             <KakaoMapContainer
               center={center}
               radiusKm={radiusKm}
@@ -279,18 +173,34 @@ export function LocationJobsPage() {
           </div>
         </main>
       </div>
-       {/* 예시용 워드클라우드 가져오기 */}
-      {/* <section style={{ padding: "60px 20px", backgroundColor: "#ffffff", marginTop: "24px", borderTop: "1px solid #ebedf2" }}>
+
+      {/* 예시용 워드클라우드 가져오기 */}
+      {/* <section style={styles.wordCloudSection}>
         <WordCloudSection />
       </section> */}
-           
+
       <PostcodeSearchModal
         isOpen={isPostcodeOpen}
         onClose={() => setIsPostcodeOpen(false)}
         onSelectAddress={handleSelectAddress}
       />
-      
-    </div>  //ㅁㄴㅇㄹ
-    
+    </div>
   );
 }
+
+//  스타일 정리
+const styles: Record<string, React.CSSProperties> = {
+  aside: { width: "380px", minWidth: "380px", height: "100%", display: "flex", flexDirection: "column", zIndex: 10, padding: "0 0 16px 16px" },
+  filterBox: { padding: "12px", backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #ebedf2", boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)", display: "flex", flexDirection: "column", gap: "8px", marginBottom: "10px", marginRight: "12px" },
+  addressBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "8px", fontSize: "12px", color: "#30394d" },
+  navBtn: { padding: "7px 9px", backgroundColor: "#eef2ff", border: "1px solid #cbd4ff", borderRadius: "8px", color: "#526af3" },
+  selectRow: { display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#ffffff", border: "1px solid #dce1ea", padding: "6px 10px", borderRadius: "8px" },
+  selectLabel: { fontSize: "12px", fontWeight: "600", color: "#424b60", display: "flex", alignItems: "center", gap: "6px" },
+  select: { fontSize: "11px", fontWeight: "bold", color: "#526af3", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "6px", padding: "2px 6px" },
+  countHeader: { padding: "0 16px 6px 4px", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#7c8596" },
+  cardWrapper: { position: "relative", marginBottom: "8px", borderRadius: "10px", transition: "all 0.18s ease", cursor: "pointer", transform: "scale(0.96)", transformOrigin: "top left", width: "104%" },
+  distanceBadge: { position: "absolute", top: "10px", right: "14px", fontSize: "10px", fontWeight: "800", color: "#526af3", backgroundColor: "#eef2ff", padding: "2px 6px", borderRadius: "20px", zIndex: 2, pointerEvents: "none" },
+  mapContainer: { width: "100%", height: "100%", borderRadius: "13px", border: "1px solid #e8ebf1", overflow: "hidden", boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)" },
+  wordCloudSection: { padding: "60px 20px", backgroundColor: "#ffffff", marginTop: "24px", borderTop: "1px solid #ebedf2" },
+  ellipsis: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+};
