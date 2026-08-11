@@ -45,3 +45,11 @@ export function searchQnetQualifications(query: string): Promise<QnetQualificati
 export function getQnetQualificationDetail(jmcd: string): Promise<QnetQualificationDetail> {
   return getJson<QnetQualificationDetail>(`/api/v1/certifications/catalog/${encodeURIComponent(jmcd)}/detail`);
 }
+
+// 2026-08-11: KCA 국가기술자격증(개인) 진위여부 확인. 무선설비/통신설비/전파전자/
+// 정보통신 분야만 커버하므로 다른 분야 자격증은 항상 genuine:false에 가까운 결과가
+// 나올 수 있다 - CertificateAuthenticityCheck.tsx의 안내 문구 참고.
+export function checkCertificateAuthenticity(certificateNumber: string): Promise<boolean> {
+  return getJson<{ genuine: boolean }>(`/api/v1/certifications/authenticity?no=${encodeURIComponent(certificateNumber)}`)
+    .then((result) => result.genuine);
+}

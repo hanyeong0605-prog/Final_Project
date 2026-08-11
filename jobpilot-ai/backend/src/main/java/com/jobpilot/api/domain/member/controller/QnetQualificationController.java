@@ -1,7 +1,9 @@
 package com.jobpilot.api.domain.member.controller;
 
+import com.jobpilot.api.domain.member.dto.CertificateAuthenticityResponse;
 import com.jobpilot.api.domain.member.dto.QnetQualificationDetailResponse;
 import com.jobpilot.api.domain.member.dto.QnetQualificationResponse;
+import com.jobpilot.api.domain.member.service.KcaCertificateAuthenticityService;
 import com.jobpilot.api.domain.member.service.QnetQualificationService;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/certifications")
 public class QnetQualificationController {
     private final QnetQualificationService service;
+    private final KcaCertificateAuthenticityService authenticityService;
 
-    public QnetQualificationController(QnetQualificationService service) { this.service = service; }
+    public QnetQualificationController(QnetQualificationService service, KcaCertificateAuthenticityService authenticityService) {
+        this.service = service;
+        this.authenticityService = authenticityService;
+    }
 
     @GetMapping("/catalog")
     public List<QnetQualificationResponse> catalog(@RequestParam String query) {
@@ -27,5 +33,12 @@ public class QnetQualificationController {
     @GetMapping("/catalog/{jmcd}/detail")
     public QnetQualificationDetailResponse detail(@PathVariable String jmcd) {
         return service.detail(jmcd);
+    }
+
+    // 2026-08-11: KCA 국가기술자격증(개인) 진위여부 확인 - 자격증 발급번호만으로 조회한다
+    // (무선설비/통신설비/전파전자/정보통신 분야만 커버, KcaCertificateAuthenticityService 참고).
+    @GetMapping("/authenticity")
+    public CertificateAuthenticityResponse authenticity(@RequestParam String no) {
+        return new CertificateAuthenticityResponse(authenticityService.checkAuthenticity(no));
     }
 }

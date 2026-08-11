@@ -4,6 +4,7 @@ import { emptyCareerProfile, type CareerProfile } from "../model/careerProfile.t
 import type { MemberSkill } from "../model/memberSkill.types";
 import { emptyMemberCertificate, type MemberCertificate } from "../model/memberCertificate.types";
 import { searchQnetQualifications, type QnetQualification } from "../api/memberCertificatesApi";
+import { CertificateAuthenticityCheck } from "./CertificateAuthenticityCheck";
 import { CertificateDetailModal } from "./CertificateDetailModal";
 import { EducationSearchModal } from "./EducationSearchModal";
 import { RegionSelectionModal } from "./RegionSelectionModal";
@@ -91,6 +92,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
             <label>취득일<input type="date" value={certificate.acquiredAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, acquiredAt: event.target.value || null } : item))} /></label>
             <label>만료일(선택)<input type="date" value={certificate.expiresAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expiresAt: event.target.value || null } : item))} /></label>
           </div>
+          <CertificateAuthenticityCheck />
         </div>)}
       </div>
       <button type="button" className="outline-button certificate-manual-add" disabled={certificates.length >= 20 || certificates.some((certificate) => !certificate.name.trim())} onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 직접 입력</button>
