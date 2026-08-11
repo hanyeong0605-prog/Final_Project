@@ -6,7 +6,12 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core.config import settings
-from app.domain.crawler.backend_client import fetch_existing_source_updated_at, send_to_backend
+from app.domain.crawler.backend_client import (
+    complete_crawl_run,
+    fetch_existing_source_updated_at,
+    send_to_backend,
+    start_crawl_run,
+)
 from app.domain.crawler.wanted_scraper import run_wanted_crawl
 
 # 원티드는 목록 API가 이미 IT로 필터돼서 나오기 때문에 상세 요청 상한을 넉넉히 잡아도
@@ -21,24 +26,46 @@ DAILY_WANTED_SAVE_BATCH_SIZE = 200
 
 
 def run_daily_wanted_crawl_and_save() -> dict:
+    run_id = start_crawl_run(settings.backend_base_url, source_code="WANTED", trigger_type="SCHEDULED")
     known = fetch_existing_source_updated_at(settings.backend_base_url, source_code="WANTED")
     known_ids = set(known.keys())
 
-    totals = {"received": 0, "created": 0, "updated": 0, "skipped": 0}
+    totals = {
+        "status": "COMPLETED", "candidateCount": 0, "detailRequests": 0, "skippedKnownCount": 0,
+        "collectedCount": 0, "receivedCount": 0, "createdCount": 0, "updatedCount": 0,
+        "skippedCount": 0, "failureCount": 0, "errorMessage": None,
+    }
 
     def flush_batch(batch):
         if not batch:
             return
         result = send_to_backend(batch, settings.backend_base_url, source_code="WANTED")
-        for key in totals:
-            totals[key] += result.get(key, 0)
+        totals["receivedCount"] += result.get("received", 0)
+        totals["createdCount"] += result.get("created", 0)
+        totals["updatedCount"] += result.get("updated", 0)
+        totals["skippedCount"] += result.get("skipped", 0)
 
-    run_wanted_crawl(
-        limit=DAILY_WANTED_MAX_NEW,
-        known_ids=known_ids,
-        on_batch=flush_batch,
-        batch_size=DAILY_WANTED_SAVE_BATCH_SIZE,
-    )
+    try:
+        run_wanted_crawl(
+            limit=DAILY_WANTED_MAX_NEW,
+            known_ids=known_ids,
+            on_batch=flush_batch,
+            batch_size=DAILY_WANTED_SAVE_BATCH_SIZE,
+            stats=totals,
+        )
+        # If every candidate is already known, still call ingest once so expired postings are closed.
+        if totals["receivedCount"] == 0:
+            result = send_to_backend([], settings.backend_base_url, source_code="WANTED")
+            totals["receivedCount"] += result.get("received", 0)
+            totals["createdCount"] += result.get("created", 0)
+            totals["updatedCount"] += result.get("updated", 0)
+            totals["skippedCount"] += result.get("skipped", 0)
+    except Exception as error:
+        totals["status"] = "FAILED"
+        totals["errorMessage"] = str(error)[:4000]
+        raise
+    finally:
+        complete_crawl_run(settings.backend_base_url, run_id, totals)
     return totals
 
 

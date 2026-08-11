@@ -3,14 +3,15 @@ import React from 'react';
 interface WordCloudViewerProps {
   imageData: string | null;
   loading: boolean;
+  compact?: boolean;
 }
 
-export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loading }) => {
+export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loading, compact = false }) => {
   return (
     <div
       style={{
-        width: '460px',
-        height: '460px',
+        width: compact ? 'min(100%, 360px)' : '460px',
+        height: compact ? 'min(100vw - 92px, 360px)' : '460px',
         margin: '0 auto',
         borderRadius: '50%',
         backgroundColor: '#ffffff',

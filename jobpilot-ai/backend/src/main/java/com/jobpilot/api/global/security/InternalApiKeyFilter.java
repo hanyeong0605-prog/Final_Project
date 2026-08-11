@@ -25,7 +25,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class InternalApiKeyFilter extends OncePerRequestFilter {
     private static final String HEADER_NAME = "X-Internal-Api-Key";
-    private static final String PROTECTED_PATH = "/api/v1/job-postings/ingest";
+    private static final String PROTECTED_PATH_PREFIX = "/api/v1/job-postings/";
 
     private final String expectedApiKey;
 
@@ -36,9 +36,11 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        boolean isProtectedIngestCall = HttpMethod.POST.matches(request.getMethod()) && PROTECTED_PATH.equals(request.getRequestURI());
+        boolean isProtectedCrawlerCall = HttpMethod.POST.matches(request.getMethod())
+                && ("/api/v1/job-postings/ingest".equals(request.getRequestURI())
+                || request.getRequestURI().startsWith(PROTECTED_PATH_PREFIX + "crawl-runs/"));
 
-        if (isProtectedIngestCall) {
+        if (isProtectedCrawlerCall) {
             String providedKey = request.getHeader(HEADER_NAME);
             boolean keyConfigured = expectedApiKey != null && !expectedApiKey.isBlank();
             boolean keyMatches = keyConfigured && expectedApiKey.equals(providedKey);

@@ -3,12 +3,18 @@ package com.jobpilot.api.domain.jobposting.repository;
 import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
 public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     Optional<JobPosting> findBySourceProviderAndExternalJobId(String sourceProvider, String externalJobId);
     List<JobPosting> findByStatusOrderByPublishedAtDesc(String status);
+
+    @Modifying
+    @Query("UPDATE JobPosting posting SET posting.viewCount = posting.viewCount + 1 WHERE posting.id = :id")
+    int incrementViewCount(@Param("id") Long id);
 
     @Query(value = """
             SELECT posting.* FROM job_postings posting

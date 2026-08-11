@@ -46,7 +46,10 @@ public class SecurityConfig {
                     // CareerNet school/major lookup contains public reference data only.
                     // Keeping it public also lets the profile form work before a stale JWT is refreshed.
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/education/**").permitAll();
-                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/certifications/catalog").permitAll();
+                    // 2026-08-11: catalog/detail 둘 다 로그인 사용자 개인정보가 아니라 Q-Net
+                    // 공개 조회 데이터라, 스펙 편집 중 JWT 만료돼도 끊기지 않게 permitAll 처리.
+                    // (KCA 진위확인 기능은 커버 종목이 너무 적어 실효성이 없어 제거함 - 2026-08-11)
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/certifications/catalog", "/api/v1/certifications/catalog/list", "/api/v1/certifications/catalog/fields", "/api/v1/certifications/catalog/*/detail").permitAll();
 
                     authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
                     authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
@@ -63,6 +66,7 @@ public class SecurityConfig {
                     // 먼저 끊어낸다 (2026-08-04: 이게 안 열려있어서 크롤링 2836건 성공하고도
                     // DB엔 0건 저장되는 버그가 있었음).
                     authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/ingest").permitAll();
+                    authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/crawl-runs/**").permitAll();
                     authorize.anyRequest().authenticated();
                 })
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))

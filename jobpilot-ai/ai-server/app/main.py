@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.domain.assistant.router import router as assistant_router
+from app.domain.certificate.router import router as certificate_router
 from app.domain.crawler.router import router as crawler_router
 from app.domain.crawler.scheduler import start_scheduler
 from app.domain.interview.router import router as interview_router
@@ -39,6 +40,7 @@ app.include_router(interview_router, prefix="/interview", tags=["interview"])
 app.include_router(resume_router, prefix="/resume", tags=["resume"])
 app.include_router(assistant_router, prefix="/assistant", tags=["assistant"])
 app.include_router(timeline_router, prefix="/timeline", tags=["timeline"])
+app.include_router(certificate_router, prefix="/certificates", tags=["certificates"])
 
 
 @app.get("/health")

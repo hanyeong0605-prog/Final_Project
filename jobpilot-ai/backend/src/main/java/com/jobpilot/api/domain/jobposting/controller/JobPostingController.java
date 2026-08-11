@@ -12,6 +12,7 @@ import com.jobpilot.api.domain.jobposting.service.JobPostingSearchService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,7 +49,9 @@ public class JobPostingController {
     }
 
     @GetMapping("/{id}")
+    @Transactional
     public JobPostingDetailResponse findById(@PathVariable Long id) {
+        repository.incrementViewCount(id);
         JobPosting posting = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
         return toDetailResponse(posting);

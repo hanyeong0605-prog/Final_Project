@@ -37,3 +37,8 @@ export function putJson<T>(path: string, body: unknown): Promise<T> {
 export function deleteJson(path: string, body?: unknown): Promise<void> {
   return requestJson<void>(path, { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) });
 }
+// deleteJson()은 응답 본문을 버리는 void 전용이라, 삭제 후 서버가 돌려주는 최신 목록이
+// 필요한 곳(자격증 찜 해제 등)을 위해 별도로 둔다 - 기존 deleteJson 시그니처는 건드리지 않음.
+export function deleteJsonReturning<T>(path: string): Promise<T> {
+  return requestJson<T>(path, { method: "DELETE" });
+}

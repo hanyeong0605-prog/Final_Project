@@ -22,6 +22,7 @@ import { CareerTestPage } from "../pages/CareerTestPage";
 import { SkillRelationView } from "../pages/SkillRelationView";
 import { CameraPairPage } from "../pages/CameraPairPage";
 import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
+import { HomePage } from "../pages/HomePage";
 import Qualification from "../pages/Qualification";
 
 export const router = createBrowserRouter([
@@ -33,7 +34,8 @@ export const router = createBrowserRouter([
     path: "/",
     element: <RequireAuth><AppShell /></RequireAuth>,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, element: <HomePage /> },
+      { path: "dashboard", element: <DashboardPage /> },
       { path: "jobs", element: <JobMatchesPage /> },
       { path: "job-postings", element: <AllJobPostingsPage /> },
       { path: "job-postings/:id", element: <JobPostingDetailPage /> },
