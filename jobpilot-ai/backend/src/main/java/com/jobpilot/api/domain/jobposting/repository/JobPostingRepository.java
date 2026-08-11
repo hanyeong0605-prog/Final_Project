@@ -7,10 +7,14 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     Optional<JobPosting> findBySourceProviderAndExternalJobId(String sourceProvider, String externalJobId);
     List<JobPosting> findByStatusOrderByPublishedAtDesc(String status);
+    long countByStatus(String status);
+    Page<JobPosting> findByTitleContainingIgnoreCaseOrCompanyNameContainingIgnoreCase(String title, String companyName, Pageable pageable);
 
     @Modifying
     @Query("UPDATE JobPosting posting SET posting.viewCount = posting.viewCount + 1 WHERE posting.id = :id")

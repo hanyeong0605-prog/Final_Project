@@ -4,5 +4,5 @@ import java.time.LocalDateTime;
 
 public record SubscriptionStatusResponse(
         boolean subscribed, String planId, String displayName, int priceWon,
-        LocalDateTime currentPeriodEnd, LocalDateTime nextBillingAt
+        LocalDateTime currentPeriodEnd, LocalDateTime nextBillingAt, boolean admin
 ) {}

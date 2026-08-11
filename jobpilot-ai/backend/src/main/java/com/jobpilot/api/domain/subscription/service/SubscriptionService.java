@@ -12,6 +12,7 @@ import com.jobpilot.api.domain.subscription.entity.SubscriptionStatus;
 import com.jobpilot.api.domain.subscription.exception.SubscriptionException;
 import com.jobpilot.api.domain.subscription.repository.SubscriptionPaymentRepository;
 import com.jobpilot.api.domain.subscription.repository.SubscriptionRepository;
+import com.jobpilot.api.domain.admin.AdminAccessService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
@@ -41,15 +42,18 @@ public class SubscriptionService {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionPaymentRepository paymentRepository;
     private final TossPaymentsClient tossPaymentsClient;
+    private final AdminAccessService adminAccess;
 
     public SubscriptionService(
             SubscriptionRepository subscriptionRepository,
             SubscriptionPaymentRepository paymentRepository,
-            TossPaymentsClient tossPaymentsClient
+            TossPaymentsClient tossPaymentsClient,
+            AdminAccessService adminAccess
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.paymentRepository = paymentRepository;
         this.tossPaymentsClient = tossPaymentsClient;
+        this.adminAccess = adminAccess;
     }
 
     public SubscriptionPlanResponse getPlan() {
@@ -58,14 +62,18 @@ public class SubscriptionService {
     }
 
     public SubscriptionStatusResponse getStatus(Long memberId) {
+        if (adminAccess.isAdmin(memberId)) {
+            return new SubscriptionStatusResponse(true, "ADMIN", "관리자 계정", 0, null, null, true);
+        }
         return subscriptionRepository.findByMemberId(memberId)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
                 .map(this::toResponse)
-                .orElseGet(() -> new SubscriptionStatusResponse(false, null, null, 0, null, null));
+                .orElseGet(() -> new SubscriptionStatusResponse(false, null, null, 0, null, null, false));
     }
 
     /** 결제창을 띄우기 전에 호출 - PENDING 결제 건을 만들고 orderId/금액을 돌려준다. */
     public SubscriptionCheckoutResponse checkout(Long memberId) {
+        rejectAdminCheckout(memberId);
         Subscription subscription = getOrCreateSubscription(memberId);
         SubscriptionPlan plan = SubscriptionPlan.current();
         String orderId = "sub-" + UUID.randomUUID();
@@ -75,6 +83,7 @@ public class SubscriptionService {
 
     /** 결제창 successUrl 리다이렉트 이후 호출 - 승인 API를 부르고 성공하면 구독을 (재)활성화한다. */
     public SubscriptionStatusResponse confirmPayment(Long memberId, SubscriptionConfirmRequest request) {
+        rejectAdminCheckout(memberId);
         SubscriptionPayment payment = paymentRepository.findByOrderIdAndMemberId(request.orderId(), memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("결제 건을 찾을 수 없습니다."));
 
@@ -100,6 +109,7 @@ public class SubscriptionService {
     }
 
     public SubscriptionStatusResponse cancel(Long memberId) {
+        rejectAdminCheckout(memberId);
         Subscription subscription = subscriptionRepository.findByMemberId(memberId)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
                 .orElseThrow(() -> new SubscriptionException("구독 중이 아닙니다."));
@@ -136,6 +146,10 @@ public class SubscriptionService {
                 s.getStatus() == SubscriptionStatus.ACTIVE,
                 s.getPlanId(),
                 s.getStatus() == SubscriptionStatus.ACTIVE ? SubscriptionPlan.current().displayName() : null,
-                s.getPriceWon(), s.getCurrentPeriodEnd(), s.getNextBillingAt());
+                s.getPriceWon(), s.getCurrentPeriodEnd(), s.getNextBillingAt(), false);
+    }
+
+    private void rejectAdminCheckout(Long memberId) {
+        if (adminAccess.isAdmin(memberId)) throw new SubscriptionException("관리자 계정은 결제 없이 모든 기능을 이용할 수 있습니다.");
     }
 }
