@@ -9,6 +9,7 @@ import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.planner.entity.PlannerEvent;
 import com.jobpilot.api.domain.planner.repository.PlannerEventRepository;
+import com.jobpilot.api.domain.matching.service.MemberJobEventService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
@@ -22,9 +23,11 @@ public class InterestService {
     private final UserInterestRepository interests;
     private final JobPostingRepository jobs;
     private final PlannerEventRepository events;
+    private final MemberJobEventService memberJobEvents;
 
-    public InterestService(UserInterestRepository interests, JobPostingRepository jobs, PlannerEventRepository events) {
-        this.interests = interests; this.jobs = jobs; this.events = events;
+    public InterestService(UserInterestRepository interests, JobPostingRepository jobs, PlannerEventRepository events,
+                           MemberJobEventService memberJobEvents) {
+        this.interests = interests; this.jobs = jobs; this.events = events; this.memberJobEvents = memberJobEvents;
     }
 
     public List<Long> ids(Long memberId, String type) {
@@ -41,7 +44,10 @@ public class InterestService {
         var existing = interests.findByMemberIdAndTargetTypeAndTargetId(memberId, request.targetType(), request.targetId());
         if (request.interested() && existing.isEmpty()) {
             interests.save(new UserInterest(memberId, request.targetType(), request.targetId()));
-            if (JOB.equals(request.targetType())) addJobEvent(memberId, request.targetId());
+            if (JOB.equals(request.targetType())) {
+                addJobEvent(memberId, request.targetId());
+                memberJobEvents.record(memberId, request.targetId(), "BOOKMARK");
+            }
         } else if (!request.interested()) {
             existing.ifPresent(interests::delete);
             if (JOB.equals(request.targetType())) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(
