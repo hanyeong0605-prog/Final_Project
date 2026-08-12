@@ -10,6 +10,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const requestedReturnTo = params.get("returnTo");
+  const socialError = params.get("socialError");
   // Preserve only an internal phone-pairing route after login.
   const returnTo = requestedReturnTo?.startsWith("/camera-pair?") ? requestedReturnTo : "/";
   const [loginId, setLoginId] = useState("");
@@ -76,6 +77,12 @@ export function LoginPage() {
             {submitting ? "로그인 중..." : "로그인"}
           </button>
         </form>
+
+        {socialError && (
+          <div className="auth-error">
+            소셜 로그인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.
+          </div>
+        )}
 
         <div className="oauth-login-separator"><span>간편 로그인</span></div>
         <div className="oauth-login-buttons" aria-label="소셜 로그인">
