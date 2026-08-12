@@ -10,7 +10,9 @@ import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingLocationRepository;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.jobposting.service.JobPostingSearchService;
+import com.jobpilot.api.domain.matching.service.MemberJobEventService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
+import com.jobpilot.api.global.security.AuthenticatedMember;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/v1/job-postings")
@@ -26,16 +29,19 @@ public class JobPostingController {
     private final JobPostingRepository repository;
     private final JobPostingLocationRepository locationRepository;
     private final JobPostingSearchService searchService;
+    private final MemberJobEventService memberJobEvents;
     private final ObjectMapper objectMapper;
 
     public JobPostingController(
             JobPostingRepository repository,
             JobPostingLocationRepository locationRepository,
             JobPostingSearchService searchService,
+            MemberJobEventService memberJobEvents,
             ObjectMapper objectMapper) {
         this.repository = repository;
         this.locationRepository = locationRepository;
         this.searchService = searchService;
+        this.memberJobEvents = memberJobEvents;
         this.objectMapper = objectMapper;
     }
 
@@ -54,10 +60,13 @@ public class JobPostingController {
 
     @GetMapping("/{id}")
     @Transactional
-    public JobPostingDetailResponse findById(@PathVariable Long id) {
+    public JobPostingDetailResponse findById(@PathVariable Long id, Authentication authentication) {
         repository.incrementViewCount(id);
         JobPosting posting = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
+        if (authentication != null && authentication.isAuthenticated()) {
+            memberJobEvents.record(AuthenticatedMember.id(authentication), posting.getId(), "VIEW_DETAIL");
+        }
         return toDetailResponse(posting);
     }
 
