@@ -1,9 +1,8 @@
-app:
-  dev-auth:
-    enabled: false
-
-# Avoid starting paid extraction jobs automatically on the first production boot.
-# It can be explicitly enabled with JOB_REQUIREMENT_BACKFILL_ENABLED=true.
-job-requirement-extraction:
-  backfill:
-    enabled: ${JOB_REQUIREMENT_BACKFILL_ENABLED:false}
+server:
+  servlet:
+    session:
+      cookie:
+        # Share the temporary OAuth authorization session between the apex and www hosts.
+        domain: job-a-dream.site
+        secure: true
+        same-site: lax
