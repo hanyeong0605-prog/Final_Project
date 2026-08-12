@@ -51,16 +51,19 @@ public class JobMatchGenerationService {
     private final MemberSpecificationRepository specifications;
     private final CertificateRepository certificates;
     private final SkillAliasRepository skillAliases;
+    private final JobMatchLearningClient learningClient;
 
     public JobMatchGenerationService(JobMatchRepository matches, JobMatchEvidenceRepository evidences,
             JobPostingRepository postings, JobRequirementRepository requirements,
             MemberSkillRepository memberSkills, SkillRepository skills,
             MemberProfileRepository profiles, MemberSpecificationRepository specifications,
-            CertificateRepository certificates, SkillAliasRepository skillAliases) {
+            CertificateRepository certificates, SkillAliasRepository skillAliases,
+            JobMatchLearningClient learningClient) {
         this.matches = matches; this.evidences = evidences; this.postings = postings; this.requirements = requirements;
         this.memberSkills = memberSkills; this.skills = skills; this.profiles = profiles; this.specifications = specifications;
         this.certificates = certificates;
         this.skillAliases = skillAliases;
+        this.learningClient = learningClient;
     }
 
     public int regenerateForMember(Long memberId) {
@@ -80,16 +83,17 @@ public class JobMatchGenerationService {
         MemberSpecification specification = specifications.findById(memberId).orElse(null);
         List<Certificate> memberCertificates = certificates.findByMemberId(memberId);
 
-        int generated = 0;
+        List<SavedMatch> generatedMatches = new ArrayList<>();
         for (JobPosting posting : postings.findActiveWithRequirements()) {
             List<JobRequirement> postingRequirements = requirements.findByJobPostingId(posting.getId());
             MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, memberCertificates, profile, specification);
             JobMatch saved = matches.save(new JobMatch(memberId, posting.getId(), draft.level(), draft.score(),
                     draft.summary(), draft.missingRequired()));
             evidences.saveAll(draft.evidences(saved.getId()));
-            generated++;
+            generatedMatches.add(new SavedMatch(saved, draft, posting, profile));
         }
-        return generated;
+        applyLearningScores(generatedMatches);
+        return generatedMatches.size();
     }
 
     /** 새 공고의 요구사항 추출이 끝났을 때, 온보딩을 마친 회원의 해당 공고 결과만 만든다. */
@@ -120,6 +124,7 @@ public class JobMatchGenerationService {
         JobMatch saved = matches.save(new JobMatch(memberId, posting.getId(), draft.level(), draft.score(),
                 draft.summary(), draft.missingRequired()));
         evidences.saveAll(draft.evidences(saved.getId()));
+        applyLearningScores(List.of(new SavedMatch(saved, draft, posting, profile)));
     }
 
     private MatchDraft evaluate(JobPosting posting, List<JobRequirement> postingRequirements, List<Skill> memberSkills,
@@ -178,7 +183,10 @@ public class JobMatchGenerationService {
             case DIFFICULT_NOW -> required == 0 ? "요구사항 분석 정보가 부족합니다. 공고 원문을 먼저 확인해 주세요."
                     : "필수 항목 " + missing + "개가 비어 있습니다. 준비 계획을 세운 뒤 도전해 보세요.";
         };
-        return new MatchDraft(level, BigDecimal.valueOf(score), summary, missing, result);
+        return new MatchDraft(level, BigDecimal.valueOf(score), summary, missing, result,
+                coverage(requiredByType, "SKILL", result),
+                coverage(requiredByType, "CERTIFICATION", result),
+                hasDirect(result, "EXPERIENCE"), hasDirect(result, "EDUCATION"));
     }
 
     private boolean containsSkill(String requirement, Skill skill, Map<Long, Set<String>> aliasesBySkillId) {
@@ -264,13 +272,54 @@ public class JobMatchGenerationService {
         return 0;
     }
 
+    private double coverage(Map<String, Integer> requiredByType, String type, List<EvidenceDraft> evidence) {
+        int requiredCount = requiredByType.getOrDefault(type, 0);
+        if (requiredCount == 0) return 0d;
+        long direct = evidence.stream().filter(item -> type.equals(safe(item.requirement().getType()))
+                && "DIRECT".equals(item.status())).count();
+        return Math.min(1d, (double) direct / requiredCount);
+    }
+
+    private double hasDirect(List<EvidenceDraft> evidence, String type) {
+        return evidence.stream().anyMatch(item -> type.equals(safe(item.requirement().getType()))
+                && "DIRECT".equals(item.status())) ? 1d : 0d;
+    }
+
+    private void applyLearningScores(List<SavedMatch> savedMatches) {
+        List<JobMatchLearningClient.LearningCandidate> candidates = savedMatches.stream().map(item ->
+                new JobMatchLearningClient.LearningCandidate(
+                        item.draft().skillCoverage(), item.draft().certificateCoverage(),
+                        item.draft().experienceMatch(), item.draft().educationMatch(),
+                        item.draft().score().doubleValue(), item.draft().missingRequired(),
+                        targetText(item.profile()), jobText(item.posting())))
+                .toList();
+        JobMatchLearningClient.LearningScores learned = learningClient.score(candidates);
+        if (!learned.ready()) return;
+        for (int index = 0; index < savedMatches.size(); index++) {
+            SavedMatch item = savedMatches.get(index);
+            item.match().applyLearnedScore(learningClient.blendedReadiness(item.draft().score(), learned.scores().get(index)),
+                    "HYBRID_RANDOM_FOREST_V1:" + learned.source());
+        }
+        matches.saveAll(savedMatches.stream().map(SavedMatch::match).toList());
+    }
+
+    private String targetText(MemberProfile profile) {
+        return profile == null ? "" : safe(profile.getTargetRole()) + " " + safe(profile.getTargetJobFamily());
+    }
+
+    private String jobText(JobPosting posting) {
+        return safe(posting.getTitle()) + " " + safe(posting.getJobName()) + " " + safe(posting.getJobMidName()) + " " + safe(posting.getKeywords());
+    }
+
     private record MatchDraft(RecommendationLevel level, BigDecimal score, String summary, int missingRequired,
-                              List<EvidenceDraft> evidenceDrafts) {
+                              List<EvidenceDraft> evidenceDrafts, double skillCoverage,
+                              double certificateCoverage, double experienceMatch, double educationMatch) {
         List<JobMatchEvidence> evidences(Long matchId) {
             return evidenceDrafts.stream().map(item -> new JobMatchEvidence(matchId, item.requirement().getId(),
                     null, item.evidenceType(), item.memberEvidenceId(), item.status(), item.comment(), item.action())).toList();
         }
     }
+    private record SavedMatch(JobMatch match, MatchDraft draft, JobPosting posting, MemberProfile profile) {}
     private record EvidenceDraft(JobRequirement requirement, Long memberEvidenceId, String evidenceType,
                                  String status, String comment, String action) {
         EvidenceDraft(JobRequirement requirement, Skill skill, String status, String comment, String action) {

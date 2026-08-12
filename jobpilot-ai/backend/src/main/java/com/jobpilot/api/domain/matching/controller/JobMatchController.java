@@ -5,6 +5,7 @@ import com.jobpilot.api.domain.matching.dto.JobMatchSummaryResponse;
 import com.jobpilot.api.domain.matching.policy.RecommendationLevel;
 import com.jobpilot.api.domain.matching.service.JobMatchService;
 import com.jobpilot.api.domain.matching.service.JobMatchGenerationService;
+import com.jobpilot.api.domain.matching.service.JobMatchLearningClient;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,10 +22,13 @@ import com.jobpilot.api.global.security.AuthenticatedMember;
 public class JobMatchController {
     private final JobMatchService jobMatchService;
     private final JobMatchGenerationService matchGenerationService;
+    private final JobMatchLearningClient learningClient;
 
-    public JobMatchController(JobMatchService jobMatchService, JobMatchGenerationService matchGenerationService) {
+    public JobMatchController(JobMatchService jobMatchService, JobMatchGenerationService matchGenerationService,
+                              JobMatchLearningClient learningClient) {
         this.jobMatchService = jobMatchService;
         this.matchGenerationService = matchGenerationService;
+        this.learningClient = learningClient;
     }
 
     /** JWT 적용 전 개발 단계에서는 memberId를 명시적으로 받는다. 인증 도입 후 principal로 교체한다. */
@@ -48,5 +52,12 @@ public class JobMatchController {
     @PostMapping("/recalculate")
     public Map<String, Integer> recalculate(Authentication authentication) {
         return Map.of("generated", matchGenerationService.regenerateForMember(AuthenticatedMember.id(authentication)));
+    }
+
+    /** Train from bookmarks when an operator or a future admin action asks for it. */
+    @PostMapping("/model/retrain")
+    public Map<String, Object> retrainModel(Authentication authentication) {
+        AuthenticatedMember.id(authentication);
+        return learningClient.retrain();
     }
 }

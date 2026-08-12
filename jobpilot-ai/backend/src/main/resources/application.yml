@@ -119,6 +119,12 @@ job-requirement-extraction:
     # A readiness check every 10 minutes. The MySQL daily cap still permits only 3,000 postings/day.
     cron: "${JOB_REQUIREMENT_BACKFILL_CRON:0 */10 * * * *}"
 
+# Retrains the small local recommendation model after the 06:00 job crawl.
+# It starts with rule-based weak labels and switches to bookmark behaviour once
+# enough real bookmarks exist.
+job-match-learning:
+  retrain-cron: "${JOB_MATCH_LEARNING_RETRAIN_CRON:0 20 6 * * *}"
+
 career:
   api:
     key: ${CAREER_API_KEY}
