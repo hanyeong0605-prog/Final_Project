@@ -19,12 +19,18 @@ import com.jobpilot.api.domain.member.repository.MemberProfileRepository;
 import com.jobpilot.api.domain.member.repository.MemberSkillRepository;
 import com.jobpilot.api.domain.member.repository.MemberSpecificationRepository;
 import com.jobpilot.api.domain.member.repository.SkillRepository;
+import com.jobpilot.api.domain.member.repository.SkillAliasRepository;
+import com.jobpilot.api.domain.member.entity.SkillAlias;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.function.Function;
 import org.springframework.stereotype.Service;
 
@@ -44,15 +50,17 @@ public class JobMatchGenerationService {
     private final MemberProfileRepository profiles;
     private final MemberSpecificationRepository specifications;
     private final CertificateRepository certificates;
+    private final SkillAliasRepository skillAliases;
 
     public JobMatchGenerationService(JobMatchRepository matches, JobMatchEvidenceRepository evidences,
             JobPostingRepository postings, JobRequirementRepository requirements,
             MemberSkillRepository memberSkills, SkillRepository skills,
             MemberProfileRepository profiles, MemberSpecificationRepository specifications,
-            CertificateRepository certificates) {
+            CertificateRepository certificates, SkillAliasRepository skillAliases) {
         this.matches = matches; this.evidences = evidences; this.postings = postings; this.requirements = requirements;
         this.memberSkills = memberSkills; this.skills = skills; this.profiles = profiles; this.specifications = specifications;
         this.certificates = certificates;
+        this.skillAliases = skillAliases;
     }
 
     public int regenerateForMember(Long memberId) {
@@ -117,6 +125,17 @@ public class JobMatchGenerationService {
     private MatchDraft evaluate(JobPosting posting, List<JobRequirement> postingRequirements, List<Skill> memberSkills,
                                 List<Certificate> memberCertificates, MemberProfile profile, MemberSpecification specification) {
         int required = 0, covered = 0, missing = 0;
+        Map<String, Integer> requiredByType = new java.util.HashMap<>();
+        for (JobRequirement requirement : postingRequirements) {
+            String type = safe(requirement.getType());
+            if ("REQUIRED".equalsIgnoreCase(requirement.getImportance()) && isComparableType(type)) {
+                requiredByType.merge(type, 1, Integer::sum);
+            }
+        }
+        double fulfilledWeight = 0;
+        double totalWeight = requiredByType.keySet().stream().mapToDouble(this::weightFor).sum();
+        boolean criticalGap = false;
+        Map<Long, Set<String>> aliasesBySkillId = aliasesBySkillId(memberSkills);
         List<EvidenceDraft> result = new ArrayList<>();
         for (JobRequirement requirement : postingRequirements) {
             boolean requiredItem = "REQUIRED".equalsIgnoreCase(requirement.getImportance());
@@ -127,27 +146,32 @@ public class JobMatchGenerationService {
                 continue;
             }
             if (requiredItem) required++;
-            Skill matchedSkill = type.equals("SKILL") ? memberSkills.stream().filter(skill -> containsSkill(content, skill)).findFirst().orElse(null) : null;
+            Skill matchedSkill = type.equals("SKILL") ? memberSkills.stream().filter(skill -> containsSkill(content, skill, aliasesBySkillId)).findFirst().orElse(null) : null;
             Certificate matchedCertificate = type.equals("CERTIFICATION") ? memberCertificates.stream()
                     .filter(certificate -> containsCertificate(content, certificate)).findFirst().orElse(null) : null;
             boolean profileMatch = !type.equals("SKILL") && profileMatches(type, content, profile, specification);
             if (matchedSkill != null || matchedCertificate != null || profileMatch) {
-                if (requiredItem) covered++;
+                if (requiredItem) {
+                    covered++;
+                    fulfilledWeight += weightFor(type) / requiredByType.get(type);
+                }
                 String evidenceType = matchedSkill != null ? "MEMBER_SKILL" : matchedCertificate != null ? "CERTIFICATE" : "PROFILE";
                 Long evidenceId = matchedSkill != null ? matchedSkill.getId() : matchedCertificate != null ? matchedCertificate.getId() : null;
                 result.add(new EvidenceDraft(requirement, evidenceId, evidenceType, "DIRECT", "내 스펙에서 확인되었습니다.", null));
             } else {
-                if (requiredItem) missing++;
+                if (requiredItem) {
+                    missing++;
+                    criticalGap |= type.equals("EXPERIENCE") || type.equals("EDUCATION") || type.equals("CERTIFICATION");
+                }
                 result.add(new EvidenceDraft(requirement, null, "MISSING", "아직 등록된 스펙에서 확인되지 않았습니다.",
                         type.equals("CERTIFICATION") ? "관련 자격증을 등록하거나 취득 계획을 세워 보세요." : "프로젝트·교육·기술 경험으로 보완해 보세요."));
             }
         }
-        int score = required == 0 ? 0 : Math.round(85f * covered / required);
+        int score = required == 0 || totalWeight == 0 ? 0 : (int) Math.round(90d * fulfilledWeight / totalWeight);
         if (roleMatches(posting, profile)) score += 10;
-        if (specification != null && specification.getTechnicalSummary() != null && !specification.getTechnicalSummary().isBlank()) score += 5;
         score = Math.min(score, 100);
-        RecommendationLevel level = required == 0 || missing > 2 ? RecommendationLevel.DIFFICULT_NOW
-                : missing == 0 ? RecommendationLevel.APPLY_NOW : RecommendationLevel.CHALLENGE_AFTER_GAPS;
+        RecommendationLevel level = required == 0 || criticalGap || score < 50 ? RecommendationLevel.DIFFICULT_NOW
+                : missing == 0 && score >= 80 ? RecommendationLevel.APPLY_NOW : RecommendationLevel.CHALLENGE_AFTER_GAPS;
         String summary = switch (level) {
             case APPLY_NOW -> "필수 요구사항이 등록한 스펙과 잘 맞습니다. 지원을 우선 검토해 보세요.";
             case CHALLENGE_AFTER_GAPS -> "필수 항목 " + missing + "개를 보완하면 지원 경쟁력을 높일 수 있습니다.";
@@ -157,9 +181,12 @@ public class JobMatchGenerationService {
         return new MatchDraft(level, BigDecimal.valueOf(score), summary, missing, result);
     }
 
-    private boolean containsSkill(String requirement, Skill skill) {
-        String name = normalize(skill.getName());
-        return name.length() >= 2 && normalize(requirement).contains(name);
+    private boolean containsSkill(String requirement, Skill skill, Map<Long, Set<String>> aliasesBySkillId) {
+        String normalizedRequirement = normalize(requirement);
+        Set<String> candidates = new HashSet<>(aliasesBySkillId.getOrDefault(skill.getId(), Set.of()));
+        candidates.add(normalize(skill.getName()));
+        candidates.add(normalize(skill.getNormalizedName()));
+        return candidates.stream().anyMatch(candidate -> candidate.length() >= 2 && normalizedRequirement.contains(candidate));
     }
 
     private boolean containsCertificate(String requirement, Certificate certificate) {
@@ -169,12 +196,11 @@ public class JobMatchGenerationService {
     }
 
     private boolean profileMatches(String type, String requirement, MemberProfile profile, MemberSpecification specification) {
-        String text = normalize(requirement);
         if (type.equals("EXPERIENCE")) {
-            return specification != null && specification.getTotalCareerMonths() > 0;
+            return specification != null && specification.getTotalCareerMonths() >= requiredCareerMonths(requirement);
         }
         if (type.equals("EDUCATION")) {
-            return specification != null && specification.getEducationLevel() != null && !specification.getEducationLevel().isBlank();
+            return specification != null && educationRank(specification.getEducationLevel()) >= requiredEducationRank(requirement);
         }
         if (type.equals("CERTIFICATION")) return false;
         return false;
@@ -189,6 +215,54 @@ public class JobMatchGenerationService {
 
     private String normalize(String value) { return safe(value).toLowerCase(Locale.ROOT).replaceAll("\\s+", ""); }
     private String safe(String value) { return value == null ? "" : value.trim(); }
+
+    private boolean isComparableType(String type) {
+        return Set.of("SKILL", "EXPERIENCE", "EDUCATION", "CERTIFICATION").contains(type);
+    }
+
+    private double weightFor(String type) {
+        return switch (type) {
+            case "SKILL" -> 45d;
+            case "CERTIFICATION" -> 20d;
+            case "EXPERIENCE" -> 20d;
+            case "EDUCATION" -> 15d;
+            default -> 0d;
+        };
+    }
+
+    private Map<Long, Set<String>> aliasesBySkillId(List<Skill> memberSkills) {
+        List<Long> ids = memberSkills.stream().map(Skill::getId).toList();
+        Map<Long, Set<String>> result = new java.util.HashMap<>();
+        for (SkillAlias alias : skillAliases.findBySkillIdIn(ids)) {
+            result.computeIfAbsent(alias.getSkillId(), ignored -> new HashSet<>()).add(normalize(alias.getNormalizedAlias()));
+        }
+        return result;
+    }
+
+    private int requiredCareerMonths(String content) {
+        Matcher matcher = Pattern.compile("(\\d+)\\s*(년|개월|month|year)", Pattern.CASE_INSENSITIVE).matcher(content);
+        if (!matcher.find()) return 0;
+        int value = Integer.parseInt(matcher.group(1));
+        return matcher.group(2).contains("년") || matcher.group(2).toLowerCase(Locale.ROOT).contains("year") ? value * 12 : value;
+    }
+
+    private int educationRank(String value) {
+        String normalized = normalize(value);
+        if (normalized.contains("박사")) return 4;
+        if (normalized.contains("석사")) return 3;
+        if (normalized.contains("대학교") || normalized.contains("학사") || normalized.contains("bachelor")) return 2;
+        if (normalized.contains("전문") || normalized.contains("associate")) return 1;
+        return 0;
+    }
+
+    private int requiredEducationRank(String value) {
+        String normalized = normalize(value);
+        if (normalized.contains("박사")) return 4;
+        if (normalized.contains("석사")) return 3;
+        if (normalized.contains("학사") || normalized.contains("4년제") || normalized.contains("대학교")) return 2;
+        if (normalized.contains("전문학사") || normalized.contains("전문대")) return 1;
+        return 0;
+    }
 
     private record MatchDraft(RecommendationLevel level, BigDecimal score, String summary, int missingRequired,
                               List<EvidenceDraft> evidenceDrafts) {
