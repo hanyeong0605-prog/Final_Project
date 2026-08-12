@@ -139,17 +139,27 @@ def _build_description(detail: dict) -> str | None:
 
 def _image_urls(job: dict, detail: dict) -> list[str]:
     """원티드 상세 응답의 공고/회사 이미지 URL을 보존한다."""
-    candidates = [
-        _as_dict(job.get("images")).get("job_thumbnail_urls"),
-        _as_dict(detail.get("images")).get("job_thumbnail_urls"),
-    ]
+    image_key_words = ("image", "thumbnail", "logo", "banner", "gallery", "photo")
     result: list[str] = []
-    for urls in candidates:
-        if not isinstance(urls, list):
-            continue
-        for url in urls:
-            if isinstance(url, str) and url.startswith(("https://", "http://")) and url not in result:
-                result.append(url)
+
+    def collect(value, image_context: bool = False) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                key_is_image = any(word in str(key).lower() for word in image_key_words)
+                collect(child, image_context or key_is_image)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child, image_context)
+        elif (
+            image_context
+            and isinstance(value, str)
+            and value.startswith(("https://", "http://"))
+            and value not in result
+        ):
+            result.append(value)
+
+    collect(job)
+    collect(detail)
     return result
 
 
