@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.jobposting.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobpilot.api.domain.jobposting.dto.JobPostingDetailResponse;
 import com.jobpilot.api.domain.jobposting.dto.JobPostingListResponse;
 import com.jobpilot.api.domain.jobposting.dto.JobPostingLocationResponse;
@@ -25,14 +26,17 @@ public class JobPostingController {
     private final JobPostingRepository repository;
     private final JobPostingLocationRepository locationRepository;
     private final JobPostingSearchService searchService;
+    private final ObjectMapper objectMapper;
 
     public JobPostingController(
             JobPostingRepository repository,
             JobPostingLocationRepository locationRepository,
-            JobPostingSearchService searchService) {
+            JobPostingSearchService searchService,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.locationRepository = locationRepository;
         this.searchService = searchService;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping
@@ -66,7 +70,7 @@ public class JobPostingController {
                 posting.getIndustryName(), posting.getJobMidName(), posting.getJobName(), posting.getSalary(),
                 posting.getKeywords(), posting.getPublishedAt(), posting.getDeadlineAt(), posting.isRollingDeadline(),
                 posting.getStatus(), locations(posting.getId()),
-                imageUrls(posting.getRawPayload())
+                imageUrls(posting)
         );
     }
 
@@ -79,12 +83,19 @@ public class JobPostingController {
                 .toList();
     }
 
-    private List<String> imageUrls(JsonNode rawPayload) {
-        if (rawPayload == null) return List.of();
-        JsonNode urls = rawPayload.path("imageUrls");
-        if (!urls.isArray()) {
-            urls = rawPayload.path("images").path("job_thumbnail_urls");
+    private List<String> imageUrls(JobPosting posting) {
+        try {
+            String imageUrlsJson = repository.findImageUrlsJsonById(posting.getId());
+            if (imageUrlsJson != null && !imageUrlsJson.isBlank()) {
+                return imageUrls(objectMapper.readTree(imageUrlsJson));
+            }
+        } catch (Exception ignored) {
+            // Keep the detail page usable even if a legacy payload is malformed.
         }
+        return imageUrls(posting.getRawPayload());
+    }
+
+    private List<String> imageUrls(JsonNode urls) {
         if (!urls.isArray()) return List.of();
 
         List<String> result = new ArrayList<>();
