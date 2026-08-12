@@ -43,8 +43,9 @@ spring:
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            # 이메일 동의가 승인되지 않은 카카오 계정도 가입 화면에서 직접 입력으로 계속할 수 있다.
-            scope: profile_nickname, account_email
+            # 현재 카카오 앱의 이메일 권한이 승인되지 않아도 로그인 자체는 가능해야 한다.
+            # 이메일 권한을 승인받은 뒤에만 account_email을 이 목록에 추가한다.
+            scope: profile_nickname
           naver:
             client-id: ${OAUTH_NAVER_CLIENT_ID:disabled-naver}
             client-secret: ${OAUTH_NAVER_CLIENT_SECRET:disabled-naver}
