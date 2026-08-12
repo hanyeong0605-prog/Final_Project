@@ -807,6 +807,36 @@ export function MockInterviewPage() {
     }
   };
 
+  // 2026-08-12: 휴대폰 브라우저 단독 사용 시 "질문이 안 넘어감" 버그 수정.
+  // revealQuestionAndBeginRecording -> speakQuestionText의 audio.play()는 버튼 클릭 이후
+  // 카운트다운(setTimeout 체인)을 몇 초 거쳐서야 호출되는데, 이 시점은 더 이상 "사용자 제스처"
+  // 콜스택 안이 아니다. 데스크톱 크롬은 대체로 관대하지만, 모바일 사파리/일부 모바일
+  // 크롬은 제스처 밖에서 나온 audio.play()를 무음 처리하거나 아예 막는다 - 이 경우
+  // audio.onended/onerror가 둘 다 안 불려서 onDone()이 영영 안 불리고(녹음 시작 콜백이
+  // startRecording), 화면이 "질문 읽어주는 중" 상태에서 멈춰버린다(캠/마이크는 이미
+  // 앞단계에서 정상 연결됐으니 "캠은 되는데 질문만 안 넘어간다"처럼 보임).
+  // 해결: 사용자가 처음 누르는 버튼(마이크/캠 테스트 시작, 면접 시작) 클릭 핸들러 "안"에서
+  // 무음 오디오를 한 번 실제로 재생해둔다 - 대부분의 모바일 브라우저는 제스처 중 오디오
+  // 재생이 한 번 성공하면 그 페이지 전체에 대해 이후의 스크립트 재생도 풀어준다(오토플레이
+  // 잠금 해제). 실패해도(=이미 막혀있는 브라우저) 그냥 무시 - 아래 워치독 타이머가 마지막
+  // 안전망 역할을 한다.
+  const audioUnlockedRef = useRef(false);
+  const unlockAudioPlaybackForMobile = () => {
+    if (audioUnlockedRef.current) return;
+    audioUnlockedRef.current = true;
+    try {
+      const silentWavDataUrl =
+        "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
+      const unlockAudio = new Audio(silentWavDataUrl);
+      unlockAudio.volume = 0;
+      void unlockAudio.play().catch(() => {
+        // 여기서 막혀도(엄격한 브라우저) 아래 워치독이 있으니 흐름 자체는 이어진다.
+      });
+    } catch {
+      // no-op - 최선의 시도일 뿐이다.
+    }
+  };
+
   // 브라우저 기본 TTS로 재생 - 클라우드 TTS 키가 없거나 요청이 실패했을 때의 폴백(fail-open).
   // onDone은 다 읽고 나면(또는 speechSynthesis 자체를 못 쓰면 1.8초 뒤) 정확히 한 번 불린다.
   const speakWithBrowserTts = (text: string, onDone: () => void) => {
@@ -834,26 +864,42 @@ export function MockInterviewPage() {
       onDone();
       return;
     }
+
+    // 2026-08-12: 워치독 - onended/onerror가 둘 다 안 불리고 조용히 멈추는 경우(모바일에서
+    // 재생이 막혔는데 catch도 안 걸리는 등)에 대비한 최종 안전망. 이게 없으면 "질문 읽어주는
+    // 중" 상태에서 영원히 멈춰서 다음 단계(녹음 시작)로 못 넘어간다. 글자 수로 대략적인
+    // 낭독 시간을 추정해(한국어 분당 약 300자) 최소 6초, 최대 20초로 여유를 둔다 - 정상
+    // 경로가 먼저 끝나면 이 타이머는 취소된다.
+    let settled = false;
+    let watchdogId: number | null = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (watchdogId !== null) {
+        window.clearTimeout(watchdogId);
+        watchdogId = null;
+      }
+      stopTtsAudio();
+      window.speechSynthesis?.cancel();
+      onDone();
+    };
+    const estimatedMs = Math.min(20000, Math.max(6000, (text.length / 300) * 60000 + 2000));
+    watchdogId = window.setTimeout(finish, estimatedMs);
+
     synthesizeSpeech(text, selectedTtsVoice)
       .then((blob) => {
+        if (settled) return; // 워치독이 이미 다음 단계로 넘겼으면 새로 재생을 시작할 필요 없음
         const url = URL.createObjectURL(blob);
         ttsAudioUrlRef.current = url;
         const audio = new Audio(url);
         ttsAudioRef.current = audio;
-        audio.onended = () => {
-          stopTtsAudio();
-          onDone();
-        };
-        audio.onerror = () => {
-          stopTtsAudio();
-          speakWithBrowserTts(text, onDone);
-        };
-        void audio.play().catch(() => {
-          stopTtsAudio();
-          speakWithBrowserTts(text, onDone);
-        });
+        audio.onended = finish;
+        audio.onerror = () => speakWithBrowserTts(text, finish);
+        void audio.play().catch(() => speakWithBrowserTts(text, finish));
       })
-      .catch(() => speakWithBrowserTts(text, onDone));
+      .catch(() => {
+        if (!settled) speakWithBrowserTts(text, finish);
+      });
   };
 
   // 수동으로 "질문 듣기"를 다시 누를 때 쓰는 재생 함수 - 인자 없이 부르면 현재 question을 읽는다.
@@ -1152,6 +1198,7 @@ export function MockInterviewPage() {
   // 마이크 음량 확인 + 얼굴 인식 준비를 한 번에 한다 - 카메라/마이크 권한 요청을
   // 따로따로 하면 사용자가 두 번 허용해야 해서 번거롭다.
   const startDeviceTest = async () => {
+    unlockAudioPlaybackForMobile();
     setErrorMessage(null);
     setStage("preparing");
     try {
@@ -1321,6 +1368,7 @@ export function MockInterviewPage() {
   // 않고 카운트다운부터 돌린다 - 아래 useEffect가 매초 값을 줄이다가 0이 되는 순간
   // revealQuestionAndBeginRecording을 호출해 질문을 공개한다.
   const beginInterviewCountdown = () => {
+    unlockAudioPlaybackForMobile();
     stopMeterLoop();
     setQuestionTextReady(false);
     pendingQuestionRef.current = sessionQuestions[sessionIndex] ?? null;
