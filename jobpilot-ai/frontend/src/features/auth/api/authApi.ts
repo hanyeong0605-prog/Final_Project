@@ -10,3 +10,7 @@ export const checkLoginIdAvailability = (loginId: string) =>
 export const sendEmailVerificationCode = (email: string) => postJson<void>("/api/v1/auth/email-verifications", { email });
 export const confirmEmailVerificationCode = (email: string, code: string) =>
   postJson<EmailVerificationConfirmResponse>("/api/v1/auth/email-verifications/confirm", { email, code });
+export const completeOAuthSignup = (input: {
+  ticket: string; email: string; emailVerificationToken: string;
+  termsAgreed: boolean; privacyCollectionAgreed: boolean; marketingEmailAgreed: boolean;
+}) => postJson<AuthResponse>("/api/v1/auth/oauth/complete", input);

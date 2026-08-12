@@ -5,7 +5,9 @@ import com.jobpilot.api.domain.auth.dto.LoginRequest;
 import com.jobpilot.api.domain.auth.dto.LoginIdAvailabilityResponse;
 import com.jobpilot.api.domain.auth.dto.MemberResponse;
 import com.jobpilot.api.domain.auth.dto.SignupRequest;
+import com.jobpilot.api.domain.auth.dto.OAuthCompleteRequest;
 import com.jobpilot.api.domain.auth.service.AuthService;
+import com.jobpilot.api.domain.auth.service.OAuthLoginService;
 import com.jobpilot.api.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -20,14 +22,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     private final AuthService service;
+    private final OAuthLoginService oauthLoginService;
 
-    public AuthController(AuthService service) { this.service = service; }
+    public AuthController(AuthService service, OAuthLoginService oauthLoginService) {
+        this.service = service;
+        this.oauthLoginService = oauthLoginService;
+    }
 
     @PostMapping("/signup")
     public AuthResponse signup(@Valid @RequestBody SignupRequest request) { return service.signup(request); }
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) { return service.login(request); }
+
+    @PostMapping("/oauth/complete")
+    public AuthResponse completeOAuthSignup(@Valid @RequestBody OAuthCompleteRequest request) {
+        return oauthLoginService.complete(request);
+    }
 
     @GetMapping("/login-id-availability")
     public LoginIdAvailabilityResponse loginIdAvailability(@RequestParam String loginId) {

@@ -80,6 +80,7 @@ export function SubscriptionSection() {
   };
 
   const isSubscribed = status?.subscribed ?? false;
+  const isAdmin = status?.admin ?? false;
 
   return (
     <section className="panel subscription-section">
@@ -102,9 +103,9 @@ export function SubscriptionSection() {
             <div><span>월 결제 금액</span><strong>{status?.priceWon.toLocaleString()}원</strong></div>
             <div><span>이용 만료일</span><strong>{status?.currentPeriodEnd?.slice(0, 10) ?? "-"}</strong></div>
           </div>
-          <button className="danger-button" disabled={isBusy} onClick={() => void handleCancel()}>
+          {!isAdmin && <button className="danger-button" disabled={isBusy} onClick={() => void handleCancel()}>
             {isBusy ? "처리 중..." : "구독 해지"}
-          </button>
+          </button>}
         </>
       ) : (
         <>
