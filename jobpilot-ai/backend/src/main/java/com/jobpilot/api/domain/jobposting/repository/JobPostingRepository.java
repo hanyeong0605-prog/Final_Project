@@ -16,6 +16,20 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     long countByStatus(String status);
     Page<JobPosting> findByTitleContainingIgnoreCaseOrCompanyNameContainingIgnoreCase(String title, String companyName, Pageable pageable);
 
+    /**
+     * Read Wanted's image gallery directly from MySQL JSON.  This avoids relying
+     * on Hibernate's JSON conversion for payloads imported from the seed dump.
+     */
+    @Query(value = """
+            SELECT COALESCE(
+                JSON_EXTRACT(raw_payload, '$.imageUrls'),
+                JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls')
+            )
+            FROM job_postings
+            WHERE id = :id
+            """, nativeQuery = true)
+    String findImageUrlsJsonById(@Param("id") Long id);
+
     @Modifying
     @Query("UPDATE JobPosting posting SET posting.viewCount = posting.viewCount + 1 WHERE posting.id = :id")
     int incrementViewCount(@Param("id") Long id);
