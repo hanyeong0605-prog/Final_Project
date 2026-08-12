@@ -76,7 +76,8 @@ public class OAuthLoginService {
         if (profile.email() != null) {
             Member existing = members.findByEmail(profile.email()).orElse(null);
             if (existing != null) {
-                throw new EmailVerificationException("이미 같은 이메일로 가입된 계정이 있습니다. 기존 계정으로 로그인한 뒤 소셜 계정을 연결해 주세요.");
+                accounts.save(new MemberOAuthAccount(existing, provider, profile.subject()));
+                return LoginResult.completed(response(existing));
             }
         }
         OAuthPendingLogin pending = pendingLogins.findByProviderAndProviderSubject(provider, profile.subject()).orElse(null);
