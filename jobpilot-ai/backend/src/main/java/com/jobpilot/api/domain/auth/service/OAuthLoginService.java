@@ -55,7 +55,11 @@ public class OAuthLoginService {
                 .filter(OAuthPendingLogin::isUsable)
                 .orElseThrow(() -> new EmailVerificationException("소셜 로그인 확인 시간이 만료되었습니다. 다시 로그인해 주세요."));
         String email = request.email().trim().toLowerCase(Locale.ROOT);
-        emailVerificationService.consumeVerifiedEmail(email, request.emailVerificationToken());
+        boolean trustedProviderEmail = pending.getProviderEmail() != null
+                && pending.getProviderEmail().equalsIgnoreCase(email);
+        if (!trustedProviderEmail) {
+            emailVerificationService.consumeVerifiedEmail(email, request.emailVerificationToken());
+        }
         Member member = members.findByEmail(email).orElseGet(() -> members.save(new Member(
                 nextLoginId(pending.getProvider()), email, passwordEncoder.encode(UUID.randomUUID().toString()), pending.getNickname())));
         if (accounts.findByProviderAndProviderSubject(pending.getProvider(), pending.getProviderSubject()).isEmpty()) {
@@ -112,16 +116,20 @@ public class OAuthLoginService {
             if (provider == OAuthProvider.KAKAO) {
                 Map<String, Object> properties = nested(attributes, "properties");
                 Map<String, Object> account = nested(attributes, "kakao_account");
-                return new ProviderProfile(value(attributes, "id"), defaultNickname(value(properties, "nickname")), normalize(value(account, "email")));
+                return new ProviderProfile(value(attributes, "id"), defaultNickname(optionalValue(properties, "nickname")), normalize(optionalValue(account, "email")));
             }
             return new ProviderProfile(value(root, provider == OAuthProvider.GOOGLE ? "sub" : "id"),
-                    defaultNickname(first(value(root, "name"), value(root, "nickname"))), normalize(value(root, "email")));
+                    defaultNickname(first(optionalValue(root, "name"), optionalValue(root, "nickname"))), normalize(optionalValue(root, "email")));
         }
         private static Map<String, Object> nested(Map<String, Object> source, String key) {
             Object value = source.get(key); return value instanceof Map<?, ?> map ? (Map<String, Object>) map : source;
         }
         private static String value(Map<String, Object> source, String key) {
             Object value = source.get(key); if (value == null || value.toString().isBlank()) throw new IllegalArgumentException("소셜 계정 식별 정보를 가져오지 못했습니다."); return value.toString();
+        }
+        private static String optionalValue(Map<String, Object> source, String key) {
+            Object value = source.get(key);
+            return value == null || value.toString().isBlank() ? null : value.toString();
         }
         private static String first(String first, String second) { return first == null || first.isBlank() ? second : first; }
         private static String defaultNickname(String value) { return value == null || value.isBlank() ? "Job-A-Dream 사용자" : value.substring(0, Math.min(80, value.length())); }
