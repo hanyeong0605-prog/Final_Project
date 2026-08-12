@@ -82,7 +82,9 @@ public class OAuthLoginService {
         }
         OAuthPendingLogin pending = pendingLogins.findByProviderAndProviderSubject(provider, profile.subject()).orElse(null);
         if (pending != null && !pending.isUsable()) {
+            // Flush the delete before creating a replacement: provider + subject is unique.
             pendingLogins.delete(pending);
+            pendingLogins.flush();
             pending = null;
         }
         if (pending == null) {
