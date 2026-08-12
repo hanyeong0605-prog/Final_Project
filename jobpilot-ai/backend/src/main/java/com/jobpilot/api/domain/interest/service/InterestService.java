@@ -75,7 +75,10 @@ public class InterestService {
 
     private String thumbnailUrl(JobPosting posting) {
         var rawPayload = posting.getRawPayload();
-        var url = rawPayload == null ? null : rawPayload.path("images").path("job_thumbnail_urls").path(0);
+        var url = rawPayload == null ? null : rawPayload.path("imageUrls").path(0);
+        if (url == null || !url.isTextual()) {
+            url = rawPayload == null ? null : rawPayload.path("images").path("job_thumbnail_urls").path(0);
+        }
         return url != null && url.isTextual() ? url.asText() : posting.getCompanyLogoUrl();
     }
 }

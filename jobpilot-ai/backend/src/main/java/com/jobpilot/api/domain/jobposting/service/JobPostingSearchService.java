@@ -64,7 +64,8 @@ public class JobPostingSearchService {
         parameters.addValue("limit", safeSize);
         parameters.addValue("offset", safePage * safeSize);
         String sql = "SELECT id, external_job_id, company_name, company_logo_url, "
-                + "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null'), company_logo_url) AS thumbnail_url, "
+                + "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[0]')), 'null'), "
+                + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null'), company_logo_url) AS thumbnail_url, "
                 + "title, source_url, location, employment_type, "
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
                 + "is_rolling_deadline, status, COALESCE(view_count, 0) AS view_count, "

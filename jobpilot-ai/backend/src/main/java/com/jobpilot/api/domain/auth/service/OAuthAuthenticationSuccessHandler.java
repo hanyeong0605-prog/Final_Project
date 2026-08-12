@@ -11,9 +11,12 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class OAuthAuthenticationSuccessHandler extends SavedRequestAwareAuthenticationSuccessHandler {
+    private static final Logger log = LoggerFactory.getLogger(OAuthAuthenticationSuccessHandler.class);
     private final OAuthLoginService service;
     private final String successRedirect;
     public OAuthAuthenticationSuccessHandler(OAuthLoginService service, @Value("${app.oauth.success-redirect}") String successRedirect) {
@@ -32,6 +35,7 @@ public class OAuthAuthenticationSuccessHandler extends SavedRequestAwareAuthenti
                         + "&provider=" + encode(result.provider()) + "&nickname=" + encode(result.nickname())
                         + (result.email() == null ? "" : "&email=" + encode(result.email()));
         } catch (RuntimeException error) {
+            log.error("OAuth login completion failed", error);
             target = successRedirect.replace("/oauth/callback", "/login") + "?socialError=SOCIAL_LOGIN_FAILED";
         }
         getRedirectStrategy().sendRedirect(request, response, target);
