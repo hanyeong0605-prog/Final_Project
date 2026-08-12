@@ -21,10 +21,11 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
      * on Hibernate's JSON conversion for payloads imported from the seed dump.
      */
     @Query(value = """
-            SELECT COALESCE(
-                JSON_EXTRACT(raw_payload, '$.imageUrls'),
-                JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls')
-            )
+            SELECT CASE
+                WHEN JSON_LENGTH(JSON_EXTRACT(raw_payload, '$.imageUrls')) > 0
+                    THEN JSON_EXTRACT(raw_payload, '$.imageUrls')
+                ELSE JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls')
+            END
             FROM job_postings
             WHERE id = :id
             """, nativeQuery = true)
