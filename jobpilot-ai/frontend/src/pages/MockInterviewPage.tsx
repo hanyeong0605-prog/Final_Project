@@ -34,6 +34,7 @@ import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetr
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
 import { PhoneCameraPairingPanel } from "../features/mock-interview/components/PhoneCameraPairingPanel";
+import { VoiceTimelineChart } from "../features/mock-interview/components/VoiceTimelineChart";
 
 // 2026-08-04: KoGPT2+LoRA 질문 생성 모델(ai-server /interview/next-question)이 실제 질문을
 // 만들어준다. 이 배열은 이제 "기본값"이 아니라 폴백용 - 모델 서버가 아직 안 떠 있거나
@@ -138,8 +139,14 @@ type Stage =
 const SPEAKING_RATE_MIN = 220;
 const SPEAKING_RATE_MAX = 271;
 
+// 2026-08-12: VoiceMetrics에 timeline_* 시계열(배열) 필드가 추가되면서 keyof VoiceMetrics를
+// 그대로 쓰면 value 타입이 number 외에 배열까지 섞여서 format/gauge/hint(전부 number 전용)가
+// 타입 에러가 난다 - 이 카드 목록은 원래도 숫자 하나짜리 지표만 다루므로 시계열 필드는 제외한다
+// (시계열은 VoiceTimelineChart.tsx가 별도로 그린다).
+type ScalarVoiceMetricKey = Exclude<keyof VoiceMetrics, "timeline_seconds" | "timeline_pitch_hz" | "timeline_volume_rms">;
+
 const metricLabels: {
-  key: keyof VoiceMetrics;
+  key: ScalarVoiceMetricKey;
   label: string;
   format: (value: number) => string;
   hint?: (value: number) => string;
@@ -449,6 +456,8 @@ function SessionReportPanel({
                 ))}
             </div>
 
+            {a.result.metrics && <VoiceTimelineChart metrics={a.result.metrics} />}
+
             {a.result.metrics && !a.faceMetrics && (
               <p className="analysis-muted" style={{ marginTop: 12, fontSize: 11 }}>
                 얼굴이 인식되지 않아 표정 관련 지표는 계산되지 않았습니다. 카메라 각도를 조정하고 다시 시도해 보세요.
@@ -705,6 +714,9 @@ export function MockInterviewPage() {
   const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
   const phoneAutoStartRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  // 2026-08-12 추가: 마이크 테스트 화면의 막대바 대신 실제 파형(오실로스코프 모양)을
+  // 그려주기 위한 canvas ref - startMeterLoop의 tick()에서 매 프레임 그린다.
+  const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const faceRafIdRef = useRef<number | null>(null);
   const faceFramesRef = useRef<FaceFrameSample[]>([]);
@@ -975,9 +987,44 @@ export function MockInterviewPage() {
       let peak = 0;
       for (const value of data) peak = Math.max(peak, Math.abs((value - 128) / 128));
       setMicLevel(Math.min(100, Math.round(peak * 250)));
+      drawWaveform(data);
       rafIdRef.current = requestAnimationFrame(tick);
     };
     tick();
+  };
+
+  // 2026-08-12 추가: analyser의 시간 영역 데이터(byte time-domain data)를 그대로 캔버스에
+  // 선으로 그려서 실제 파형(물결 모양)을 보여준다 - micLevel(막대 하나)보다 목소리의
+  // 진짜 모양(떨림, 강세)이 눈에 보여서 "마이크가 소리를 잘 잡고 있다"는 확신을 주기 좋다.
+  const drawWaveform = (data: Uint8Array) => {
+    const canvas = waveformCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // 레티나 디스플레이에서 흐릿하게 안 보이도록 devicePixelRatio만큼 실제 픽셀을 늘리고
+    // CSS 크기는 그대로 유지한다 - canvas 표준 패턴.
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = canvas.clientWidth || 320;
+    const cssHeight = canvas.clientHeight || 56;
+    if (canvas.width !== cssWidth * dpr || canvas.height !== cssHeight * dpr) {
+      canvas.width = cssWidth * dpr;
+      canvas.height = cssHeight * dpr;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#596ff3";
+    ctx.beginPath();
+    const step = cssWidth / data.length;
+    for (let i = 0; i < data.length; i++) {
+      const x = i * step;
+      const y = (data[i] / 255) * cssHeight; // byte time-domain: 128이 무음(중앙)
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
   };
 
   const disconnectPhonePairing = () => {
@@ -1447,6 +1494,15 @@ export function MockInterviewPage() {
             long_pause_count: 1,
             volume_mean_rms: 0.08,
             volume_variation_rms: 0.03,
+            // 개발용 더미 시계열 - 실제 답변 있는 것처럼 자연스러운 굴곡을 만들려고 사인파에
+            // 약간의 흔들림을 섞었다(진짜 백엔드 값과 똑같을 필요는 없음, UI 확인용).
+            timeline_seconds: Array.from({ length: 60 }, (_, i) => Number(((i / 59) * 42).toFixed(2))),
+            timeline_pitch_hz: Array.from({ length: 60 }, (_, i) =>
+              i % 11 === 3 ? null : Number((165 + Math.sin(i / 3) * 20 + Math.sin(i / 1.7) * 6).toFixed(1)),
+            ),
+            timeline_volume_rms: Array.from({ length: 60 }, (_, i) =>
+              Number(Math.max(0, 0.08 + Math.sin(i / 4) * 0.04 + Math.sin(i / 1.3) * 0.015).toFixed(4)),
+            ),
           },
         },
         faceMetrics: { blinkCount: 14, blinkRatePerMin: 22, headMovement: 12, frameCount: 300 },
@@ -1960,16 +2016,17 @@ export function MockInterviewPage() {
 
           {stage === "testing-mic" && (
             <>
-              <div style={{ width: "100%", maxWidth: 320, height: 10, borderRadius: 6, background: "#eef0f6", overflow: "hidden" }}>
-                <div
-                  style={{
-                    width: `${micLevel}%`,
-                    height: "100%",
-                    background: micLevel < 8 ? "#e05252" : "#596ff3",
-                    transition: "width 60ms linear",
-                  }}
-                />
-              </div>
+              <canvas
+                ref={waveformCanvasRef}
+                style={{
+                  width: "100%",
+                  maxWidth: 320,
+                  height: 56,
+                  borderRadius: 8,
+                  background: "#eef0f6",
+                  border: micLevel < 8 ? "1px solid #e05252" : "1px solid transparent",
+                }}
+              />
               <span style={{ fontSize: 11, color: micLevel < 8 ? "#c0392b" : "#9098a7" }}>
                 {micLevel < 8 ? "소리가 거의 안 잡혀요 - 마이크에 더 가까이서 말해보세요" : "마이크가 소리를 잡고 있어요"}
               </span>
