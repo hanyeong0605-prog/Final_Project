@@ -18,7 +18,7 @@ const insightBars = [
   { label: "자격·교육 이수", value: 63 },
 ];
 
-export function HomePage() {
+export function HomePage() {  
   useEffect(() => {
     const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-reveal]"));
     const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
