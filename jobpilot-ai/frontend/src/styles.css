@@ -337,22 +337,30 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
 .brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
-.brand-bobo-stage { position: absolute; z-index: 4; bottom: -36px; left: -62px; width: 110px; height: 110px; overflow: visible; pointer-events: none; }
+.brand-bobo-stage { position: absolute; z-index: 4; bottom: -36px; left: -40px; width: 110px; height: 110px; overflow: visible; pointer-events: none; }
 .brand-bobo-frame { position: absolute; inset: 0; width: 110px; height: 110px; object-fit: contain; opacity: 0; transform-origin: center; }
-.desktop-brand:hover .brand-bobo-frame.frame-1, .desktop-brand:focus-visible .brand-bobo-frame.frame-1 { animation: bobo-logo-frame-1 1.45s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-2, .desktop-brand:focus-visible .brand-bobo-frame.frame-2 { animation: bobo-logo-frame-2 1.45s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-3, .desktop-brand:focus-visible .brand-bobo-frame.frame-3 { animation: bobo-logo-frame-3 1.45s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-4, .desktop-brand:focus-visible .brand-bobo-frame.frame-4 { animation: bobo-logo-frame-4 1.45s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-5, .desktop-brand:focus-visible .brand-bobo-frame.frame-5 { animation: bobo-logo-frame-5 1.45s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-6, .desktop-brand:focus-visible .brand-bobo-frame.frame-6 { animation: bobo-logo-frame-6 1.45s ease both; }
-.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse 1.45s cubic-bezier(.2,.9,.25,1) both; }
-@keyframes bobo-logo-frame-1 { 0%, 15% { opacity: 1; transform: translateX(-10px) scale(.9); } 21%, 100% { opacity: 0; transform: translateX(-4px) scale(.93); } }
-@keyframes bobo-logo-frame-2 { 0%, 13% { opacity: 0; } 19%, 31% { opacity: 1; transform: translateX(-5px) scale(.94); } 37%, 100% { opacity: 0; transform: translateX(0) scale(.96); } }
-@keyframes bobo-logo-frame-3 { 0%, 29% { opacity: 0; } 35%, 47% { opacity: 1; transform: translateX(-1px) translateY(2px) scale(.97); } 53%, 100% { opacity: 0; transform: translateX(5px) translateY(-1px) scale(1); } }
-@keyframes bobo-logo-frame-4 { 0%, 45% { opacity: 0; } 51%, 62% { opacity: 1; transform: translateX(4px) translateY(-1px) scale(1); } 68%, 100% { opacity: 0; transform: translateX(11px) translateY(-3px) scale(1.03); } }
-@keyframes bobo-logo-frame-5 { 0%, 60% { opacity: 0; } 66%, 78% { opacity: 1; transform: translateX(11px) translateY(-4px) scale(1.03); } 84%, 100% { opacity: 0; transform: translateX(16px) translateY(0) scale(1); } }
-@keyframes bobo-logo-frame-6 { 0%, 76% { opacity: 0; } 84%, 100% { opacity: 1; transform: translateX(16px) translateY(0) scale(1); } }
-@keyframes bobo-logo-mouse { 0%, 44% { transform: translateX(0); } 55% { transform: translateX(4px) rotate(3deg); } 66% { transform: translateX(0); } 84%, 100% { transform: translateX(-4px) translateY(1px) rotate(-6deg) scale(.94); } }
+.desktop-brand:hover .brand-bobo-frame.frame-1, .desktop-brand:focus-visible .brand-bobo-frame.frame-1 { animation: bobo-logo-frame-1 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-2, .desktop-brand:focus-visible .brand-bobo-frame.frame-2 { animation: bobo-logo-frame-2 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-3, .desktop-brand:focus-visible .brand-bobo-frame.frame-3 { animation: bobo-logo-frame-3 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-4, .desktop-brand:focus-visible .brand-bobo-frame.frame-4 { animation: bobo-logo-frame-4 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-5, .desktop-brand:focus-visible .brand-bobo-frame.frame-5 { animation: bobo-logo-frame-5 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-6, .desktop-brand:focus-visible .brand-bobo-frame.frame-6 { animation: bobo-logo-frame-6 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-7, .desktop-brand:focus-visible .brand-bobo-frame.frame-7 { animation: bobo-logo-frame-7 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-8, .desktop-brand:focus-visible .brand-bobo-frame.frame-8 { animation: bobo-logo-frame-8 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-9, .desktop-brand:focus-visible .brand-bobo-frame.frame-9 { animation: bobo-logo-frame-9 2.05s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-10, .desktop-brand:focus-visible .brand-bobo-frame.frame-10 { animation: bobo-logo-frame-10 2.05s ease both; }
+.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse 2.05s cubic-bezier(.2,.9,.25,1) both; }
+@keyframes bobo-logo-frame-1 { 0% { clip-path: inset(0 0 0 94%); opacity: 1; transform: translateX(-11px) scale(.86); } 12% { clip-path: inset(0 0 0 55%); opacity: 1; transform: translateX(-7px) scale(.9); } 17% { clip-path: inset(0 0 0 0); opacity: 1; transform: translateX(-5px) scale(.92); } 22%, 100% { opacity: 0; transform: translateX(-2px) scale(.94); } }
+@keyframes bobo-logo-frame-2 { 0%, 15% { opacity: 0; } 21%, 26% { opacity: 1; transform: translateX(-2px) translateY(1px) scale(.94); } 31%, 100% { opacity: 0; transform: translateX(1px) translateY(2px) scale(.96); } }
+@keyframes bobo-logo-frame-3 { 0%, 24% { opacity: 0; } 30%, 35% { opacity: 1; transform: translateX(1px) translateY(3px) scale(.96); } 40%, 100% { opacity: 0; transform: translateX(4px) translateY(2px) scale(.98); } }
+@keyframes bobo-logo-frame-4 { 0%, 33% { opacity: 0; } 39%, 44% { opacity: 1; transform: translateX(4px) translateY(2px) scale(.98); } 49%, 100% { opacity: 0; transform: translateX(7px) translateY(0) scale(1); } }
+@keyframes bobo-logo-frame-5 { 0%, 42% { opacity: 0; } 48%, 53% { opacity: 1; transform: translateX(7px) translateY(0) scale(1); } 58%, 100% { opacity: 0; transform: translateX(10px) translateY(-2px) scale(1.02); } }
+@keyframes bobo-logo-frame-6 { 0%, 51% { opacity: 0; } 57%, 62% { opacity: 1; transform: translateX(10px) translateY(-2px) scale(1.02); } 67%, 100% { opacity: 0; transform: translateX(13px) translateY(-4px) scale(1.03); } }
+@keyframes bobo-logo-frame-7 { 0%, 60% { opacity: 0; } 66%, 71% { opacity: 1; transform: translateX(13px) translateY(-4px) scale(1.03); } 76%, 100% { opacity: 0; transform: translateX(16px) translateY(-4px) scale(1.02); } }
+@keyframes bobo-logo-frame-8 { 0%, 69% { opacity: 0; } 75%, 80% { opacity: 1; transform: translateX(16px) translateY(-4px) scale(1.02); } 85%, 100% { opacity: 0; transform: translateX(18px) translateY(-1px) scale(1); } }
+@keyframes bobo-logo-frame-9 { 0%, 78% { opacity: 0; } 84%, 89% { opacity: 1; transform: translateX(18px) translateY(-1px) scale(1); } 94%, 100% { opacity: 0; transform: translateX(19px) translateY(0) scale(1); } }
+@keyframes bobo-logo-frame-10 { 0%, 87% { opacity: 0; } 94%, 100% { opacity: 1; transform: translateX(19px) translateY(0) scale(1); } }
+@keyframes bobo-logo-mouse { 0%, 48% { transform: translateX(0); } 57% { transform: translateX(4px) rotate(3deg); } 68% { transform: translateX(0); } 86%, 100% { transform: translateX(-4px) translateY(1px) rotate(-6deg) scale(.94); } }
 .brand-identity.compact { min-width: 102px; height: 16px; }
 .brand-identity.compact .brand-name { align-self: center; }
 .brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(0); }
