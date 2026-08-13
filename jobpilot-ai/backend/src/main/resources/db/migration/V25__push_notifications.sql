@@ -3,6 +3,7 @@
 --   같은 회원이 여러 기기(폰/PC)에서 구독할 수 있어 member_id 1:N, endpoint는 브라우저별로
 --   유일하므로 UNIQUE로 잡아서 재구독 시 갱신(INSERT ... ON DUPLICATE KEY 대신 애플리케이션
 --   레이어에서 upsert)한다.
+-- Stores Web Push subscriptions for a member's browser devices.
 CREATE TABLE push_subscriptions (
     id BIGINT NOT NULL AUTO_INCREMENT,
     member_id BIGINT NOT NULL,
