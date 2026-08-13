@@ -328,7 +328,7 @@ a { color: inherit; text-decoration: none; }
 .brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 0; transform: translateY(-11px); }
 .brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 1; transform: translateY(-10px); }
 .brand-link:hover .brand-tagline, .brand-link:focus-visible .brand-tagline { opacity: 1; transform: translateY(0); }
-.brand-logo-scene { overflow: visible; }
+.brand-logo-scene { position: relative; flex: none; overflow: visible; }
 .brand-logo-letter { display: grid; place-items: center; transition: opacity .12s ease, transform .18s ease; }
 .brand-job-mouse { position: absolute; display: grid; inset: 3px; place-items: center; border-radius: 50% 46% 48% 50%; background: linear-gradient(145deg, #8991aa, #555d78); color: #fff; font-family: Manrope, sans-serif; font-size: 7px; font-weight: 900; letter-spacing: -.4px; opacity: 0; transform: scale(.35) translateX(8px); transition: opacity .12s ease .06s, transform .2s cubic-bezier(.2,.85,.25,1) .06s; }
 .brand-job-mouse::after { position: absolute; top: 5px; width: 1px; height: 8px; border-radius: 2px; background: #dbe0ec; content: ""; }
