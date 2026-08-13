@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getVapidPublicKey, subscribePush, unsubscribePush } from "../api/pushApi";
+import { getVapidPublicKey, subscribePush, testSendPush, unsubscribePush } from "../api/pushApi";
+import { useAuth } from "../../auth/model/AuthContext";
 
 // 2026-08-13: 브라우저 Push API의 applicationServerKey는 Uint8Array를 요구하는데, 서버에서
 // 받은 VAPID 공개키는 base64url(URL-safe, 패딩 없음) 문자열이라 표준 atob() 전에 이 변환이
@@ -21,11 +22,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 // 눌러도 안 되는 버튼을 보여주는 것보다 숨기는 게 낫다는 기존 TTS/구독 기능의 fail-open
 // 관례를 그대로 따른다.
 export function PushNotificationSection() {
+  const { member } = useAuth();
   const [supported, setSupported] = useState(true);
   const [vapidPublicKey, setVapidPublicKey] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState("");
+  const [testMessage, setTestMessage] = useState("");
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -83,6 +86,19 @@ export function PushNotificationSection() {
     }
   };
 
+  const handleTestSend = async () => {
+    setTestMessage("");
+    setIsBusy(true);
+    try {
+      const result = await testSendPush();
+      setTestMessage(result.sent ? "테스트 알림을 보냈어요. 잠시 후 폰으로 도착하는지 확인해보세요." : (result.reason ?? "발송하지 못했습니다."));
+    } catch {
+      setTestMessage("테스트 발송에 실패했습니다.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   if (!supported || !vapidPublicKey) return null;
 
   return (
@@ -102,6 +118,17 @@ export function PushNotificationSection() {
         <button className="primary-button" disabled={isBusy} onClick={() => void handleSubscribe()}>
           알림 받기
         </button>
+      )}
+      {/* 2026-08-13: 관리자 전용 - 마감임박/추천 스케줄러(하루 한 번, 조건부 발송)를 기다리지
+          않고 실기기(특히 iOS 홈 화면 추가 후 구독) 테스트를 바로 해볼 수 있게 하는 버튼.
+          알림을 켠 상태여야 자기 자신에게 보낼 구독이 있다는 뜻이라 subscribed일 때만 보여준다. */}
+      {member?.role === "ADMIN" && subscribed && (
+        <div className="push-test-send">
+          <button className="text-button" disabled={isBusy} onClick={() => void handleTestSend()}>
+            (관리자) 테스트 알림 보내기
+          </button>
+          {testMessage && <p>{testMessage}</p>}
+        </div>
       )}
     </section>
   );
