@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   Activity,
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { analyzeAnswer, evaluateSession, fetchNextQuestion, fetchTtsVoices, synthesizeSpeech } from "../features/mock-interview/api/mockInterviewApi";
 import { getCareerProfile } from "../features/profile/api/careerProfileApi";
+import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
 import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi";
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
@@ -89,15 +90,18 @@ function CountdownRing({ value, total, color }: { value: number; total: number; 
 }
 
 // 2026-08-06: "질문 준비 중" 로딩 표시가 밋밋하다는 피드백으로 처음엔 SVG로 직접 그린
-// 캐릭터를 넣었는데, "매(Falcon) 마스코트 컨셉 이미지를 넣어줄 수 있냐"는 요청을 받았다.
-// 그 이미지는 사용자가 채팅에 붙여넣은 마스코트 목업(전체 페이지 스크린샷)이라 여기서
-// "매" 캐릭터의 히어로 포즈만 오려내고(파이썬 PIL로 크롭 + 배경 흰색을 투명 처리) public/
-// mascot-falcon.png로 저장해뒀다 - 정지 이미지라 눈 깜빡임 대신 위아래로 통통 튀는 동작에
-// 살짝 좌우로 갸웃거리는 동작을 더해 생동감을 줬다(styles.css의 loading-buddy-* 참고).
+// 캐릭터를 넣었다가, 매(Falcon) 마스코트 이미지로 바꿨었다.
+// 2026-08-13: 사이트 전체에 쓰기로 한 정식 고양이 마스코트("잡아드림" 캐릭터, 6가지 포즈
+// 시트를 사용자가 붙여넣어줌)로 다시 교체 - 매 캐릭터는 폐기했다. 6개 포즈 중 "면접 모드"
+// 라벨이 붙어있던 포즈(말풍선+마이크 아이콘)를 이 페이지 전용 마스코트로 채택해서
+// 로딩 표시와 아래 녹화 화면의 "AI 면접관" 아바타에 동일하게 재사용한다 - 파이썬 PIL로
+// 원본 시트에서 배경을 투명 처리해 오려낸 뒤 public/mascot-interview.png로 저장해뒀다.
+// 정지 이미지라 눈 깜빡임 대신 위아래로 통통 튀는 동작에 살짝 좌우로 갸웃거리는 동작을
+// 더해 생동감을 줬다(styles.css의 loading-buddy-* 참고).
 function LoadingBuddy({ size = 40 }: { size?: number }) {
   return (
     <span className="loading-buddy" style={{ display: "inline-block" }}>
-      <img src="/mascot-falcon.png" alt="" width={size} height={(size * 330) / 138} style={{ display: "block" }} />
+      <img src="/mascot-interview.png" alt="" width={size} height={(size * 372) / 496} style={{ display: "block" }} />
     </span>
   );
 }
@@ -652,6 +656,17 @@ export function MockInterviewPage() {
   // 없음). 조회 자체가 실패해도(비로그인 등) 그냥 빈 값 취급하고 넘어간다.
   const [careerJob, setCareerJob] = useState("");
   const [careerTechSummary, setCareerTechSummary] = useState("");
+  // 2026-08-13: "프로필 불러오기는 구독자 기준이어야 하고, 연습이냐 프로필 불러오기냐를
+  // 사용자가 직접 선택하게 해달라"는 요청으로 추가 - 이전엔 "면접 분야"에서 "선택 안 함"을
+  // 고르면(기본값) 프로필이 있으면 조용히 자동 적용됐는데, 이제는 명시적으로 "프로필
+  // 불러오기"를 골라야만 적용되고, 그마저도 구독 중(또는 관리자)일 때만 실제로 반영된다.
+  // 기본값은 "연습"이라 아무것도 안 고르면 예전처럼 프로필이 몰래 섞여 들어가는 일이 없다.
+  const [questionSource, setQuestionSource] = useState<"practice" | "profile">("practice");
+  const [subscribed, setSubscribed] = useState(false);
+
+  useEffect(() => {
+    void getSubscriptionStatus().then((status) => setSubscribed(status.subscribed)).catch(() => setSubscribed(false));
+  }, []);
   // 2026-08-06: "분야로 질문 분류 가능하지 않냐"는 요청으로 추가했다 - 처음엔 채용공고
   // 필터(AllJobPostingsPage.tsx roleOptions/백엔드 ROLE_KEYWORDS)의 9개 분류를 그대로
   // 재사용했는데, "모의면접 카드는 5개(백엔드/프론트엔드/풀스택/모바일/데이터·AI·기타)가
@@ -796,10 +811,28 @@ export function MockInterviewPage() {
     if (selectedTtsVoice) localStorage.setItem("mockInterviewTtsVoice", selectedTtsVoice);
   }, [selectedTtsVoice]);
 
+  // 2026-08-13: "첫 질문만 읽어주고 그다음부터 안 읽어준다" 버그 수정.
+  // 기존엔 speakQuestionText가 매 질문마다 `new Audio(url)`로 완전히 새 엘리먼트를
+  // 만들었는데, iOS 사파리 등 일부 모바일 브라우저의 오토플레이 잠금 해제는 "엘리먼트
+  // 단위"로 걸린다 - 첫 질문(시작 버튼 클릭 제스처 직후)은 그 클릭으로 잠금 해제된 새
+  // 엘리먼트라 재생되지만, 두 번째 질문부터는 또 다른 새 엘리먼트라 다시 잠겨있는
+  // 상태(제스처 밖에서 만들어짐)라 소리 없이 play()가 막힌다. 워치독 타이머가 있어서
+  // 화면 진행 자체는 안 멈추니 "다음 질문 텍스트는 뜨는데 소리만 안 남"으로 보인 것.
+  // 해결: 오디오 엘리먼트를 질문마다 새로 만들지 않고 하나를 계속 재사용한다(.src만
+  // 교체) - 처음 한 번(첫 사용자 제스처)에 이 엘리먼트로 무음 재생을 해두면, 같은
+  // 엘리먼트는 이후 제스처 밖에서 src를 바꿔 play()해도 대부분의 모바일 브라우저에서
+  // 계속 허용된다(엘리먼트가 "이미 재생 이력이 있다"고 취급됨).
+  const getTtsAudioElement = () => {
+    if (!ttsAudioRef.current) ttsAudioRef.current = new Audio();
+    return ttsAudioRef.current;
+  };
+
   const stopTtsAudio = () => {
     if (ttsAudioRef.current) {
       ttsAudioRef.current.pause();
-      ttsAudioRef.current = null;
+      ttsAudioRef.current.onended = null;
+      ttsAudioRef.current.onerror = null;
+      // 엘리먼트 자체는 재사용을 위해 유지하고, src만 비워 이전 재생 상태를 정리한다.
     }
     if (ttsAudioUrlRef.current) {
       URL.revokeObjectURL(ttsAudioUrlRef.current);
@@ -825,9 +858,14 @@ export function MockInterviewPage() {
     if (audioUnlockedRef.current) return;
     audioUnlockedRef.current = true;
     try {
+      // 2026-08-13: speakQuestionText가 매 질문마다 재사용할 "바로 그 엘리먼트"로 무음
+      // 재생을 해둔다(별도의 throwaway Audio가 아니라 getTtsAudioElement()로 가져온 동일
+      // 엘리먼트) - iOS 사파리는 엘리먼트별로 잠금 해제 여부를 기억하기 때문에, 나중에
+      // 실제 질문 오디오를 재생할 엘리먼트와 지금 잠금 해제하는 엘리먼트가 같아야 효과가 있다.
       const silentWavDataUrl =
         "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
-      const unlockAudio = new Audio(silentWavDataUrl);
+      const unlockAudio = getTtsAudioElement();
+      unlockAudio.src = silentWavDataUrl;
       unlockAudio.volume = 0;
       void unlockAudio.play().catch(() => {
         // 여기서 막혀도(엄격한 브라우저) 아래 워치독이 있으니 흐름 자체는 이어진다.
@@ -891,8 +929,11 @@ export function MockInterviewPage() {
         if (settled) return; // 워치독이 이미 다음 단계로 넘겼으면 새로 재생을 시작할 필요 없음
         const url = URL.createObjectURL(blob);
         ttsAudioUrlRef.current = url;
-        const audio = new Audio(url);
-        ttsAudioRef.current = audio;
+        // 질문마다 새 Audio()를 만들지 않고 재사용 엘리먼트의 src만 바꾼다 - 모바일
+        // 오토플레이 잠금 해제가 엘리먼트 단위라 이래야 두 번째 질문부터도 소리가 난다.
+        const audio = getTtsAudioElement();
+        audio.volume = 1;
+        audio.src = url;
         audio.onended = finish;
         audio.onerror = () => speakWithBrowserTts(text, finish);
         void audio.play().catch(() => speakWithBrowserTts(text, finish));
@@ -936,12 +977,15 @@ export function MockInterviewPage() {
   ] as const;
 
   const buildSessionQuestions = async (): Promise<string[]> => {
-    // 2026-08-06: 마이페이지에 목표 직무/기술 요약을 입력해둔 사용자는 그 값을 넘겨서
-    // 맞춤 질문(Gemini 경로)을 받는다 - careerJob/careerTechSummary가 비어있으면(프로필
-    // 미입력/건너뛰기) undefined로 넘어가 기존 동작과 동일하다. 시작 화면에서 분야를
-    // 직접 골랐다면(selectedRole) 그 라벨이 careerJob보다 우선한다.
+    // 2026-08-13: "프로필 불러오기"를 명시적으로 고르고 구독 중(또는 관리자)일 때만
+    // careerJob/careerTechSummary를 실제로 흘려보낸다 - "연습"이거나 비구독자면 프로필이
+    // 있어도 아예 안 쓴다(이 화면의 useSubscriptionGatedProfile 참고). 시작 화면에서
+    // 분야를 직접 골랐다면(selectedRole) 그 라벨이 항상 우선한다 - 이건 "프로필을 불러온
+    // 것"이 아니라 그 자리에서 명시적으로 고른 값이라 연습 모드에서도 그대로 반영된다.
+    const useProfile = questionSource === "profile" && subscribed;
     const selectedRoleLabel = INTERVIEW_ROLE_OPTIONS.find(([code]) => code === selectedRole)?.[1];
-    const effectiveJob = selectedRoleLabel || careerJob || undefined;
+    const effectiveJob = selectedRoleLabel || (useProfile ? careerJob : "") || undefined;
+    const effectiveTechSummary = useProfile ? careerTechSummary : "";
 
     // 2026-08-07: 면접 유형(역량/직무/인성)을 골랐으면 그 유형에 속한 카테고리만 순환시킨다 -
     // 안 고르면("전체") 기존처럼 6개 카테고리 다 순환하는 동작 그대로 유지(하위 호환).
@@ -969,7 +1013,7 @@ export function MockInterviewPage() {
           effectiveJob,
           undefined,
           category,
-          careerTechSummary || undefined,
+          effectiveTechSummary || undefined,
           category === "기술_직무역량" ? TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length] : undefined,
         ),
       ),
@@ -1687,6 +1731,11 @@ export function MockInterviewPage() {
   // 판단한다 - TTS가 질문을 읽어주는 동안에도 텍스트가 화면에 보이게 하려는 목적.
   const questionRevealed =
     questionTextReady || stage === "get-ready" || stage === "recording" || stage === "analyzing" || stage === "typing";
+  // 2026-08-13: "질문 듣기" 버튼 disabled 조건 - 별도 변수로 한 번만 계산해둔다. JSX 안에서
+  // showVideoPreview/questionRevealed로 이미 좁혀진 stage 타입 위에 또 stage === "recording"을
+  // 직접 비교하면(narrowing이 겹치는 지점에 따라) TS가 "겹치는 타입이 없다"고 오탐하는 경우가
+  // 있어서, 좁혀지기 전에 미리 계산해 불리언 하나로만 참조한다.
+  const questionAudioBusy = stage === "recording" || stage === "analyzing";
 
   return (
     <>
@@ -1708,7 +1757,11 @@ export function MockInterviewPage() {
           </div>
         </div>
 
-        {questionRevealed && (
+        {/* 2026-08-13: "녹화 UI가 화상통화처럼 느껴지게 해달라"는 요청으로, 카메라를 쓰는
+            단계(showVideoPreview)에서는 이 밋밋한 카드 대신 아래 interview-call-stage(면접관
+            타일 + 내 카메라 타일)로 질문을 보여준다 - 타이핑 모드/분석 중처럼 카메라가 없는
+            화면에서는 기존 카드를 그대로 쓴다. */}
+        {questionRevealed && !showVideoPreview && (
           <div className="interview-question-card">
             <span className="interview-question-icon">
               <Sparkles size={19} />
@@ -1718,7 +1771,7 @@ export function MockInterviewPage() {
               className="primary-button"
               onClick={() => speakQuestion()}
               type="button"
-              disabled={stage === "recording" || stage === "analyzing"}
+              disabled={questionAudioBusy}
               style={{ marginLeft: "auto", flex: "none" }}
             >
               <Volume2 size={16} /> 질문 듣기
@@ -1727,58 +1780,90 @@ export function MockInterviewPage() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
-          {/* 2026-08-07: 컨테이너 전체를 좌우 반전시킨다(video 하나만 반전하면 canvas에
-              그리는 얼굴 랜드마크 좌표가 화면상 얼굴 위치와 어긋나 버린다 - 부모를 통째로
-              뒤집으면 video/canvas가 같은 좌표계 그대로 유지된 채 화면에만 거울처럼 보인다).
-              MediaPipe 얼굴 인식은 이 CSS 표시 변환과 무관하게 videoRef의 원본 프레임
-              데이터를 그대로 읽으므로 분석/녹화 결과에는 영향이 없다. */}
-          <div
-            style={{
-              position: "relative",
-              display: showVideoPreview ? "block" : "none",
-              width: 480,
-              height: 360,
-              maxWidth: "90vw",
-              transform: "scaleX(-1)",
-            }}
-          >
-            <video
-              autoPlay
-              muted
-              playsInline
-              ref={videoRef}
-              style={{
-                width: "100%",
-                height: "100%",
-                borderRadius: 10,
-                background: "#111",
-                objectFit: "cover",
-              }}
-            />
-            <canvas
-              ref={canvasRef}
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                pointerEvents: "none",
-              }}
-            />
-            {/* 2026-08-07: 쉬는 시간(break)엔 캠을 완전히 숨기는 대신 반투명 어두운 막만
-                덮어서 "지금은 녹화 중이 아님"을 표시한다 - 화면이 통째로 사라졌다 나타나는
-                깜빡임 대신 자연스러운 전환을 준다. */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: 10,
-                background: "rgba(15, 17, 26, 0.6)",
-                display: stage === "break" ? "block" : "none",
-                pointerEvents: "none",
-              }}
-            />
-          </div>
+          {/* 2026-08-13: 실제 화상 면접처럼 "면접관(고양이 마스코트, 말풍선으로 질문 표시)"과
+              "나(카메라 미리보기)" 두 타일을 나란히 보여준다. 기존엔 카메라 미리보기 하나만
+              덩그러니 있었는데, 옆에 면접관 타일을 두고 질문이 거기서 말풍선으로 나오게 하면
+              실제 화상 면접 화면과 훨씬 비슷한 느낌을 준다. */}
+          {showVideoPreview && (
+            <div className="interview-call-stage">
+              <div className="interview-call-tile interviewer-tile">
+                <div className="interviewer-avatar-wrap">
+                  <img src="/mascot-interview.png" alt="AI 면접관" className="interviewer-avatar" />
+                  {/* stage === "get-ready"는 TTS가 질문을 실제로 읽어주는 구간과 정확히
+                      일치한다(revealQuestionAndBeginRecording -> speakQuestionText -> 끝나면
+                      startRecording으로 "recording"에 진입) - 그래서 별도 상태 없이 이
+                      stage 값만으로 "말하는 중" 표시를 켜고 끌 수 있다. */}
+                  {stage === "get-ready" && (
+                    <span className="interviewer-speaking-badge">
+                      <Volume2 size={11} /> 말하는 중
+                    </span>
+                  )}
+                </div>
+                {questionRevealed && (
+                  <div className="interviewer-speech-bubble">
+                    <p>{question}</p>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => speakQuestion()}
+                      disabled={questionAudioBusy}
+                    >
+                      <Volume2 size={13} /> 다시 듣기
+                    </button>
+                  </div>
+                )}
+                <span className="interview-call-tag">AI 면접관</span>
+              </div>
+
+              <div className="interview-call-tile candidate-tile">
+                {/* 2026-08-07: 컨테이너 전체를 좌우 반전시킨다(video 하나만 반전하면 canvas에
+                    그리는 얼굴 랜드마크 좌표가 화면상 얼굴 위치와 어긋나 버린다 - 부모를
+                    통째로 뒤집으면 video/canvas가 같은 좌표계 그대로 유지된 채 화면에만
+                    거울처럼 보인다). MediaPipe 얼굴 인식은 이 CSS 표시 변환과 무관하게
+                    videoRef의 원본 프레임 데이터를 그대로 읽으므로 분석/녹화 결과에는 영향이
+                    없다. */}
+                <div className="candidate-video-frame" style={{ transform: "scaleX(-1)" }}>
+                  <video
+                    autoPlay
+                    muted
+                    playsInline
+                    ref={videoRef}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: 14,
+                      background: "#111",
+                      objectFit: "cover",
+                    }}
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: "none",
+                    }}
+                  />
+                  {/* 2026-08-07: 쉬는 시간(break)엔 캠을 완전히 숨기는 대신 반투명 어두운 막만
+                      덮어서 "지금은 녹화 중이 아님"을 표시한다 - 화면이 통째로 사라졌다
+                      나타나는 깜빡임 대신 자연스러운 전환을 준다. */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: 14,
+                      background: "rgba(15, 17, 26, 0.6)",
+                      display: stage === "break" ? "block" : "none",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+                <span className="interview-call-tag">나</span>
+              </div>
+            </div>
+          )}
           {showVideoPreview && (
             <>
               <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
@@ -1849,10 +1934,49 @@ export function MockInterviewPage() {
                 </div>
               </div>
 
-              {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다 - 안 고르면 마이페이지에
-                  입력해둔 목표 직무를 대신 쓰고, 둘 다 없으면 기존처럼 범용 ICT 신입 질문이
-                  나온다(동작 변화 없음). 드롭다운 대신 라디오버튼처럼 클릭하는 카드(칩)
-                  형태로 해달라는 요청으로 select를 버튼 그룹으로 바꿨다. */}
+              {/* 2026-08-13: "프로필 불러오기는 구독자만, 그리고 연습/프로필 불러오기를 직접
+                  고르게 해달라"는 요청으로 추가한 그룹. 예전엔 "면접 분야"에서 "선택 안 함"을
+                  고르면 프로필이 있을 때 조용히 자동 적용됐는데, 이제 이 그룹에서 명시적으로
+                  "프로필 불러오기"를 골라야 하고 구독 중(관리자는 항상 subscribed=true)일
+                  때만 실제로 반영된다 - 비구독자가 고르면 TimelinePage 누적 인사이트와 같은
+                  스타일의 구독 유도 패널을 보여준다. */}
+              <div className="interview-option-group">
+                <span className="interview-option-label">질문 기준</span>
+                <div className="interview-option-row">
+                  <button
+                    type="button"
+                    className={`interview-option-chip${questionSource === "practice" ? " active" : ""}`}
+                    onClick={() => setQuestionSource("practice")}
+                  >
+                    연습 (범용 질문)
+                  </button>
+                  <button
+                    type="button"
+                    className={`interview-option-chip${questionSource === "profile" ? " active" : ""}`}
+                    onClick={() => setQuestionSource("profile")}
+                  >
+                    프로필 불러오기
+                  </button>
+                </div>
+                {questionSource === "profile" && !subscribed && (
+                  <p className="account-alert" style={{ marginTop: 10 }}>
+                    프로필 맞춤 질문은 구독자 전용 기능이에요. 구독하면 마이페이지에 입력해둔
+                    목표 직무·기술 요약을 반영한 질문을 받을 수 있어요.{" "}
+                    <Link to="/account">구독하기</Link>
+                  </p>
+                )}
+                {questionSource === "profile" && subscribed && !careerJob && !careerTechSummary && (
+                  <p className="account-alert" style={{ marginTop: 10 }}>
+                    아직 프로필에 입력된 목표 직무·기술 요약이 없어요.{" "}
+                    <Link to="/profile">프로필 작성하기</Link>
+                  </p>
+                )}
+              </div>
+
+              {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다 - "프로필 불러오기"
+                  여부와 무관하게 여기서 명시적으로 고른 분야가 항상 우선한다. 드롭다운 대신
+                  라디오버튼처럼 클릭하는 카드(칩) 형태로 해달라는 요청으로 select를 버튼
+                  그룹으로 바꿨다. */}
               <div className="interview-option-group">
                 <span className="interview-option-label">면접 분야</span>
                 {/* 2026-08-07: 선택 안 함 + 분야 5개 = 6개라 auto-fit이 5+1로 어색하게
@@ -1863,7 +1987,7 @@ export function MockInterviewPage() {
                     className={`interview-option-chip${selectedRole === "" ? " active" : ""}`}
                     onClick={() => setSelectedRole("")}
                   >
-                    선택 안 함{careerJob ? ` (프로필: ${careerJob})` : ""}
+                    선택 안 함
                   </button>
                   {INTERVIEW_ROLE_OPTIONS.map(([code, label]) => (
                     <button

@@ -24,6 +24,7 @@ _NO_KEY_MESSAGE = "자기소개서 작성 도우미를 사용하려면 GEMINI_AP
 _PARSE_FAIL_MESSAGE = "AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요."
 _NO_ANSWER_MESSAGE = "답변을 하나 이상 입력해주세요."
 _NO_CONTENT_MESSAGE = "첨삭받을 자기소개서 내용을 입력해주세요."
+_NO_RAW_TEXT_MESSAGE = "회사 자소서 양식 텍스트를 입력해주세요."
 
 # 2026-08-10: 자기소개서에서 채용 담당자가 실제로 보는 항목(지원동기/성장과정·가치관/
 # 강점·약점/입사 후 포부)을 그대로 고정 질문 4개로 뒀다 - AI가 매번 다른 질문을 생성하게
@@ -65,6 +66,67 @@ class SelfIntroductionCritique:
         }
 
 
+@dataclass
+class CompanyQuestionsResult:
+    ok: bool
+    message: str | None = None
+    questions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"ok": self.ok, "message": self.message, "questions": self.questions}
+
+
+# 2026-08-13: "자소서 회사 양식이 있으면 그거에 대해 필요한 질문 물어보고" 요청으로 추가 -
+# 회사 채용 페이지에서 그대로 복사-붙여넣기한 자소서 문항 텍스트(번호/글자수 제한/안내
+# 문구가 뒤섞여 있는 경우가 많음)를 받아서, 실제로 물어야 할 질문 문장만 깔끔하게 추출한다.
+# 파싱 실패/키 없음이면 빈 리스트를 반환(fail-open) - 호출부(프론트)가 빈 리스트를 받으면
+# 기존 GUIDED_QUESTIONS(범용 4문항)로 조용히 폴백한다.
+def parse_company_questions(raw_text: str) -> CompanyQuestionsResult:
+    if not settings.gemini_api_key:
+        return CompanyQuestionsResult(ok=False, message=_NO_KEY_MESSAGE)
+    if not raw_text.strip():
+        return CompanyQuestionsResult(ok=False, message=_NO_RAW_TEXT_MESSAGE)
+
+    prompt = (
+        "다음은 채용 사이트에서 그대로 복사한 자기소개서 작성 안내 텍스트다. 번호, 글자수/"
+        "byte 제한, 작성 팁, 무관한 안내 문구가 섞여 있을 수 있다. 여기서 지원자가 실제로 "
+        "답변해야 하는 '질문' 또는 '항목'만 뽑아서 정리해라.\n\n"
+        f"[원문]\n{raw_text.strip()}\n\n"
+        "[규칙]\n"
+        "1. 각 항목은 완전한 질문 문장(또는 '~에 대해 서술하시오' 같은 지시문) 하나로 만들어라\n"
+        "2. 글자수 제한(예: '500자 이내')은 있으면 질문 끝에 괄호로 짧게 남겨도 좋다\n"
+        "3. 번호, 소제목, 안내문구('아래 항목에 답변해주세요' 등)는 제외해라\n"
+        "4. 실제로 질문/항목이라고 판단되는 것을 찾지 못하면 빈 배열을 반환해라\n"
+        "5. 최대 8개까지만 추린다\n"
+        "6. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
+        '{"questions": ["질문 문장", ...]}'
+    )
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+        data = parse_json_response(response.text or "")
+        if data is None:
+            return CompanyQuestionsResult(ok=False, message=_PARSE_FAIL_MESSAGE)
+        questions = as_str_list(data.get("questions"))
+        if not questions:
+            return CompanyQuestionsResult(
+                ok=False, message="입력한 텍스트에서 질문 항목을 찾지 못했습니다. 기본 질문으로 진행해주세요."
+            )
+        return CompanyQuestionsResult(ok=True, questions=questions[:8])
+    except Exception as e:
+        return CompanyQuestionsResult(
+            ok=False, message=f"양식 분석에 실패했습니다 ({type(e).__name__}). 잠시 후 다시 시도해 주세요."
+        )
+
+
 def _career_context(job: str, tech_summary: str) -> str:
     lines = [f"[목표 직무] {job or '미지정'}"]
     if tech_summary.strip():
@@ -72,12 +134,20 @@ def _career_context(job: str, tech_summary: str) -> str:
     return "\n".join(lines) + "\n\n"
 
 
-def generate_draft(job: str = "", tech_summary: str = "", answers: list[str] | None = None) -> SelfIntroductionDraft:
-    """GUIDED_QUESTIONS 순서에 맞춘 답변 목록(빈 답변은 건너뜀)을 받아, 자연스러운
-    자기소개서 문단으로 다듬어 반환한다. 답변에 없는 내용을 지어내지 말라고 명시적으로
-    지시한다 - 이건 "AI가 이력서를 대신 써주는" 기능이 아니라 "사용자가 말한 내용을 정리해
-    주는" 기능이어야 한다(신뢰성 문제 - 지어낸 경력이 실제 면접에서 들통나면 안 됨)."""
+def generate_draft(
+    job: str = "", tech_summary: str = "", answers: list[str] | None = None, questions: list[str] | None = None
+) -> SelfIntroductionDraft:
+    """질문 목록(기본값 GUIDED_QUESTIONS, 회사 양식을 파싱했으면 그 커스텀 질문 목록)에
+    순서를 맞춘 답변 목록(빈 답변은 건너뜀)을 받아, 자연스러운 자기소개서 문단으로 다듬어
+    반환한다. 답변에 없는 내용을 지어내지 말라고 명시적으로 지시한다 - 이건 "AI가 이력서를
+    대신 써주는" 기능이 아니라 "사용자가 말한 내용을 정리해주는" 기능이어야 한다(신뢰성 문제
+    - 지어낸 경력이 실제 면접에서 들통나면 안 됨).
+
+    2026-08-13: questions 파라미터 추가 - 회사 자소서 양식을 파싱해서 만든 커스텀 질문
+    목록으로도 같은 방식으로 초안을 생성할 수 있게 했다(parse_company_questions 참고).
+    안 넘기면 기존처럼 GUIDED_QUESTIONS를 쓴다(하위 호환)."""
     answers = answers or []
+    effective_questions = questions if questions else list(GUIDED_QUESTIONS)
     if not settings.gemini_api_key:
         return SelfIntroductionDraft(ok=False, message=_NO_KEY_MESSAGE)
     if not any(a.strip() for a in answers):
@@ -85,7 +155,7 @@ def generate_draft(job: str = "", tech_summary: str = "", answers: list[str] | N
 
     qa_blocks = [
         f"[질문] {q}\n[답변] {a.strip()}"
-        for q, a in zip(GUIDED_QUESTIONS, answers)
+        for q, a in zip(effective_questions, answers)
         if a.strip()
     ]
     qa_text = "\n\n".join(qa_blocks)

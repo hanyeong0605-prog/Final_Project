@@ -51,6 +51,14 @@ export interface SelfIntroductionDraftResult {
   content: string | null;
 }
 
+// 2026-08-13: 회사 자소서 양식 텍스트를 붙여넣으면 질문 목록만 추출해주는 응답
+// (parse_company_questions 참고) - 실패/키 없음이면 ok:false + questions는 빈 배열.
+export interface CompanyQuestionsResult {
+  ok: boolean;
+  message: string | null;
+  questions: string[];
+}
+
 export interface SelfIntroductionCritiqueResult {
   ok: boolean;
   message: string | null;

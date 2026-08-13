@@ -1,4 +1,5 @@
 import type {
+  CompanyQuestionsResult,
   ProjectCritiqueResult,
   ProjectDraftResult,
   SelfIntroductionCritiqueResult,
@@ -30,8 +31,25 @@ async function getAi<T>(path: string): Promise<T> {
 
 export const fetchSelfIntroductionQuestions = () => getAi<{ questions: string[] }>("/self-introduction/questions");
 
-export const generateSelfIntroductionDraft = (job: string, techSummary: string, answers: string[]) =>
-  postAi<SelfIntroductionDraftResult>("/self-introduction/generate", { job, tech_summary: techSummary, answers });
+// 2026-08-13: questions를 넘기면 회사 양식 파싱 결과(아래 parseCompanyQuestions) 기준으로,
+// 안 넘기면(undefined) 기존처럼 서버 기본 GUIDED_QUESTIONS 기준으로 초안을 만든다.
+export const generateSelfIntroductionDraft = (
+  job: string,
+  techSummary: string,
+  answers: string[],
+  questions?: string[],
+) =>
+  postAi<SelfIntroductionDraftResult>("/self-introduction/generate", {
+    job,
+    tech_summary: techSummary,
+    answers,
+    questions: questions ?? [],
+  });
+
+// 회사 채용 페이지에서 그대로 복사한 자소서 문항 안내 텍스트를 넘기면, 실제 질문 목록만
+// 추출해서 돌려준다 - "질문식으로 작성" 채팅에서 기본 4문항 대신 이 목록을 순서대로 묻는다.
+export const parseCompanyQuestions = (rawText: string) =>
+  postAi<CompanyQuestionsResult>("/self-introduction/parse-questions", { raw_text: rawText });
 
 export const critiqueSelfIntroduction = (content: string, job: string, techSummary: string) =>
   postAi<SelfIntroductionCritiqueResult>("/self-introduction/critique", { content, job, tech_summary: techSummary });

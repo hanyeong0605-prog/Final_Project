@@ -85,12 +85,11 @@ public class RecommendedJobPushScheduler {
             if (job == null) continue;
 
             String companyPrefix = job.getCompanyName() == null ? "" : job.getCompanyName() + " · ";
-            webPush.sendToMember(
-                    memberId,
-                    "지금 바로 지원 가능한 공고예요",
-                    companyPrefix + job.getTitle(),
-                    "/job-postings/" + job.getId());
-            notificationLogs.save(new NotificationLog(memberId, JOB, jobId, NOTIFICATION_TYPE));
+            String title = "지금 바로 지원 가능한 공고예요";
+            String body = companyPrefix + job.getTitle();
+            String url = "/job-postings/" + job.getId();
+            webPush.sendToMember(memberId, title, body, url);
+            notificationLogs.save(new NotificationLog(memberId, JOB, jobId, NOTIFICATION_TYPE, title, body, url));
 
             sentPerMember.merge(memberId, 1, Integer::sum);
             totalSent++;

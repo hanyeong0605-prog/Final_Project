@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, ShieldCheck, UserRound, X } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, ShieldCheck, UserRound, X } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
@@ -7,6 +7,7 @@ import { navigationGroups, navigationItems, type NavigationGroup } from "../shar
 import { OnboardingModal } from "../features/profile/components/OnboardingModal";
 import { SiteAssistantWidget } from "../features/assistant/components/SiteAssistantWidget";
 import { SiteAssistantWidgetProvider } from "../features/assistant/model/SiteAssistantWidgetContext";
+import { NotificationBell } from "../features/notifications/components/NotificationBell";
 
 function isGroupActive(group: NavigationGroup, pathname: string) {
   if (group.path) return pathname === group.path;
@@ -149,7 +150,7 @@ export function AppShell() {
               <div className="breadcrumb"><span>Job-A-Dream AI</span><ChevronRight size={15} /><strong>{activeItem.label}</strong></div>
               <form className="global-search-inline" onSubmit={submitGlobalSearch}><Search size={16} /><input value={searchTerm} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearchTerm(event.target.value); setSearchOpen(true); }} placeholder="통합검색" aria-label="통합검색" /><button type="submit" aria-label="검색 실행"><ChevronRight size={15} /></button></form>
               <button className="add-job"><Plus size={17} />공고 직접 등록</button>
-              <button className="bell" aria-label="알림"><Bell size={19} /><span /></button>
+              <NotificationBell />
               {member?.role === "ADMIN" && <NavLink to="/admin" className="admin-page-link"><ShieldCheck size={16} />관리자 페이지</NavLink>}
               <div className="topbar-account-menu" ref={accountMenuRef}>
                 <button className="topbar-account" type="button" aria-label="계정 메뉴" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{member?.nickname?.slice(0, 1) ?? "J"}</button>

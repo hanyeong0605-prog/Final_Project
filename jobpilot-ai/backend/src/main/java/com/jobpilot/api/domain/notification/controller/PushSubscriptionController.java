@@ -2,6 +2,8 @@ package com.jobpilot.api.domain.notification.controller;
 
 import com.jobpilot.api.domain.admin.AdminAccessService;
 import com.jobpilot.api.domain.notification.dto.PushSubscribeRequest;
+import com.jobpilot.api.domain.notification.entity.NotificationLog;
+import com.jobpilot.api.domain.notification.repository.NotificationLogRepository;
 import com.jobpilot.api.domain.notification.service.PushSubscriptionService;
 import com.jobpilot.api.domain.notification.service.WebPushService;
 import com.jobpilot.api.global.security.AuthenticatedMember;
@@ -17,17 +19,20 @@ public class PushSubscriptionController {
     private final PushSubscriptionService service;
     private final WebPushService webPush;
     private final AdminAccessService adminAccess;
+    private final NotificationLogRepository notificationLogs;
     private final String vapidPublicKey;
 
     public PushSubscriptionController(
             PushSubscriptionService service,
             WebPushService webPush,
             AdminAccessService adminAccess,
+            NotificationLogRepository notificationLogs,
             @Value("${push.vapid.public-key:}") String vapidPublicKey
     ) {
         this.service = service;
         this.webPush = webPush;
         this.adminAccess = adminAccess;
+        this.notificationLogs = notificationLogs;
         this.vapidPublicKey = vapidPublicKey;
     }
 
@@ -64,7 +69,12 @@ public class PushSubscriptionController {
         if (!webPush.isEnabled()) {
             return Map.of("sent", false, "reason", "VAPID 키가 설정되지 않아 웹푸시가 비활성화되어 있습니다.");
         }
-        webPush.sendToMember(memberId, "테스트 알림", "웹푸시가 정상적으로 도착했어요.", "/mypage");
+        String title = "테스트 알림";
+        String body = "웹푸시가 정상적으로 도착했어요.";
+        String url = "/mypage";
+        webPush.sendToMember(memberId, title, body, url);
+        // target_id는 NOT NULL이라 실제 대상이 없는 테스트 발송은 memberId 자신을 넣어둔다.
+        notificationLogs.save(new NotificationLog(memberId, "TEST", memberId, "TEST", title, body, url));
         return Map.of("sent", true);
     }
 }
