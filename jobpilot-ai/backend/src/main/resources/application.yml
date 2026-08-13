@@ -130,3 +130,7 @@ push:
   deadline-reminder:
     # 매일 오전 9시(KST) - 찜한 공고 중 마감 D-3/D-1인 것을 찾아 발송한다.
     cron: "${PUSH_DEADLINE_REMINDER_CRON:0 0 9 * * *}"
+  recommended-job:
+    # 매일 오전 8시 30분(KST) - 크롤러(06:00)/요건추출 백필 이후, 마감임박 알림(09:00) 전에
+    # 새로 APPLY_NOW로 매칭된 JobMatch를 찾아 발송한다 (RecommendedJobPushScheduler 참고).
+    cron: "${PUSH_RECOMMENDED_JOB_CRON:0 30 8 * * *}"

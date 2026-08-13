@@ -89,8 +89,8 @@ export function PushNotificationSection() {
     <section className="panel push-notification-section">
       <div className="panel-title">
         <div>
-          <h2>마감임박 알림</h2>
-          <p>찜한 채용공고의 마감이 1일·3일 앞으로 다가오면 브라우저 알림으로 알려드려요.</p>
+          <h2>채용공고 알림</h2>
+          <p>찜한 공고 마감이 1일·3일 앞으로 다가오거나, 지금 바로 지원 가능한 맞춤 공고가 뜨면 브라우저 알림으로 알려드려요.</p>
         </div>
       </div>
       {error && <p className="account-alert error">{error}</p>}
