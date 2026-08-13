@@ -241,7 +241,7 @@ class GeminiProjectSummaryClient {
     private int planningPathScore(String path) {
         String value = path.toLowerCase();
         int score = 0;
-        if (value.contains("/api/") || value.contains("controller") || value.contains("router")) score += 8;
+        if (value.contains("/api/") || value.contains("BoardController") || value.contains("router")) score += 8;
         if (value.contains("service") || value.contains("handler") || value.contains("bridge") || value.contains("communication")) score += 7;
         if (value.contains("parser") || value.contains("repository") || value.contains("client") || value.contains("gateway")) score += 6;
         if (value.contains("walker") || value.contains("core") || value.contains("main") || value.contains("app.")) score += 5;

@@ -28,6 +28,13 @@ import { AdminPage } from "../pages/AdminPage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import Qualification from "../pages/Qualification";
+import WorkBoard from "../pages/WorkBoard";
+import FreeBoard from "../pages/FreeBoard";
+import ReviewBoard from "../pages/ReviewBoard";
+import FreeBoardDetail from "../pages/FreeBoardDetail";
+import WorkBoardDetail from "../pages/WorkBoardDetail";
+import ReviewBoardDetail from "../pages/ReviewBoardDetail";
+
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -62,6 +69,12 @@ export const router = createBrowserRouter([
       { path: "subscription/fail", element: <SubscriptionResultPage /> },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
       { path: "qualification", element: <Qualification /> },
+      { path: "/free-board", element: <FreeBoard /> },
+      { path: "/review-board", element: <ReviewBoard /> },
+      { path: "/work-board", element: <WorkBoard /> },
+      { path: "/free-board/detail", element: <FreeBoardDetail /> },
+      { path: "/work-board/detail", element: <WorkBoardDetail /> },
+      { path: "/Review-board/detail", element: <ReviewBoardDetail /> },
 
     ],
   },

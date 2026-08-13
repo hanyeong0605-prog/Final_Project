@@ -210,7 +210,7 @@ class GitHubRepositoryClient {
     private int score(String path) {
         String value = path.toLowerCase(Locale.ROOT);
         int score = 0;
-        if (value.contains("controller") || value.contains("router") || value.contains("routes/")) score += 8;
+        if (value.contains("BoardController") || value.contains("router") || value.contains("routes/")) score += 8;
         if (value.contains("service") || value.contains("usecase")) score += 7;
         if (value.contains("repository") || value.contains("dao")) score += 6;
         if (value.contains("client") || value.contains("integration") || value.contains("gateway")) score += 6;

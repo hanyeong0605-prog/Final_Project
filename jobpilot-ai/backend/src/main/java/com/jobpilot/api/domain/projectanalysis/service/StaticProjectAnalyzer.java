@@ -431,7 +431,7 @@ class StaticProjectAnalyzer {
 
     private String role(String path, String content) {
         String value = (path + "\n" + content).toLowerCase(Locale.ROOT);
-        if (value.contains("@restcontroller") || value.contains("@controller") || value.contains("@getmapping") || value.contains("@postmapping") || path.toLowerCase(Locale.ROOT).contains("router")) return "API 컨트롤러";
+        if (value.contains("@restcontroller") || value.contains("@BoardController") || value.contains("@getmapping") || value.contains("@postmapping") || path.toLowerCase(Locale.ROOT).contains("router")) return "API 컨트롤러";
         if (value.contains("@service") || path.toLowerCase(Locale.ROOT).contains("service")) return "비즈니스 서비스";
         if (containsAny(value, "resttemplate", "webclient", "feignclient", "axios", "fetch(", "@google/genai", "openai")) return "외부 API 클라이언트";
         if (containsAny(value, "spring-security", "jjwt", "@preauthorize")) return "인증·권한 처리";

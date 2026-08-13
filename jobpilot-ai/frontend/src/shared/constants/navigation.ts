@@ -13,6 +13,11 @@ import {
   Sparkles,
   Target,
   UserRound,
+  Pen,
+  Notebook,
+  Star,
+  Heart,
+  
 } from "lucide-react";
 
 export interface NavigationItem {
@@ -67,6 +72,17 @@ export const navigationGroups: NavigationGroup[] = [
     ],
   },
   { path: "/account", label: "마이페이지", icon: UserRound },
+
+{
+  label:"게시판",
+  icon : Notebook,
+  items:[
+  { path: "/free-board", label: "자유 게시판", icon: Pen },
+  { path: "/review-board", label: "기업 후기 게시판", icon: Star },
+  { path: "/work-board", label: "현업자 게시판", icon: Heart },
+],
+}
+  
 ];
 
 export const utilityNavigationItems: NavigationItem[] = [
