@@ -10,6 +10,8 @@ pydantic-settings==2.5.2
 SQLAlchemy==2.0.35
 PyMySQL==1.1.1
 python-dotenv==1.0.1
+scikit-learn==1.5.2
+joblib==1.4.2
 
 # crawler
 requests==2.32.3
@@ -46,6 +48,14 @@ accelerate>=0.33
 # mock interview - question quality check (optional, see question_generator.py _gemini_polish).
 # Falls back to no-op if GEMINI_API_KEY isn't set.
 google-genai
+
+# mock interview - 답변 전달력(delivery_score) 예측 모델 (ml/build_delivery_score_dataset.py,
+# ml/train_delivery_score_model.py). audio_analysis.py가 뽑는 숫자 피처만 입력으로 쓰는
+# 좁은 회귀 문제라 pandas+scikit-learn 정도로 충분하다 - LoRA 질문생성기처럼 GPU/대용량
+# 학습이 필요 없다.
+pandas>=2.2
+scikit-learn>=1.5
+joblib>=1.4
 
 # test
 pytest==8.3.3

@@ -297,6 +297,15 @@ class VoiceMetrics:
     long_pause_count: int
     volume_mean_rms: float
     volume_variation_rms: float
+    # 2026-08-12 추가: 답변 리포트에 피치/음량 변화를 그래프로 보여달라는 요청으로, 프레임별
+    # 값을 평균만 내고 버리던 걸 시계열(그래프용)로도 같이 반환한다. 프레임 그대로 다 보내면
+    # 답변이 길 때 배열이 너무 커지고 차트로 그리기에도 촘촘해서, 고정 개수(_TIMELINE_POINTS)로
+    # 다운샘플링한다(_downsample_timeline 참고) - 답변 길이와 무관하게 항상 같은 점 개수라
+    # 프론트 차트 구현이 간단해진다. pitch는 무성음/무음 구간에서 None이 섞일 수 있다(차트에서
+    # 끊긴 구간으로 표시하면 됨) - volume은 항상 값이 있다(무음도 rms=0에 가까운 실제 값).
+    timeline_seconds: list[float]
+    timeline_pitch_hz: list[float | None]
+    timeline_volume_rms: list[float]
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -349,14 +358,52 @@ def _frame_pitch(frame: np.ndarray, sr: int) -> float | None:
     return sr / peak_tau
 
 
-def _pitch_stats(y: np.ndarray, sr: int) -> tuple[float | None, float | None]:
-    """프레임 단위로 피치를 뽑아 평균/표준편차를 낸다. 유효한 프레임이 하나도 없으면
+def _pitch_frames(y: np.ndarray, sr: int) -> list[float | None]:
+    """프레임 순서 그대로 피치를 뽑는다(무성음/무음 프레임은 None) - _frame_rms와 프레임
+    개수/순서가 동일해서(둘 다 _frame_starts(len(y)) 기준) 시계열로 나란히 쓸 수 있다."""
+    return [_frame_pitch(y[start : start + _FRAME_LENGTH], sr) for start in _frame_starts(len(y))]
+
+
+def _pitch_stats(pitches: list[float | None]) -> tuple[float | None, float | None]:
+    """프레임별 피치 목록에서 평균/표준편차를 낸다. 유효한 프레임이 하나도 없으면
     (예: 무음뿐인 파일) None."""
-    pitches = [p for start in _frame_starts(len(y)) if (p := _frame_pitch(y[start : start + _FRAME_LENGTH], sr)) is not None]
-    if not pitches:
+    valid = [p for p in pitches if p is not None]
+    if not valid:
         return None, None
-    arr = np.array(pitches)
+    arr = np.array(valid)
     return float(np.mean(arr)), float(np.std(arr))
+
+
+# 2026-08-12: 리포트 그래프에 쓸 시계열 포인트 개수 - 답변 길이(보통 30~60초, 프레임 수백~
+# 천여 개)와 무관하게 항상 이 개수로 다운샘플링한다. 너무 적으면 변화 추세가 뭉개지고,
+# 너무 많으면 선 그래프가 지저분해진다 - 60이면 1초 남짓 간격으로 촘촘하면서도 읽기 편하다.
+_TIMELINE_POINTS = 60
+
+
+def _downsample_timeline(
+    frame_times_sec: list[float], values: list[float | None], target_points: int = _TIMELINE_POINTS
+) -> tuple[list[float], list[float | None]]:
+    """프레임 시계열을 target_points개의 구간으로 묶어서 구간별 평균으로 줄인다(버킷
+    다운샘플링). 구간 안에 유효한(None 아닌) 값이 하나도 없으면 그 구간은 None으로 남긴다
+    (예: 완전 무음 구간의 피치) - 억지로 이전 값을 이어붙이거나 0으로 채우면 실제로 없는
+    신호를 있는 것처럼 보여주게 되므로 그대로 빈 구간으로 표시하는 쪽을 택했다."""
+    n = len(values)
+    if n == 0:
+        return [], []
+    if n <= target_points:
+        return list(frame_times_sec), list(values)
+
+    bucket_size = n / target_points
+    out_times: list[float] = []
+    out_values: list[float | None] = []
+    for i in range(target_points):
+        start = int(i * bucket_size)
+        end = max(start + 1, int((i + 1) * bucket_size))
+        chunk_values = [v for v in values[start:end] if v is not None]
+        mid_idx = min(start + (end - start) // 2, n - 1)
+        out_times.append(round(frame_times_sec[mid_idx], 2))
+        out_values.append(round(float(np.mean(chunk_values)), 2) if chunk_values else None)
+    return out_times, out_values
 
 
 def _silence_stats(rms: np.ndarray, total_duration_sec: float) -> tuple[float, int]:
@@ -414,7 +461,8 @@ def analyze_voice(audio_path: str, transcript: str) -> VoiceMetrics:
     sr = AUDIO_SAMPLE_RATE
     duration_sec = len(y) / sr if sr > 0 else 0.0
 
-    pitch_mean, pitch_variation = _pitch_stats(y, sr)
+    pitches = _pitch_frames(y, sr)
+    pitch_mean, pitch_variation = _pitch_stats(pitches)
 
     rms = _frame_rms(y)
     silence_ratio, long_pause_count = _silence_stats(rms, duration_sec)
@@ -423,6 +471,14 @@ def analyze_voice(audio_path: str, transcript: str) -> VoiceMetrics:
 
     char_count = len(transcript.replace(" ", ""))
     speaking_rate = (char_count / duration_sec) * 60 if duration_sec > 0 else None
+
+    # 2026-08-12: 시계열 그래프용 다운샘플링 - pitches/rms는 같은 프레임 그리드(_frame_starts
+    # 기준)라 길이가 같으므로 같은 frame_times로 나란히 묶을 수 있다.
+    frame_sec = _HOP_LENGTH / AUDIO_SAMPLE_RATE
+    frame_times = [i * frame_sec for i in range(len(rms))]
+    timeline_seconds, timeline_pitch_hz = _downsample_timeline(frame_times, pitches)
+    _, timeline_volume_raw = _downsample_timeline(frame_times, list(rms))
+    timeline_volume_rms = [v if v is not None else 0.0 for v in timeline_volume_raw]
 
     return VoiceMetrics(
         duration_sec=round(duration_sec, 2),
@@ -433,4 +489,7 @@ def analyze_voice(audio_path: str, transcript: str) -> VoiceMetrics:
         long_pause_count=long_pause_count,
         volume_mean_rms=round(volume_mean, 4),
         volume_variation_rms=round(volume_variation, 4),
+        timeline_seconds=timeline_seconds,
+        timeline_pitch_hz=timeline_pitch_hz,
+        timeline_volume_rms=timeline_volume_rms,
     )

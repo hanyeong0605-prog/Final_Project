@@ -4,6 +4,8 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +28,8 @@ import com.jobpilot.api.domain.auth.service.OAuthAuthenticationSuccessHandler;
 //서큐리티 큰피구
 @Configuration
 public class SecurityConfig {
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -73,7 +77,12 @@ public class SecurityConfig {
                     authorize.requestMatchers(HttpMethod.POST, "/api/v1/job-postings/crawl-runs/**").permitAll();
                     authorize.anyRequest().authenticated();
                 })
-                .oauth2Login(oauth -> oauth.successHandler(oauthSuccessHandler))
+                .oauth2Login(oauth -> oauth
+                        .successHandler(oauthSuccessHandler)
+                        .failureHandler((request, response, exception) -> {
+                            log.error("OAuth provider authentication failed: uri={}", request.getRequestURI(), exception);
+                            response.sendRedirect("/login?socialError=OAUTH_PROVIDER_FAILED");
+                        }))
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
                 .build();
     }

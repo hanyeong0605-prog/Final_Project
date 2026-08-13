@@ -10,6 +10,12 @@ export interface VoiceMetrics {
   long_pause_count: number;
   volume_mean_rms: number;
   volume_variation_rms: number;
+  // 2026-08-12 추가: 답변 리포트에 피치/음량 변화 그래프를 그리기 위한 시계열(고정 60개
+  // 포인트로 다운샘플링됨 - ai-server audio_analysis.py _downsample_timeline 참고).
+  // pitch는 무성음/무음 구간이 null로 남아있을 수 있다(차트에서 끊긴 구간으로 표시).
+  timeline_seconds: number[];
+  timeline_pitch_hz: (number | null)[];
+  timeline_volume_rms: number[];
 }
 
 export interface AnswerAnalysis {

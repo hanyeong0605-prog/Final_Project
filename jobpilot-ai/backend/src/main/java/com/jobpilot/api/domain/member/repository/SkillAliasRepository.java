@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SkillAliasRepository extends JpaRepository<SkillAlias, Long> {
     List<SkillAlias> findTop50ByNormalizedAliasStartingWith(String normalizedAlias);
     List<SkillAlias> findByNormalizedAlias(String normalizedAlias);
+    List<SkillAlias> findBySkillIdIn(List<Long> skillIds);
 }

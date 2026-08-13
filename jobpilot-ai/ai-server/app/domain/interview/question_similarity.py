@@ -32,9 +32,14 @@ _EMBED_MODEL = "gemini-embedding-001"
 # 방어적으로 쪼갠다 - 기술_직무역량의 공통 풀(500개)이 제일 큰 풀이라 이 값이 필요하다.
 _EMBED_BATCH_SIZE = 100
 # 코사인 유사도 임계값 - 1에 가까울수록 엄격. 0.5는 "완전히 다른 주제는 걸러내되, 같은
-# 분야 안에서의 표현 차이는 너그럽게 봐준다"는 선에서 잡은 시작값이다. 실제 배포 후 오탐/누락
+# 분야 안에서의 표현 차이는 너그럽게 봐준다"는 선에서 잡은 시작값이었다. 실제 배포 후 오탐/누락
 # 비율을 보고 조정이 필요할 수 있다(코드 밖에서 값만 바꾸면 되도록 상수로 뺐다).
-SIMILARITY_THRESHOLD = 0.5
+# 2026-08-12: 0.5에서는 "AWS 스토리지(NAS) 장애 경험"(모바일로 요청) 같은 - 개념 자체는
+# 실존하지만 분야가 명백히 다른 - 질문이 그대로 통과되는 사례가 실제 테스트(test_field_
+# questions_validated.py)에서 확인됐다. 0.6으로 올려서 더 엄격하게 걸러지는지 확인 중 -
+# 반대로 너무 올리면 같은 분야의 정상 질문까지 코퍼스로 대체되는 오탐이 늘 수 있으니,
+# 아래 print 로그(score)로 실제 값을 보면서 재조정해야 한다.
+SIMILARITY_THRESHOLD = 0.6
 
 
 def _pool_cache_key(category: str, job: str) -> str:
@@ -121,11 +126,20 @@ def is_topically_relevant(question: str, category: str, job: str) -> bool:
     포기하고 True를 돌려준다 - question_generator.py의 다른 Gemini 연동(_gemini_polish 등)과
     같은 설계 원칙으로, 검증 인프라 장애가 곧 "질문 생성 실패"로 이어지면 안 된다."""
     if not settings.gemini_api_key:
+        print("[유사도검증] gemini_api_key가 비어있어서 검증을 건너뜀")
         return True
     try:
         score = similarity_score(question, category, job)
-    except Exception:
+    except Exception as exc:
+        # 2026-08-12: 튜닝 중 - fail-open으로 조용히 넘어가던 예외를 눈에 보이게 임시로 출력.
+        # 튜닝 끝나면 이 print는 지우거나 logger.warning으로 낮춰도 된다.
+        print(f"[유사도검증] 예외로 fail-open 처리됨: {type(exc).__name__}: {exc}")
         return True
     if score is None:
         return True
-    return score >= SIMILARITY_THRESHOLD
+    passed = score >= SIMILARITY_THRESHOLD
+    # 2026-08-12: 임계값 튜닝 중 - 실제 점수를 눈으로 보면서 SIMILARITY_THRESHOLD를 맞추기
+    # 위한 임시 로그. 튜닝 끝나면 print 대신 logger.debug로 낮추거나 제거해도 된다.
+    print(f"[유사도검증] job={job!r} category={category!r} score={score:.3f} "
+          f"threshold={SIMILARITY_THRESHOLD} -> {'통과' if passed else '코퍼스로 대체'}")
+    return passed
