@@ -328,6 +328,14 @@ a { color: inherit; text-decoration: none; }
 .brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 0; transform: translateY(-11px); }
 .brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 1; transform: translateY(-10px); }
 .brand-link:hover .brand-tagline, .brand-link:focus-visible .brand-tagline { opacity: 1; transform: translateY(0); }
+.brand-logo-scene { overflow: visible; }
+.brand-logo-letter { display: grid; place-items: center; transition: opacity .12s ease, transform .18s ease; }
+.brand-job-mouse { position: absolute; display: grid; inset: 3px; place-items: center; border-radius: 50% 46% 48% 50%; background: linear-gradient(145deg, #8991aa, #555d78); color: #fff; font-family: Manrope, sans-serif; font-size: 7px; font-weight: 900; letter-spacing: -.4px; opacity: 0; transform: scale(.35) translateX(8px); transition: opacity .12s ease .06s, transform .2s cubic-bezier(.2,.85,.25,1) .06s; }
+.brand-job-mouse::after { position: absolute; top: 5px; width: 1px; height: 8px; border-radius: 2px; background: #dbe0ec; content: ""; }
+.brand-chasing-bobo { position: absolute; z-index: 2; bottom: -8px; left: -65px; width: 63px; opacity: 0; pointer-events: none; transform: translateX(-18px) scale(.68); transform-origin: bottom right; transition: opacity .1s ease .12s, transform .44s cubic-bezier(.1,.8,.25,1) .12s; }
+.desktop-brand:hover .brand-logo-letter, .desktop-brand:focus-visible .brand-logo-letter { opacity: 0; transform: scale(.45) rotate(-10deg); }
+.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { opacity: 1; transform: scale(1) translateX(0); }
+.desktop-brand:hover .brand-chasing-bobo, .desktop-brand:focus-visible .brand-chasing-bobo { opacity: 1; transform: translateX(19px) scale(1); }
 .brand-identity.compact { min-width: 102px; height: 16px; }
 .brand-identity.compact .brand-name { align-self: center; }
 .brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(0); }
@@ -490,11 +498,11 @@ a { color: inherit; text-decoration: none; }
    있어야 해서 40으로 잡았다. 2026-08-10: 모의면접 전용(InterviewChatWidget)에서 사이트
    전체 범용 도우미(SiteAssistantWidget)로 바뀌었지만 클래스 이름/스타일은 그대로 재사용. */
 .interview-chat-widget-toggle { position: fixed; z-index: 40; right: 24px; bottom: 24px; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; background: #596ff3; box-shadow: 0 10px 24px #596ff34d; color: #fff; cursor: pointer; overflow: visible; transition: width .28s cubic-bezier(.2,.85,.25,1), height .28s cubic-bezier(.2,.85,.25,1), border-radius .28s ease, box-shadow .28s ease, transform .2s ease; }
-.interview-chat-widget-toggle:hover:not(.is-open), .interview-chat-widget-toggle:focus-visible:not(.is-open) { width: 148px; height: 112px; border-radius: 56px; box-shadow: 0 16px 32px #596ff370; outline: none; }
+.interview-chat-widget-toggle:hover:not(.is-open), .interview-chat-widget-toggle:focus-visible:not(.is-open) { width: 122px; height: 76px; border-radius: 38px; box-shadow: 0 12px 26px #596ff362; outline: none; }
 .interview-chat-widget-toggle:active:not(.is-open) { transform: scale(.97); }
 .interview-chat-widget-icon { display: grid; place-items: center; transition: opacity .12s ease, transform .18s ease; }
-.interview-chat-widget-mascot { position: absolute; left: 8px; width: 96px; height: 96px; border-radius: 50%; background: #596ff3 url('/mascot/bobo-chat-counselor-sprite-v1.png') center top / 100% 200% no-repeat; opacity: 0; transform: scale(.55); transition: opacity .15s ease, transform .28s cubic-bezier(.2,.85,.25,1); }
-.interview-chat-widget-greeting { position: absolute; right: 12px; color: #fff; font-family: Pretendard, 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 800; line-height: 1.35; letter-spacing: -.04em; text-align: left; opacity: 0; transform: translateX(5px); transition: opacity .15s ease .08s, transform .2s ease .08s; white-space: nowrap; }
+.interview-chat-widget-mascot { position: absolute; left: 5px; width: 66px; height: 66px; border-radius: 50%; background: #596ff3 url('/mascot/bobo-chat-counselor-sprite-v1.png') center top / 100% 200% no-repeat; opacity: 0; transform: scale(.55); transition: opacity .15s ease, transform .28s cubic-bezier(.2,.85,.25,1); }
+.interview-chat-widget-greeting { position: absolute; right: 9px; color: #fff; font-family: Pretendard, 'Noto Sans KR', sans-serif; font-size: 10px; font-weight: 800; line-height: 1.35; letter-spacing: -.05em; text-align: left; opacity: 0; transform: translateX(5px); transition: opacity .15s ease .08s, transform .2s ease .08s; white-space: nowrap; }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-icon, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-icon { opacity: 0; transform: scale(.5); }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-mascot, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-mascot { opacity: 1; transform: scale(1); animation: bobo-chat-talk .42s steps(1, end) infinite; }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-greeting, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-greeting { opacity: 1; transform: translateX(0); }
