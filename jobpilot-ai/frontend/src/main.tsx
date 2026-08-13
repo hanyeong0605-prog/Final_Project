@@ -30,6 +30,18 @@ import "@fontsource/noto-sans-kr/700.css";
 import "@fontsource/noto-sans-kr/800.css";
 import "./styles.css";
 
+// 2026-08-13: 웹푸시 알림(마감임박 공고 등)용 서비스워커 등록 - public/sw.js가 push/
+// notificationclick 이벤트를 처리한다(PushNotificationSection.tsx가 이 등록이 끝난 뒤
+// navigator.serviceWorker.ready로 구독을 시작함). 지원 안 하는 브라우저(구형 등)에서는
+// 조용히 건너뛴다 - 다른 기능엔 영향 없음.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => {
+      // 등록 실패해도 앱 전체가 죽으면 안 되므로 조용히 무시 - 알림 기능만 못 쓰게 됨.
+    });
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider><InterestProvider><RouterProvider router={router} /></InterestProvider></AuthProvider>

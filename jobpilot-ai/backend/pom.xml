@@ -58,6 +58,36 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
         </dependency>
+        <!-- 2026-08-13: 마감임박/추천 공고 웹푸시 알림용 - VAPID 서명 + Push API 암호화까지
+             처리해주는 표준 Java 웹푸시 라이브러리. BouncyCastle을 JCE 프로바이더로 등록해야
+             동작한다(WebPushService 참고). -->
+        <dependency>
+            <groupId>nl.martijndwars</groupId>
+            <artifactId>web-push</artifactId>
+            <version>5.1.2</version>
+        </dependency>
+        <!-- web-push는 Gradle 모듈 메타데이터에만 이 두 의존성을 선언해놔서(공식 README:
+             "you may need to include BouncyCastle yourself as well"), Maven 빌드에서는
+             전이 의존성으로 안 딸려온다 - CI에서 "package org.bouncycastle... does not exist" /
+             "package org.apache.http does not exist" 컴파일 에러로 확인됨. 직접 명시. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.85.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.14</version>
+        </dependency>
+        <!-- web-push의 실제 POM(central의 5.1.2 pom)을 확인해보니 jose4j/httpasyncclient가
+             scope=runtime으로 선언돼있어 Maven 컴파일 classpath엔 안 올라온다. PushService.send()가
+             JoseException(checked exception)을 던져서 컴파일 시점에 클래스가 필요 - 직접 명시. -->
+        <dependency>
+            <groupId>org.bitbucket.b_c</groupId>
+            <artifactId>jose4j</artifactId>
+            <version>0.7.9</version>
+        </dependency>
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>

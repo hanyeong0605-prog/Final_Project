@@ -2,8 +2,12 @@ export type RecommendationLevel = "DIFFICULT_NOW" | "CHALLENGE_AFTER_GAPS" | "AP
 export type RequirementStatus = "DIRECT" | "RELATED" | "MISSING" | "CHECK_REQUIRED";
 
 export interface RequirementEvidence {
+  requirementId?: number;
   requirement: string;
   requirementType: string;
+  sourceExcerpt: string;
+  sourceNumber: number;
+  memberEvidenceType?: string;
   evidence: string;
   status: RequirementStatus;
   action: string;
@@ -20,6 +24,7 @@ export interface JobMatch {
   recommendationLevel: RecommendationLevel;
   score: number;
   comment: string;
+  postingDescription: string;
   skills: string[];
   requirements: RequirementEvidence[];
 }
