@@ -330,25 +330,29 @@ a { color: inherit; text-decoration: none; }
 .brand-link:hover .brand-tagline, .brand-link:focus-visible .brand-tagline { opacity: 1; transform: translateY(0); }
 .brand-logo-scene { position: relative; flex: none; overflow: visible; }
 .brand-logo-letter { display: grid; place-items: center; }
-.brand-job-mouse { position: absolute; z-index: 4; top: 29px; left: 5px; display: grid; width: 27px; height: 14px; place-items: center; border-radius: 50% 46% 48% 50%; background: linear-gradient(145deg, #8e96b0, #576079); box-shadow: 0 2px 4px #26335440; color: #fff; font-family: Manrope, sans-serif; font-size: 6px; font-weight: 900; letter-spacing: -.4px; transform-origin: center; }
-.brand-job-mouse::before { position: absolute; right: -7px; bottom: 1px; width: 9px; height: 6px; border-bottom: 1px solid #707993; border-radius: 0 0 8px 0; content: ""; }
-.brand-job-mouse::after { position: absolute; top: 2px; width: 1px; height: 4px; border-radius: 2px; background: #dbe0ec; content: ""; }
-.brand-bobo-stage { position: absolute; z-index: 3; right: 21px; bottom: -25px; width: 102px; height: 83px; overflow: visible; pointer-events: none; }
-.brand-bobo-frame { position: absolute; inset: 0; width: 86px; height: 86px; object-fit: contain; opacity: 0; transform-origin: center; }
-.brand-bobo-frame.peek { left: -18px; top: -6px; }
-.brand-bobo-frame.run { left: -3px; top: -5px; }
-.brand-bobo-frame.reach { left: 3px; top: -5px; }
-.brand-bobo-frame.catch { left: 13px; top: -6px; }
-.desktop-brand:hover .brand-bobo-frame.peek, .desktop-brand:focus-visible .brand-bobo-frame.peek { animation: bobo-logo-peek 1.16s steps(1, end) both; }
-.desktop-brand:hover .brand-bobo-frame.run, .desktop-brand:focus-visible .brand-bobo-frame.run { animation: bobo-logo-run 1.16s steps(1, end) both; }
-.desktop-brand:hover .brand-bobo-frame.reach, .desktop-brand:focus-visible .brand-bobo-frame.reach { animation: bobo-logo-reach 1.16s steps(1, end) both; }
-.desktop-brand:hover .brand-bobo-frame.catch, .desktop-brand:focus-visible .brand-bobo-frame.catch { animation: bobo-logo-catch 1.16s steps(1, end) both; }
-.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse 1.16s ease both; }
-@keyframes bobo-logo-peek { 0%, 24% { opacity: 1; } 25%, 100% { opacity: 0; } }
-@keyframes bobo-logo-run { 0%, 24% { opacity: 0; } 25%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@keyframes bobo-logo-reach { 0%, 49% { opacity: 0; } 50%, 74% { opacity: 1; } 75%, 100% { opacity: 0; } }
-@keyframes bobo-logo-catch { 0%, 74% { opacity: 0; } 75%, 100% { opacity: 1; } }
-@keyframes bobo-logo-mouse { 0%, 28% { transform: translateX(0); } 42% { transform: translateX(4px); } 58% { transform: translateX(0); } 75%, 100% { transform: translateX(-3px) scale(.9); } }
+.brand-job-mouse { position: absolute; z-index: 5; top: 29px; left: 2px; width: 31px; height: 19px; border: 1px solid #4a536c; border-radius: 49% 49% 45% 45% / 62% 62% 38% 38%; background: linear-gradient(145deg, #aeb6c9 0%, #7c859c 46%, #586176 100%); box-shadow: inset 1px 1px 1px #ffffff78, 0 2px 4px #26335442; color: #fff; transform-origin: 52% 50%; }
+.brand-job-mouse b { position: absolute; z-index: 2; right: 3px; bottom: 2px; color: #f9fbff; font-family: Manrope, sans-serif; font-size: 5px; font-weight: 900; letter-spacing: -.35px; line-height: 1; text-shadow: 0 1px 1px #31394e; }
+.brand-mouse-button { position: absolute; top: 1px; width: 13px; height: 8px; border-bottom: 1px solid #4e576f; background: linear-gradient(180deg, #d5d9e3, #a1aabc); }
+.brand-mouse-button.left { left: 1px; border-radius: 11px 2px 3px 2px; }
+.brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
+.brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
+.brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
+.brand-bobo-stage { position: absolute; z-index: 4; bottom: -36px; left: -62px; width: 110px; height: 110px; overflow: visible; pointer-events: none; }
+.brand-bobo-frame { position: absolute; inset: 0; width: 110px; height: 110px; object-fit: contain; opacity: 0; transform-origin: center; }
+.desktop-brand:hover .brand-bobo-frame.frame-1, .desktop-brand:focus-visible .brand-bobo-frame.frame-1 { animation: bobo-logo-frame-1 1.45s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-2, .desktop-brand:focus-visible .brand-bobo-frame.frame-2 { animation: bobo-logo-frame-2 1.45s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-3, .desktop-brand:focus-visible .brand-bobo-frame.frame-3 { animation: bobo-logo-frame-3 1.45s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-4, .desktop-brand:focus-visible .brand-bobo-frame.frame-4 { animation: bobo-logo-frame-4 1.45s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-5, .desktop-brand:focus-visible .brand-bobo-frame.frame-5 { animation: bobo-logo-frame-5 1.45s ease both; }
+.desktop-brand:hover .brand-bobo-frame.frame-6, .desktop-brand:focus-visible .brand-bobo-frame.frame-6 { animation: bobo-logo-frame-6 1.45s ease both; }
+.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse 1.45s cubic-bezier(.2,.9,.25,1) both; }
+@keyframes bobo-logo-frame-1 { 0%, 15% { opacity: 1; transform: translateX(-10px) scale(.9); } 21%, 100% { opacity: 0; transform: translateX(-4px) scale(.93); } }
+@keyframes bobo-logo-frame-2 { 0%, 13% { opacity: 0; } 19%, 31% { opacity: 1; transform: translateX(-5px) scale(.94); } 37%, 100% { opacity: 0; transform: translateX(0) scale(.96); } }
+@keyframes bobo-logo-frame-3 { 0%, 29% { opacity: 0; } 35%, 47% { opacity: 1; transform: translateX(-1px) translateY(2px) scale(.97); } 53%, 100% { opacity: 0; transform: translateX(5px) translateY(-1px) scale(1); } }
+@keyframes bobo-logo-frame-4 { 0%, 45% { opacity: 0; } 51%, 62% { opacity: 1; transform: translateX(4px) translateY(-1px) scale(1); } 68%, 100% { opacity: 0; transform: translateX(11px) translateY(-3px) scale(1.03); } }
+@keyframes bobo-logo-frame-5 { 0%, 60% { opacity: 0; } 66%, 78% { opacity: 1; transform: translateX(11px) translateY(-4px) scale(1.03); } 84%, 100% { opacity: 0; transform: translateX(16px) translateY(0) scale(1); } }
+@keyframes bobo-logo-frame-6 { 0%, 76% { opacity: 0; } 84%, 100% { opacity: 1; transform: translateX(16px) translateY(0) scale(1); } }
+@keyframes bobo-logo-mouse { 0%, 44% { transform: translateX(0); } 55% { transform: translateX(4px) rotate(3deg); } 66% { transform: translateX(0); } 84%, 100% { transform: translateX(-4px) translateY(1px) rotate(-6deg) scale(.94); } }
 .brand-identity.compact { min-width: 102px; height: 16px; }
 .brand-identity.compact .brand-name { align-self: center; }
 .brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(0); }
