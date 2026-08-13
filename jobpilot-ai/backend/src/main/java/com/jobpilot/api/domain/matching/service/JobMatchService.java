@@ -71,7 +71,8 @@ public class JobMatchService {
 
         return new JobMatchDetailResponse(
                 toSummary(match, posting),
-                evidences.stream().map(evidence -> toEvidence(evidence, requirements.get(evidence.getJobRequirementId()))).toList()
+                evidences.stream().map(evidence -> toEvidence(evidence, requirements.get(evidence.getJobRequirementId()))).toList(),
+                posting.getDescription()
         );
     }
 

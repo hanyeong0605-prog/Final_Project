@@ -129,7 +129,7 @@ public class JobMatchGenerationService {
 
     private MatchDraft evaluate(JobPosting posting, List<JobRequirement> postingRequirements, List<Skill> memberSkills,
                                 List<Certificate> memberCertificates, MemberProfile profile, MemberSpecification specification) {
-        int required = 0, covered = 0, missing = 0;
+        int required = 0, covered = 0, missing = 0, verificationNeeded = 0;
         Map<String, Integer> requiredByType = new java.util.HashMap<>();
         for (JobRequirement requirement : postingRequirements) {
             String type = safe(requirement.getType());
@@ -147,6 +147,7 @@ public class JobMatchGenerationService {
             String type = safe(requirement.getType());
             String content = safe(requirement.getContent());
             if (!(type.equals("SKILL") || type.equals("EXPERIENCE") || type.equals("EDUCATION") || type.equals("CERTIFICATION"))) {
+                verificationNeeded++;
                 result.add(new EvidenceDraft(requirement, null, "CHECK_REQUIRED", "공고 원문을 확인해 주세요.", null));
                 continue;
             }
@@ -172,17 +173,24 @@ public class JobMatchGenerationService {
                         type.equals("CERTIFICATION") ? "관련 자격증을 등록하거나 취득 계획을 세워 보세요." : "프로젝트·교육·기술 경험으로 보완해 보세요."));
             }
         }
-        int score = required == 0 || totalWeight == 0 ? 0 : (int) Math.round(90d * fulfilledWeight / totalWeight);
+        // Comparable profile evidence accounts for at most 85 points. Conditions which
+        // cannot be verified from a member profile reduce the confidence of the result.
+        int score = required == 0 || totalWeight == 0 ? 0 : (int) Math.round(85d * fulfilledWeight / totalWeight);
         if (roleMatches(posting, profile)) score += 10;
-        score = Math.min(score, 100);
+        score -= Math.min(35, verificationNeeded * 8);
+        score = Math.max(0, Math.min(score, 100));
         RecommendationLevel level = required == 0 || criticalGap || score < 50 ? RecommendationLevel.DIFFICULT_NOW
-                : missing == 0 && score >= 80 ? RecommendationLevel.APPLY_NOW : RecommendationLevel.CHALLENGE_AFTER_GAPS;
+                : missing == 0 && verificationNeeded == 0 && score >= 80
+                        ? RecommendationLevel.APPLY_NOW : RecommendationLevel.CHALLENGE_AFTER_GAPS;
         String summary = switch (level) {
             case APPLY_NOW -> "필수 요구사항이 등록한 스펙과 잘 맞습니다. 지원을 우선 검토해 보세요.";
             case CHALLENGE_AFTER_GAPS -> "필수 항목 " + missing + "개를 보완하면 지원 경쟁력을 높일 수 있습니다.";
             case DIFFICULT_NOW -> required == 0 ? "요구사항 분석 정보가 부족합니다. 공고 원문을 먼저 확인해 주세요."
                     : "필수 항목 " + missing + "개가 비어 있습니다. 준비 계획을 세운 뒤 도전해 보세요.";
         };
+        if (verificationNeeded > 0) {
+            summary += " " + verificationNeeded + "개 항목은 공고 원문 확인이 필요합니다.";
+        }
         return new MatchDraft(level, BigDecimal.valueOf(score), summary, missing, result,
                 coverage(requiredByType, "SKILL", result),
                 coverage(requiredByType, "CERTIFICATION", result),

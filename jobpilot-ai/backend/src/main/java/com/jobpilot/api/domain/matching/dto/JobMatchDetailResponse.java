@@ -4,5 +4,6 @@ import java.util.List;
 
 public record JobMatchDetailResponse(
         JobMatchSummaryResponse match,
-        List<JobMatchEvidenceResponse> evidences
+        List<JobMatchEvidenceResponse> evidences,
+        String postingDescription
 ) {}
