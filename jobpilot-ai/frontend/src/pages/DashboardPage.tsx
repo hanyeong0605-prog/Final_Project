@@ -3,7 +3,7 @@ import { Bookmark, BriefcaseBusiness, ChevronLeft, ChevronRight, Target } from "
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "../features/dashboard/components/MetricCard";
 import { useInterests } from "../features/interests/model/InterestContext";
-import { getJobMatchDetail, getJobMatches } from "../features/jobs/api/jobMatchesApi";
+import { getJobMatchDetail, getJobMatches, recalculateJobMatches } from "../features/jobs/api/jobMatchesApi";
 import { CompactJobCard } from "../features/jobs/components/CompactJobCard";
 import { JobMatchDrawer } from "../features/jobs/components/JobMatchDrawer";
 import type { JobMatch } from "../features/jobs/model/job.types";
@@ -52,11 +52,27 @@ export function DashboardPage() {
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("ALL");
   const [page, setPage] = useState(0);
+  const [recalculating, setRecalculating] = useState(false);
   const { interestCount, interestIds, isInterested, toggleInterest } = useInterests();
   const navigate = useNavigate();
 
   const openJob = (job: JobMatch) => {
     void getJobMatchDetail(job.id).then(setSelectedJob).catch(() => setSelectedJob(job));
+  };
+
+  const recalculate = async () => {
+    setRecalculating(true);
+    try {
+      await recalculateJobMatches();
+      const refreshed = await getJobMatches();
+      setJobs(refreshed);
+      setPage(0);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
+    } finally {
+      setRecalculating(false);
+    }
   };
 
   useEffect(() => {
@@ -91,6 +107,12 @@ export function DashboardPage() {
     {status === "ready" && jobs.length === 0 && <DataStatePanel state="empty" emptyTitle="표시할 매칭 결과가 없습니다" emptyBody="회원 스펙과 채용공고 요구사항 분석이 완료되면 대시보드가 구성됩니다." />}
 
     {status === "ready" && jobs.length > 0 && <>
+      <div className="dashboard-match-refresh">
+        <span>스펙을 수정했거나 최신 기준으로 점수를 확인하려면 매칭을 다시 계산하세요.</span>
+        <button type="button" className="outline-button" onClick={() => void recalculate()} disabled={recalculating}>
+          {recalculating ? "매칭 분석 중..." : "매칭 다시 분석"}
+        </button>
+      </div>
       <div className="metric-grid dashboard-metric-grid">
         <MetricCard icon={<BriefcaseBusiness />} label="분석된 공고" value={String(jobs.length)} hint="지원 어려움 공고까지 전체 보기" tone="blue" onClick={() => selectTab("ALL")} />
         <MetricCard icon={<Target />} label="지금 지원 가능" value={String(applyNowCount)} hint="필수요건 충족 공고" tone="green" onClick={() => selectTab("APPLY_NOW")} />

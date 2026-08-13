@@ -66,12 +66,15 @@ public class JobMatchLearningClient {
         }
     }
 
-    /** Blends readiness (65%) with learned interest likelihood (35%). */
+    /**
+     * Blends readiness (65%) with learned interest likelihood (35%).
+     * ML may improve ranking, but it must not erase an explainable evidence gap.
+     */
     public BigDecimal blendedReadiness(BigDecimal ruleScore, BigDecimal interestProbability) {
-        return ruleScore.multiply(BigDecimal.valueOf(0.65))
+        BigDecimal blended = ruleScore.multiply(BigDecimal.valueOf(0.65))
                 .add(interestProbability.multiply(BigDecimal.valueOf(0.35)))
-                .setScale(2, RoundingMode.HALF_UP)
-                .min(BigDecimal.valueOf(100));
+                .setScale(2, RoundingMode.HALF_UP);
+        return blended.min(ruleScore.add(BigDecimal.valueOf(5))).min(BigDecimal.valueOf(100));
     }
 
     public record LearningCandidate(
