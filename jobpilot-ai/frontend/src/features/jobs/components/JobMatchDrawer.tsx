@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Bookmark, ChevronRight, ExternalLink, MapPin, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { evidenceMeta, gradeMeta } from "../model/job.constants";
@@ -32,10 +32,16 @@ function matchingNumbers(text: string, requirements: RequirementEvidence[]) {
 export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatchDrawerProps) {
   const meta = gradeMeta[job.recommendationLevel];
   const [activeEvidence, setActiveEvidence] = useState<number | null>(null);
+  const sourceParagraphRefs = useRef<Map<number, HTMLParagraphElement>>(new Map());
   const paragraphs = useMemo(
     () => job.postingDescription.split(/\n+/).map((item) => item.trim()).filter(Boolean),
     [job.postingDescription],
   );
+
+  const focusEvidence = (sourceNumber: number) => {
+    setActiveEvidence(sourceNumber);
+    sourceParagraphRefs.current.get(sourceNumber)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   return <div className="drawer-layer" role="dialog" aria-modal="true" aria-label="채용공고 매칭 근거">
     <div className="drawer-backdrop" onClick={onClose} />
@@ -64,7 +70,16 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
             {paragraphs.length > 0 ? paragraphs.map((paragraph, index) => {
               const numbers = matchingNumbers(paragraph, job.requirements);
               const active = activeEvidence !== null && numbers.includes(activeEvidence);
-              return <p key={`${index}-${paragraph.slice(0, 12)}`} className={numbers.length ? `source-paragraph${active ? " source-active" : ""}` : ""}>
+              return <p
+                key={`${index}-${paragraph.slice(0, 12)}`}
+                ref={(element) => {
+                  if (!element) return;
+                  numbers.forEach((number) => {
+                    if (!sourceParagraphRefs.current.has(number)) sourceParagraphRefs.current.set(number, element);
+                  });
+                }}
+                className={numbers.length ? `source-paragraph${active ? " source-active" : ""}` : ""}
+              >
                 {numbers.length > 0 && <span className="source-number-list">{numbers.map((number) => <b key={number}>#{number}</b>)}</span>}
                 {paragraph}
               </p>;
@@ -81,7 +96,7 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
             {job.requirements.map((item) => {
               const evidence = evidenceMeta[item.status];
               const isActive = activeEvidence === item.sourceNumber;
-              return <button type="button" key={item.requirementId ?? `${item.sourceNumber}-${item.requirement}`} className={`matrix-row${isActive ? " source-active" : ""}`} onClick={() => setActiveEvidence(item.sourceNumber)}>
+              return <button type="button" key={item.requirementId ?? `${item.sourceNumber}-${item.requirement}`} className={`matrix-row${isActive ? " source-active" : ""}`} onClick={() => focusEvidence(item.sourceNumber)}>
                 <div className="requirement">
                   <span>{item.requirementType}</span>
                   <strong><em className="matrix-number">#{item.sourceNumber}</em>{item.requirement}</strong>
