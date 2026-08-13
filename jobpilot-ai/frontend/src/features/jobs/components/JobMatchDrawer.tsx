@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bookmark, ChevronRight, ExternalLink, MapPin, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { evidenceMeta, gradeMeta } from "../model/job.constants";
 import type { JobMatch, RequirementEvidence } from "../model/job.types";
+import type { GrowthAction } from "../model/job.types";
+import { getGrowthActions } from "../api/jobMatchesApi";
 
 interface JobMatchDrawerProps {
   job: JobMatch;
@@ -32,11 +34,13 @@ function matchingNumbers(text: string, requirements: RequirementEvidence[]) {
 export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatchDrawerProps) {
   const meta = gradeMeta[job.recommendationLevel];
   const [activeEvidence, setActiveEvidence] = useState<number | null>(null);
+  const [growthActions, setGrowthActions] = useState<GrowthAction[]>([]);
   const sourceParagraphRefs = useRef<Map<number, HTMLParagraphElement>>(new Map());
   const paragraphs = useMemo(
     () => job.postingDescription.split(/\n+/).map((item) => item.trim()).filter(Boolean),
     [job.postingDescription],
   );
+  useEffect(() => { void getGrowthActions(job.id).then(setGrowthActions).catch(() => setGrowthActions([])); }, [job.id]);
 
   const focusEvidence = (sourceNumber: number) => {
     setActiveEvidence(sourceNumber);
@@ -110,8 +114,21 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
               </button>;
             })}
           </div>
+          {growthActions.length > 0 && <section className="match-growth-panel">
+            <span className="eyebrow">NEXT ACTIONS</span><h3>부족 요건 보강 플랜</h3><p>확인되지 않은 요건을 실제 행동으로 바꿔보세요.</p>
+            <div className="match-growth-list">{growthActions.map((action) => <Link key={`${action.requirementId}-${action.title}`} to={action.href} className="match-growth-card">
+              <span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p><small>{action.nextStep}</small><ChevronRight size={16} />
+            </Link>)}</div>
+          </section>}
         </section>
       </div>
+
+      {false && growthActions.length > 0 && <section className="match-growth-panel">
+        <span className="eyebrow">NEXT ACTIONS</span><h3>부족 요건 보강 플랜</h3><p>확인되지 않은 요건을 실제 행동으로 바꿔보세요.</p>
+        <div className="match-growth-list">{growthActions.map((action) => <Link key={`${action.requirementId}-${action.title}`} to={action.href} className="match-growth-card">
+          <span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p><small>{action.nextStep}</small><ChevronRight size={16} />
+        </Link>)}</div>
+      </section>}
 
       <footer>
         <button className="outline-button" onClick={onInterest}><Bookmark size={17} fill={interested ? "currentColor" : "none"} />{interested ? "관심 목록에 저장됨" : "관심 목록에 저장"}</button>

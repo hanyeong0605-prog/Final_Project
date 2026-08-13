@@ -1,4 +1,4 @@
-import { deleteJson, getJson, postJson, putJson } from "../../../api/httpClient";
+import { deleteJson, getJson, postForm, postJson, putJson } from "../../../api/httpClient";
 import type { Project, ProjectInput, SelfIntroduction, SelfIntroductionInput } from "../model/resume.types";
 
 const BASE = "/api/v1/members/me";
@@ -14,3 +14,9 @@ export const listProjects = () => getJson<Project[]>(`${BASE}/projects`);
 export const createProject = (input: ProjectInput) => postJson<Project>(`${BASE}/projects`, input);
 export const updateProject = (id: number, input: ProjectInput) => putJson<Project>(`${BASE}/projects/${id}`, input);
 export const deleteProject = (id: number) => deleteJson(`${BASE}/projects/${id}`);
+
+export interface ResumeDocument { id: number; type: "UPLOADED" | "GENERATED"; title: string; originalFilename: string | null; extractedText: string | null; generatedContent: string | null; extractedProfile: Record<string, unknown> | null; createdAt: string; }
+export const listResumeDocuments = () => getJson<ResumeDocument[]>(`${BASE}/resume-documents`);
+export const extractResumeDocument = (file: File) => { const data = new FormData(); data.append("file", file); return postForm<ResumeDocument>(`${BASE}/resume-documents/extract`, data); };
+export const applyResumeExtraction = (id: number) => postJson<ResumeDocument>(`${BASE}/resume-documents/${id}/apply-profile`, undefined);
+export const generateResumeDocument = (input: { title: string; additionalRequest: string }) => postJson<ResumeDocument>(`${BASE}/resume-documents/generate`, input);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getCareerProfile } from "../features/profile/api/careerProfileApi";
 import { ProjectSection } from "../features/resume/components/ProjectSection";
 import { SelfIntroductionSection } from "../features/resume/components/SelfIntroductionSection";
+import { ResumeDocumentSection } from "../features/resume/components/ResumeDocumentSection";
 import { PageHeading } from "../shared/components/PageHeading";
 
 // 2026-08-10: 이력서 작성 도우미 페이지 - 로그인 회원 전용(router.tsx에서 이 페이지가 속한
@@ -10,7 +11,7 @@ import { PageHeading } from "../shared/components/PageHeading";
 // 내려준다("불러오기" 방향 - 태스크 #63) - 질문식 작성/첨삭 요청마다 이미 아는 정보를
 // 다시 묻지 않고 그 위에 구체화된 질문/평가를 받을 수 있다.
 export function ResumePage() {
-  const [tab, setTab] = useState<"self-intro" | "project">("self-intro");
+  const [tab, setTab] = useState<"self-intro" | "project" | "document">("self-intro");
   const [job, setJob] = useState("");
   const [techSummary, setTechSummary] = useState("");
 
@@ -41,14 +42,15 @@ export function ResumePage() {
         <button className={tab === "project" ? "primary-button" : "outline-button"} onClick={() => setTab("project")}>
           프로젝트 경험
         </button>
+        <button className={tab === "document" ? "primary-button" : "outline-button"} onClick={() => setTab("document")}>이력서 분석 · 초안</button>
       </div>
 
       <section className="panel profile-form-panel">
         {tab === "self-intro" ? (
           <SelfIntroductionSection job={job} techSummary={techSummary} />
-        ) : (
+        ) : tab === "project" ? (
           <ProjectSection job={job} techSummary={techSummary} />
-        )}
+        ) : <ResumeDocumentSection />}
       </section>
     </>
   );
