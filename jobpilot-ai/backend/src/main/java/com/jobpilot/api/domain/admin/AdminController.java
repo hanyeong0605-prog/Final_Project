@@ -78,7 +78,10 @@ public class AdminController {
             throw new IllegalArgumentException("현재 로그인한 관리자는 관리자 권한을 해제할 수 없습니다.");
         }
         target.changeRole(request.role());
-        return MemberResponse.from(target);
+        // Repository 조회 메서드의 트랜잭션은 여기 전에 종료될 수 있다. 값만 변경하면
+        // 응답에는 역할이 바뀐 것처럼 보이지만 DB에는 반영되지 않을 수 있으므로 명시적으로 저장한다.
+        Member saved = members.saveAndFlush(target);
+        return MemberResponse.from(saved);
     }
 
     @PatchMapping("/members/bulk-role")

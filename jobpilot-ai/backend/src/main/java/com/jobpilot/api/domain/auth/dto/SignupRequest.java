@@ -12,7 +12,9 @@ public record SignupRequest(
         String loginId,
         @NotBlank @Email @Size(max = 255) String email,
         @NotBlank @Size(min = 32, max = 128) String emailVerificationToken,
-        @NotBlank @Size(min = 8, max = 72) String password,
+        @NotBlank @Size(min = 10, max = 72)
+        @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[^A-Za-z\\d\\s]).{10,72}$", message = "비밀번호는 영문, 숫자, 특수문자를 모두 포함해 10자 이상이어야 합니다.")
+        String password,
         @NotBlank @Size(min = 2, max = 80) String nickname,
         @AssertTrue(message = "서비스 이용약관에 동의해 주세요.") boolean termsAgreed,
         @AssertTrue(message = "개인정보 수집 및 이용에 동의해 주세요.") boolean privacyCollectionAgreed,
