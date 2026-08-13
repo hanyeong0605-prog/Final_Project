@@ -1,5 +1,5 @@
 import { getJson, postJson } from "../../../api/httpClient";
-import type { JobMatch, RecommendationLevel, RequirementEvidence, RequirementStatus } from "../model/job.types";
+import type { GrowthAction, JobMatch, RecommendationLevel, RequirementEvidence, RequirementStatus } from "../model/job.types";
 
 interface JobMatchSummaryResponse {
   jobPostingId: number;
@@ -81,3 +81,5 @@ export async function getJobMatchDetail(jobPostingId: number): Promise<JobMatch>
     requirements: response.evidences.map(toRequirement),
   };
 }
+
+export const getGrowthActions = (jobPostingId: number) => getJson<GrowthAction[]>(`/api/v1/job-matches/${jobPostingId}/growth-actions`);

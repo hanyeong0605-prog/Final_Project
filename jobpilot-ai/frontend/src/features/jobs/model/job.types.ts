@@ -28,3 +28,5 @@ export interface JobMatch {
   skills: string[];
   requirements: RequirementEvidence[];
 }
+
+export interface GrowthAction { requirementId: number | null; requirement: string; category: string; title: string; description: string; nextStep: string; href: string; }

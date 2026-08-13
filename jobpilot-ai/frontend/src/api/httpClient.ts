@@ -34,6 +34,20 @@ export function getJson<T>(path: string): Promise<T> { return requestJson<T>(pat
 export function postJson<T>(path: string, body: unknown): Promise<T> {
   return requestJson<T>(path, { method: "POST", body: JSON.stringify(body) });
 }
+
+/** Multipart requests must not set Content-Type manually: the browser adds the boundary. */
+export async function postForm<T>(path: string, body: FormData): Promise<T> {
+  const token = getAccessToken();
+  const headers = new Headers({ Accept: "application/json" });
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${apiBaseUrl}${path}`, { method: "POST", body, headers });
+  if (!response.ok) {
+    if (response.status === 401) clearAccessToken();
+    const error = await response.json().catch(() => null) as { message?: string } | null;
+    throw new Error(error?.message ?? `POST ${path} failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
 export function patchJson<T>(path: string, body: unknown): Promise<T> {
   return requestJson<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 }
