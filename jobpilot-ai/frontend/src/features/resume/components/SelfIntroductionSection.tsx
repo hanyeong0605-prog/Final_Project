@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
+import { Send } from "lucide-react";
 import {
   createSelfIntroduction,
   deleteSelfIntroduction,
@@ -9,6 +11,7 @@ import {
   critiqueSelfIntroduction,
   fetchSelfIntroductionQuestions,
   generateSelfIntroductionDraft,
+  parseCompanyQuestions,
 } from "../api/resumeAiApi";
 import type { SelfIntroduction, SelfIntroductionCritiqueResult } from "../model/resume.types";
 
@@ -17,12 +20,26 @@ import type { SelfIntroduction, SelfIntroductionCritiqueResult } from "../model/
 // 있어서 - 여기서 그 둘을 순서대로 조합한다: 생성 결과를 그대로 저장하지 않고, 사용자가
 // 미리보기에서 한 번 더 수정할 수 있게 편집 가능한 textarea에 채워준다(AI가 지어낸 내용을
 // 그대로 믿지 않고 검토하게 하려는 의도).
+//
+// 2026-08-13: "질문식으로 작성"을 정적인 질문 목록 폼 대신, 사이트 챗봇(SiteAssistantWidget)과
+// 같은 실시간 채팅 형태로 바꿨다 - 마스코트(고양이, mascot-code.png)가 한 번에 질문 하나씩
+// 말풍선으로 묻고, 답하면 다음 질문으로 넘어간다. 채팅 시작 전에 회사 자소서 양식(채용
+// 페이지에서 복사한 문항 텍스트)을 붙여넣으면 그 문항 기준으로, 안 붙여넣으면 기존 기본
+// 4문항(GUIDED_QUESTIONS) 기준으로 질문한다(parse_company_questions 참고).
 interface Props {
   job: string;
   techSummary: string;
 }
 
 type EditorMode = "guided" | "freeform" | null;
+type ChatPhase = "setup" | "chatting" | "done";
+type ChatMessage = { id: string; role: "bot" | "user"; text: string };
+
+let selfIntroChatIdCounter = 0;
+function nextChatId(): string {
+  selfIntroChatIdCounter += 1;
+  return `self-intro-chat-${selfIntroChatIdCounter}`;
+}
 
 export function SelfIntroductionSection({ job, techSummary }: Props) {
   const [entries, setEntries] = useState<SelfIntroduction[]>([]);
@@ -39,6 +56,22 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
   const [critique, setCritique] = useState<SelfIntroductionCritiqueResult | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // 2026-08-13: 질문식(guided) 채팅 전용 상태 - 위 answers/content/busy는 채팅이 끝난 뒤
+  // (chatPhase === "done") 결과 미리보기/저장 단계에서 그대로 재사용한다.
+  const [chatPhase, setChatPhase] = useState<ChatPhase>("setup");
+  const [companyFormatText, setCompanyFormatText] = useState("");
+  const [parsingCompanyFormat, setParsingCompanyFormat] = useState(false);
+  const [companyFormatError, setCompanyFormatError] = useState<string | null>(null);
+  const [activeQuestions, setActiveQuestions] = useState<string[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatQuestionIndex, setChatQuestionIndex] = useState(0);
+  const chatLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: "smooth" });
+  }, [chatMessages, busy]);
+
   useEffect(() => {
     void Promise.all([listSelfIntroductions(), fetchSelfIntroductionQuestions()])
       .then(([list, q]) => { setEntries(list); setQuestions(q.questions); setAnswers(q.questions.map(() => "")); })
@@ -49,6 +82,8 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
   const resetEditor = () => {
     setEditorMode(null); setEditingId(null); setTitle(""); setPrimary(false);
     setAnswers(questions.map(() => "")); setContent(""); setCritique(null); setErrorMessage(null);
+    setChatPhase("setup"); setCompanyFormatText(""); setCompanyFormatError(null);
+    setActiveQuestions([]); setChatMessages([]); setChatInput(""); setChatQuestionIndex(0);
   };
 
   const startGuided = () => { resetEditor(); setEditorMode("guided"); };
@@ -59,16 +94,89 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
     setContent(entry.content); setPrimary(entry.primary);
   };
 
-  const handleGenerate = async () => {
-    setBusy(true); setErrorMessage(null);
+  // 질문 목록(기본 4문항 또는 회사 양식 파싱 결과)이 정해지면 채팅을 시작한다 - 첫 질문을
+  // 봇 말풍선으로 띄우고 답변 배열을 그 길이만큼 빈 문자열로 초기화한다.
+  const startChatWithQuestions = (list: string[]) => {
+    setActiveQuestions(list);
+    setAnswers(list.map(() => ""));
+    setChatQuestionIndex(0);
+    setChatMessages([{ id: nextChatId(), role: "bot", text: list[0] }]);
+    setChatPhase("chatting");
+  };
+
+  const handleParseCompanyFormat = async () => {
+    if (!companyFormatText.trim()) return;
+    setParsingCompanyFormat(true);
+    setCompanyFormatError(null);
     try {
-      const result = await generateSelfIntroductionDraft(job, techSummary, answers);
-      if (!result.ok || !result.content) { setErrorMessage(result.message ?? "생성에 실패했습니다."); return; }
-      setContent(result.content);
+      const result = await parseCompanyQuestions(companyFormatText.trim());
+      if (!result.ok || result.questions.length === 0) {
+        setCompanyFormatError(result.message ?? "질문 항목을 찾지 못했습니다.");
+        return;
+      }
+      startChatWithQuestions(result.questions);
     } catch (e) {
-      setErrorMessage(e instanceof Error ? e.message : "생성 중 오류가 발생했습니다.");
+      setCompanyFormatError(e instanceof Error ? e.message : "양식 분석 중 오류가 발생했습니다.");
+    } finally {
+      setParsingCompanyFormat(false);
+    }
+  };
+
+  // 마지막 질문까지 답하면 자동으로 지금까지의 답변을 모아 초안을 생성하고 chatPhase를
+  // "done"으로 넘긴다 - handleGenerate와 로직은 비슷하지만 activeQuestions(회사 양식일 수
+  // 있음)를 answers와 같은 순서로 함께 서버에 넘긴다는 점이 다르다.
+  const finishChatAndGenerate = async (finalAnswers: string[]) => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const result = await generateSelfIntroductionDraft(job, techSummary, finalAnswers, activeQuestions);
+      if (!result.ok || !result.content) {
+        setChatMessages((prev) => [
+          ...prev,
+          { id: nextChatId(), role: "bot", text: result.message ?? "자기소개서 생성에 실패했습니다. 다시 시도해주세요." },
+        ]);
+        return;
+      }
+      setContent(result.content);
+      setChatMessages((prev) => [
+        ...prev,
+        { id: nextChatId(), role: "bot", text: "답변 감사합니다! 지금까지 내용을 바탕으로 초안을 작성했어요. 아래에서 자유롭게 다듬어보세요." },
+      ]);
+      setChatPhase("done");
+    } catch (e) {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: nextChatId(), role: "bot", text: e instanceof Error ? `생성 중 오류가 발생했어요: ${e.message}` : "생성 중 오류가 발생했어요." },
+      ]);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleSendChatAnswer = () => {
+    if (busy) return;
+    const answerText = chatInput.trim();
+    const nextAnswers = answers.map((a, idx) => (idx === chatQuestionIndex ? answerText : a));
+    setAnswers(nextAnswers);
+    setChatInput("");
+    setChatMessages((prev) => [
+      ...prev,
+      { id: nextChatId(), role: "user", text: answerText || "(건너뛰기)" },
+    ]);
+
+    const nextIndex = chatQuestionIndex + 1;
+    if (nextIndex < activeQuestions.length) {
+      setChatQuestionIndex(nextIndex);
+      setChatMessages((prev) => [...prev, { id: nextChatId(), role: "bot", text: activeQuestions[nextIndex] }]);
+    } else {
+      void finishChatAndGenerate(nextAnswers);
+    }
+  };
+
+  const handleChatInputKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendChatAnswer();
     }
   };
 
@@ -144,31 +252,75 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
         </>
       )}
 
-      {editorMode === "guided" && (
-        <div>
-          <h3>질문에 답해주세요</h3>
-          {questions.map((q, i) => (
-            <div className="form-section" key={q}>
-              <div className="form-fields">
-                <label className="wide">
-                  {q}
-                  <textarea
-                    rows={3}
-                    value={answers[i] ?? ""}
-                    onChange={(e) => setAnswers((prev) => prev.map((a, idx) => (idx === i ? e.target.value : a)))}
-                    placeholder="답변을 입력해주세요 (건너뛰어도 됩니다)"
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
+      {editorMode === "guided" && chatPhase === "setup" && (
+        <div className="form-section">
+          <h3>회사 자소서 양식이 있나요?</h3>
+          <p style={{ color: "#6a7383", fontSize: 13, marginTop: -8 }}>
+            채용 페이지의 자기소개서 문항을 그대로 붙여넣으면 그 문항 기준으로, 없으면 기본
+            질문(지원동기·가치관·강점약점·포부) 기준으로 채팅을 시작해요.
+          </p>
+          <div className="form-fields">
+            <label className="wide">
+              회사 자소서 문항 (선택)
+              <textarea
+                rows={4}
+                value={companyFormatText}
+                onChange={(e) => setCompanyFormatText(e.target.value)}
+                placeholder={"예) 1. 지원동기를 작성하세요(500자 이내)\n2. 성장과정에서 겪은 실패 경험과 극복 방법을 서술하세요"}
+              />
+            </label>
+          </div>
+          {companyFormatError && <div className="account-alert error">{companyFormatError}</div>}
           <div className="form-actions">
-            <button className="primary-button" disabled={busy} onClick={handleGenerate}>
-              {busy ? "생성 중..." : "자기소개서 생성하기"}
+            <button className="outline-button" onClick={() => startChatWithQuestions(questions)}>
+              기본 질문으로 시작하기
+            </button>
+            <button
+              className="primary-button"
+              disabled={!companyFormatText.trim() || parsingCompanyFormat}
+              onClick={() => void handleParseCompanyFormat()}
+            >
+              {parsingCompanyFormat ? "양식 분석 중..." : "이 양식으로 질문 만들기"}
             </button>
           </div>
+        </div>
+      )}
 
-          {content && (
+      {editorMode === "guided" && (chatPhase === "chatting" || chatPhase === "done") && (
+        <div>
+          <div className="interview-chat-log" ref={chatLogRef}>
+            {chatMessages.map((m) => (
+              <SelfIntroChatBubble key={m.id} message={m} />
+            ))}
+            {busy && (
+              <div className="interview-chat-bubble bot">
+                <span className="interview-chat-avatar interview-chat-avatar-cat">
+                  <img src="/mascot-code.png" alt="" />
+                </span>
+                <div className="interview-chat-bubble-body" style={{ color: "#9098a7" }}>
+                  답변을 정리해서 초안을 작성하고 있어요...
+                </div>
+              </div>
+            )}
+          </div>
+
+          {chatPhase === "chatting" && (
+            <div className="interview-chat-input-row">
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={handleChatInputKeyDown}
+                placeholder="답변을 입력해주세요 (비워두고 보내면 건너뛰어요, Enter로 전송)"
+                rows={2}
+                disabled={busy}
+              />
+              <button type="button" className="primary-button" onClick={handleSendChatAnswer} disabled={busy}>
+                <Send size={14} />
+              </button>
+            </div>
+          )}
+
+          {chatPhase === "done" && content && (
             <div className="form-section">
               <h3>생성된 자기소개서 (자유롭게 수정하세요)</h3>
               <div className="form-fields">
@@ -178,7 +330,7 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
               </div>
             </div>
           )}
-          {renderSaveFields()}
+          {chatPhase === "done" && renderSaveFields()}
         </div>
       )}
 
@@ -236,4 +388,25 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
       </div>
     );
   }
+}
+
+// 사이트 챗봇(SiteAssistantWidget)의 ChatBubble과 같은 구조 - 봇 아바타만 아이콘 대신
+// 마스코트 이미지(mascot-code.png, 노트북+코드 말풍선 포즈)를 쓴다.
+function SelfIntroChatBubble({ message }: { message: { role: "bot" | "user"; text: string } }) {
+  if (message.role === "user") {
+    return (
+      <div className="interview-chat-bubble user">
+        <span className="interview-chat-avatar">나</span>
+        <div className="interview-chat-bubble-body">{message.text}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="interview-chat-bubble bot">
+      <span className="interview-chat-avatar interview-chat-avatar-cat">
+        <img src="/mascot-code.png" alt="" />
+      </span>
+      <div className="interview-chat-bubble-body">{message.text}</div>
+    </div>
+  );
 }

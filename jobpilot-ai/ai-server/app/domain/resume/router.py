@@ -17,6 +17,7 @@ from app.domain.resume.self_introduction import (
     GUIDED_QUESTIONS,
     critique as critique_self_introduction,
     generate_draft as generate_self_introduction_draft,
+    parse_company_questions,
 )
 
 router = APIRouter()
@@ -38,14 +39,34 @@ def self_introduction_questions():
 class GenerateSelfIntroductionRequest(BaseModel):
     job: str = ""
     tech_summary: str = ""
-    # GUIDED_QUESTIONS와 같은 순서/길이로 넘겨야 한다 - 안 쓴 항목은 빈 문자열로 채우면 됨.
+    # questions와 같은 순서/길이로 넘겨야 한다 - 안 쓴 항목은 빈 문자열로 채우면 됨.
     answers: list[str] = []
+    # 2026-08-13: 비워두면 GUIDED_QUESTIONS(기본 4문항)를 쓴다 - 회사 양식을 파싱했다면
+    # (아래 /self-introduction/parse-questions 참고) 그 결과를 그대로 answers와 같은
+    # 순서로 넘기면 그 문항 기준으로 초안이 만들어진다.
+    questions: list[str] = []
 
 
 @router.post("/self-introduction/generate")
 def generate_self_introduction(body: GenerateSelfIntroductionRequest):
-    draft = generate_self_introduction_draft(job=body.job, tech_summary=body.tech_summary, answers=body.answers)
+    draft = generate_self_introduction_draft(
+        job=body.job, tech_summary=body.tech_summary, answers=body.answers, questions=body.questions or None
+    )
     return draft.to_dict()
+
+
+class ParseCompanyQuestionsRequest(BaseModel):
+    raw_text: str = ""
+
+
+# 2026-08-13: "회사 자소서 양식이 있으면 그거에 대해 필요한 질문 물어보고" 요청으로 추가 -
+# 채용 사이트에서 그대로 복사한 문항 안내 텍스트를 받아 실제 질문 목록만 추출한다
+# (self_introduction.parse_company_questions 참고). 프론트는 이 결과를 GUIDED_QUESTIONS
+# 대신 채팅형 질문 목록으로 쓴다.
+@router.post("/self-introduction/parse-questions")
+def parse_self_introduction_company_questions(body: ParseCompanyQuestionsRequest):
+    result = parse_company_questions(body.raw_text)
+    return result.to_dict()
 
 
 class CritiqueSelfIntroductionRequest(BaseModel):

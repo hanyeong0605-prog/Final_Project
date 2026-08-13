@@ -65,12 +65,12 @@ public class DeadlineReminderScheduler {
             if (alreadySent) continue;
 
             String companyPrefix = job.getCompanyName() == null ? "" : job.getCompanyName() + " · ";
-            webPush.sendToMember(
-                    bookmark.getMemberId(),
-                    "마감 " + daysLeft + "일 전이에요",
-                    companyPrefix + job.getTitle(),
-                    "/job-postings/" + job.getId());
-            notificationLogs.save(new NotificationLog(bookmark.getMemberId(), JOB, job.getId(), notificationType));
+            String title = "마감 " + daysLeft + "일 전이에요";
+            String body = companyPrefix + job.getTitle();
+            String url = "/job-postings/" + job.getId();
+            webPush.sendToMember(bookmark.getMemberId(), title, body, url);
+            notificationLogs.save(new NotificationLog(
+                    bookmark.getMemberId(), JOB, job.getId(), notificationType, title, body, url));
             sentCount++;
         }
         if (sentCount > 0) log.info("마감임박 알림 {}건 발송", sentCount);
