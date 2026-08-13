@@ -140,12 +140,24 @@ export function AppShell() {
             <Link to="/" className="desktop-brand brand-link">
               <span className="brand-mark brand-logo-scene">
                 <span className="brand-logo-letter">J</span>
-                <span className="brand-job-mouse" aria-hidden="true">JOB</span>
+                <span className="brand-job-mouse" aria-hidden="true">
+                  <i className="brand-mouse-button left" />
+                  <i className="brand-mouse-button right" />
+                  <i className="brand-mouse-wheel" />
+                  <b>JOB</b>
+                  <i className="brand-mouse-cable" />
+                </span>
                 <span className="brand-bobo-stage" aria-hidden="true">
-                  <img className="brand-bobo-frame peek" src="/mascot/bobo-logo-peek.png" alt="" />
-                  <img className="brand-bobo-frame run" src="/mascot/bobo-logo-run.png" alt="" />
-                  <img className="brand-bobo-frame reach" src="/mascot/bobo-logo-reach.png" alt="" />
-                  <img className="brand-bobo-frame catch" src="/mascot/bobo-logo-catch.png" alt="" />
+                  <img className="brand-bobo-frame frame-1" src="/mascot/bobo-logo-v2-01-peek.png" alt="" />
+                  <img className="brand-bobo-frame frame-2" src="/mascot/bobo-logo-v2-02-stalk.png" alt="" />
+                  <img className="brand-bobo-frame frame-3" src="/mascot/bobo-logo-v2-03-crouch.png" alt="" />
+                  <img className="brand-bobo-frame frame-4" src="/mascot/bobo-logo-v3-04-step.png" alt="" />
+                  <img className="brand-bobo-frame frame-5" src="/mascot/bobo-logo-v2-04-sprint.png" alt="" />
+                  <img className="brand-bobo-frame frame-6" src="/mascot/bobo-logo-v3-06-launch.png" alt="" />
+                  <img className="brand-bobo-frame frame-7" src="/mascot/bobo-logo-v2-05-pounce.png" alt="" />
+                  <img className="brand-bobo-frame frame-8" src="/mascot/bobo-logo-v3-08-air.png" alt="" />
+                  <img className="brand-bobo-frame frame-9" src="/mascot/bobo-logo-v3-10-contact.png" alt="" />
+                  <img className="brand-bobo-frame frame-10" src="/mascot/bobo-logo-v2-06-catch.png" alt="" />
                 </span>
               </span>
               <BrandIdentity />
