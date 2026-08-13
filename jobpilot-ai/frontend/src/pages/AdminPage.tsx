@@ -74,9 +74,9 @@ export function AdminPage() {
     setError(""); setNotice("");
     try {
       const next = await changeAdminMemberRole(member.id, member.role === "ADMIN" ? "USER" : "ADMIN");
-      setMembers((current) => current.map((item) => item.id === next.id ? next : item));
       setNotice(`${next.nickname} 계정 권한을 변경했습니다.`);
-      void getAdminOverview().then(setOverview);
+      // 서버에서 다시 읽어 실제 DB 저장 결과만 화면에 표시한다.
+      await loadOverviewAndMembers();
     } catch (e) { setError(e instanceof Error ? e.message : "권한 변경에 실패했습니다."); }
   };
 
