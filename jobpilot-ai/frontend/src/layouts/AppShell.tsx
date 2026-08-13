@@ -141,7 +141,12 @@ export function AppShell() {
               <span className="brand-mark brand-logo-scene">
                 <span className="brand-logo-letter">J</span>
                 <span className="brand-job-mouse" aria-hidden="true">JOB</span>
-                <img className="brand-chasing-bobo" src="/mascot/bobo-logo-chase-right-v1.png" alt="" aria-hidden="true" />
+                <span className="brand-bobo-stage" aria-hidden="true">
+                  <img className="brand-bobo-frame peek" src="/mascot/bobo-logo-peek.png" alt="" />
+                  <img className="brand-bobo-frame run" src="/mascot/bobo-logo-run.png" alt="" />
+                  <img className="brand-bobo-frame reach" src="/mascot/bobo-logo-reach.png" alt="" />
+                  <img className="brand-bobo-frame catch" src="/mascot/bobo-logo-catch.png" alt="" />
+                </span>
               </span>
               <BrandIdentity />
             </Link>
