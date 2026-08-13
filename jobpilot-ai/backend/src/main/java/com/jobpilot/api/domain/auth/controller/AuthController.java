@@ -8,6 +8,7 @@ import com.jobpilot.api.domain.auth.dto.SignupRequest;
 import com.jobpilot.api.domain.auth.dto.OAuthCompleteRequest;
 import com.jobpilot.api.domain.auth.service.AuthService;
 import com.jobpilot.api.domain.auth.service.OAuthLoginService;
+import com.jobpilot.api.domain.analytics.service.MemberDailyVisitService;
 import com.jobpilot.api.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -23,10 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
     private final AuthService service;
     private final OAuthLoginService oauthLoginService;
+    private final MemberDailyVisitService dailyVisits;
 
-    public AuthController(AuthService service, OAuthLoginService oauthLoginService) {
+    public AuthController(AuthService service, OAuthLoginService oauthLoginService, MemberDailyVisitService dailyVisits) {
         this.service = service;
         this.oauthLoginService = oauthLoginService;
+        this.dailyVisits = dailyVisits;
     }
 
     @PostMapping("/signup")
@@ -47,6 +50,8 @@ public class AuthController {
 
     @GetMapping("/me")
     public MemberResponse me(Authentication authentication) {
-        return service.me(AuthenticatedMember.id(authentication));
+        Long memberId = AuthenticatedMember.id(authentication);
+        dailyVisits.record(memberId);
+        return service.me(memberId);
     }
 }
