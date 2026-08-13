@@ -7,3 +7,8 @@ __pycache__/
 # ai-server/ml/mock_interview_question_generator.ipynb로 각자 학습해서 채우거나,
 # 팀 공유 스토리지에서 받아서 여기 두면 된다.
 app/domain/interview/model/
+# train_delivery_score_model.py가 실서비스 반영 기준(R²) 미달일 때 남기는 실험용 산출물 -
+# 재학습할 때마다 덮어써지고 코드 리뷰 대상도 아니라서 위 model/ 디렉터리와 같은 이유로 제외.
+# (delivery_score_dataset.csv는 그대로 커밋 대상 - CSV라 용량 작고, 어디까지 모았는지
+# 팀이 같이 볼 수 있는 게 나음)
+ml/delivery_score_model_experimental.joblib
