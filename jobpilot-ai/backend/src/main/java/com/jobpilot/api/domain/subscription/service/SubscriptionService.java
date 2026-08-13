@@ -61,19 +61,22 @@ public class SubscriptionService {
         return new SubscriptionPlanResponse(plan.id(), plan.displayName(), plan.priceWon());
     }
 
+    // 2026-08-13: 관리자는 원래 결제 없이 항상 무제한 이용(그래서 checkout/cancel을 막아뒀었다)
+    // 인데, 관리자 계정으로도 구독 켜기/끄기 버튼 동작 자체를 테스트해보고 싶다는 요청으로
+    // 막았던 걸 풀었다 - 테스트 키(TOSS_SECRET_KEY=test_sk_...)라 실제 결제는 안 일어난다.
+    // 대신 "진짜 구독"이 있으면 그걸 우선 보여주고, 없을 때만 기존처럼 무제한 표시로
+    // 폴백한다 - 관리자가 테스트 결제를 실제로 완료하면 일반 회원처럼 해지 버튼도 뜬다.
     public SubscriptionStatusResponse getStatus(Long memberId) {
-        if (adminAccess.isAdmin(memberId)) {
-            return new SubscriptionStatusResponse(true, "ADMIN", "관리자 계정", 0, null, null, true);
-        }
         return subscriptionRepository.findByMemberId(memberId)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
                 .map(this::toResponse)
-                .orElseGet(() -> new SubscriptionStatusResponse(false, null, null, 0, null, null, false));
+                .orElseGet(() -> adminAccess.isAdmin(memberId)
+                        ? new SubscriptionStatusResponse(true, "ADMIN", "관리자 계정", 0, null, null, true)
+                        : new SubscriptionStatusResponse(false, null, null, 0, null, null, false));
     }
 
     /** 결제창을 띄우기 전에 호출 - PENDING 결제 건을 만들고 orderId/금액을 돌려준다. */
     public SubscriptionCheckoutResponse checkout(Long memberId) {
-        rejectAdminCheckout(memberId);
         Subscription subscription = getOrCreateSubscription(memberId);
         SubscriptionPlan plan = SubscriptionPlan.current();
         String orderId = "sub-" + UUID.randomUUID();
@@ -83,7 +86,6 @@ public class SubscriptionService {
 
     /** 결제창 successUrl 리다이렉트 이후 호출 - 승인 API를 부르고 성공하면 구독을 (재)활성화한다. */
     public SubscriptionStatusResponse confirmPayment(Long memberId, SubscriptionConfirmRequest request) {
-        rejectAdminCheckout(memberId);
         SubscriptionPayment payment = paymentRepository.findByOrderIdAndMemberId(request.orderId(), memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("결제 건을 찾을 수 없습니다."));
 
@@ -109,7 +111,6 @@ public class SubscriptionService {
     }
 
     public SubscriptionStatusResponse cancel(Long memberId) {
-        rejectAdminCheckout(memberId);
         Subscription subscription = subscriptionRepository.findByMemberId(memberId)
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
                 .orElseThrow(() -> new SubscriptionException("구독 중이 아닙니다."));
@@ -147,9 +148,5 @@ public class SubscriptionService {
                 s.getPlanId(),
                 s.getStatus() == SubscriptionStatus.ACTIVE ? SubscriptionPlan.current().displayName() : null,
                 s.getPriceWon(), s.getCurrentPeriodEnd(), s.getNextBillingAt(), false);
-    }
-
-    private void rejectAdminCheckout(Long memberId) {
-        if (adminAccess.isAdmin(memberId)) throw new SubscriptionException("관리자 계정은 결제 없이 모든 기능을 이용할 수 있습니다.");
     }
 }

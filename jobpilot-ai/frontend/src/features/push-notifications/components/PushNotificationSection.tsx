@@ -64,7 +64,7 @@ export function PushNotificationSection() {
       });
       const json = subscription.toJSON();
       if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        throw new Error("구독 정보가 올바르지 않습니다.");
+        throw new Error("알림 등록 정보가 올바르지 않습니다.");
       }
       await subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
       setSubscribed(true);
@@ -76,7 +76,7 @@ export function PushNotificationSection() {
       setError(
         e instanceof Error && e.name === "NotAllowedError"
           ? "브라우저 알림 권한이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해주세요."
-          : `알림 구독에 실패했습니다. 아이폰이라면 이 사이트를 홈 화면에 추가한 뒤 다시 시도해주세요. (${detail})`,
+          : `알림 켜기에 실패했습니다. 아이폰이라면 이 사이트를 홈 화면에 추가한 뒤 다시 시도해주세요. (${detail})`,
       );
     } finally {
       setIsBusy(false);
@@ -94,8 +94,9 @@ export function PushNotificationSection() {
         await subscription.unsubscribe();
       }
       setSubscribed(false);
-    } catch {
-      setError("알림 끄기에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } catch (e) {
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      setError(`알림 끄기에 실패했습니다. 잠시 후 다시 시도해주세요. (${detail})`);
     } finally {
       setIsBusy(false);
     }
@@ -131,7 +132,7 @@ export function PushNotificationSection() {
         </button>
       ) : (
         <button className="primary-button" disabled={isBusy} onClick={() => void handleSubscribe()}>
-          알림 받기
+          알림 켜기
         </button>
       )}
       {/* 2026-08-13: 관리자 전용 - 마감임박/추천 스케줄러(하루 한 번, 조건부 발송)를 기다리지
