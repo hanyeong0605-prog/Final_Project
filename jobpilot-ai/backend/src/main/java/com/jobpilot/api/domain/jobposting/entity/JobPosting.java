@@ -165,4 +165,12 @@ public class JobPosting {
     public long getViewCount() { return viewCount; }
     public JsonNode getRawPayload() { return rawPayload; }
     public void changeStatus(String status) { this.status = status; }
+
+    public void updateByAdmin(String title, String companyName, String location, LocalDateTime deadlineAt, String status) {
+        this.title = title;
+        this.companyName = companyName;
+        this.location = location;
+        this.deadlineAt = deadlineAt;
+        this.status = status;
+    }
 }

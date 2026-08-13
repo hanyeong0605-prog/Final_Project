@@ -84,7 +84,7 @@ public class JobPostingSearchService {
             String employmentType,
             MapSqlParameterSource parameters
     ) {
-        StringBuilder where = new StringBuilder(" WHERE status = :status");
+        StringBuilder where = new StringBuilder(" WHERE status = :status AND (deadline_at IS NULL OR deadline_at >= NOW())");
         if (hasText(query)) {
             where.append(" AND LOWER(CONCAT_WS(' ', COALESCE(title, ''), COALESCE(company_name, ''), "
                     + "COALESCE(location, ''), COALESCE(job_name, ''), COALESCE(job_mid_name, ''), "
