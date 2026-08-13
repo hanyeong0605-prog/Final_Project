@@ -66,7 +66,7 @@ public class JobMatch {
         this.summaryComment = summaryComment;
         this.missingRequiredCount = missingRequiredCount;
         this.analyzedAt = LocalDateTime.now();
-        this.aiModel = "RULE_BASED_V1";
+        this.aiModel = "RULE_BASED_V2";
     }
 
     public Long getId() { return id; }
@@ -78,4 +78,17 @@ public class JobMatch {
     public String getSummaryComment() { return summaryComment; }
     public LocalDateTime getAnalyzedAt() { return analyzedAt; }
     public int getMissingRequiredCount() { return missingRequiredCount; }
+
+    /**
+     * The learned score ranks otherwise eligible postings.  Recommendation
+     * level is deliberately not changed here: mandatory-gap decisions stay
+     * explainable and are backed by job_match_evidences.
+     */
+    public void applyLearnedScore(BigDecimal score, String modelName) {
+        this.readinessScore = score;
+        this.aiModel = modelName;
+        this.analyzedAt = LocalDateTime.now();
+    }
+
+    public String getAiModel() { return aiModel; }
 }

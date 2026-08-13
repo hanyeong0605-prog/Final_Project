@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 # 2026-08-04: env_file="​.env"(상대경로)였는데, 이게 파이썬 실행 시점의 작업 디렉터리(cwd) 기준으로
@@ -12,7 +13,12 @@ _ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    database_url: str = "mysql+pymysql://jobpilot:jobpilot@localhost:3306/job"
+    database_url: str = Field(
+        default="mysql+pymysql://jobpilot:jobpilot@localhost:3306/job",
+        validation_alias=AliasChoices("DATABASE_URL", "DB_URL"),
+    )
+    db_username: str = "root"
+    db_password: str = ""
     backend_base_url: str = "http://localhost:9000"
     # 백엔드 POST /api/v1/job-postings/ingest 호출 인증용 (InternalApiKeyFilter 참고).
     # 루트 .env의 INTERNAL_API_KEY와 같은 값이어야 한다.

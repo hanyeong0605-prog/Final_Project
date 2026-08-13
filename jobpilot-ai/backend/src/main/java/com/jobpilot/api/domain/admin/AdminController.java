@@ -9,6 +9,7 @@ import com.jobpilot.api.domain.member.repository.MemberRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import com.jobpilot.api.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
@@ -17,12 +18,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -76,14 +79,18 @@ public class AdminController {
     public PageResponse<JobPostingSummary> jobPostings(
             Authentication authentication,
             @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "deadline_asc") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(Sort.Direction.DESC, "fetchedAt"));
-        Page<JobPosting> result = query.isBlank()
-                ? postings.findAll(pageable)
-                : postings.findByTitleContainingIgnoreCaseOrCompanyNameContainingIgnoreCase(query, query, pageable);
+        String normalizedStatus = status == null ? "ALL" : status.toUpperCase();
+        if (!normalizedStatus.matches("ALL|ACTIVE|CLOSED|HIDDEN")) throw new IllegalArgumentException("Unsupported posting status.");
+        String normalizedSort = sort == null ? "deadline_asc" : sort;
+        if (!normalizedSort.matches("deadline_asc|deadline_desc|recent|popular")) throw new IllegalArgumentException("Unsupported posting sort.");
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        Page<JobPosting> result = postings.findForAdmin(query == null ? "" : query.trim(), normalizedStatus, normalizedSort, pageable);
         return PageResponse.from(result.map(JobPostingSummary::from));
     }
 
@@ -94,12 +101,36 @@ public class AdminController {
         if (!request.status().matches("ACTIVE|CLOSED|HIDDEN")) throw new IllegalArgumentException("지원하지 않는 공고 상태입니다.");
         JobPosting posting = postings.findById(jobPostingId).orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
         posting.changeStatus(request.status());
-        return JobPostingSummary.from(posting);
+        return JobPostingSummary.from(postings.save(posting));
+    }
+
+    @PutMapping("/job-postings/{jobPostingId}")
+    public JobPostingSummary updatePosting(Authentication authentication, @PathVariable Long jobPostingId,
+                                            @Valid @RequestBody UpdatePostingRequest request) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        if (!request.status().matches("ACTIVE|CLOSED|HIDDEN")) throw new IllegalArgumentException("지원하지 않는 공고 상태입니다.");
+        JobPosting posting = postings.findById(jobPostingId).orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
+        posting.updateByAdmin(request.title().trim(), blankToNull(request.companyName()), blankToNull(request.location()), request.deadlineAt(), request.status());
+        return JobPostingSummary.from(postings.save(posting));
+    }
+
+    @DeleteMapping("/job-postings/{jobPostingId}")
+    public JobPostingSummary hidePosting(Authentication authentication, @PathVariable Long jobPostingId) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        JobPosting posting = postings.findById(jobPostingId).orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
+        posting.changeStatus("HIDDEN");
+        return JobPostingSummary.from(postings.save(posting));
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public record OverviewResponse(long memberCount, long adminCount, long jobPostingCount, long activePostingCount, long closedPostingCount) {}
     public record ChangeRoleRequest(@NotNull MemberRole role) {}
     public record ChangePostingStatusRequest(@NotNull String status) {}
+    public record UpdatePostingRequest(@NotBlank String title, String companyName, String location,
+                                       LocalDateTime deadlineAt, @NotBlank String status) {}
     public record JobPostingSummary(Long id, String title, String companyName, String status, String location, LocalDateTime deadlineAt, long viewCount) {
         static JobPostingSummary from(JobPosting posting) {
             return new JobPostingSummary(posting.getId(), posting.getTitle(), posting.getCompanyName(), posting.getStatus(), posting.getLocation(), posting.getDeadlineAt(), posting.getViewCount());

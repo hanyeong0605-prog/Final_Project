@@ -14,7 +14,9 @@ import com.jobpilot.api.domain.matching.repository.JobMatchEvidenceRepository;
 import com.jobpilot.api.domain.matching.repository.JobMatchRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
+import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -48,6 +50,12 @@ public class JobMatchService {
 
         return matches.stream()
                 .map(match -> toSummary(match, requiredPosting(postings, match.getJobPostingId())))
+                // Dashboard recommendations prioritize applications that close soon.
+                // Rolling / unknown deadlines remain available, but follow dated postings.
+                .sorted(Comparator
+                        .comparing(JobMatchSummaryResponse::deadlineAt,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(JobMatchSummaryResponse::readinessScore, Comparator.reverseOrder()))
                 .toList();
     }
 
@@ -63,7 +71,8 @@ public class JobMatchService {
 
         return new JobMatchDetailResponse(
                 toSummary(match, posting),
-                evidences.stream().map(evidence -> toEvidence(evidence, requirements.get(evidence.getJobRequirementId()))).toList()
+                evidences.stream().map(evidence -> toEvidence(evidence, requirements.get(evidence.getJobRequirementId()))).toList(),
+                posting.getDescription()
         );
     }
 
