@@ -118,3 +118,15 @@ qnet:
 barun:
   api:
     key: ${BARUN_API_KEY}
+
+# 2026-08-13: 웹푸시(마감임박/추천 공고 알림) - VAPID 키쌍이 비어있으면 WebPushService가
+# fail-open으로 발송을 건너뛴다(기존 gemini-api-key 등과 같은 패턴) - 로컬 개발 중 키가
+# 없어도 다른 기능엔 영향 없음. 키 발급 방법은 web-push 라이브러리의 generate-key CLI 참고.
+push:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: ${VAPID_SUBJECT:mailto:admin@job-a-dream.site}
+  deadline-reminder:
+    # 매일 오전 9시(KST) - 찜한 공고 중 마감 D-3/D-1인 것을 찾아 발송한다.
+    cron: "${PUSH_DEADLINE_REMINDER_CRON:0 0 9 * * *}"

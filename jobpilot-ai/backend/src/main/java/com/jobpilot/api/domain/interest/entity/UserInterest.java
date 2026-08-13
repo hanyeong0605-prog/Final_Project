@@ -27,4 +27,9 @@ public class UserInterest {
     }
 
     public Long getTargetId() { return targetId; }
+    // 2026-08-13: DeadlineReminderScheduler(마감임박 알림)가 전체 회원의 찜한 공고를 순회하며
+    // 알림 대상을 골라야 해서 memberId/targetType 접근이 필요해졌다 - 기존에 없던 getter만
+    // 추가, 기존 필드/생성자는 그대로 둔다.
+    public Long getMemberId() { return memberId; }
+    public String getTargetType() { return targetType; }
 }
