@@ -138,7 +138,11 @@ export function AppShell() {
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
             <Link to="/" className="desktop-brand brand-link">
-              <span className="brand-mark">J</span>
+              <span className="brand-mark brand-logo-scene">
+                <span className="brand-logo-letter">J</span>
+                <span className="brand-job-mouse" aria-hidden="true">JOB</span>
+                <img className="brand-chasing-bobo" src="/mascot/bobo-logo-chase-right-v1.png" alt="" aria-hidden="true" />
+              </span>
               <BrandIdentity />
             </Link>
             <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>
