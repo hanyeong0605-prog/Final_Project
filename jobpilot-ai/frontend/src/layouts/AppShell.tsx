@@ -153,13 +153,6 @@ export function AppShell() {
             <Link to="/" className="desktop-brand brand-link logo-mascot-ready" onMouseEnter={playLogoPounce} onMouseLeave={resetLogoPounce} onFocus={playLogoPounce} onBlur={resetLogoPounce}>
               <span className="brand-mark brand-logo-scene">
                 <span className="brand-logo-letter">J</span>
-                <span className="brand-job-mouse" aria-hidden="true">
-                  <i className="brand-mouse-button left" />
-                  <i className="brand-mouse-button right" />
-                  <i className="brand-mouse-wheel" />
-                  <b>JOB</b>
-                  <i className="brand-mouse-cable" />
-                </span>
                 <span className="brand-bobo-stage" aria-hidden="true">
                   <video ref={logoVideoRef} className="brand-pounce-video" src="/mascot/happyhorse-logo-pounce.webm" muted playsInline preload="auto" />
                 </span>
