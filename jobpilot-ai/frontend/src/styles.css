@@ -396,10 +396,10 @@ a { color: inherit; text-decoration: none; }
 .home-hero { position: relative; display: grid; min-height: clamp(310px, 25vw, 390px); overflow: hidden; isolation: isolate; border-radius: 20px; background: linear-gradient(120deg, #2f4b8f 0%, #405cbd 57%, #5870e4 100%); padding: clamp(30px, 5vw, 58px); color: #fff; }
 .home-hero::before { position: absolute; z-index: -1; inset: 0; background: url("/hero/cat-career-hero-background.png") center / cover no-repeat; content: ""; pointer-events: none; }
 .home-hero-copy { position: relative; z-index: 1; width: min(58%, 610px); }
-.home-hero .eyebrow { color: #bdc9ff; }
-.home-hero h1 { margin: 12px 0 15px; font-size: clamp(31px, 4vw, 50px); letter-spacing: -2.2px; line-height: 1.18; }
-.home-hero h1 em { color: #bdc9ff; font-style: normal; }
-.home-hero > div > p { max-width: 610px; margin: 0; color: #d9e1ff; font-size: 14px; line-height: 1.8; }
+.home-hero .eyebrow { color: #385d97; }
+.home-hero h1 { margin: 12px 0 15px; color: #1d2b42; font-size: clamp(31px, 4vw, 50px); letter-spacing: -2.2px; line-height: 1.18; }
+.home-hero h1 em { color: #1f4f9a; font-style: normal; }
+.home-hero > div > p { max-width: 610px; margin: 0; color: #1d2635; font-size: 14px; line-height: 1.8; }
 .home-hero-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 26px; }
 .home-hero .primary-button { background: #fff; color: #4560cd; padding: 12px 15px; text-decoration: none; font-size: 12px; }
 .home-secondary-link { display: inline-flex; align-items: center; color: #fff; font-size: 12px; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
@@ -576,11 +576,20 @@ a { color: inherit; text-decoration: none; }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-mascot::after, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-mascot::after { animation: bobo-chat-talk .68s steps(1, end) infinite; }
 @keyframes bobo-chat-talk { 0%, 47%, 100% { opacity: 0; } 48%, 99% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .interview-chat-widget-toggle { transition: none; } .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-mascot::after, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-mascot::after { animation: none; } }
-.interview-chat-widget-panel { position: fixed; z-index: 40; right: 24px; bottom: 122px; display: flex; flex-direction: column; width: 360px; max-width: calc(100vw - 32px); max-height: min(600px, calc(100vh - 140px)); border: 1px solid #e8ebf1; border-radius: 16px; background: #fff; box-shadow: 0 20px 48px #1e315433; overflow: hidden; }
-.interview-chat-widget-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eef0f4; background: linear-gradient(100deg, #f6f8ff, #fff); padding: 14px 16px; }
-.interview-chat-widget-header span { display: flex; align-items: center; gap: 6px; color: #293349; font-size: 13px; font-weight: 800; }
-.interview-chat-widget-header button { display: grid; place-items: center; border: 0; background: transparent; color: #9098a7; cursor: pointer; }
-.interview-chat-widget-log { flex: 1; min-height: 220px; max-height: 340px; padding: 14px; }
+.interview-chat-widget-panel { position: fixed; z-index: 40; right: 24px; bottom: 122px; display: flex; flex-direction: column; width: 430px; max-width: calc(100vw - 32px); max-height: min(680px, calc(100vh - 140px)); border: 1px solid #cfe8f7; border-radius: 18px; background: #fff; box-shadow: 0 20px 48px #4f92be2e; overflow: hidden; }
+.interview-chat-widget-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dceff8; background: linear-gradient(100deg, #eefaff, #fff); padding: 16px 18px; }
+.interview-chat-widget-header span { display: flex; align-items: center; gap: 7px; color: #28506b; font-size: 14px; font-weight: 800; }
+.interview-chat-widget-header span > svg { display: none; }
+.interview-chat-widget-header span::before { display: block; width: 25px; height: 25px; border-radius: 50%; background: url('/mascot/bobo-chat-idle-square.png') center / 100% 100% no-repeat; content: ""; }
+.interview-chat-widget-header button { display: grid; place-items: center; border: 0; border-radius: 8px; background: #dff4ff; color: #3f82a8; padding: 5px; cursor: pointer; }
+.interview-chat-widget-log { flex: 1; min-height: 280px; max-height: 430px; padding: 17px; }
+.interview-chat-widget-panel .interview-chat-bubble.bot .interview-chat-avatar { overflow: hidden; background: url('/mascot/bobo-chat-idle-square.png') center / 100% 100% no-repeat; color: transparent; }
+.interview-chat-widget-panel .interview-chat-bubble.bot .interview-chat-avatar svg { display: none; }
+.interview-chat-widget-panel .interview-chat-bubble.bot .interview-chat-bubble-body { border-color: #d5edf8; background: #f2fbff; }
+.interview-chat-widget-panel .interview-chat-bubble.user .interview-chat-bubble-body { background: #78c4ea; }
+.interview-chat-widget-panel .interview-chat-input-row { border-color: #dceff8; }
+.interview-chat-widget-panel .interview-chat-input-row textarea { border-color: #cce8f5; background: #fbfeff; }
+.interview-chat-widget-panel .primary-button { border-color: #72bee6; background: #72bee6; box-shadow: 0 5px 11px #72bee644; color: #174c6d; }
 @media (max-width: 480px) { .interview-chat-widget-panel { right: 16px; left: 16px; width: auto; } .interview-chat-widget-toggle { right: 16px; } }
 
 /* 2026-08-06: 모의면접 시작화면 - "캠/마이크 세션형"과 "채팅 연습형" 두 진입점을 동등한
