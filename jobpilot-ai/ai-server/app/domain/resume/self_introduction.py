@@ -127,15 +127,27 @@ def parse_company_questions(raw_text: str) -> CompanyQuestionsResult:
         )
 
 
-def _career_context(job: str, tech_summary: str) -> str:
+def _career_context(job: str, tech_summary: str, resume_context: str = "") -> str:
     lines = [f"[목표 직무] {job or '미지정'}"]
     if tech_summary.strip():
         lines.append(f"[기술/프로젝트 요약] {tech_summary.strip()}")
-    return "\n".join(lines) + "\n\n"
+    context = "\n".join(lines) + "\n\n"
+    if resume_context.strip():
+        # 2026-08-14: 업로드한 이력서(PDF/DOCX)에서 뽑은 원문 발췌 - 답변을 대신하는 게
+        # 아니라 "배경 참고자료"로만 쓰라고 프롬프트에서 못 박는다(아래 작성 규칙 1번).
+        # 이력서 텍스트만 보고 답변에 없는 서술형 내용(지원동기 등)을 창작하면 사실 왜곡
+        # 위험이 커서, 어디까지나 답변 문장을 다듬을 때 배경지식으로만 참고하게 한다.
+        trimmed = resume_context.strip()[:4000]
+        context += f"[참고: 지원자가 업로드한 이력서 발췌]\n{trimmed}\n\n"
+    return context
 
 
 def generate_draft(
-    job: str = "", tech_summary: str = "", answers: list[str] | None = None, questions: list[str] | None = None
+    job: str = "",
+    tech_summary: str = "",
+    answers: list[str] | None = None,
+    questions: list[str] | None = None,
+    resume_context: str = "",
 ) -> SelfIntroductionDraft:
     """질문 목록(기본값 GUIDED_QUESTIONS, 회사 양식을 파싱했으면 그 커스텀 질문 목록)에
     순서를 맞춘 답변 목록(빈 답변은 건너뜀)을 받아, 자연스러운 자기소개서 문단으로 다듬어
@@ -145,7 +157,15 @@ def generate_draft(
 
     2026-08-13: questions 파라미터 추가 - 회사 자소서 양식을 파싱해서 만든 커스텀 질문
     목록으로도 같은 방식으로 초안을 생성할 수 있게 했다(parse_company_questions 참고).
-    안 넘기면 기존처럼 GUIDED_QUESTIONS를 쓴다(하위 호환)."""
+    안 넘기면 기존처럼 GUIDED_QUESTIONS를 쓴다(하위 호환).
+
+    2026-08-14: "이력서 파일을 미리 들고 오면 스캔해서 채워주고, 답변이 짧아도 길게 잘
+    풀어써달라" 요청으로 두 가지를 추가했다:
+    - resume_context: 업로드한 이력서에서 추출한 원문(배경 참고자료로만 사용, 아래 프롬프트
+      규칙 1번 참고) - 스펙 자동 채우기 자체는 기존 ResumeDocumentService.applyProfile()이
+      이미 담당하므로(백엔드, 회원 프로필/스펙 테이블에 직접 반영) 여기서는 건드리지 않는다.
+    - 작성 규칙에 "답변이 짧아도 그 안의 사실만으로 문장을 풍부하게 풀어써라"는 규칙을
+      추가했다 - 없는 사실을 지어내는 것과는 다르다(규칙 1번과 함께 읽어야 함)."""
     answers = answers or []
     effective_questions = questions if questions else list(GUIDED_QUESTIONS)
     if not settings.gemini_api_key:
@@ -163,16 +183,21 @@ def generate_draft(
     prompt = (
         "당신은 한국 채용 시장에 정통한 이력서 컨설턴트입니다. 아래 지원자 정보와 질문별 "
         "답변을 참고해서, 채용 담당자에게 어필할 수 있는 자기소개서 한 편을 작성해주세요.\n\n"
-        f"{_career_context(job, tech_summary)}"
+        f"{_career_context(job, tech_summary, resume_context)}"
         f"[질문과 답변]\n{qa_text}\n\n"
         "[작성 규칙]\n"
-        "1. 답변에 없는 경험이나 사실을 지어내지 마라 - 이 작업은 답변 내용을 자연스러운 "
-        "문장으로 다듬고 연결하는 것이지, 새로운 경험이나 성과를 창작하는 게 아니다\n"
-        "2. 문어체 존댓말로, 채용 자기소개서에 맞는 격식 있는 톤으로 작성해라\n"
-        "3. 답변이 있는 질문마다 문단 하나씩으로 구성하되, 문단 사이 흐름이 자연스럽게 "
+        "1. 답변(과 위 이력서 발췌)에 없는 경험이나 사실을 지어내지 마라 - 이력서 발췌는 "
+        "어조/맥락을 파악하는 배경 참고자료일 뿐, 답변에 없는 새로운 경험·성과의 출처로 "
+        "쓰면 안 된다\n"
+        "2. 답변이 한두 문장으로 짧더라도, 그 안에 담긴 사실만으로 문장 구조와 표현을 "
+        "풍부하게 풀어써서 자연스러운 문단 분량으로 완성해라 - 단순히 짧은 문장을 이어 "
+        "붙이지 말고, 배경-행동-결과 같은 흐름으로 구체화해라(단, 1번 규칙처럼 답변에 없는 "
+        "새 사실을 추가하는 것은 금지한다 - 이미 말한 내용을 더 잘 설명하는 것까지만 허용)\n"
+        "3. 문어체 존댓말로, 채용 자기소개서에 맞는 격식 있는 톤으로 작성해라\n"
+        "4. 답변이 있는 질문마다 문단 하나씩으로 구성하되, 문단 사이 흐름이 자연스럽게 "
         "이어지게 해라 - 질문 번호나 소제목은 붙이지 마라\n"
-        "4. 전체 600~1200자 내외로 작성해라\n"
-        "5. 마크다운, 글머리 기호, 따옴표 없이 완성된 본문 텍스트만 출력해라 - 설명이나 "
+        "5. 전체 600~1200자 내외로 작성해라\n"
+        "6. 마크다운, 글머리 기호, 따옴표 없이 완성된 본문 텍스트만 출력해라 - 설명이나 "
         "다른 말은 절대 붙이지 마라\n"
     )
 

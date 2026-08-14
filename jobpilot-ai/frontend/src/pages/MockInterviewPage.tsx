@@ -770,6 +770,20 @@ export function MockInterviewPage() {
   // 때 이전 재생을 확실히 멈추고, objectURL은 다 쓰면 revoke해서 메모리 누수를 막는다.
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAudioUrlRef = useRef<string | null>(null);
+  // 2026-08-13: "경청하다가 질문할 때 입 벌리는 느낌" 요청.
+  // 처음엔 JS setInterval로 정지 이미지 2장을 번갈아 보여주는 방식으로 했었는데, 실제
+  // 애니메이션 파일(움짤)로 만들어달라는 요청 + "고양이 크기가 통째로 움직인다"는 버그
+  // 리포트를 받고 원인 파악 - 문제는 프레임들이 서로 "정렬"돼 있지 않았던 것이다(별도로
+  // 그려진/생성된 이미지라 고양이 몸통 크기·위치가 프레임마다 미묘하게 달랐음). 그래서 다시
+  // 찍으면 안 되고, 반드시 "같은 원본 이미지"에서 입 부분만 국소적으로 편집한 프레임끼리만
+  // 교차해야 흔들림 없이 입만 움직인다.
+  // 지금 쓰는 두 파일(mascot-interview-face.png = 입 다문 정지 이미지, mascot-interview
+  // -talking.png = 같은 원본에서 입 부분만 편집한 프레임들을 담은 APNG 애니메이션)은
+  // 둘 다 mascot-interview.png 원본을 동일한 크롭 박스로 잘라낸 뒤 입 부분만 그려 넣은
+  // 거라 몸통/귀/눈 픽셀 위치가 완전히 동일하다 - 그래서 교차해도 고양이가 흔들리지 않고
+  // 입만 움직인다. isSpeaking이 켜지는 순간 APNG가 처음부터 재생되며 자체적으로 루프/타이밍을
+  // 관리하므로, JS 쪽에서는 더 이상 프레임을 손으로 토글할 필요가 없다.
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // 30초~1분 정도가 일반적인 면접 답변 권장 길이라는 참고 자료 기준 - 절대 기준은
   // 아니고, 감 잡는 용도로만 색을 살짝 바꿔 보여준다.
@@ -828,6 +842,7 @@ export function MockInterviewPage() {
   };
 
   const stopTtsAudio = () => {
+    setIsSpeaking(false);
     if (ttsAudioRef.current) {
       ttsAudioRef.current.pause();
       ttsAudioRef.current.onended = null;
@@ -902,6 +917,7 @@ export function MockInterviewPage() {
       onDone();
       return;
     }
+    setIsSpeaking(true);
 
     // 2026-08-12: 워치독 - onended/onerror가 둘 다 안 불리고 조용히 멈추는 경우(모바일에서
     // 재생이 막혔는데 catch도 안 걸리는 등)에 대비한 최종 안전망. 이게 없으면 "질문 읽어주는
@@ -1344,31 +1360,50 @@ export function MockInterviewPage() {
       return;
     }
 
-    // STT 서버에는 오디오만 보내면 되니, 녹음 자체는 오디오 트랙만 따로 담아서 만든다
-    // (영상까지 녹화해서 올리면 용량도 크고 서버에 얼굴 영상을 보내는 셈이 되어버림).
-    const audioOnlyStream = new MediaStream(stream.getAudioTracks());
-    if (audioOnlyStream.getAudioTracks().length === 0) {
-      setErrorMessage("휴대폰 마이크 오디오를 받지 못했습니다. 휴대폰 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
-      setStage("error");
-      return;
-    }
-    chunksRef.current = [];
-    // Chrome does not always choose a usable default container for a remote
-    // WebRTC audio track. Pick the first explicitly supported format instead.
-    const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
+    // 2026-08-13: "아이폰 사파리에서 녹음은 되는데(에러도 안 뜸) 전사가 계속 빈칸으로 나온다"
+    // 버그 리포트 원인 - webm/ogg 컨테이너를 MediaRecorder가 아예 지원 안 하는 브라우저는
+    // 사실상 WebKit(iOS/모든 iOS 브라우저 + macOS Safari) 계열뿐이다. 그런데 아래처럼
+    // "오디오 트랙만 뽑아서 새로 만든 MediaStream"을 WebKit의 MediaRecorder에 넘기면, 예외는
+    // 안 던지고 녹음도 "성공"하지만 실제로는 무음이 녹음되는 WebKit 버그가 있다(원본 stream의
+    // 트랙을 그대로 안 쓰고 getAudioTracks()로 뽑아 새 MediaStream을 만드는 지점이 문제) - 그
+    // 결과 서버(ffmpeg->Google STT)는 정상적으로 "무음"을 처리해서 빈 전사를 돌려준 것뿐이라
+    // 에러도 안 뜬 것이다. 크롬 계열은 webm/ogg 중 하나가 항상 지원되니 기존처럼 오디오 트랙만
+    // 추출해서 녹음(대역폭 절약)하고, WebKit 계열로 판별되면 트랙 추출 없이 원본 stream(영상+
+    // 오디오)을 그대로 녹음한다 - ai-server는 어차피 ffmpeg로 오디오만 뽑아 쓰므로 영상이
+    // 섞여 있어도 STT 동작은 동일하고, 대신 업로드 용량이 좀 더 커진다.
+    const audioMimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
       .find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    const isLikelyWebkit = !audioMimeType;
+
+    let recordStream = stream;
+    if (!isLikelyWebkit) {
+      // STT 서버에는 오디오만 보내면 되니, 녹음 자체는 오디오 트랙만 따로 담아서 만든다
+      // (영상까지 녹화해서 올리면 용량도 크고 서버에 얼굴 영상을 보내는 셈이 되어버림) -
+      // 다만 이건 위에서 설명한 WebKit 무음 버그를 피할 수 있는 브라우저(크롬 계열)에서만.
+      const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+      if (audioOnlyStream.getAudioTracks().length === 0) {
+        setErrorMessage("마이크 오디오를 받지 못했습니다. 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
+        setStage("error");
+        return;
+      }
+      recordStream = audioOnlyStream;
+    }
+
+    chunksRef.current = [];
+    // WebKit 계열은 webm/ogg 대신 mp4(audio/mp4, video/mp4)만 지원한다.
+    const mimeType = isLikelyWebkit
+      ? ["video/mp4", "audio/mp4"].find((candidate) => MediaRecorder.isTypeSupported(candidate))
+      : audioMimeType;
     let recorder: MediaRecorder;
     try {
-      recorder = mimeType
-        ? new MediaRecorder(audioOnlyStream, { mimeType })
-        : new MediaRecorder(audioOnlyStream);
+      recorder = mimeType ? new MediaRecorder(recordStream, { mimeType }) : new MediaRecorder(recordStream);
       recorder.start();
     } catch (reason) {
       // Some Chromium builds reject an audio-only MediaStream made from a
       // remote WebRTC track. The AI server accepts WebM and extracts audio
       // with ffmpeg, so use the original remote audio+video stream as a safe
       // fallback instead of abandoning the interview.
-      const fallbackMimeType = ["video/webm;codecs=vp8,opus", "video/webm"]
+      const fallbackMimeType = ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
         .find((candidate) => MediaRecorder.isTypeSupported(candidate));
       try {
         recorder = fallbackMimeType
@@ -1554,8 +1589,15 @@ export function MockInterviewPage() {
 
   const submitRecording = async () => {
     try {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      const analysis = await analyzeAnswer(blob, "answer.webm");
+      // 2026-08-13: 예전엔 실제 녹음 포맷과 무관하게 무조건 "audio/webm"/"answer.webm"으로
+      // 고정해서 보냈다 - WebKit(iOS Safari 등)에서는 실제로 mp4로 녹음되는데 라벨만 webm인
+      // 상태였던 것. ai-server의 ffmpeg가 내용을 보고 알아서 디코딩하긴 하지만, 라벨이
+      // 실제 포맷과 다르면 나중에 문제가 생겼을 때 로그로 원인을 추적하기 어려워서 recorder가
+      // 실제로 사용한 mimeType을 그대로 반영한다.
+      const actualMimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+      const extension = actualMimeType.includes("mp4") ? "mp4" : actualMimeType.includes("ogg") ? "ogg" : "webm";
+      const blob = new Blob(chunksRef.current, { type: actualMimeType });
+      const analysis = await analyzeAnswer(blob, `answer.${extension}`);
       // analyzeAnswer는 실제 녹음 경로에서만 호출되므로(타이핑 경로는 submitTypedAnswer가
       // 별도로 처리) metrics는 항상 채워져 있지만, 타입상 VoiceMetrics | null이라 안전하게 처리한다.
       const faceMetricsResult = summarizeFaceFrames(faceFramesRef.current, analysis.metrics?.duration_sec ?? 0);
@@ -1788,12 +1830,20 @@ export function MockInterviewPage() {
             <div className="interview-call-stage">
               <div className="interview-call-tile interviewer-tile">
                 <div className="interviewer-avatar-wrap">
-                  <img src="/mascot-interview.png" alt="AI 면접관" className="interviewer-avatar" />
-                  {/* stage === "get-ready"는 TTS가 질문을 실제로 읽어주는 구간과 정확히
-                      일치한다(revealQuestionAndBeginRecording -> speakQuestionText -> 끝나면
-                      startRecording으로 "recording"에 진입) - 그래서 별도 상태 없이 이
-                      stage 값만으로 "말하는 중" 표시를 켜고 끌 수 있다. */}
-                  {stage === "get-ready" && (
+                  {/* 2026-08-13: mascot-interview-face.png(입 다문 정지 이미지)과
+                      mascot-interview-talking.png(같은 원본에서 입만 편집한 프레임들로 만든
+                      APNG 애니메이션)은 둘 다 mascot-interview.png를 동일한 크롭 박스로
+                      잘라낸 것이라 몸통/귀/눈 위치가 완전히 같다 - 그래서 이 둘을 교체해도
+                      고양이 전체가 흔들리지 않고 입만 움직인다. isSpeaking이 켜질 때마다 APNG가
+                      처음부터 다시 재생된다. */}
+                  <img
+                    src={isSpeaking ? "/mascot-interview-talking.png" : "/mascot-interview-face.png"}
+                    alt="AI 면접관"
+                    className="interviewer-avatar"
+                  />
+                  {/* isSpeaking은 speakQuestionText가 실제로 재생 중인 구간(질문 자동 낭독 +
+                      "다시 듣기" 수동 재생 모두 포함)과 정확히 일치한다. */}
+                  {isSpeaking && (
                     <span className="interviewer-speaking-badge">
                       <Volume2 size={11} /> 말하는 중
                     </span>

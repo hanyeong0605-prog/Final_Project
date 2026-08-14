@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Send } from "lucide-react";
+import { Send, Upload } from "lucide-react";
 import {
+  applyResumeExtraction,
   createSelfIntroduction,
   deleteSelfIntroduction,
+  extractResumeDocument,
   listSelfIntroductions,
   updateSelfIntroduction,
 } from "../api/resumeApi";
@@ -68,6 +70,19 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
   const [chatQuestionIndex, setChatQuestionIndex] = useState(0);
   const chatLogRef = useRef<HTMLDivElement>(null);
 
+  // 2026-08-14: "이력서 파일을 미리 들고 오면 스캔해서 채울 수 있는 건 채우고, 나머지는
+  // 채팅으로 물어보기" 요청 - 기존 이력서 작성 도우미 페이지의 업로드/추출/프로필반영
+  // API(ResumeDocumentSection과 동일한 엔드포인트)를 그대로 재사용한다. 질문 자체(지원동기,
+  // 강점/약점 등 서술형)는 이력서 텍스트만으로 채울 수 없어서 그대로 채팅으로 묻고, 추출된
+  // 텍스트는 resumeContext로 저장해뒀다가 "기본 질문으로 시작"/"양식으로 질문 만들기" 둘 중
+  // 뭘 누르든 함께 넘겨서(finishChatAndGenerate) 답변을 다듬을 때 배경 참고자료로만 쓰게 한다.
+  const [resumeContext, setResumeContext] = useState("");
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploadError, setResumeUploadError] = useState<string | null>(null);
+  const [resumeUploadInfo, setResumeUploadInfo] = useState<{ id: number; targetRole: string; skills: string[] } | null>(null);
+  const [applyingResumeProfile, setApplyingResumeProfile] = useState(false);
+  const resumeFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: "smooth" });
   }, [chatMessages, busy]);
@@ -84,6 +99,38 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
     setAnswers(questions.map(() => "")); setContent(""); setCritique(null); setErrorMessage(null);
     setChatPhase("setup"); setCompanyFormatText(""); setCompanyFormatError(null);
     setActiveQuestions([]); setChatMessages([]); setChatInput(""); setChatQuestionIndex(0);
+    setResumeContext(""); setResumeUploadError(null); setResumeUploadInfo(null);
+  };
+
+  const handleResumeFileSelected = async (file: File) => {
+    setResumeUploading(true);
+    setResumeUploadError(null);
+    try {
+      const document = await extractResumeDocument(file);
+      setResumeContext(document.extractedText ?? "");
+      const profile = document.extractedProfile ?? {};
+      const skills = Array.isArray(profile.suggestedSkills) ? (profile.suggestedSkills as string[]) : [];
+      setResumeUploadInfo({ id: document.id, targetRole: String(profile.targetRole ?? "").trim() || "미확인", skills });
+    } catch (e) {
+      setResumeUploadError(e instanceof Error ? e.message : "이력서 파일을 읽지 못했습니다.");
+    } finally {
+      setResumeUploading(false);
+      if (resumeFileInputRef.current) resumeFileInputRef.current.value = "";
+    }
+  };
+
+  // 자소서 채팅 답변용 참고자료 확보가 목적이라 프로필 반영은 필수 단계가 아니고, 원하면
+  // 추가로 눌러서 career-profile(직무/전공/경력/기술요약)에도 반영할 수 있게 한 선택 버튼이다.
+  const handleApplyResumeProfile = async () => {
+    if (!resumeUploadInfo) return;
+    setApplyingResumeProfile(true);
+    try {
+      await applyResumeExtraction(resumeUploadInfo.id);
+    } catch (e) {
+      setResumeUploadError(e instanceof Error ? e.message : "프로필 반영에 실패했습니다.");
+    } finally {
+      setApplyingResumeProfile(false);
+    }
   };
 
   const startGuided = () => { resetEditor(); setEditorMode("guided"); };
@@ -129,7 +176,7 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
     setBusy(true);
     setErrorMessage(null);
     try {
-      const result = await generateSelfIntroductionDraft(job, techSummary, finalAnswers, activeQuestions);
+      const result = await generateSelfIntroductionDraft(job, techSummary, finalAnswers, activeQuestions, resumeContext);
       if (!result.ok || !result.content) {
         setChatMessages((prev) => [
           ...prev,
@@ -254,7 +301,42 @@ export function SelfIntroductionSection({ job, techSummary }: Props) {
 
       {editorMode === "guided" && chatPhase === "setup" && (
         <div className="form-section">
-          <h3>회사 자소서 양식이 있나요?</h3>
+          <h3>이력서 파일이 있나요? (선택)</h3>
+          <p style={{ color: "#6a7383", fontSize: 13, marginTop: -8 }}>
+            PDF/DOCX 이력서를 올리면 내용을 스캔해서 답변을 다듬을 때 참고자료로 써요.
+            지원동기 같은 질문은 이력서만으로 채울 수 없어서 그대로 채팅으로 물어봐요.
+          </p>
+          <input
+            ref={resumeFileInputRef}
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            disabled={resumeUploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleResumeFileSelected(file);
+            }}
+          />
+          {resumeUploading && <p style={{ fontSize: 12, color: "#9098a7", marginTop: 6 }}>이력서 분석 중...</p>}
+          {resumeUploadError && <div className="account-alert error">{resumeUploadError}</div>}
+          {resumeUploadInfo && (
+            <div className="account-alert" style={{ marginTop: 8 }}>
+              <Upload size={14} /> 이력서에서 직무: {resumeUploadInfo.targetRole}
+              {resumeUploadInfo.skills.length > 0 && ` · 기술: ${resumeUploadInfo.skills.join(", ")}`}를 찾았어요. 답변을
+              다듬을 때 참고할게요.
+              <div className="form-actions" style={{ marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={applyingResumeProfile}
+                  onClick={() => void handleApplyResumeProfile()}
+                >
+                  {applyingResumeProfile ? "반영 중..." : "프로필에도 반영하기"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <h3 style={{ marginTop: 20 }}>회사 자소서 양식이 있나요?</h3>
           <p style={{ color: "#6a7383", fontSize: 13, marginTop: -8 }}>
             채용 페이지의 자기소개서 문항을 그대로 붙여넣으면 그 문항 기준으로, 없으면 기본
             질문(지원동기·가치관·강점약점·포부) 기준으로 채팅을 시작해요.

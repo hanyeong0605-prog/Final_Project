@@ -45,12 +45,21 @@ class GenerateSelfIntroductionRequest(BaseModel):
     # (아래 /self-introduction/parse-questions 참고) 그 결과를 그대로 answers와 같은
     # 순서로 넘기면 그 문항 기준으로 초안이 만들어진다.
     questions: list[str] = []
+    # 2026-08-14: "이력서 파일 미리 들고 오면 스캔해서 활용" 요청 - 프론트가 기존 백엔드
+    # 이력서 업로드/추출 API(ResumeDocumentService.extract)로 받은 extractedText를 그대로
+    # 넘기면, 답변을 다듬을 때 배경 참고자료로만 쓴다(self_introduction._career_context 참고 -
+    # 답변에 없는 새 사실의 출처로는 쓰지 않는다).
+    resume_context: str = ""
 
 
 @router.post("/self-introduction/generate")
 def generate_self_introduction(body: GenerateSelfIntroductionRequest):
     draft = generate_self_introduction_draft(
-        job=body.job, tech_summary=body.tech_summary, answers=body.answers, questions=body.questions or None
+        job=body.job,
+        tech_summary=body.tech_summary,
+        answers=body.answers,
+        questions=body.questions or None,
+        resume_context=body.resume_context,
     )
     return draft.to_dict()
 

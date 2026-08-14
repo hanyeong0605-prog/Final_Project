@@ -33,17 +33,22 @@ export const fetchSelfIntroductionQuestions = () => getAi<{ questions: string[] 
 
 // 2026-08-13: questions를 넘기면 회사 양식 파싱 결과(아래 parseCompanyQuestions) 기준으로,
 // 안 넘기면(undefined) 기존처럼 서버 기본 GUIDED_QUESTIONS 기준으로 초안을 만든다.
+// 2026-08-14: resumeContext 추가 - 업로드한 이력서에서 추출한 텍스트(ResumeDocumentSection과
+// 같은 백엔드 /resume-documents/extract 결과)를 넘기면, 답변을 다듬을 때 배경 참고자료로
+// 활용한다(ai-server self_introduction._career_context 참고).
 export const generateSelfIntroductionDraft = (
   job: string,
   techSummary: string,
   answers: string[],
   questions?: string[],
+  resumeContext?: string,
 ) =>
   postAi<SelfIntroductionDraftResult>("/self-introduction/generate", {
     job,
     tech_summary: techSummary,
     answers,
     questions: questions ?? [],
+    resume_context: resumeContext ?? "",
   });
 
 // 회사 채용 페이지에서 그대로 복사한 자소서 문항 안내 텍스트를 넘기면, 실제 질문 목록만
