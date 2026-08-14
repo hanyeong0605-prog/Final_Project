@@ -352,30 +352,21 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
 .brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
-.brand-bobo-stage { position: absolute; z-index: 4; bottom: -36px; left: -40px; width: 110px; height: 110px; overflow: visible; pointer-events: none; }
-.brand-bobo-frame { position: absolute; inset: 0; width: 110px; height: 110px; object-fit: contain; opacity: 0; transform-origin: center; }
-.desktop-brand:hover .brand-bobo-frame.frame-1, .desktop-brand:focus-visible .brand-bobo-frame.frame-1 { animation: bobo-logo-frame-1 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-2, .desktop-brand:focus-visible .brand-bobo-frame.frame-2 { animation: bobo-logo-frame-2 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-3, .desktop-brand:focus-visible .brand-bobo-frame.frame-3 { animation: bobo-logo-frame-3 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-4, .desktop-brand:focus-visible .brand-bobo-frame.frame-4 { animation: bobo-logo-frame-4 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-5, .desktop-brand:focus-visible .brand-bobo-frame.frame-5 { animation: bobo-logo-frame-5 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-6, .desktop-brand:focus-visible .brand-bobo-frame.frame-6 { animation: bobo-logo-frame-6 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-7, .desktop-brand:focus-visible .brand-bobo-frame.frame-7 { animation: bobo-logo-frame-7 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-8, .desktop-brand:focus-visible .brand-bobo-frame.frame-8 { animation: bobo-logo-frame-8 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-9, .desktop-brand:focus-visible .brand-bobo-frame.frame-9 { animation: bobo-logo-frame-9 2.05s ease both; }
-.desktop-brand:hover .brand-bobo-frame.frame-10, .desktop-brand:focus-visible .brand-bobo-frame.frame-10 { animation: bobo-logo-frame-10 2.05s ease both; }
-.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse 2.05s cubic-bezier(.2,.9,.25,1) both; }
-@keyframes bobo-logo-frame-1 { 0% { clip-path: inset(0 0 0 94%); opacity: 1; transform: translateX(-11px) scale(.86); } 12% { clip-path: inset(0 0 0 55%); opacity: 1; transform: translateX(-7px) scale(.9); } 17% { clip-path: inset(0 0 0 0); opacity: 1; transform: translateX(-5px) scale(.92); } 22%, 100% { opacity: 0; transform: translateX(-2px) scale(.94); } }
-@keyframes bobo-logo-frame-2 { 0%, 15% { opacity: 0; } 21%, 26% { opacity: 1; transform: translateX(-2px) translateY(1px) scale(.94); } 31%, 100% { opacity: 0; transform: translateX(1px) translateY(2px) scale(.96); } }
-@keyframes bobo-logo-frame-3 { 0%, 24% { opacity: 0; } 30%, 35% { opacity: 1; transform: translateX(1px) translateY(3px) scale(.96); } 40%, 100% { opacity: 0; transform: translateX(4px) translateY(2px) scale(.98); } }
-@keyframes bobo-logo-frame-4 { 0%, 33% { opacity: 0; } 39%, 44% { opacity: 1; transform: translateX(4px) translateY(2px) scale(.98); } 49%, 100% { opacity: 0; transform: translateX(7px) translateY(0) scale(1); } }
-@keyframes bobo-logo-frame-5 { 0%, 42% { opacity: 0; } 48%, 53% { opacity: 1; transform: translateX(7px) translateY(0) scale(1); } 58%, 100% { opacity: 0; transform: translateX(10px) translateY(-2px) scale(1.02); } }
-@keyframes bobo-logo-frame-6 { 0%, 51% { opacity: 0; } 57%, 62% { opacity: 1; transform: translateX(10px) translateY(-2px) scale(1.02); } 67%, 100% { opacity: 0; transform: translateX(13px) translateY(-4px) scale(1.03); } }
-@keyframes bobo-logo-frame-7 { 0%, 60% { opacity: 0; } 66%, 71% { opacity: 1; transform: translateX(13px) translateY(-4px) scale(1.03); } 76%, 100% { opacity: 0; transform: translateX(16px) translateY(-4px) scale(1.02); } }
-@keyframes bobo-logo-frame-8 { 0%, 69% { opacity: 0; } 75%, 80% { opacity: 1; transform: translateX(16px) translateY(-4px) scale(1.02); } 85%, 100% { opacity: 0; transform: translateX(18px) translateY(-1px) scale(1); } }
-@keyframes bobo-logo-frame-9 { 0%, 78% { opacity: 0; } 84%, 89% { opacity: 1; transform: translateX(18px) translateY(-1px) scale(1); } 94%, 100% { opacity: 0; transform: translateX(19px) translateY(0) scale(1); } }
-@keyframes bobo-logo-frame-10 { 0%, 87% { opacity: 0; } 94%, 100% { opacity: 1; transform: translateX(19px) translateY(0) scale(1); } }
-@keyframes bobo-logo-mouse { 0%, 48% { transform: translateX(0); } 57% { transform: translateX(4px) rotate(3deg); } 68% { transform: translateX(0); } 86%, 100% { transform: translateX(-4px) translateY(1px) rotate(-6deg) scale(.94); } }
+.brand-bobo-stage { position: absolute; z-index: 4; bottom: -33px; left: -92px; width: 82px; height: 72px; overflow: visible; pointer-events: none; }
+.brand-bobo-arrival, .brand-bobo-hold, .brand-bobo-click { position: absolute; width: 70px; height: 70px; object-fit: contain; transform-origin: center; }
+.brand-bobo-arrival { left: -120px; bottom: -2px; animation: bobo-logo-arrive 1.35s .3s cubic-bezier(.18,.8,.2,1) both; }
+.brand-bobo-hold { left: 55px; bottom: -2px; opacity: 0; animation: bobo-logo-hold 1.35s .3s steps(1, end) both; }
+.brand-bobo-click { left: 55px; bottom: -2px; opacity: 0; }
+.desktop-brand:hover .brand-bobo-click.lift, .desktop-brand:focus-visible .brand-bobo-click.lift { animation: bobo-logo-click-lift .62s ease both; }
+.desktop-brand:hover .brand-bobo-click.press, .desktop-brand:focus-visible .brand-bobo-click.press { animation: bobo-logo-click-press .62s ease both; }
+.desktop-brand:hover .brand-bobo-hold, .desktop-brand:focus-visible .brand-bobo-hold { animation: bobo-logo-hold-hover .62s ease both; }
+.desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse-click .62s ease both; }
+@keyframes bobo-logo-arrive { 0% { opacity: 0; transform: translateX(-18px) translateY(4px) scale(.68); } 7% { opacity: 1; } 58% { opacity: 1; transform: translateX(146px) translateY(-3px) scale(.94); } 80% { opacity: 1; transform: translateX(169px) translateY(0) scale(1); } 100% { opacity: 0; transform: translateX(175px) translateY(0) scale(1); } }
+@keyframes bobo-logo-hold { 0%, 80% { opacity: 0; } 81%, 100% { opacity: 1; } }
+@keyframes bobo-logo-hold-hover { 0%, 77% { opacity: 0; } 78%, 100% { opacity: 1; } }
+@keyframes bobo-logo-click-lift { 0%, 12% { opacity: 0; } 13%, 50% { opacity: 1; transform: translateY(-7px) rotate(-3deg); } 51%, 100% { opacity: 0; transform: translateY(-3px) rotate(-1deg); } }
+@keyframes bobo-logo-click-press { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; transform: translateY(1px) scaleY(.97); } }
+@keyframes bobo-logo-mouse-click { 0%, 50% { transform: translateY(0); } 64% { transform: translateY(2px) scaleY(.88); } 78%, 100% { transform: translateY(0) scaleY(1); } }
 .brand-identity.compact { min-width: 102px; height: 16px; }
 .brand-identity.compact .brand-name { align-self: center; }
 .brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(0); }
@@ -699,3 +690,8 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 960px) { .match-evidence-layout { grid-template-columns: 1fr; }.original-posting-pane { max-height: 48vh; overflow-y: auto; border-right: 0; border-bottom: 1px solid #e5e9f1; }.evidence-drawer .matrix-section { padding-bottom: 120px; } }
 @media (max-width: 1100px) { .admin-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-panel-heading { align-items: flex-start; flex-direction: column; }.admin-panel-heading form { width: 100%; }.admin-panel-heading input { flex: 1; width: auto; }.admin-page-link { padding: 8px; font-size: 0; }.admin-page-link svg { margin: 0; } }
+.resume-question { display:grid; gap:6px; margin-top:12px; color:#55627a; font-size:12px; font-weight:700; }.resume-question textarea { min-height:58px; }
+.resume-template-panel { display:grid; gap:14px; padding:20px; border:1px solid #dfe5f4; border-radius:14px; background:linear-gradient(135deg,#f8f9ff,#fff); }.resume-template-panel h3 { display:flex; align-items:center; gap:8px; margin:3px 0 7px; color:#33435f; font-size:17px; }.resume-template-panel p { margin:0; color:#77849a; font-size:12px; line-height:1.65; }
+.resume-template-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }.resume-template-option { display:grid; grid-template-columns:auto 1fr; gap:4px 7px; text-align:left; padding:13px; border:1px solid #dce3f0; border-radius:10px; color:#5b6982; background:#fff; cursor:pointer; }.resume-template-option svg { grid-row:span 2; margin-top:1px; color:#b5bfce; }.resume-template-option strong { color:#42516a; font-size:13px; }.resume-template-option small { font-size:11px; line-height:1.45; }.resume-template-option.selected { border-color:#6477f4; box-shadow:0 0 0 3px #e9edff; }.resume-template-option.selected svg { color:#5970ef; }
+.resume-template-upload { display:flex; align-items:center; flex-wrap:wrap; gap:9px; color:#52617a; font-size:12px; font-weight:700; }.resume-template-upload input { max-width:260px; font-size:11px; }.resume-template-upload span { color:#5d73eb; font-weight:600; }
+@media(max-width:760px){.resume-template-options{grid-template-columns:1fr}.resume-template-upload{align-items:flex-start;flex-direction:column}}

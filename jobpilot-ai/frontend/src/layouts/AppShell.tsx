@@ -138,7 +138,7 @@ export function AppShell() {
         <main className="main-area">
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
-            <Link to="/" className="desktop-brand brand-link">
+            <Link to="/" className="desktop-brand brand-link logo-mascot-ready">
               <span className="brand-mark brand-logo-scene">
                 <span className="brand-logo-letter">J</span>
                 <span className="brand-job-mouse" aria-hidden="true">
@@ -149,16 +149,10 @@ export function AppShell() {
                   <i className="brand-mouse-cable" />
                 </span>
                 <span className="brand-bobo-stage" aria-hidden="true">
-                  <img className="brand-bobo-frame frame-1" src="/mascot/bobo-logo-v2-01-peek.png" alt="" />
-                  <img className="brand-bobo-frame frame-2" src="/mascot/bobo-logo-v2-02-stalk.png" alt="" />
-                  <img className="brand-bobo-frame frame-3" src="/mascot/bobo-logo-v2-03-crouch.png" alt="" />
-                  <img className="brand-bobo-frame frame-4" src="/mascot/bobo-logo-v3-04-step.png" alt="" />
-                  <img className="brand-bobo-frame frame-5" src="/mascot/bobo-logo-v2-04-sprint.png" alt="" />
-                  <img className="brand-bobo-frame frame-6" src="/mascot/bobo-logo-v3-06-launch.png" alt="" />
-                  <img className="brand-bobo-frame frame-7" src="/mascot/bobo-logo-v2-05-pounce.png" alt="" />
-                  <img className="brand-bobo-frame frame-8" src="/mascot/bobo-logo-v3-08-air.png" alt="" />
-                  <img className="brand-bobo-frame frame-9" src="/mascot/bobo-logo-v3-10-contact.png" alt="" />
-                  <img className="brand-bobo-frame frame-10" src="/mascot/bobo-logo-v2-06-catch.png" alt="" />
+                  <img className="brand-bobo-arrival" src="/mascot/bobo-logo-v2-05-pounce.png" alt="" />
+                  <img className="brand-bobo-hold" src="/mascot/bobo-logo-v2-06-catch.png" alt="" />
+                  <img className="brand-bobo-click lift" src="/mascot/bobo-logo-click-lift.png" alt="" />
+                  <img className="brand-bobo-click press" src="/mascot/bobo-logo-click-press.png" alt="" />
                 </span>
               </span>
               <BrandIdentity />
