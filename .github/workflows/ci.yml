@@ -58,3 +58,10 @@ jobs:
         with:
           python-version: '3.11'
       - run: PYTHONPYCACHEPREFIX="$RUNNER_TEMP/pycache" python -m compileall -q app
+
+  wordcloud-image:
+    name: Wordcloud Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t jobpilot-wordcloud-test ./jobpilot-ai/ml-project
