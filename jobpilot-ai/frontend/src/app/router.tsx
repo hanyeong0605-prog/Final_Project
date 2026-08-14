@@ -27,6 +27,7 @@ import { HomePage } from "../pages/HomePage";
 import { AdminPage } from "../pages/AdminPage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
+import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
       { path: "locationjobs", element: <LocationJobsPage /> },
       { path: "opportunities", element: <OpportunitiesPage /> },
       { path: "planner", element: <PlannerPage /> },
+      { path: "capability", element: <CapabilityManagementPage /> },
       { path: "profile", element: <ProfilePage /> },
       { path: "resume", element: <ResumePage /> },
       { path: "mock-interview", element: <MockInterviewPage /> },
