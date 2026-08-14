@@ -15,6 +15,7 @@ import jakarta.transaction.Transactional;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -28,17 +29,18 @@ public class ResumeDocumentService {
     private final ResumeDocumentRepository documents; private final ResumeDocumentTextExtractor extractor;
     private final MemberRepository members; private final MemberProfileRepository profiles; private final MemberSpecificationRepository specs;
     private final MemberSkillRepository memberSkills; private final SkillRepository skillCatalog; private final CertificateRepository certificates; private final ProjectRepository projects;
-    private final SelfIntroductionRepository introductions; private final ObjectMapper json; private final JobMatchRefreshScheduler refreshScheduler;
+    private final SelfIntroductionRepository introductions; private final ObjectMapper json; private final JobMatchRefreshScheduler refreshScheduler; private final ResumeDocumentAiClient aiClient;
     public ResumeDocumentService(ResumeDocumentRepository documents, ResumeDocumentTextExtractor extractor, MemberRepository members,
         MemberProfileRepository profiles, MemberSpecificationRepository specs, MemberSkillRepository memberSkills, SkillRepository skillCatalog, CertificateRepository certificates,
-        ProjectRepository projects, SelfIntroductionRepository introductions, ObjectMapper json, JobMatchRefreshScheduler refreshScheduler) {
+        ProjectRepository projects, SelfIntroductionRepository introductions, ObjectMapper json, JobMatchRefreshScheduler refreshScheduler, ResumeDocumentAiClient aiClient) {
         this.documents=documents; this.extractor=extractor; this.members=members; this.profiles=profiles; this.specs=specs; this.memberSkills=memberSkills;
-        this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.json=json; this.refreshScheduler=refreshScheduler;
+        this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.json=json; this.refreshScheduler=refreshScheduler; this.aiClient=aiClient;
     }
     public List<ResumeDocumentResponse> list(Long memberId) { return documents.findByMemberIdOrderByCreatedAtDesc(memberId).stream().map(ResumeDocumentResponse::from).toList(); }
     public ResumeDocumentResponse extract(Long memberId, MultipartFile file) {
         String text = extractor.extract(file);
         ObjectNode extracted = infer(text);
+        enrichWithAi(extracted, text);
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -73,10 +75,16 @@ public class ResumeDocumentService {
         String intro=introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().map(SelfIntroduction::getContent).findFirst().orElse("");
         String title=blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim();
         String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
-        String content = buildDraft(title, profile == null ? null : profile.getTargetRole(), skillList,
-                spec == null ? null : joinNonBlank(spec.getEducationLevel(), spec.getMajor()),
-                spec == null ? 0 : spec.getTotalCareerMonths(), certList, projectList, intro,
+        Set<String> enabledSections = request.enabledSections() == null || request.enabledSections().isEmpty()
+                ? Set.of("profile", "skills", "certificates", "education", "projects") : Set.copyOf(request.enabledSections());
+        String fallback = buildDraft(title, enabledSections.contains("profile") && profile != null ? profile.getTargetRole() : "",
+                enabledSections.contains("skills") ? skillList : "",
+                enabledSections.contains("education") && spec != null ? joinNonBlank(spec.getEducationLevel(), spec.getMajor()) : "",
+                enabledSections.contains("profile") && spec != null ? spec.getTotalCareerMonths() : 0,
+                enabledSections.contains("certificates") ? certList : "", enabledSections.contains("projects") ? projectList : "",
+                enabledSections.contains("projects") ? intro : "",
                 request.additionalRequest(), templateKey(request.templateKey()), templateSource);
+        String content = generateWithAi(profile, spec, skillList, certList, projectList, intro, enabledSections, request, templateSource, fallback);
         ObjectNode metadata = json.createObjectNode();
         metadata.put("templateReference", !blank(templateSource));
         metadata.put("templateFilename", templateFile == null || templateFile.isEmpty() ? "" : empty(templateFile.getOriginalFilename()));
@@ -98,6 +106,42 @@ public class ResumeDocumentService {
         node.put("educationLevel", text.contains("대학교") || text.contains("학사") ? "BACHELOR" : "");
         node.put("major", keywordAfter(text, "학과", "전공")); node.put("targetRole", firstRole(text));
         node.put("totalCareerMonths", inferCareerMonths(text)); node.put("technicalSummary", summarize(text)); return node;
+    }
+    @SuppressWarnings("unchecked")
+    private void enrichWithAi(ObjectNode extracted, String text) {
+        try {
+            Map<String, Object> result = aiClient.analyze(text);
+            if (!Boolean.TRUE.equals(result.get("ok")) || !(result.get("profile") instanceof Map<?, ?> profile)) return;
+            copyIfPresent(extracted, profile, "targetRole"); copyIfPresent(extracted, profile, "educationLevel");
+            copyIfPresent(extracted, profile, "major"); copyIfPresent(extracted, profile, "technicalSummary");
+            Object months = profile.get("totalCareerMonths"); if (months instanceof Number number && number.intValue() > extracted.path("totalCareerMonths").asInt()) extracted.put("totalCareerMonths", number.intValue());
+            mergeArray(extracted.withArray("suggestedSkills"), profile.get("suggestedSkills"));
+            mergeArray(extracted.withArray("suggestedCertificates"), profile.get("suggestedCertificates"));
+        } catch (Exception ignored) { /* resume extraction keeps its deterministic fallback */ }
+    }
+    private void copyIfPresent(ObjectNode target, Map<?, ?> source, String key) {
+        Object value=source.get(key); if (value instanceof String text && !blank(text)) target.put(key, text.trim());
+    }
+    private void mergeArray(ArrayNode target, Object values) {
+        if (!(values instanceof List<?> list)) return;
+        Set<String> existing=new HashSet<>(); target.forEach(value -> existing.add(normalize(value.asText())));
+        for (Object value:list) { String text=String.valueOf(value).trim(); if (!blank(text) && existing.add(normalize(text))) target.add(text); }
+    }
+    @SuppressWarnings("unchecked")
+    private String generateWithAi(MemberProfile profile, MemberSpecification spec, String skills, String certificates, String projects, String introduction,
+            Set<String> enabledSections, ResumeDraftRequest request, String templateSource, String fallback) {
+        try {
+            Map<String,Object> context=new java.util.LinkedHashMap<>();
+            context.put("targetRole", enabledSections.contains("profile") && profile != null ? empty(profile.getTargetRole()) : "");
+            context.put("skills", enabledSections.contains("skills") ? skills : ""); context.put("certificates", enabledSections.contains("certificates") ? certificates : "");
+            context.put("education", enabledSections.contains("education") && spec != null ? joinNonBlank(spec.getEducationLevel(), spec.getMajor()) : "");
+            context.put("careerMonths", enabledSections.contains("profile") && spec != null ? spec.getTotalCareerMonths() : 0);
+            context.put("projects", enabledSections.contains("projects") ? projects : ""); context.put("existingIntroduction", enabledSections.contains("projects") ? introduction : "");
+            List<String> answers = request.answers() == null || request.answers().isEmpty() ? List.of(empty(request.additionalRequest())) : request.answers();
+            Map<String,Object> result=aiClient.generate(context, answers, templateKey(request.templateKey()), templateSource);
+            Object generated=result.get("content"); if (Boolean.TRUE.equals(result.get("ok")) && generated instanceof String value && !blank(value)) return "# " + (blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim()) + "\n\n" + value.trim();
+        } catch (Exception ignored) { /* downloadable local draft is still useful when Gemini is unavailable */ }
+        return fallback;
     }
     private String firstRole(String text) { for(String v:List.of("백엔드 개발자","프론트엔드 개발자","풀스택 개발자","데이터 엔지니어","AI 엔지니어","개발자")) if(text.contains(v)) return v; return ""; }
     private int inferCareerMonths(String text) { var m=java.util.regex.Pattern.compile("(\\d+)\\s*년").matcher(text); return m.find() ? Integer.parseInt(m.group(1))*12 : 0; }
