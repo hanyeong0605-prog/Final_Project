@@ -12,8 +12,10 @@ import com.jobpilot.api.domain.resume.dto.ResumeDraftRequest;
 import com.jobpilot.api.domain.resume.entity.*;
 import com.jobpilot.api.domain.resume.repository.ResumeDocumentRepository;
 import jakarta.transaction.Transactional;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -56,10 +58,12 @@ public class ResumeDocumentService {
         ArrayNode locations = profile.getPreferredLocations() instanceof ArrayNode array ? array : json.createArrayNode();
         profile.update(empty(role), empty(profile.getTargetJobFamily()), locations, profile.getAvailableFrom(), empty(profile.getExperienceType()), empty(profile.getGithubUsername()));
         spec.update(empty(education), empty(spec.getSchoolName()), empty(major), empty(spec.getGraduationStatus()), months, empty(summary), empty(spec.getPortfolioUrl()));
+        applyExtractedSkills(memberId, data.path("suggestedSkills"));
+        applyExtractedCertificates(memberId, data.path("suggestedCertificates"));
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
         return ResumeDocumentResponse.from(document);
     }
-    public ResumeDocumentResponse generate(Long memberId, ResumeDraftRequest request) {
+    public ResumeDocumentResponse generate(Long memberId, ResumeDraftRequest request, MultipartFile templateFile) {
         MemberProfile profile=profiles.findById(memberId).orElse(null); MemberSpecification spec=specs.findById(memberId).orElse(null);
         String skillList=memberSkills.findByMemberId(memberId).stream()
                 .map(v -> skillCatalog.findById(v.getSkillId()).map(Skill::getName).orElse(v.getNote()))
@@ -68,20 +72,28 @@ public class ResumeDocumentService {
         String projectList=projects.findByMemberId(memberId).stream().map(Project::getTitle).collect(Collectors.joining(", "));
         String intro=introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().map(SelfIntroduction::getContent).findFirst().orElse("");
         String title=blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim();
-        String content = "# " + title + "\n\n## 지원 직무\n" + value(profile == null ? null : profile.getTargetRole(), "지원 직무를 입력해 주세요")
-          + "\n\n## 핵심 역량\n" + value(skillList, "보유 기술을 추가해 주세요")
-          + "\n\n## 학력 및 경력\n" + value(spec == null ? null : joinNonBlank(spec.getEducationLevel(), spec.getMajor()), "학력 정보를 입력해 주세요")
-          + "\n경력 " + (spec == null ? 0 : spec.getTotalCareerMonths()) + "개월\n\n## 자격증\n" + value(certList, "보유 자격증을 추가해 주세요")
-          + "\n\n## 프로젝트\n" + value(projectList, "프로젝트 경험을 추가해 주세요")
-          + "\n\n## 자기소개\n" + value(intro, "지원 직무와 연결되는 경험을 STAR 방식으로 작성해 주세요")
-          + (blank(request.additionalRequest()) ? "" : "\n\n## 작성 요청 반영\n" + request.additionalRequest().trim());
-        ResumeDocument document=documents.save(new ResumeDocument(memberId, ResumeDocumentType.GENERATED, title, null, null, content, null));
+        String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
+        String content = buildDraft(title, profile == null ? null : profile.getTargetRole(), skillList,
+                spec == null ? null : joinNonBlank(spec.getEducationLevel(), spec.getMajor()),
+                spec == null ? 0 : spec.getTotalCareerMonths(), certList, projectList, intro,
+                request.additionalRequest(), templateKey(request.templateKey()), templateSource);
+        ObjectNode metadata = json.createObjectNode();
+        metadata.put("templateReference", !blank(templateSource));
+        metadata.put("templateFilename", templateFile == null || templateFile.isEmpty() ? "" : empty(templateFile.getOriginalFilename()));
+        ResumeDocument document=documents.save(new ResumeDocument(memberId, ResumeDocumentType.GENERATED, title,
+                templateFile == null || templateFile.isEmpty() ? null : templateFile.getOriginalFilename(), null, content, metadata, templateKey(request.templateKey())));
         return ResumeDocumentResponse.from(document);
     }
     public ResumeDocument owned(Long memberId, Long id) { return documents.findByIdAndMemberId(id, memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이력서 문서를 찾을 수 없습니다.")); }
     private ObjectNode infer(String text) {
         String lower=text.toLowerCase(Locale.ROOT); ObjectNode node=json.createObjectNode(); ArrayNode skills=node.putArray("suggestedSkills");
-        for (String value: List.of("Java","Spring","React","TypeScript","JavaScript","Python","AWS","Docker","SQL","MySQL","Git")) if (lower.contains(value.toLowerCase(Locale.ROOT))) skills.add(value);
+        Set<String> foundSkills = new HashSet<>();
+        for (Skill skill : skillCatalog.findAll()) {
+            if (skill.isCanonical() && lower.contains(skill.getName().toLowerCase(Locale.ROOT))) foundSkills.add(skill.getName());
+        }
+        List.of(new String[] {"리액트", "React"}, new String[] {"스프링", "Spring"}, new String[] {"자바", "Java"}, new String[] {"파이썬", "Python"})
+                .forEach(alias -> { if (lower.contains(alias[0].toLowerCase(Locale.ROOT))) foundSkills.add(alias[1]); });
+        foundSkills.stream().sorted().limit(30).forEach(skills::add);
         ArrayNode certs=node.putArray("suggestedCertificates"); for (String value: List.of("정보처리기사","SQLD","ADsP","AWS")) if (text.contains(value)) certs.add(value);
         node.put("educationLevel", text.contains("대학교") || text.contains("학사") ? "BACHELOR" : "");
         node.put("major", keywordAfter(text, "학과", "전공")); node.put("targetRole", firstRole(text));
@@ -92,6 +104,49 @@ public class ResumeDocumentService {
     private String keywordAfter(String text,String... keys){ for(String k:keys){int i=text.indexOf(k); if(i>0)return text.substring(Math.max(0,i-24),Math.min(text.length(),i+k.length())).replaceAll("[\\r\\n]+"," ").trim();} return ""; }
     private String summarize(String text){ return text.replaceAll("\\s+"," ").trim().substring(0, Math.min(800, text.replaceAll("\\s+"," ").trim().length())); }
     private String first(JsonNode node,String field,String fallback){String v=node.path(field).asText(""); return blank(v)?fallback:v;}
+    private String templateKey(String value) {
+        if ("PROJECT".equalsIgnoreCase(value)) return "PROJECT";
+        if ("COMPACT".equalsIgnoreCase(value)) return "COMPACT";
+        return "STANDARD";
+    }
+    private void applyExtractedSkills(Long memberId, JsonNode candidates) {
+        if (!candidates.isArray()) return;
+        Set<Long> owned = memberSkills.findByMemberId(memberId).stream().map(MemberSkill::getSkillId).collect(Collectors.toSet());
+        List<MemberSkill> additions = new java.util.ArrayList<>();
+        for (JsonNode candidate : candidates) {
+            String name = candidate.asText("").trim();
+            skillCatalog.findByName(name).filter(Skill::isCanonical).filter(skill -> !owned.contains(skill.getId()))
+                    .ifPresent(skill -> { additions.add(new MemberSkill(memberId, skill.getId(), "LEARNING", "이력서에서 추출")); owned.add(skill.getId()); });
+        }
+        if (!additions.isEmpty()) memberSkills.saveAll(additions);
+    }
+    private void applyExtractedCertificates(Long memberId, JsonNode candidates) {
+        if (!candidates.isArray()) return;
+        Set<String> owned = certificates.findByMemberId(memberId).stream().map(Certificate::getName).map(this::normalize).collect(Collectors.toSet());
+        List<Certificate> additions = new java.util.ArrayList<>();
+        for (JsonNode candidate : candidates) {
+            String name = candidate.asText("").trim();
+            if (!name.isBlank() && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, "이력서 추출", null, null, null));
+        }
+        if (!additions.isEmpty()) certificates.saveAll(additions);
+    }
+    private String buildDraft(String title, String role, String skills, String education, int careerMonths, String certificates,
+            String projects, String introduction, String additionalRequest, String template, String templateSource) {
+        String target = "## 지원 직무\n" + value(role, "지원 직무를 입력해 주세요");
+        String skill = "## 핵심 역량\n" + value(skills, "보유 기술을 추가해 주세요");
+        String experience = "## 학력 및 경력\n" + value(education, "학력 정보를 입력해 주세요") + "\n경력 " + careerMonths + "개월";
+        String certificate = "## 자격증\n" + value(certificates, "보유 자격증을 추가해 주세요");
+        String project = "## 프로젝트\n" + value(projects, "프로젝트 경험을 추가해 주세요");
+        String intro = "## 자기소개\n" + value(introduction, "지원 직무와 연결되는 경험을 STAR 방식으로 작성해 주세요");
+        List<String> sections = "PROJECT".equals(template)
+                ? List.of(target, project, skill, certificate, experience, intro)
+                : "COMPACT".equals(template) ? List.of(target, skill, experience, project, intro)
+                : List.of(target, skill, experience, certificate, project, intro);
+        String attachmentNote = blank(templateSource) ? "" : "\n\n## 첨부 양식 참고\n첨부한 양식의 항목 순서를 참고해 작성한 편집 가능한 초안입니다.";
+        String requestNote = blank(additionalRequest) ? "" : "\n\n## 작성 요청 반영\n" + additionalRequest.trim();
+        return "# " + title + "\n\n" + String.join("\n\n", sections) + requestNote + attachmentNote;
+    }
+    private String normalize(String value) { return value == null ? "" : value.replaceAll("\\s+", "").toLowerCase(Locale.ROOT); }
     private String merge(String current,String extracted){ return blank(current)?extracted:(blank(extracted)?current:current+"\n"+extracted); }
     private String empty(String v){return v==null?"":v;} private boolean blank(String v){return v==null||v.isBlank();} private String value(String v,String fallback){return blank(v)?fallback:v;} private String joinNonBlank(String a,String b){return (empty(a)+" "+empty(b)).trim();}
 }

@@ -25,16 +25,21 @@ public class ResumeDocumentController {
     public ResumeDocumentResponse extract(Authentication auth, @RequestPart("file") MultipartFile file) { return service.extract(AuthenticatedMember.id(auth), file); }
     @PostMapping("/{id}/apply-profile")
     public ResumeDocumentResponse apply(Authentication auth, @PathVariable Long id) { return service.applyProfile(AuthenticatedMember.id(auth), id); }
-    @PostMapping("/generate")
-    public ResumeDocumentResponse generate(Authentication auth, @RequestBody ResumeDraftRequest request) { return service.generate(AuthenticatedMember.id(auth), request); }
+    @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResumeDocumentResponse generate(Authentication auth, @RequestPart("request") ResumeDraftRequest request,
+            @RequestPart(value = "templateFile", required = false) MultipartFile templateFile) {
+        return service.generate(AuthenticatedMember.id(auth), request, templateFile);
+    }
     @GetMapping("/{id}/download.docx")
     public ResponseEntity<byte[]> download(Authentication auth, @PathVariable Long id) throws Exception {
         ResumeDocument document = service.owned(AuthenticatedMember.id(auth), id);
         try (XWPFDocument docx = new XWPFDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            String templateKey = document.getTemplateKey() == null ? "STANDARD" : document.getTemplateKey();
             for (String line : (document.getGeneratedContent() == null ? document.getExtractedText() : document.getGeneratedContent()).split("\\n")) {
                 var paragraph = docx.createParagraph();
                 var run = paragraph.createRun(); run.setText(line.replaceFirst("^#+\\s*", ""));
-                if (line.startsWith("#")) run.setBold(true);
+                if (line.startsWith("#")) { run.setBold(true); run.setFontSize("COMPACT".equals(templateKey) ? 12 : 15); }
+                else if ("PROJECT".equals(templateKey)) run.setFontSize(11);
             }
             docx.write(output);
             return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=resume-" + id + ".docx")
