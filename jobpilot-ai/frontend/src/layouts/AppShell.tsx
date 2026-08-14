@@ -39,7 +39,6 @@ export function AppShell() {
   const [searchTerm, setSearchTerm] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
-  const logoVideoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const activeItem = navigationItems.find((item) => item.path === location.pathname)
@@ -90,19 +89,6 @@ export function AppShell() {
     setAccountMenuOpen(false);
     navigate("/login", { replace: true });
   };
-  const playLogoPounce = () => {
-    const video = logoVideoRef.current;
-    if (!video || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    video.currentTime = 0;
-    void video.play().catch(() => undefined);
-  };
-  const resetLogoPounce = () => {
-    const video = logoVideoRef.current;
-    if (!video) return;
-    video.pause();
-    video.currentTime = 0;
-  };
-
   return (
     <SiteAssistantWidgetProvider>
       <div className="app-shell">
@@ -151,13 +137,8 @@ export function AppShell() {
         <main className="main-area">
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
-            <Link to="/" className="desktop-brand brand-link logo-mascot-ready" onMouseEnter={playLogoPounce} onMouseLeave={resetLogoPounce} onFocus={playLogoPounce} onBlur={resetLogoPounce}>
-              <span className="brand-mark brand-logo-scene">
-                <span className="brand-logo-letter">J</span>
-                <span className="brand-bobo-stage" aria-hidden="true">
-                  <video ref={logoVideoRef} className="brand-pounce-video" src="/mascot/happyhorse-logo-pounce.mp4" muted playsInline preload="auto" />
-                </span>
-              </span>
+            <Link to="/" className="desktop-brand brand-link">
+              <span className="brand-mark">J</span>
               <BrandIdentity />
             </Link>
             <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>

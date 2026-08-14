@@ -394,7 +394,7 @@ a { color: inherit; text-decoration: none; }
 
 .home-page { display: grid; gap: 25px; }
 .home-hero { position: relative; display: grid; min-height: clamp(310px, 25vw, 390px); overflow: hidden; isolation: isolate; border-radius: 20px; background: linear-gradient(120deg, #2f4b8f 0%, #405cbd 57%, #5870e4 100%); padding: clamp(30px, 5vw, 58px); color: #fff; }
-.home-hero::before { position: absolute; z-index: -1; inset: 0; background: url("/hero/cat-career-hero-background.png") right center / auto 100% no-repeat; content: ""; pointer-events: none; }
+.home-hero::before { position: absolute; z-index: -1; inset: 0; background: url("/hero/cat-career-hero-background.png") 112% 52% / auto 138% no-repeat; content: ""; pointer-events: none; -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 34%, #000 58%, #000 100%); mask-image: linear-gradient(90deg, transparent 0%, transparent 34%, #000 58%, #000 100%); }
 .home-hero-copy { position: relative; z-index: 1; width: min(58%, 610px); }
 .home-hero .eyebrow { color: #bdc9ff; }
 .home-hero h1 { margin: 12px 0 15px; font-size: clamp(31px, 4vw, 50px); letter-spacing: -2.2px; line-height: 1.18; }
@@ -565,11 +565,11 @@ a { color: inherit; text-decoration: none; }
    있어야 해서 40으로 잡았다. 2026-08-10: 모의면접 전용(InterviewChatWidget)에서 사이트
    전체 범용 도우미(SiteAssistantWidget)로 바뀌었지만 클래스 이름/스타일은 그대로 재사용. */
 .interview-chat-widget-toggle { position: fixed; z-index: 40; right: 24px; bottom: 24px; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; background: #596ff3; box-shadow: 0 10px 24px #596ff34d; color: #fff; cursor: pointer; overflow: visible; transition: width .28s cubic-bezier(.2,.85,.25,1), height .28s cubic-bezier(.2,.85,.25,1), border-radius .28s ease, box-shadow .28s ease, transform .2s ease; }
-.interview-chat-widget-toggle:hover:not(.is-open), .interview-chat-widget-toggle:focus-visible:not(.is-open) { width: 116px; height: 68px; border-radius: 34px; box-shadow: 0 12px 26px #596ff362; outline: none; }
+.interview-chat-widget-toggle:hover:not(.is-open), .interview-chat-widget-toggle:focus-visible:not(.is-open) { width: 148px; height: 74px; border-radius: 37px; box-shadow: 0 12px 26px #596ff362; outline: none; }
 .interview-chat-widget-toggle:active:not(.is-open) { transform: scale(.97); }
 .interview-chat-widget-icon { display: grid; place-items: center; transition: opacity .12s ease, transform .18s ease; }
-.interview-chat-widget-mascot { position: absolute; left: 5px; top: 15px; width: 54px; height: 36px; background: #596ff3 url('/mascot/bobo-chat-counselor-sprite-v1.png') center top / 100% 200% no-repeat; opacity: 0; transform: scale(.55); transition: opacity .15s ease, transform .28s cubic-bezier(.2,.85,.25,1); }
-.interview-chat-widget-greeting { position: absolute; right: 8px; color: #fff; font-family: Pretendard, 'Noto Sans KR', sans-serif; font-size: 10px; font-weight: 800; line-height: 1.35; letter-spacing: -.05em; text-align: left; opacity: 0; transform: translateX(5px); transition: opacity .15s ease .08s, transform .2s ease .08s; white-space: nowrap; }
+.interview-chat-widget-mascot { position: absolute; left: 7px; top: 5px; width: 64px; height: 64px; background: #596ff3 url('/mascot/bobo-chat-counselor-sprite-v1.png') center top / 100% 200% no-repeat; opacity: 0; transform: scale(.55); transition: opacity .15s ease, transform .28s cubic-bezier(.2,.85,.25,1); }
+.interview-chat-widget-greeting { position: absolute; right: 9px; top: 0; bottom: 0; display: grid; width: 62px; place-items: center; color: #fff; font-family: Pretendard, 'Noto Sans KR', sans-serif; font-size: 11px; font-weight: 800; line-height: 1.35; letter-spacing: -.05em; text-align: center; opacity: 0; transform: translateX(5px); transition: opacity .15s ease .08s, transform .2s ease .08s; white-space: nowrap; }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-icon, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-icon { opacity: 0; transform: scale(.5); }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-mascot, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-mascot { opacity: 1; transform: scale(1); animation: bobo-chat-talk .42s steps(1, end) infinite; }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-greeting, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-greeting { opacity: 1; transform: translateX(0); }
