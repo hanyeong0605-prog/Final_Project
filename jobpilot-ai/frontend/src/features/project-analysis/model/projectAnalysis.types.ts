@@ -67,6 +67,11 @@ export interface FeatureCandidate {
   score: number;
 }
 
+export interface MethodExcerpt {
+  symbol: string;
+  excerpt: string;
+}
+
 export interface CoreFile {
   path: string;
   role: string;
@@ -76,6 +81,9 @@ export interface CoreFile {
   score: number;
   importance: "CORE" | "STRUCTURAL" | "REFERENCE" | string;
   selectionReason: string;
+  // 파일 안에서 찾은 HTTP 매핑 메서드별 발췌. 포트폴리오 생성 시 "구현"이 가리키는
+  // 정확한 메서드를 골라 보여주는 데 쓰인다(2026-08-14). 옛 분석 결과에는 없을 수 있어 optional.
+  methodExcerpts?: MethodExcerpt[];
 }
 
 export interface ProjectAnalysis {

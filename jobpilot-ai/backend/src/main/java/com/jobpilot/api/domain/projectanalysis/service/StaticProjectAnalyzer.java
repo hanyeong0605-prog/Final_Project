@@ -17,6 +17,12 @@ class StaticProjectAnalyzer {
     private static final Pattern JAVA_SYMBOL = Pattern.compile("(?:class|record|interface)\\s+([A-Za-z_][A-Za-z0-9_]*)");
     private static final Pattern JS_SYMBOL = Pattern.compile("(?:function|const|class)\\s+([A-Za-z_][A-Za-z0-9_]*)");
     private static final Pattern SPRING_MAPPING = Pattern.compile("@(Get|Post|Put|Delete|Patch|Request)Mapping");
+    // SPRING_MAPPING은 symbols() 표시용으로 @RequestMapping(클래스 레벨 base path)까지
+    // 포함해서 잡는 게 맞지만, allMappedMethodExcerpts()에서 그대로 쓰면 클래스 레벨
+    // @RequestMapping을 "메서드"로 착각해서 클래스 여는 중괄호부터 통째로 캡처해버리는
+    // 버그가 났다(2026-08-14, 여러 메서드가 한 발췌에 섞여 나옴) - 실제 HTTP 메서드별
+    // 매핑 어노테이션만 골라 메서드 단위로 정확히 찾도록 별도 패턴을 둔다.
+    private static final Pattern METHOD_MAPPING = Pattern.compile("@(Get|Post|Put|Delete|Patch)Mapping");
     private static final Pattern JAVA_EXTENDS = Pattern.compile("\\bclass\\s+([A-Za-z_][A-Za-z0-9_]*)[^\\{]*\\bextends\\s+([A-Za-z_][A-Za-z0-9_]*)");
     private static final Pattern JAVA_IMPLEMENTS = Pattern.compile("\\bclass\\s+([A-Za-z_][A-Za-z0-9_]*)[^\\{]*\\bimplements\\s+([A-Za-z_][A-Za-z0-9_]*)");
     private static final Pattern JAVA_NEW = Pattern.compile("\\bnew\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(");
@@ -130,7 +136,7 @@ class StaticProjectAnalyzer {
             return new GitHubProjectAnalysisResponse.CoreFile(
                     file.path(), file.role(), valueOrFallback(explanation.responsibility(), file.responsibility()),
                     file.symbols(), file.excerpt(), file.score(), normalizedImportance(explanation.importance(), file.importance()),
-                    valueOrFallback(explanation.selectionReason(), file.selectionReason())
+                    valueOrFallback(explanation.selectionReason(), file.selectionReason()), file.methodExcerpts()
             );
         }).toList();
     }
@@ -156,16 +162,38 @@ class StaticProjectAnalyzer {
             List<GitHubProjectAnalysisResponse.FeatureCandidate> candidates,
             List<GitHubProjectAnalysisResponse.CoreFile> coreFiles
     ) {
-        return candidates.stream().map(candidate -> new GitHubProjectAnalysisResponse.ImplementationStory(
-                candidate.id(), candidate.title(), candidate.description(),
-                "관련 코드의 역할과 연결 구조를 정적 신호로 확인했습니다.", List.of(),
-                candidate.evidence().stream()
-                        .map(path -> coreFiles.stream().filter(file -> file.path().equals(path)).findFirst().orElse(null))
-                        .filter(java.util.Objects::nonNull)
-                        .map(file -> new GitHubProjectAnalysisResponse.CodeEvidence(
-                                file.path(), file.symbols().getFirst(), file.responsibility()
-                        )).toList()
-        )).toList();
+        return candidates.stream().map(candidate -> {
+            List<GitHubProjectAnalysisResponse.CoreFile> files = candidate.evidence().stream()
+                    .map(path -> coreFiles.stream().filter(file -> file.path().equals(path)).findFirst().orElse(null))
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+            // "구현 방식"이 컨트롤러마다 똑같은 문장("관련 코드의 역할과 연결 구조를...")만
+            // 나온다는 지적(2026-08-14) - AI 요약이 없는 정적 모드에서도 실제 추출된
+            // HTTP 매핑 신호(endpointSignals)가 있으면 그걸로 이 기능이 실제 무엇을
+            // 하는지 설명하고, 신호가 없는(컨트롤러가 아닌) 그룹만 기존 일반 문장을 쓴다.
+            List<EndpointSignal> signals = endpointSignals(files);
+            String mechanism = signals.isEmpty()
+                    ? "관련 코드의 역할과 연결 구조를 정적 신호로 확인했습니다."
+                    : mechanismNarrative(signals);
+            return new GitHubProjectAnalysisResponse.ImplementationStory(
+                    candidate.id(), candidate.title(), candidate.description(),
+                    mechanism, List.of(),
+                    files.stream()
+                            .map(file -> new GitHubProjectAnalysisResponse.CodeEvidence(
+                                    file.path(), representativeSymbol(file), file.responsibility()
+                            )).toList()
+            );
+        }).toList();
+    }
+
+    // 정적(비-AI) 모드에서 CoreFile.excerpt/첫 번째 methodExcerpts 항목이 이 파일의 "대표"
+    // 발췌인데, evidence.symbol은 지금까지 file.symbols().getFirst()(클래스 이름)를 썼다.
+    // 프론트/PDF/PPTX 렌더러는 evidence.symbol과 methodExcerpts[].symbol이 정확히 일치할
+    // 때만 그 메서드 발췌를 골라 쓰므로, 클래스 이름을 넘기면 항상 매칭에 실패해 "파일의
+    // 첫 매핑 메서드"로 조용히 폴백한다(우연히 대부분 맞아 보였을 뿐). 대표 발췌와 같은
+    // 메서드의 실제 심볼을 넘겨 일관성을 맞춘다.
+    private String representativeSymbol(GitHubProjectAnalysisResponse.CoreFile file) {
+        return file.methodExcerpts().isEmpty() ? file.symbols().getFirst() : file.methodExcerpts().get(0).symbol();
     }
 
     private List<GitHubProjectAnalysisResponse.ImplementationStory> aiImplementationStories(
@@ -209,7 +237,18 @@ class StaticProjectAnalyzer {
         GitHubProjectAnalysisResponse.CoreFile file = filesByPath.get(evidence.path());
         if (file == null) return null;
         String symbol = evidence.symbol();
-        if (blank(symbol) || (!file.symbols().contains(symbol) && !file.excerpt().contains(symbol))) {
+        // methodExcerpts에 있는 실제 메서드 이름이면 Gemini가 지목한 심볼을 그대로 신뢰한다
+        // (2026-08-14 이전엔 file.symbols()/file.excerpt()에 없으면 무조건 클래스 이름으로
+        // 덮어써버려서, 파일에 매핑 메서드가 여러 개일 때 Gemini가 정확히 지목한 메서드
+        // 이름이 거의 항상 버려지는 문제가 있었다).
+        // requestedSymbol: symbol은 아래에서 재할당되므로 그 값을 그대로 람다에 캡처할 수
+        // 없다("local variables referenced from a lambda expression must be final or
+        // effectively final" 컴파일 에러, 2026-08-14 실제로 겪음) - 재할당 전 값을 별도의
+        // 불변 변수에 복사해 람다에 넘긴다.
+        String requestedSymbol = symbol;
+        boolean isKnownMethodSymbol = requestedSymbol != null
+                && file.methodExcerpts().stream().anyMatch(candidate -> candidate.symbol().equals(requestedSymbol));
+        if (blank(symbol) || (!isKnownMethodSymbol && !file.symbols().contains(symbol) && !file.excerpt().contains(symbol))) {
             symbol = file.symbols().getFirst();
         }
         return new GitHubProjectAnalysisResponse.CodeEvidence(
@@ -262,9 +301,11 @@ class StaticProjectAnalyzer {
                 .map(file -> {
                     String role = role(file.path(), file.content());
                     int score = score(file.path(), file.content()) + (focusPaths.contains(file.path()) ? 12 : 0);
+                    List<GitHubProjectAnalysisResponse.MethodExcerpt> methodExcerpts = allMappedMethodExcerpts(file.content());
                     return new GitHubProjectAnalysisResponse.CoreFile(
-                            file.path(), role, staticResponsibility(role, file), symbols(file), excerpt(file.content()), score,
-                            importance(score), selectionReason(role, score, file)
+                            file.path(), role, staticResponsibility(role, file), symbols(file),
+                            excerptOf(methodExcerpts, file.content()), score,
+                            importance(score), selectionReason(role, score, file), methodExcerpts
                     );
                 })
                 .sorted(Comparator.comparingInt(GitHubProjectAnalysisResponse.CoreFile::score).reversed()
@@ -338,8 +379,17 @@ class StaticProjectAnalyzer {
                     List<GitHubProjectAnalysisResponse.CoreFile> files = entry.getValue();
                     int score = files.stream().mapToInt(GitHubProjectAnalysisResponse.CoreFile::score).sum();
                     String title = DOMAIN_LABELS.getOrDefault(entry.getKey(), displayFallbackTitle(files.get(0).path()));
-                    String reasons = files.stream().map(GitHubProjectAnalysisResponse.CoreFile::selectionReason)
-                            .distinct().reduce((left, right) -> left + " " + right).orElse("구조적 코드 근거가 확인되었습니다.");
+                    // 카드 상단 설명이 컨트롤러 역할("API 진입점이라 선정했습니다")만 말하고
+                    // 실제 무슨 기능인지는 말을 안 해서, 도메인이 달라도(회원/장소/문화행사 등)
+                    // 문장이 전부 똑같아 보인다는 지적(2026-08-14). 실제로 추출된 HTTP
+                    // 매핑(경로+메서드명) 신호가 있으면 그걸로 이 그룹이 진짜 어떤 엔드포인트를
+                    // 구현하는지 보여주고, 신호가 없는(컨트롤러가 아닌) 그룹만 기존처럼
+                    // 파일 selectionReason을 모아 보여준다.
+                    List<EndpointSignal> signals = endpointSignals(files);
+                    String reasons = signals.isEmpty()
+                            ? files.stream().map(GitHubProjectAnalysisResponse.CoreFile::selectionReason)
+                                    .distinct().reduce((left, right) -> left + " " + right).orElse("구조적 코드 근거가 확인되었습니다.")
+                            : endpointNarrative(signals);
                     return new GitHubProjectAnalysisResponse.FeatureCandidate(
                             entry.getKey(), title, reasons,
                             score >= 16 ? "HIGH" : "MEDIUM",
@@ -564,11 +614,201 @@ class StaticProjectAnalyzer {
         return symbols.isEmpty() ? List.of(file.filename()) : symbols;
     }
 
-    private String excerpt(String content) {
-        return content.lines().map(String::trim).filter(line -> !line.isBlank()).limit(7)
-                .reduce((left, right) -> left + "\n" + right)
-                .map(value -> value.length() > 420 ? value.substring(0, 420) + "..." : value)
-                .orElse("");
+    // package/import 선언은 파일마다 거의 똑같아서 "주요 코드" 발췌로 보여줘도 아무 의미가
+    // 없다는 문제(2026-08-14)를 고친 뒤에도, "파일 맨 위 몇 줄"이라는 접근 자체가 필드
+    // 선언과 메서드 시그니처만 보여주고 실제 처리 로직(메서드 본문)은 안 보여준다는 지적을
+    // 받았다 - 사실이었다. 그래서 컨트롤러 파일이면 @GetMapping류로 매핑된 첫 메서드를
+    // 중괄호 짝을 맞춰 통째로 찾아서 그 본문까지 보여주도록 바꿨고(mappedMethodExcerpt),
+    // 매핑 메서드가 없는 파일(서비스/엔티티 등)만 기존 "맨 위부터" 방식으로 대체한다.
+    private static final java.util.Set<String> EXCERPT_SKIP_PREFIXES = java.util.Set.of("package ", "import ");
+    private static final int MAX_EXCERPT_LINES = 14;
+    private static final int MAX_EXCERPT_CHARS = 600;
+
+    // 파일에서 매핑 메서드를 하나도 못 찾았을 때 쓰는 대체 발췌 - package/import 줄은
+    // 건너뛰고 실제 선언부(어노테이션, 클래스/메서드 본문)부터 최대 MAX_EXCERPT_LINES줄을
+    // 담는다.
+    private String headExcerpt(String content) {
+        List<String> candidateLines = content.lines().map(String::trim)
+                .filter(line -> !line.isBlank())
+                .filter(line -> EXCERPT_SKIP_PREFIXES.stream().noneMatch(line::startsWith))
+                .limit(MAX_EXCERPT_LINES)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        trimIncompleteTrailingLines(candidateLines);
+        return joinCapped(candidateLines);
+    }
+
+    private String excerptOf(List<GitHubProjectAnalysisResponse.MethodExcerpt> mappedMethods, String content) {
+        return mappedMethods.isEmpty() ? headExcerpt(content) : mappedMethods.get(0).excerpt();
+    }
+
+    // @GetMapping/@PostMapping 등으로 매핑된 메서드를 "전부" 찾아, 각각 어노테이션 줄부터
+    // 여는 중괄호와 짝이 맞는 닫는 중괄호까지 실제 메서드 본문을 통째로 잘라온다.
+    //
+    // 2026-08-14에 겪은 버그 두 가지를 여기서 같이 고쳤다.
+    // (1) @PostMapping("/{boardId}/comments")처럼 스프링 경로 변수 문법 자체가 '{'/'}'를
+    //     문자열 리터럴 안에 담고 있으면, 그 어노테이션 줄만 보고도 괄호 짝이 맞아버려서
+    //     메서드 본문은 하나도 못 찾고 어노테이션 한 줄만 발췌되는 문제 - 중괄호를 찾거나
+    //     셀 때는 큰따옴표 문자열 리터럴 내용을 공백으로 지운 버전(codeOnlyLines)을 쓴다.
+    // (2) 예전엔 파일에서 매핑 메서드를 "첫 번째 하나만" 찾았는데(mappedMethodExcerpt),
+    //     한 파일이 서로 다른 "구현" 여러 개의 근거로 쓰이면 전부 똑같은 코드(그 파일의
+    //     첫 메서드)만 보여주는 문제가 있었다 - 이제 파일 안의 매핑 메서드를 전부 찾아
+    //     메서드 이름별로 담아둬서, 포트폴리오 생성 시 구현별로 정확한 메서드를 골라 쓸 수
+    //     있게 했다.
+    private List<GitHubProjectAnalysisResponse.MethodExcerpt> allMappedMethodExcerpts(String content) {
+        List<GitHubProjectAnalysisResponse.MethodExcerpt> results = new ArrayList<>();
+        String[] rawLines = content.split("\n", -1);
+        String[] codeOnlyLines = new String[rawLines.length];
+        for (int i = 0; i < rawLines.length; i++) codeOnlyLines[i] = withoutStringLiterals(rawLines[i]);
+
+        for (int i = 0; i < rawLines.length; i++) {
+            if (!METHOD_MAPPING.matcher(rawLines[i]).find()) continue;
+            int openLine = -1;
+            for (int j = i; j < rawLines.length && j < i + 6; j++) {
+                if (codeOnlyLines[j].contains("{")) { openLine = j; break; }
+            }
+            if (openLine < 0) continue;
+            int depth = 0;
+            int endLine = -1;
+            outer:
+            for (int j = openLine; j < rawLines.length; j++) {
+                for (char character : codeOnlyLines[j].toCharArray()) {
+                    if (character == '{') depth++;
+                    else if (character == '}') {
+                        depth--;
+                        if (depth == 0) { endLine = j; break outer; }
+                    }
+                }
+            }
+            if (endLine < 0) continue;
+            StringBuilder signature = new StringBuilder();
+            for (int j = i; j <= openLine; j++) signature.append(codeOnlyLines[j]).append(' ');
+            String methodName = methodNameOf(signature.toString());
+            List<String> methodLines = new ArrayList<>();
+            for (int j = i; j <= endLine; j++) {
+                String trimmed = rawLines[j].trim();
+                if (!trimmed.isEmpty()) methodLines.add(trimmed);
+            }
+            if (methodLines.size() > MAX_EXCERPT_LINES) {
+                methodLines = new ArrayList<>(methodLines.subList(0, MAX_EXCERPT_LINES));
+                trimIncompleteTrailingLines(methodLines);
+            }
+            if (methodName != null && !methodLines.isEmpty()) {
+                results.add(new GitHubProjectAnalysisResponse.MethodExcerpt(methodName, joinCapped(methodLines)));
+            }
+            i = endLine;
+        }
+        return results;
+    }
+
+    // 메서드 시그니처 텍스트에서 실제 메서드 이름을 찾는다 - "@RequestParam(..." 처럼
+    // 파라미터 어노테이션도 '(' 앞에 식별자가 오지만, 어노테이션은 항상 식별자 바로 앞에
+    // '@'가 붙어있는 반면 진짜 메서드 이름 앞에는 '@'가 없다는 점으로 구분한다.
+    private static final Pattern CALL_LIKE_IDENTIFIER = Pattern.compile("(?<!@)\\b([A-Za-z_][A-Za-z0-9_]*)\\s*\\(");
+
+    private String methodNameOf(String signatureText) {
+        Matcher matcher = CALL_LIKE_IDENTIFIER.matcher(signatureText);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    // 큰따옴표로 감싸인 문자열 리터럴 내용을 공백으로 지운다(이스케이프된 \" 는 종료
+    // 따옴표로 취급하지 않음) - 중괄호 탐색/카운팅이 문자열 안의 '{'/'}' 에 속지 않게 하기
+    // 위한 용도라 주석 안의 따옴표까지 완벽히 처리하진 않지만, 이 코드베이스가 다루는
+    // 어노테이션/시그니처 수준에서는 충분하다.
+    private String withoutStringLiterals(String line) {
+        StringBuilder result = new StringBuilder(line.length());
+        boolean inString = false;
+        for (int i = 0; i < line.length(); i++) {
+            char character = line.charAt(i);
+            if (character == '"' && (i == 0 || line.charAt(i - 1) != '\\')) {
+                inString = !inString;
+                result.append(' ');
+            } else {
+                result.append(inString ? ' ' : character);
+            }
+        }
+        return result.toString();
+    }
+
+    // 줄 개수 제한(MAX_EXCERPT_LINES) 때문에 메서드 시그니처 중간이나 어노테이션 바로
+    // 뒤(대상 선언 없이)에서 스니펫이 뚝 끊기는 문제를 겪었다(2026-08-14, "@GetMapping"만
+    // 나오거나 "addComment(@PathVariable Long boardId," 에서 끊긴 사례). 끝 줄이
+    // 미완성으로 보이면(쉼표/여는 괄호/점 등으로 끝나거나, 대상 없는 어노테이션이면)
+    // 완결된 줄이 나올 때까지 뒤에서부터 제거한다.
+    private void trimIncompleteTrailingLines(List<String> lines) {
+        while (!lines.isEmpty() && looksIncomplete(lines.get(lines.size() - 1))) {
+            lines.remove(lines.size() - 1);
+        }
+    }
+
+    private boolean looksIncomplete(String line) {
+        if (line.startsWith("@")) return true;
+        char last = line.charAt(line.length() - 1);
+        return last == ',' || last == '(' || last == '.' || last == '+' || last == '&' || last == '|' || last == '=';
+    }
+
+    // 글자 수 컷을 substring()으로 그냥 하면 "categoryM..." 처럼 단어 중간이 잘린다
+    // (2026-08-14에 실제로 겪음) - MAX_EXCERPT_CHARS 이내에서 가장 마지막 줄바꿈까지만 자른다.
+    private String joinCapped(List<String> lines) {
+        String joined = String.join("\n", lines);
+        if (joined.length() <= MAX_EXCERPT_CHARS) return joined;
+        int cut = joined.lastIndexOf('\n', MAX_EXCERPT_CHARS);
+        return (cut > 0 ? joined.substring(0, cut) : joined.substring(0, MAX_EXCERPT_CHARS)) + "\n...";
+    }
+
+    // HTTP 매핑 메서드 하나("@GetMapping("/attractions/{id}")" 등)에서 뽑아낸 진짜 신호.
+    // featureCandidates()/implementationStories()가 역할 이름만 반복하는 대신 이 신호로
+    // "이 기능이 실제로 무엇을 하는지"를 설명한다(2026-08-14).
+    private record EndpointSignal(String verb, String path, String methodName) {
+        String display() {
+            return (path == null || path.isBlank() ? verb : verb + " " + path) + "(" + methodName + ")";
+        }
+    }
+
+    private static final Pattern QUOTED_VALUE = Pattern.compile("\"([^\"]*)\"");
+
+    // methodExcerpts()의 각 발췌는 항상 매핑 어노테이션 줄에서 시작한다(allMappedMethodExcerpts
+    // 참고) - 그 첫 줄에서 HTTP 메서드와, 있으면 경로 문자열까지 뽑는다.
+    private List<EndpointSignal> endpointSignals(List<GitHubProjectAnalysisResponse.CoreFile> files) {
+        List<EndpointSignal> signals = new ArrayList<>();
+        for (GitHubProjectAnalysisResponse.CoreFile file : files) {
+            for (GitHubProjectAnalysisResponse.MethodExcerpt method : file.methodExcerpts()) {
+                String firstLine = method.excerpt().lines().findFirst().orElse("");
+                Matcher verbMatcher = METHOD_MAPPING.matcher(firstLine);
+                if (!verbMatcher.find()) continue;
+                String verb = verbMatcher.group(1).toUpperCase(Locale.ROOT);
+                Matcher pathMatcher = QUOTED_VALUE.matcher(firstLine);
+                String path = pathMatcher.find() ? pathMatcher.group(1) : "";
+                signals.add(new EndpointSignal(verb, path, method.symbol()));
+            }
+        }
+        return signals;
+    }
+
+    private String endpointNarrative(List<EndpointSignal> signals) {
+        List<String> shown = signals.stream().map(EndpointSignal::display).distinct().limit(4).toList();
+        int remaining = signals.size() - shown.size();
+        String suffix = remaining > 0 ? " 외 " + remaining + "건" : "";
+        return String.join(", ", shown) + suffix + " 등 총 " + signals.size() + "개의 API 엔드포인트가 이 기능의 진입점으로 확인되었습니다.";
+    }
+
+    private String mechanismNarrative(List<EndpointSignal> signals) {
+        Map<String, Integer> verbCounts = new LinkedHashMap<>();
+        for (EndpointSignal signal : signals) verbCounts.merge(koreanVerb(signal.verb()), 1, Integer::sum);
+        String breakdown = verbCounts.entrySet().stream()
+                .map(entry -> entry.getKey() + " " + entry.getValue() + "건")
+                .reduce((left, right) -> left + ", " + right).orElse("");
+        return breakdown + "의 HTTP 요청을 받아 서비스 계층에 위임해 처리하는 구조로 구현되어 있습니다.";
+    }
+
+    private String koreanVerb(String verb) {
+        return switch (verb) {
+            case "GET" -> "조회(GET)";
+            case "POST" -> "등록(POST)";
+            case "PUT" -> "수정(PUT)";
+            case "DELETE" -> "삭제(DELETE)";
+            case "PATCH" -> "부분 수정(PATCH)";
+            default -> verb;
+        };
     }
 
     private String domainKey(String path) {

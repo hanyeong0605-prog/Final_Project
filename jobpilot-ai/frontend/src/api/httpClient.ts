@@ -20,13 +20,33 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
     const error = await response.json().catch(() => null) as { message?: string } | null;
     throw new Error(error?.message ?? `${init.method ?? "GET"} ${path} failed: ${response.status}`);
   }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  // 2026-08-13: 백엔드가 void를 리턴하는 엔드포인트(예: 웹푸시 subscribe/unsubscribe)는
+  // 204가 아니라 200에 빈 본문으로 응답하는 경우가 있다 - response.json()을 빈 문자열에
+  // 그대로 호출하면 "Unexpected end of JSON input"으로 터져서, 실제로는 성공한 요청이
+  // 프론트에서는 실패로 보이는 버그가 있었다(웹푸시 알림 끄기 등). 상태코드 대신 실제
+  // 본문 텍스트가 비어있는지로 판단해서 204와 동일하게 처리한다.
+  const text = await response.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export function getJson<T>(path: string): Promise<T> { return requestJson<T>(path); }
 export function postJson<T>(path: string, body: unknown): Promise<T> {
   return requestJson<T>(path, { method: "POST", body: JSON.stringify(body) });
+}
+
+/** Multipart requests must not set Content-Type manually: the browser adds the boundary. */
+export async function postForm<T>(path: string, body: FormData): Promise<T> {
+  const token = getAccessToken();
+  const headers = new Headers({ Accept: "application/json" });
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${apiBaseUrl}${path}`, { method: "POST", body, headers });
+  if (!response.ok) {
+    if (response.status === 401) clearAccessToken();
+    const error = await response.json().catch(() => null) as { message?: string } | null;
+    throw new Error(error?.message ?? `POST ${path} failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
 }
 export function patchJson<T>(path: string, body: unknown): Promise<T> {
   return requestJson<T>(path, { method: "PATCH", body: JSON.stringify(body) });

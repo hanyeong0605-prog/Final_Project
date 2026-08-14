@@ -1830,17 +1830,33 @@ export function MockInterviewPage() {
             <div className="interview-call-stage">
               <div className="interview-call-tile interviewer-tile">
                 <div className="interviewer-avatar-wrap">
-                  {/* 2026-08-13: mascot-interview-face.png(입 다문 정지 이미지)과
-                      mascot-interview-talking.png(같은 원본에서 입만 편집한 프레임들로 만든
-                      APNG 애니메이션)은 둘 다 mascot-interview.png를 동일한 크롭 박스로
-                      잘라낸 것이라 몸통/귀/눈 위치가 완전히 같다 - 그래서 이 둘을 교체해도
-                      고양이 전체가 흔들리지 않고 입만 움직인다. isSpeaking이 켜질 때마다 APNG가
-                      처음부터 다시 재생된다. */}
-                  <img
-                    src={isSpeaking ? "/mascot-interview-talking.png" : "/mascot-interview-face.png"}
-                    alt="AI 면접관"
-                    className="interviewer-avatar"
-                  />
+                  {/* 2026-08-14: "차라리 편집하지 말고 영상통화처럼 그 영상을 그대로 쓰자"는
+                      요청 - AI(lipsync.video)가 만들어준 실제 영상(mascot-interview-talking.mp4,
+                      음성만 제거)을 배경 편집 없이 그대로 쓴다. 대신 컨테이너 크기를 고정해서
+                      (interviewer-avatar-frame) 이전에 겪었던 "정지 이미지 ↔ 애니메이션 프레임을
+                      바꿀 때 고양이 전체 크기가 같이 흔들리는" 문제가 재발하지 않게 했다 - 이미지/
+                      영상 둘 다 이 고정 박스 안에서 object-fit: cover로 채워지므로 박스 자체는
+                      절대 움직이지 않는다. 영상 자체의 어두운 배경은 실제 화상통화 타일처럼
+                      보이게 컨테이너도 어두운 배경(candidate-tile과 톤 맞춤)으로 감쌌다. */}
+                  <div className="interviewer-avatar-frame">
+                    {isSpeaking ? (
+                      <video
+                        key="talking"
+                        className="interviewer-avatar-media"
+                        src="/mascot-interview-talking.mp4"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src="/mascot-interview-face.png"
+                        alt="AI 면접관"
+                        className="interviewer-avatar-media interviewer-avatar-media-idle"
+                      />
+                    )}
+                  </div>
                   {/* isSpeaking은 speakQuestionText가 실제로 재생 중인 구간(질문 자동 낭독 +
                       "다시 듣기" 수동 재생 모두 포함)과 정확히 일치한다. */}
                   {isSpeaking && (
