@@ -10,7 +10,10 @@ from threading import Event, RLock, Thread
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse
 
-from deepface import DeepFace
+try:
+    from deepface import DeepFace
+except ImportError:  # Keep the word-cloud service available without the optional face runtime.
+    DeepFace = None
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -298,6 +301,12 @@ def save_base64_image(base64_str: str, target_path: Path) -> None:
 
 @app.post("/api/admin/face/verify")
 def verify_admin_face(req: FaceVerifyRequest) -> dict[str, Any]:
+    if DeepFace is None:
+        raise HTTPException(
+            status_code=503,
+            detail="안면 인증 런타임이 배포되어 있지 않습니다. 전용 안면 인증 서비스를 먼저 배포해 주세요.",
+        )
+
     target_id = str(req.admin_id or req.adminId or "local-dev").strip()
     img_data = req.image_base64 or req.imageBase64
 
