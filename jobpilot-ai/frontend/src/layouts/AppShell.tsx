@@ -155,7 +155,7 @@ export function AppShell() {
               <span className="brand-mark brand-logo-scene">
                 <span className="brand-logo-letter">J</span>
                 <span className="brand-bobo-stage" aria-hidden="true">
-                  <video ref={logoVideoRef} className="brand-pounce-video" src="/mascot/happyhorse-logo-pounce.webm" muted playsInline preload="auto" />
+                  <video ref={logoVideoRef} className="brand-pounce-video" src="/mascot/happyhorse-logo-pounce.mp4" muted playsInline preload="auto" />
                 </span>
               </span>
               <BrandIdentity />
