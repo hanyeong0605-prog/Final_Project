@@ -393,7 +393,9 @@ a { color: inherit; text-decoration: none; }
 .sidebar { display: none; }
 
 .home-page { display: grid; gap: 25px; }
-.home-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(290px, .75fr); gap: 24px; overflow: hidden; border-radius: 20px; background: linear-gradient(120deg, #253a6b 0%, #405cbd 58%, #6279ec 100%); padding: clamp(30px, 5vw, 58px); color: #fff; }
+.home-hero { position: relative; display: grid; min-height: clamp(310px, 25vw, 390px); overflow: hidden; isolation: isolate; border-radius: 20px; background: linear-gradient(120deg, #2f4b8f 0%, #405cbd 57%, #5870e4 100%); padding: clamp(30px, 5vw, 58px); color: #fff; }
+.home-hero::before { position: absolute; z-index: -1; inset: 0; background: url("/hero/cat-career-hero-background.png") right center / auto 100% no-repeat; content: ""; pointer-events: none; }
+.home-hero-copy { position: relative; z-index: 1; width: min(58%, 610px); }
 .home-hero .eyebrow { color: #bdc9ff; }
 .home-hero h1 { margin: 12px 0 15px; font-size: clamp(31px, 4vw, 50px); letter-spacing: -2.2px; line-height: 1.18; }
 .home-hero h1 em { color: #bdc9ff; font-style: normal; }
@@ -401,7 +403,7 @@ a { color: inherit; text-decoration: none; }
 .home-hero-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 26px; }
 .home-hero .primary-button { background: #fff; color: #4560cd; padding: 12px 15px; text-decoration: none; font-size: 12px; }
 .home-secondary-link { display: inline-flex; align-items: center; color: #fff; font-size: 12px; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
-.home-hero-summary { display: grid; align-content: start; gap: 16px; border: 1px solid #ffffff30; border-radius: 16px; background: #ffffff14; padding: 22px; backdrop-filter: blur(6px); }
+.home-hero-summary { display: none; }
 .home-hero-summary > span { color: #ccd5ff; font-family: "DM Mono", monospace; font-size: 10px; font-weight: 700; }
 .home-hero-summary > strong { font-size: 19px; letter-spacing: -.8px; line-height: 1.45; }
 .home-hero-summary > div { display: flex; gap: 8px; border-top: 1px solid #ffffff2a; padding-top: 14px; color: #b7c6ff; }
@@ -440,7 +442,7 @@ a { color: inherit; text-decoration: none; }
   .sidebar { z-index: 20; display: flex; position: fixed; inset: 0 auto 0 0; width: min(310px, 86vw); flex-direction: column; border-right: 1px solid #e6eaf0; background: #fff; padding: 24px 16px 20px; box-shadow: 12px 0 30px #13254928; transform: translateX(-110%); transition: transform .22s ease; }
   .sidebar.open { transform: translateX(0); }.mobile-close { display: grid; }.mobile-sidebar-brand { justify-content: space-between; padding-bottom: 24px; }.mobile-sidebar-brand .brand-link { min-width: 0; }.mobile-sidebar-brand .brand-identity { min-width: 108px; }
   .mobile-navigation { display: grid; margin-top: 24px; gap: 4px; }.mobile-nav-group { display: grid; gap: 2px; }.mobile-group-trigger { justify-content: flex-start; }.mobile-group-trigger svg:last-child { margin-left: auto; transition: transform .18s; }.mobile-nav-group.expanded .mobile-group-trigger svg:last-child { transform: rotate(180deg); }.mobile-submenu { display: none; margin: 0 0 4px 33px; border-left: 1px solid #e7eaf2; padding: 3px 0 3px 10px; }.mobile-nav-group.expanded .mobile-submenu { display: grid; }.mobile-submenu-item { border-radius: 7px; color: #7e899a; padding: 8px 10px; font-size: 11px; font-weight: 700; text-decoration: none; }.mobile-submenu-item.active { background: #eef2ff; color: #566fe8; }
-  .content { padding: 26px 18px 48px; }.home-hero { grid-template-columns: 1fr; }.home-quick-grid, .home-job-carousel { grid-template-columns: 1fr; }.home-market-layout { grid-template-columns: 1fr; }.home-stat-card, .home-wordcloud-card { min-height: 0; }
+  .content { padding: 26px 18px 48px; }.home-hero { min-height: 330px; }.home-hero-copy { width: min(62%, 610px); }.home-quick-grid, .home-job-carousel { grid-template-columns: 1fr; }.home-market-layout { grid-template-columns: 1fr; }.home-stat-card, .home-wordcloud-card { min-height: 0; }
 }
 @media (prefers-reduced-motion: no-preference) {
   [data-scroll-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
@@ -457,7 +459,7 @@ a { color: inherit; text-decoration: none; }
   @keyframes home-rise { to { opacity: 1; transform: translateY(0); } }
 }
 @media (prefers-reduced-motion: reduce) { [data-scroll-reveal] { opacity: 1; transform: none; } }
-@media (max-width: 600px) { .top-actions .add-job { display: none; }.global-search-inline { grid-template-columns: auto minmax(40px, 78px) auto; }.home-hero { border-radius: 14px; padding: 28px 22px; }.home-hero h1 { font-size: 31px; }.home-hero-summary { padding: 18px; }.home-quick-section, .home-job-showcase, .home-wordcloud-section, .home-stat-card, .home-statistics-section { padding: 19px; }.home-section-heading h2, .ict-statistics-panel h2 { font-size: 17px; }.home-section-heading, .ict-statistics-panel__top { align-items: start; flex-direction: column; }.home-section-heading > a { font-size: 10px; }.home-showcase-controls { position: static; justify-content: space-between; margin-top: 13px; }.home-wordcloud-section [style*="padding"] { padding-left: 0 !important; padding-right: 0 !important; }.ict-statistics-chart { height: 270px; padding-inline: 7px; }.ict-statistics-message { grid-template-columns: 1fr; gap: 6px; }.home-growth-banner { grid-template-columns: auto minmax(0, 1fr); }.home-growth-banner > a { grid-column: 2; } }
+@media (max-width: 600px) { .top-actions .add-job { display: none; }.global-search-inline { grid-template-columns: auto minmax(40px, 78px) auto; }.home-hero { min-height: 440px; border-radius: 14px; padding: 28px 22px; }.home-hero::before { background-position: right bottom; background-size: auto 52%; opacity: .8; }.home-hero-copy { width: 100%; }.home-hero h1 { font-size: 31px; }.home-quick-section, .home-job-showcase, .home-wordcloud-section, .home-stat-card, .home-statistics-section { padding: 19px; }.home-section-heading h2, .ict-statistics-panel h2 { font-size: 17px; }.home-section-heading, .ict-statistics-panel__top { align-items: start; flex-direction: column; }.home-section-heading > a { font-size: 10px; }.home-showcase-controls { position: static; justify-content: space-between; margin-top: 13px; }.home-wordcloud-section [style*="padding"] { padding-left: 0 !important; padding-right: 0 !important; }.ict-statistics-chart { height: 270px; padding-inline: 7px; }.ict-statistics-message { grid-template-columns: 1fr; gap: 6px; }.home-growth-banner { grid-template-columns: auto minmax(0, 1fr); }.home-growth-banner > a { grid-column: 2; } }
 
 /* 모의면접 페이지 - 2026-08-05: 기존엔 mini-label(밝은 라벤더색, 원래 어두운 배경용)을
    흰 배경 패널에 그대로 갖다 써서 라벨이 흐릿하게 보였고, 지표 카드도 색/아이콘 없이
