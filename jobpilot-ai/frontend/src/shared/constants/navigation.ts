@@ -5,7 +5,6 @@ import {
   CalendarDays,
   ClipboardCheck,
   Code2,
-  FileText,
   History,
   LayoutDashboard,
   MapPin,
@@ -51,9 +50,8 @@ export const navigationGroups: NavigationGroup[] = [
     label: "역량 관리",
     icon: Target,
     items: [
-      { path: "/profile", label: "역량 프로필", icon: Target },
+      { path: "/capability", label: "역량 관리", icon: Target },
       { path: "/opportunities", label: "성장 기회 추천", icon: Sparkles },
-      { path: "/resume", label: "이력서 작성 도우미", icon: FileText },
       { path: "/question", label: "진로검사·글쓰기 도구", icon: ClipboardCheck },
       { path: "/repository-analysis", label: "GitHub 코드 분석", icon: Code2 },
     ],
