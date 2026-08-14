@@ -572,7 +572,7 @@ a { color: inherit; text-decoration: none; }
 .interview-chat-widget-toggle:active:not(.is-open) { transform: scale(.97); }
 .interview-chat-widget-icon, .interview-chat-widget-greeting { display: none; }
 .interview-chat-widget-mascot { position: relative; display: block; width: 68px; height: 68px; overflow: hidden; border-radius: 50%; background: url('/mascot/bobo-chat-idle.png') center / cover no-repeat; }
-.interview-chat-widget-mascot::after { position: absolute; inset: 0; background: url('/mascot/bobo-chat-talking.png') center / cover no-repeat; content: ""; opacity: 0; }
+.interview-chat-widget-mascot::after { position: absolute; inset: 0; background: url('/mascot/bobo-chat-talking.png') center / cover no-repeat; content: ""; opacity: 0; -webkit-mask-image: radial-gradient(ellipse 19% 15% at 50% 59%, #000 45%, transparent 100%); mask-image: radial-gradient(ellipse 19% 15% at 50% 59%, #000 45%, transparent 100%); }
 .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-mascot::after, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-mascot::after { animation: bobo-chat-talk .68s steps(1, end) infinite; }
 @keyframes bobo-chat-talk { 0%, 47%, 100% { opacity: 0; } 48%, 99% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .interview-chat-widget-toggle { transition: none; } .interview-chat-widget-toggle:hover:not(.is-open) .interview-chat-widget-mascot::after, .interview-chat-widget-toggle:focus-visible:not(.is-open) .interview-chat-widget-mascot::after { animation: none; } }
