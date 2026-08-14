@@ -6,14 +6,19 @@ import {
   Code2,
   ExternalLink,
   FileCode2,
+  FileDown,
+  FileText,
   GitBranch,
   Link2,
   LoaderCircle,
   Network,
+  Presentation,
   Sparkles,
 } from "lucide-react";
 import { analyzeGitHubRepository } from "../features/project-analysis/api/projectAnalysisApi";
 import type { CoreFile, ImplementationStory, ProjectAnalysis } from "../features/project-analysis/model/projectAnalysis.types";
+import { downloadPortfolioPdf, downloadPortfolioPptx, generatePortfolio } from "../features/portfolio/api/portfolioApi";
+import type { PortfolioDocumentSummary, PortfolioTemplate } from "../features/portfolio/model/portfolio.types";
 import { PageHeading } from "../shared/components/PageHeading";
 
 const roleLabels: Record<string, string> = {
@@ -32,6 +37,22 @@ const roleLabels: Record<string, string> = {
 function roleLabel(role: string) {
   return roleLabels[role] ?? role;
 }
+
+// evidence.symbol과 정확히 일치하는 메서드 발췌를 우선 쓴다. 한 파일이 여러 "구현"의
+// 근거로 쓰일 때 항상 file.excerpt(파일에서 찾은 "첫 번째" 매핑 메서드)만 보여주면,
+// 이 카드가 실제로 가리키는 메서드가 아닌 다른 메서드 코드가 뜰 수 있다(2026-08-14).
+// PDF/PPTX 렌더러(PdfRenderer/PptxRenderer)는 이미 같은 방식으로 심볼별 발췌를 고르고
+// 있어, 화면 미리보기도 동일한 근거를 보여주도록 맞춘다.
+function excerptForEvidence(file: CoreFile, symbol: string) {
+  const match = file.methodExcerpts?.find((candidate) => candidate.symbol === symbol);
+  return match ? match.excerpt : file.excerpt;
+}
+
+const TEMPLATE_OPTIONS: { value: PortfolioTemplate; label: string }[] = [
+  { value: "LIGHT", label: "라이트" },
+  { value: "DARK", label: "다크" },
+  { value: "BRAND_BLUE", label: "브랜드 블루" },
+];
 
 function ImplementationToggle({
   implementation,
@@ -67,7 +88,7 @@ function ImplementationToggle({
             <article key={evidence.path + evidence.symbol}>
               <strong><FileCode2 size={12} /> {evidence.path} <em>{evidence.symbol}</em></strong>
               <p>{evidence.description}</p>
-              {file && <pre>{file.excerpt}</pre>}
+              {file && <pre>{excerptForEvidence(file, evidence.symbol)}</pre>}
             </article>
           );
         })}
@@ -82,11 +103,17 @@ export function RepositoryAnalysisPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioDocumentSummary | null>(null);
+  const [isGeneratingPortfolio, setIsGeneratingPortfolio] = useState(false);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [template, setTemplate] = useState<PortfolioTemplate>("LIGHT");
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
+    setPortfolio(null);
+    setPortfolioError(null);
     try {
       const result = await analyzeGitHubRepository(repositoryUrl.trim());
       if (!result) throw new Error("분석 API에 연결할 수 없습니다. VITE_API_BASE_URL을 설정하고 Spring 서버를 실행해 주세요.");
@@ -103,6 +130,22 @@ export function RepositoryAnalysisPage() {
 
   const toggleImplementation = (id: string) => {
     setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+    setPortfolio(null);
+  };
+
+  const handleGeneratePortfolio = async () => {
+    if (!analysis || selectedIds.length === 0) return;
+    setIsGeneratingPortfolio(true);
+    setPortfolioError(null);
+    try {
+      const result = await generatePortfolio(analysis, selectedIds, template);
+      setPortfolio(result);
+    } catch (requestError) {
+      setPortfolio(null);
+      setPortfolioError(requestError instanceof Error ? requestError.message : "포트폴리오를 만들지 못했습니다.");
+    } finally {
+      setIsGeneratingPortfolio(false);
+    }
   };
 
   const implementations = analysis?.implementations ?? [];
@@ -260,6 +303,48 @@ export function RepositoryAnalysisPage() {
                     ? "Gemini 호출은 완료되었지만 설명을 적용하지 못했습니다. 서버 로그에서 Gemini project-summary 메시지를 확인하세요."
                     : "정적 분석 결과입니다. Gemini를 켜고 다시 분석하면 코드 관계를 읽은 설명이 추가됩니다."}
               </small>
+              <div className="analysis-portfolio-action">
+                {portfolioError && <p className="analysis-portfolio-error">{portfolioError}</p>}
+                {!portfolio ? (
+                  <>
+                    <div className="analysis-template-picker">
+                      {TEMPLATE_OPTIONS.map((option) => (
+                        <button
+                          className={template === option.value ? "analysis-template-option selected" : "analysis-template-option"}
+                          key={option.value}
+                          onClick={() => setTemplate(option.value)}
+                          type="button"
+                        >
+                          <span className={`analysis-template-swatch swatch-${option.value.toLowerCase()}`} />
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="primary-button"
+                      disabled={selectedImplementations.length === 0 || isGeneratingPortfolio}
+                      onClick={() => void handleGeneratePortfolio()}
+                      type="button"
+                    >
+                      {isGeneratingPortfolio ? <LoaderCircle className="spin" size={16} /> : <FileDown size={16} />}
+                      {isGeneratingPortfolio ? "포트폴리오 만드는 중" : "포트폴리오 만들기"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="analysis-portfolio-result">
+                    <span className="mini-label">포트폴리오가 준비됐습니다</span>
+                    <div className="analysis-portfolio-downloads">
+                      <button className="outline-button" onClick={() => void downloadPortfolioPptx(portfolio.id)} type="button">
+                        <Presentation size={14} /> PPTX 다운로드
+                      </button>
+                      <button className="outline-button" onClick={() => void downloadPortfolioPdf(portfolio.id)} type="button">
+                        <FileText size={14} /> PDF 다운로드
+                      </button>
+                    </div>
+                    <small>마이페이지의 "내 포트폴리오"에서 다시 내려받을 수 있습니다.</small>
+                  </div>
+                )}
+              </div>
             </aside>
           </div>
 

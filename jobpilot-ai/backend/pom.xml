@@ -98,6 +98,20 @@
             <artifactId>jose4j</artifactId>
             <version>0.7.9</version>
         </dependency>
+        <!-- 2026-08-14: 포트폴리오 생성 기능 - GitHub 코드 분석 미리보기에서 고른 구현을
+             pptx/pdf로 렌더링한다. AI(Gemini)는 슬라이드 텍스트 구조만 만들고, 실제 파일
+             렌더링은 여기 두 라이브러리가 고정 템플릿으로 담당한다(PortfolioNarrativeGeminiClient
+             문서 참고). -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.5.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.8</version>
+        </dependency>
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>

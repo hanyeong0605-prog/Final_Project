@@ -704,6 +704,33 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 960px) { .match-evidence-layout { grid-template-columns: 1fr; }.original-posting-pane { max-height: 48vh; overflow-y: auto; border-right: 0; border-bottom: 1px solid #e5e9f1; }.evidence-drawer .matrix-section { padding-bottom: 120px; } }
 @media (max-width: 1100px) { .admin-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-panel-heading { align-items: flex-start; flex-direction: column; }.admin-panel-heading form { width: 100%; }.admin-panel-heading input { flex: 1; width: auto; }.admin-page-link { padding: 8px; font-size: 0; }.admin-page-link svg { margin: 0; } }
+
+/* Portfolio generation - RepositoryAnalysisPage brief panel + MyPage saved list. */
+.analysis-portfolio-action { display: grid; gap: 8px; margin-top: 14px; border-top: 1px solid #ffffff18; padding-top: 14px; }
+.analysis-portfolio-action .primary-button { width: 100%; justify-content: center; }
+/* 2026-08-14: 포트폴리오 PDF/PPTX에 실제 코드 발췌와 개요 페이지가 빠져 있다는 피드백으로
+   생성 전 템플릿(라이트/다크/브랜드 블루)을 먼저 고르게 했다 - .analysis-brief의 어두운
+   남색 패널(#253a64) 안에 자연스럽게 붙도록 살짝 밝은 톤의 카드로 구성. 스와치는 실제
+   렌더러(PortfolioTemplate.java)의 background/accent 색을 그대로 반영한다. */
+.analysis-template-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 2px; }
+.analysis-template-option { display: grid; justify-items: center; gap: 6px; border: 2px solid #ffffff2a; border-radius: 11px; background: #ffffff14; padding: 10px 6px; color: #cad5ef; font-size: 10px; font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.analysis-template-option:hover { background: #ffffff22; border-color: #ffffff40; }
+.analysis-template-option.selected { border-color: #8fb0ff; background: #ffffff26; color: #fff; }
+.analysis-template-swatch { display: block; width: 30px; height: 22px; border-radius: 6px; border: 1px solid #ffffff30; }
+.analysis-template-swatch.swatch-light { background: linear-gradient(135deg, #ffffff 55%, #596ff3 55%); }
+.analysis-template-swatch.swatch-dark { background: linear-gradient(135deg, #1c2333 55%, #8fb0ff 55%); }
+.analysis-template-swatch.swatch-brand_blue { background: linear-gradient(135deg, #0f2f66 55%, #ffb646 55%); }
+.analysis-portfolio-error { margin: 0; color: #ffb4b4; font-size: 10px; line-height: 1.6; }
+.analysis-portfolio-result { display: grid; gap: 8px; }
+.analysis-portfolio-downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+.analysis-portfolio-downloads .outline-button { flex: 1; justify-content: center; min-height: 34px; font-size: 11px; }
+.portfolio-doc-list { display: grid; gap: 10px; }
+.portfolio-doc-card { display: flex; align-items: center; gap: 14px; border: 1px solid #e8ebf1; border-radius: 12px; background: #fff; padding: 14px 16px; color: #596ff3; }
+.portfolio-doc-card > div:first-of-type { flex: 1; display: grid; gap: 3px; }
+.portfolio-doc-card strong { color: #2d3951; font-size: 13px; }
+.portfolio-doc-card small { color: #8a95a6; font-size: 10px; }
+.portfolio-doc-actions { display: flex; gap: 8px; }
+.portfolio-doc-actions .outline-button { min-height: 32px; padding: 6px 10px; font-size: 11px; }
 .resume-question { display:grid; gap:6px; margin-top:12px; color:#55627a; font-size:12px; font-weight:700; }.resume-question textarea { min-height:58px; }
 .resume-template-panel { display:grid; gap:14px; padding:20px; border:1px solid #dfe5f4; border-radius:14px; background:linear-gradient(135deg,#f8f9ff,#fff); }.resume-template-panel h3 { display:flex; align-items:center; gap:8px; margin:3px 0 7px; color:#33435f; font-size:17px; }.resume-template-panel p { margin:0; color:#77849a; font-size:12px; line-height:1.65; }
 .resume-template-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }.resume-template-option { display:grid; grid-template-columns:auto 1fr; gap:4px 7px; text-align:left; padding:13px; border:1px solid #dce3f0; border-radius:10px; color:#5b6982; background:#fff; cursor:pointer; }.resume-template-option svg { grid-row:span 2; margin-top:1px; color:#b5bfce; }.resume-template-option strong { color:#42516a; font-size:13px; }.resume-template-option small { font-size:11px; line-height:1.45; }.resume-template-option.selected { border-color:#6477f4; box-shadow:0 0 0 3px #e9edff; }.resume-template-option.selected svg { color:#5970ef; }
