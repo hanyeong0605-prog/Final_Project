@@ -19,7 +19,7 @@ export interface ResumeDocument { id: number; type: "UPLOADED" | "GENERATED"; ti
 export const listResumeDocuments = () => getJson<ResumeDocument[]>(`${BASE}/resume-documents`);
 export const extractResumeDocument = (file: File) => { const data = new FormData(); data.append("file", file); return postForm<ResumeDocument>(`${BASE}/resume-documents/extract`, data); };
 export const applyResumeExtraction = (id: number) => postJson<ResumeDocument>(`${BASE}/resume-documents/${id}/apply-profile`, undefined);
-export const generateResumeDocument = (input: { title: string; additionalRequest: string; templateKey: string }, templateFile?: File | null) => {
+export const generateResumeDocument = (input: { title: string; additionalRequest: string; templateKey: string; answers?: string[]; enabledSections?: string[] }, templateFile?: File | null) => {
   const data = new FormData();
   data.append("request", new Blob([JSON.stringify(input)], { type: "application/json" }));
   if (templateFile) data.append("templateFile", templateFile);

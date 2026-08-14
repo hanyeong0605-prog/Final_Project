@@ -8,11 +8,12 @@ docstring 참고).
 """
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.domain.resume import project as project_module
 from app.domain.resume import technical_summary as technical_summary_module
+from app.domain.resume import document_ai as document_ai_module
 from app.domain.resume.self_introduction import (
     GUIDED_QUESTIONS,
     critique as critique_self_introduction,
@@ -29,6 +30,34 @@ def _verify_internal_api_key(x_internal_api_key: str | None = Header(default=Non
     Spring(ResumeCareerSyncService)이 자기소개서/프로젝트 저장 시 서버 간 호출로만 부른다."""
     if not settings.internal_api_key or x_internal_api_key != settings.internal_api_key:
         raise HTTPException(status_code=401, detail="internal api key가 없거나 올바르지 않습니다.")
+
+
+class AnalyzeResumeDocumentRequest(BaseModel):
+    text: str = ""
+
+
+@router.post("/document/analyze")
+def analyze_resume_document(body: AnalyzeResumeDocumentRequest, x_internal_api_key: str | None = Header(default=None)):
+    _verify_internal_api_key(x_internal_api_key)
+    return document_ai_module.analyze_profile(body.text).to_dict()
+
+
+class GenerateResumeDocumentRequest(BaseModel):
+    profile: dict[str, object] = Field(default_factory=dict)
+    answers: list[str] = Field(default_factory=list)
+    template_key: str = "STANDARD"
+    template_hint: str = ""
+
+
+@router.post("/document/generate")
+def generate_resume_document(body: GenerateResumeDocumentRequest, x_internal_api_key: str | None = Header(default=None)):
+    _verify_internal_api_key(x_internal_api_key)
+    return document_ai_module.generate_document_draft(
+        profile=body.profile,
+        answers=body.answers,
+        template_key=body.template_key,
+        template_hint=body.template_hint,
+    ).to_dict()
 
 
 @router.get("/self-introduction/questions")
