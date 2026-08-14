@@ -9,6 +9,8 @@ export interface PlannerEvent {
   endsAt: string | null;
   allDay: boolean;
   editable: boolean;
+  sourceType: "JOB_POSTING" | "CERTIFICATE" | "MANUAL" | string;
+  sourceId: number | null;
 }
 
 export interface PlannerEventInput {

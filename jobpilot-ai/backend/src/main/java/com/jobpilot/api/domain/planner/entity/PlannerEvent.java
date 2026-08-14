@@ -55,6 +55,7 @@ public class PlannerEvent {
     public Long getId() { return id; }
     public Long getMemberId() { return memberId; }
     public String getSourceType() { return sourceType; }
+    public Long getSourceId() { return sourceId; }
     public String getEventType() { return eventType; }
     public String getTitle() { return title; }
     public LocalDateTime getStartsAt() { return startsAt; }
