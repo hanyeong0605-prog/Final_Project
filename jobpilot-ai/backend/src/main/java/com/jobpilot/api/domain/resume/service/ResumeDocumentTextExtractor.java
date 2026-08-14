@@ -2,6 +2,8 @@ package com.jobpilot.api.domain.resume.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -25,7 +27,19 @@ public class ResumeDocumentTextExtractor {
             }
             if (name.endsWith(".docx")) {
                 try (var docx = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-                    return docx.getParagraphs().stream().map(p -> p.getText()).collect(Collectors.joining("\n"));
+                    // Korean resumes are commonly built as tables. Reading paragraphs alone only
+                    // returned headings such as "학력사항" and lost the actual profile values.
+                    List<String> parts = new ArrayList<>();
+                    docx.getParagraphs().stream().map(p -> p.getText().trim())
+                            .filter(value -> !value.isBlank()).forEach(parts::add);
+                    docx.getTables().forEach(table -> table.getRows().forEach(row -> {
+                        String line = row.getTableCells().stream()
+                                .map(cell -> cell.getText().replaceAll("\\s+", " ").trim())
+                                .filter(value -> !value.isBlank())
+                                .collect(Collectors.joining(" | "));
+                        if (!line.isBlank()) parts.add(line);
+                    }));
+                    return String.join("\n", parts);
                 }
             }
         } catch (IOException exception) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ChevronRight, Download, FileText, MessageSquareText, Sparkles, Upload } from "lucide-react";
-import { applyResumeExtraction, extractResumeDocument, generateResumeDocument, listResumeDocuments, type ResumeDocument } from "../api/resumeApi";
+import { applyResumeExtraction, deleteResumeDocument, extractResumeDocument, generateResumeDocument, listResumeDocuments, type ResumeDocument } from "../api/resumeApi";
 
 const templates = [
   { key: "STANDARD", name: "기본 역량형", description: "학력·역량·경력·프로젝트를 균형 있게 정리합니다." },
@@ -21,7 +21,9 @@ const profileFields: Array<{ key: string; label: string; format?: (value: unknow
   { key: "suggestedSkills", label: "보유 기술 스택", format: (value) => Array.isArray(value) ? value.join(", ") : "" },
   { key: "suggestedCertificates", label: "보유 자격증", format: (value) => Array.isArray(value) ? value.join(", ") : "" },
   { key: "educationLevel", label: "학력" },
+  { key: "schoolName", label: "학교명" },
   { key: "major", label: "전공" },
+  { key: "graduationStatus", label: "졸업 상태" },
   { key: "totalCareerMonths", label: "경력", format: (value) => Number(value) > 0 ? `${value}개월` : "" },
   { key: "technicalSummary", label: "기술·경험 요약" },
 ];
@@ -38,6 +40,7 @@ export function ResumeProfileAnalysisSection() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [selected, setSelected] = useState<ResumeDocument | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const { documents, setDocuments, message, setMessage } = useDocuments();
 
@@ -58,6 +61,18 @@ export function ResumeProfileAnalysisSection() {
     catch (error) { setMessage(error instanceof Error ? error.message : "프로필 반영에 실패했습니다."); }
     finally { setLoading(false); }
   };
+  const remove = async (ids: number[]) => {
+    if (ids.length === 0 || !confirm(`선택한 이력서 ${ids.length}개를 삭제할까요?`)) return;
+    setLoading(true); setMessage("");
+    try {
+      await Promise.all(ids.map(deleteResumeDocument));
+      setDocuments((current) => current.filter((document) => !ids.includes(document.id)));
+      if (selected && ids.includes(selected.id)) setSelected(null);
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
+      setMessage("선택한 이력서 자료를 삭제했습니다.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "이력서 자료 삭제에 실패했습니다."); }
+    finally { setLoading(false); }
+  };
   const uploaded = documents.filter((document) => document.type === "UPLOADED");
   const extracted = (selected?.extractedProfile ?? {}) as Profile;
   return <div className="resume-document-section">
@@ -65,7 +80,7 @@ export function ResumeProfileAnalysisSection() {
     <section className="resume-document-card resume-upload-card"><h3><Upload size={18} /> 이력서 첨부</h3><p>PDF 또는 DOCX, 최대 5MB. 이력서 텍스트에서 희망 직무·기술·자격증·학력·경력을 찾아 제안합니다.</p><input ref={fileRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><button className="primary-button" disabled={loading || !file} onClick={analyze}>{loading ? "분석 중…" : "이력서 분석"}</button></section>
     {selected && <section className="resume-extracted-result"><div className="resume-result-heading"><div><span className="eyebrow">EXTRACTED PROFILE</span><h3>이력서에서 찾은 스펙 정보</h3></div><button className="primary-button" disabled={loading} onClick={() => apply(selected.id)}>프로필에 반영</button></div><div className="resume-profile-suggestions">{profileFields.map((field) => { const raw = extracted[field.key]; const value = field.format ? field.format(raw) : String(raw ?? ""); const found = Boolean(value && value !== "0"); return <article key={field.key} className={found ? "found" : "missing"}><strong>{field.label}</strong>{found ? <p>{value}</p> : <p>이력서에서 발견되지 않아 직접 기재해주세요!</p>}</article>; })}</div></section>}
     {message && <p className="resume-document-message">{message}</p>}
-    <section className="resume-document-list"><h3>내 이력서 자료</h3>{uploaded.length === 0 ? <p className="empty-state">아직 분석한 이력서 자료가 없습니다.</p> : uploaded.map((document) => <article key={document.id} className="resume-document-item"><div><span>업로드 분석</span><strong>{document.title}</strong><small>{new Intl.DateTimeFormat("ko-KR").format(new Date(document.createdAt))}</small></div><div className="form-actions"><button className="outline-button" onClick={() => setSelected(document)}>분석 결과 보기</button><button className="outline-button" disabled={loading} onClick={() => apply(document.id)}>프로필 반영</button></div></article>)}</section>
+    <section className="resume-document-list"><div className="resume-result-heading"><h3>내 이력서 자료</h3>{selectedIds.length > 0 && <button className="outline-button" disabled={loading} onClick={() => void remove(selectedIds)}>선택 삭제 ({selectedIds.length})</button>}</div>{uploaded.length === 0 ? <p className="empty-state">아직 분석한 이력서 자료가 없습니다.</p> : uploaded.map((document) => <article key={document.id} className="resume-document-item"><input aria-label={`${document.title} 선택`} type="checkbox" checked={selectedIds.includes(document.id)} onChange={() => setSelectedIds((current) => current.includes(document.id) ? current.filter((id) => id !== document.id) : [...current, document.id])} /><div><span>업로드 분석</span><strong>{document.title}</strong><small>{new Intl.DateTimeFormat("ko-KR").format(new Date(document.createdAt))}</small></div><div className="form-actions"><button className="outline-button" onClick={() => setSelected(document)}>분석 결과 보기</button><button className="outline-button" disabled={loading} onClick={() => apply(document.id)}>프로필 반영</button><button className="outline-button" disabled={loading} onClick={() => void remove([document.id])}>삭제</button></div></article>)}</section>
   </div>;
 }
 

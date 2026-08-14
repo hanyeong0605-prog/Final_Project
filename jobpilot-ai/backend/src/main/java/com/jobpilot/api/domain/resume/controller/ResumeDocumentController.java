@@ -25,6 +25,11 @@ public class ResumeDocumentController {
     public ResumeDocumentResponse extract(Authentication auth, @RequestPart("file") MultipartFile file) { return service.extract(AuthenticatedMember.id(auth), file); }
     @PostMapping("/{id}/apply-profile")
     public ResumeDocumentResponse apply(Authentication auth, @PathVariable Long id) { return service.applyProfile(AuthenticatedMember.id(auth), id); }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(Authentication auth, @PathVariable Long id) {
+        service.delete(AuthenticatedMember.id(auth), id);
+        return ResponseEntity.noContent().build();
+    }
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResumeDocumentResponse generate(Authentication auth, @RequestPart("request") ResumeDraftRequest request,
             @RequestPart(value = "templateFile", required = false) MultipartFile templateFile) {
