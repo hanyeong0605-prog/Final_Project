@@ -18,6 +18,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,9 +39,14 @@ public class ResumeDocumentService {
         this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.json=json; this.refreshScheduler=refreshScheduler; this.aiClient=aiClient;
     }
     public List<ResumeDocumentResponse> list(Long memberId) { return documents.findByMemberIdOrderByCreatedAtDesc(memberId).stream().map(ResumeDocumentResponse::from).toList(); }
+    public void delete(Long memberId, Long documentId) {
+        if (documents.deleteByIdAndMemberId(documentId, memberId) == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "이력서 자료를 찾을 수 없습니다.");
+        }
+    }
     public ResumeDocumentResponse extract(Long memberId, MultipartFile file) {
         String text = extractor.extract(file);
-        ObjectNode extracted = infer(text);
+        ObjectNode extracted = inferStructured(text);
         enrichWithAi(extracted, text);
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
@@ -53,13 +60,16 @@ public class ResumeDocumentService {
         MemberProfile profile = profiles.findById(memberId).orElseGet(() -> new MemberProfile(memberId));
         MemberSpecification spec = specs.findById(memberId).orElseGet(() -> new MemberSpecification(memberId));
         String role = first(data, "targetRole", profile.getTargetRole());
+        String schoolName = first(data, "schoolName", spec.getSchoolName());
         String major = first(data, "major", spec.getMajor());
         String education = first(data, "educationLevel", spec.getEducationLevel());
-        String summary = merge(spec.getTechnicalSummary(), first(data, "technicalSummary", ""));
+        String graduationStatus = first(data, "graduationStatus", spec.getGraduationStatus());
+        String summary = merge(sanitizeSummary(spec.getTechnicalSummary()),
+                sanitizeSummary(first(data, "technicalSummary", "")));
         int months = Math.max(spec.getTotalCareerMonths(), data.path("totalCareerMonths").asInt(0));
         ArrayNode locations = profile.getPreferredLocations() instanceof ArrayNode array ? array : json.createArrayNode();
         profile.update(empty(role), empty(profile.getTargetJobFamily()), locations, profile.getAvailableFrom(), empty(profile.getExperienceType()), empty(profile.getGithubUsername()));
-        spec.update(empty(education), empty(spec.getSchoolName()), empty(major), empty(spec.getGraduationStatus()), months, empty(summary), empty(spec.getPortfolioUrl()));
+        spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
         applyExtractedSkills(memberId, data.path("suggestedSkills"));
         applyExtractedCertificates(memberId, data.path("suggestedCertificates"));
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
@@ -93,6 +103,123 @@ public class ResumeDocumentService {
         return ResumeDocumentResponse.from(document);
     }
     public ResumeDocument owned(Long memberId, Long id) { return documents.findByIdAndMemberId(id, memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이력서 문서를 찾을 수 없습니다.")); }
+    /**
+     * Extract the fields that can be reflected in a member profile without relying
+     * on an LLM. This is deliberately a conservative fallback: it only emits a
+     * value when the resume actually contains one, instead of copying section
+     * headings such as "학력사항" into the profile summary.
+     */
+    private ObjectNode inferStructured(String source) {
+        String text = source == null ? "" : source.replace('\u00a0', ' ');
+        String lower = text.toLowerCase(Locale.ROOT);
+        ObjectNode node = json.createObjectNode();
+        ArrayNode skills = node.putArray("suggestedSkills");
+        Set<String> foundSkills = new java.util.TreeSet<>();
+        for (Skill skill : skillCatalog.findAll()) {
+            if (skill.isCanonical() && containsTerm(lower, skill.getName())) foundSkills.add(skill.getName());
+        }
+        Map<String, String> aliases = new java.util.LinkedHashMap<>();
+        aliases.put("react", "React"); aliases.put("리액트", "React");
+        aliases.put("spring", "Spring"); aliases.put("스프링", "Spring");
+        aliases.put("java", "Java"); aliases.put("자바", "Java");
+        aliases.put("python", "Python"); aliases.put("파이썬", "Python");
+        aliases.put("javascript", "JavaScript"); aliases.put("typescript", "TypeScript");
+        aliases.put("aws", "AWS"); aliases.put("docker", "Docker"); aliases.put("kubernetes", "Kubernetes");
+        aliases.forEach((alias, canonical) -> { if (lower.contains(alias)) foundSkills.add(canonical); });
+        foundSkills.stream().limit(30).forEach(skills::add);
+
+        ArrayNode certificates = node.putArray("suggestedCertificates");
+        for (String certificate : List.of("정보처리기사", "정보처리산업기사", "SQLD", "SQLP", "ADsP", "ADP", "AWS Certified", "컴퓨터활용능력", "OPIc", "토익")) {
+            if (text.contains(certificate)) certificates.add(certificate);
+        }
+        node.put("educationLevel", inferEducationLevel(text));
+        node.put("schoolName", inferSchoolName(text));
+        node.put("major", inferMajor(text));
+        node.put("graduationStatus", inferGraduationStatus(text));
+        node.put("targetRole", inferTargetRole(text));
+        node.put("totalCareerMonths", inferCareerMonthsStructured(text));
+        node.put("technicalSummary", summarizeExtracted(text, foundSkills));
+        return node;
+    }
+
+    private boolean containsTerm(String text, String term) {
+        return !blank(term) && text.contains(term.toLowerCase(Locale.ROOT));
+    }
+
+    private String inferEducationLevel(String text) {
+        if (text.contains("박사")) return "DOCTOR";
+        if (text.contains("석사")) return "MASTER";
+        if (text.contains("전문학사") || text.contains("전문대")) return "ASSOCIATE";
+        if (text.contains("대학교") || text.contains("대학") || text.contains("학사")) return "BACHELOR";
+        if (text.contains("고등학교") || text.contains("고졸")) return "HIGH_SCHOOL";
+        return "";
+    }
+
+    private String inferSchoolName(String text) {
+        Matcher matcher = Pattern.compile("([가-힣A-Za-z0-9·() ]{2,40}(?:대학교|대학|고등학교))").matcher(text);
+        return matcher.find() ? matcher.group(1).trim() : "";
+    }
+
+    private String inferMajor(String text) {
+        Matcher labelled = Pattern.compile("(?m)(?:전공|학과)\\s*[:：|]?\\s*([가-힣A-Za-z0-9·() /-]{2,50})").matcher(text);
+        if (labelled.find()) return cleanField(labelled.group(1));
+        Matcher named = Pattern.compile("([가-힣A-Za-z0-9·() ]{2,40}(?:학과|학부|전공))").matcher(text);
+        return named.find() ? named.group(1).trim() : "";
+    }
+
+    private String cleanField(String value) {
+        return value.replaceAll("[|\\r\\n]+", " ").trim();
+    }
+
+    private String inferGraduationStatus(String text) {
+        if (text.contains("졸업예정")) return "EXPECTED";
+        if (text.contains("졸업")) return "GRADUATED";
+        if (text.contains("재학")) return "ENROLLED";
+        return "";
+    }
+
+    private String inferTargetRole(String text) {
+        for (String role : List.of("백엔드 개발자", "프론트엔드 개발자", "풀스택 개발자", "웹 개발자", "모바일 개발자", "데이터 분석가", "데이터 엔지니어", "AI 엔지니어", "머신러닝 엔지니어", "UI/UX 디자이너", "기획자")) {
+            if (text.contains(role)) return role;
+        }
+        return "";
+    }
+
+    private int inferCareerMonthsStructured(String text) {
+        Matcher matcher = Pattern.compile("(\\d+)\\s*년\\s*(?:(\\d+)\\s*개월?)?").matcher(text);
+        int maximum = 0;
+        while (matcher.find()) {
+            int years = Integer.parseInt(matcher.group(1));
+            int months = matcher.group(2) == null ? 0 : Integer.parseInt(matcher.group(2));
+            maximum = Math.max(maximum, years * 12 + months);
+        }
+        return maximum;
+    }
+
+    private String summarizeExtracted(String text, Set<String> skills) {
+        List<String> lines = java.util.Arrays.stream(text.split("\\R"))
+                .map(String::trim).filter(line -> line.length() >= 12).filter(line -> !isHeadingLine(line))
+                .distinct().limit(3).toList();
+        String summary = String.join(" ", lines);
+        if (summary.length() > 500) summary = summary.substring(0, 500);
+        if (!skills.isEmpty()) {
+            String prefix = "확인된 기술: " + String.join(", ", skills) + ".";
+            return blank(summary) ? prefix : prefix + " " + summary;
+        }
+        return summary;
+    }
+
+    private boolean isHeadingLine(String value) {
+        String compact = value.replaceAll("[\\s\\d.·|:-]", "");
+        return compact.matches("^(이력서|학력사항|교육사항|수행프로젝트|직무능력사항|직장경력사항|자격및면허취득사항|병역사항|자기소개서)+$");
+    }
+
+    private String sanitizeSummary(String value) {
+        if (blank(value)) return "";
+        if (value.contains("이력서") && value.contains("학력사항") && value.contains("자기소개서") && value.length() < 500) return "";
+        return value;
+    }
+
     private ObjectNode infer(String text) {
         String lower=text.toLowerCase(Locale.ROOT); ObjectNode node=json.createObjectNode(); ArrayNode skills=node.putArray("suggestedSkills");
         Set<String> foundSkills = new HashSet<>();
@@ -111,13 +238,20 @@ public class ResumeDocumentService {
     private void enrichWithAi(ObjectNode extracted, String text) {
         try {
             Map<String, Object> result = aiClient.analyze(text);
-            if (!Boolean.TRUE.equals(result.get("ok")) || !(result.get("profile") instanceof Map<?, ?> profile)) return;
+            if (!Boolean.TRUE.equals(result.get("ok")) || !(result.get("profile") instanceof Map<?, ?> profile)) {
+                Object message = result.get("message");
+                if (message != null && !blank(String.valueOf(message))) extracted.put("analysisWarning", String.valueOf(message));
+                return;
+            }
             copyIfPresent(extracted, profile, "targetRole"); copyIfPresent(extracted, profile, "educationLevel");
-            copyIfPresent(extracted, profile, "major"); copyIfPresent(extracted, profile, "technicalSummary");
+            copyIfPresent(extracted, profile, "schoolName"); copyIfPresent(extracted, profile, "major");
+            copyIfPresent(extracted, profile, "graduationStatus"); copyIfPresent(extracted, profile, "technicalSummary");
             Object months = profile.get("totalCareerMonths"); if (months instanceof Number number && number.intValue() > extracted.path("totalCareerMonths").asInt()) extracted.put("totalCareerMonths", number.intValue());
             mergeArray(extracted.withArray("suggestedSkills"), profile.get("suggestedSkills"));
             mergeArray(extracted.withArray("suggestedCertificates"), profile.get("suggestedCertificates"));
-        } catch (Exception ignored) { /* resume extraction keeps its deterministic fallback */ }
+        } catch (Exception exception) {
+            extracted.put("analysisWarning", "AI 분석을 사용할 수 없어 이력서의 텍스트를 기준으로 추출했습니다.");
+        }
     }
     private void copyIfPresent(ObjectNode target, Map<?, ?> source, String key) {
         Object value=source.get(key); if (value instanceof String text && !blank(text)) target.put(key, text.trim());

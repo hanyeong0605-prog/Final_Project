@@ -14,6 +14,6 @@ export function getJobPostings(params: JobPostingSearchParams = {}): Promise<Job
   return getJson<JobPostingPage>(`/api/v1/job-postings?${query.toString()}`);
 }
 
-export function getJobPosting(id: string): Promise<JobPostingDetail> {
-  return getJson<JobPostingDetail>(`/api/v1/job-postings/${encodeURIComponent(id)}`);
+export function getJobPosting(id: string, init: RequestInit = {}): Promise<JobPostingDetail> {
+  return getJson<JobPostingDetail>(`/api/v1/job-postings/${encodeURIComponent(id)}`, init);
 }

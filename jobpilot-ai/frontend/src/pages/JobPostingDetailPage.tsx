@@ -25,11 +25,16 @@ export function JobPostingDetailPage() {
   const [companyImageFailed, setCompanyImageFailed] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) { setStatus("error"); return; }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12_000);
+    let active = true;
     setStatus("loading");
-    void getJobPosting(id)
-      .then((data) => { setPosting(data); setCompanyImageFailed(false); setStatus("ready"); })
-      .catch(() => { setPosting(null); setStatus("error"); });
+    void getJobPosting(id, { signal: controller.signal })
+      .then((data) => { if (active) { setPosting(data); setCompanyImageFailed(false); setStatus("ready"); } })
+      .catch(() => { if (active) { setPosting(null); setStatus("error"); } })
+      .finally(() => window.clearTimeout(timeout));
+    return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
   }, [id]);
 
   if (status === "loading") return <DataStatePanel state="loading" />;

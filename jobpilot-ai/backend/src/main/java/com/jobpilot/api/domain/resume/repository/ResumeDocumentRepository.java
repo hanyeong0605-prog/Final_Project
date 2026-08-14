@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ResumeDocumentRepository extends JpaRepository<ResumeDocument, Long> {
     List<ResumeDocument> findByMemberIdOrderByCreatedAtDesc(Long memberId);
     Optional<ResumeDocument> findByIdAndMemberId(Long id, Long memberId);
+    long deleteByIdAndMemberId(Long id, Long memberId);
 }

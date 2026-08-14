@@ -30,7 +30,7 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   return JSON.parse(text) as T;
 }
 
-export function getJson<T>(path: string): Promise<T> { return requestJson<T>(path); }
+export function getJson<T>(path: string, init: RequestInit = {}): Promise<T> { return requestJson<T>(path, init); }
 export function postJson<T>(path: string, body: unknown): Promise<T> {
   return requestJson<T>(path, { method: "POST", body: JSON.stringify(body) });
 }
