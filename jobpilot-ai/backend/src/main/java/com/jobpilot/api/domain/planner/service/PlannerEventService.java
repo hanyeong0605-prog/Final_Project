@@ -57,7 +57,7 @@ public class PlannerEventService {
     private PlannerEventResponse response(PlannerEvent event) {
         return new PlannerEventResponse(event.getId(), tone(event.getSourceType()), TIME.format(event.getStartsAt()),
                 event.getTitle(), event.getEventType(), event.getEventType(), event.getStartsAt(), event.getEndsAt(),
-                event.isAllDay(), event.isManual());
+                event.isAllDay(), event.isManual(), event.getSourceType(), event.getSourceId());
     }
 
     private String tone(String sourceType) {

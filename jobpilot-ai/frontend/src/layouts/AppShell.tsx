@@ -21,6 +21,16 @@ const megaMenuCopy: Record<string, string> = {
   "AI 모의면접": "실전 질문으로 연습하고, 기록을 통해 다음 면접을 더 잘 준비하세요.",
 };
 
+function BrandIdentity({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className={`brand-identity${compact ? " compact" : ""}`}>
+      <span className="brand-name brand-name-ko">잡아드림</span>
+      <span className="brand-name brand-name-en">Job-A-Dream AI</span>
+      {!compact && <small className="brand-tagline">career action coach</small>}
+    </span>
+  );
+}
+
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
@@ -79,7 +89,6 @@ export function AppShell() {
     setAccountMenuOpen(false);
     navigate("/login", { replace: true });
   };
-
   return (
     <SiteAssistantWidgetProvider>
       <div className="app-shell">
@@ -91,7 +100,7 @@ export function AppShell() {
           <div className="brand mobile-sidebar-brand">
             <Link to="/" className="brand-link" onClick={closeMenu}>
               <span className="brand-mark">J</span>
-              <span><strong>Job-A-Dream AI</strong><small>career action coach</small></span>
+              <BrandIdentity />
             </Link>
             <button className="mobile-close" onClick={closeMenu} aria-label="메뉴 닫기"><X size={19} /></button>
           </div>
@@ -130,9 +139,9 @@ export function AppShell() {
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
             <Link to="/" className="desktop-brand brand-link">
               <span className="brand-mark">J</span>
-              <span><strong>Job-A-Dream AI</strong><small>career action coach</small></span>
+              <BrandIdentity />
             </Link>
-            <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><strong>Job-A-Dream AI</strong></Link>
+            <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>
 
             <nav className="desktop-navigation" aria-label="주요 메뉴">
               {navigationGroups.map((group) => {

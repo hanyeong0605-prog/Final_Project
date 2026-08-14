@@ -140,11 +140,19 @@ export function SiteAssistantWidget() {
 
       <button
         type="button"
-        className="interview-chat-widget-toggle"
+        className={`interview-chat-widget-toggle${open ? " is-open" : ""}`}
         onClick={toggleChat}
         aria-label={open ? "도우미 챗봇 닫기" : "도우미 챗봇 열기"}
       >
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
+        {open ? (
+          <X size={22} />
+        ) : (
+          <>
+            <span className="interview-chat-widget-icon" aria-hidden="true"><MessageCircle size={22} /></span>
+            <span className="interview-chat-widget-mascot" aria-hidden="true" />
+            <span className="interview-chat-widget-greeting" aria-hidden="true">무엇이든<br />물어보세요!</span>
+          </>
+        )}
       </button>
     </>
   );

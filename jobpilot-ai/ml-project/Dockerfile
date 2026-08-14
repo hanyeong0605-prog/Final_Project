@@ -11,7 +11,9 @@ COPY requirements.prod.txt .
 RUN pip install --no-cache-dir -r requirements.prod.txt
 
 COPY app.py .
-COPY cache ./cache
+# Cache files are optional seed data.  Git does not retain an empty directory,
+# so copying it makes a clean production checkout fail to build.
+RUN mkdir -p /app/cache /app/runtime-cache
 
 EXPOSE 8000
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

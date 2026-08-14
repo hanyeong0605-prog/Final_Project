@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.admin;
 
 import com.jobpilot.api.domain.auth.dto.MemberResponse;
+import com.jobpilot.api.domain.analytics.service.MemberDailyVisitService;
 import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.member.entity.Member;
@@ -33,19 +34,24 @@ public class AdminController {
     private final AdminAccessService adminAccess;
     private final MemberRepository members;
     private final JobPostingRepository postings;
+    private final MemberDailyVisitService dailyVisits;
 
-    public AdminController(AdminAccessService adminAccess, MemberRepository members, JobPostingRepository postings) {
+    public AdminController(AdminAccessService adminAccess, MemberRepository members, JobPostingRepository postings,
+                           MemberDailyVisitService dailyVisits) {
         this.adminAccess = adminAccess;
         this.members = members;
         this.postings = postings;
+        this.dailyVisits = dailyVisits;
     }
 
     @GetMapping("/overview")
     public OverviewResponse overview(Authentication authentication) {
         adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        MemberDailyVisitService.DailyVisitorSummary visitors = dailyVisits.today();
         return new OverviewResponse(
                 members.count(), members.countByRole(MemberRole.ADMIN),
-                postings.count(), postings.countByStatus("ACTIVE"), postings.countByStatus("CLOSED"));
+                postings.count(), postings.countByStatus("ACTIVE"), postings.countByStatus("CLOSED"),
+                visitors.total(), visitors.users(), visitors.admins());
     }
 
     @GetMapping("/members")
@@ -72,7 +78,24 @@ public class AdminController {
             throw new IllegalArgumentException("현재 로그인한 관리자는 관리자 권한을 해제할 수 없습니다.");
         }
         target.changeRole(request.role());
-        return MemberResponse.from(target);
+        // Repository 조회 메서드의 트랜잭션은 여기 전에 종료될 수 있다. 값만 변경하면
+        // 응답에는 역할이 바뀐 것처럼 보이지만 DB에는 반영되지 않을 수 있으므로 명시적으로 저장한다.
+        Member saved = members.saveAndFlush(target);
+        return MemberResponse.from(saved);
+    }
+
+    @PatchMapping("/members/bulk-role")
+    public BulkUpdateResponse changeMemberRoles(Authentication authentication, @Valid @RequestBody BulkRoleRequest request) {
+        Member actor = adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        java.util.List<Member> targets = members.findAllById(request.memberIds());
+        for (Member target : targets) {
+            if (actor.getId().equals(target.getId()) && request.role() != MemberRole.ADMIN) {
+                throw new IllegalArgumentException("현재 로그인한 관리자의 관리자 권한은 해제할 수 없습니다.");
+            }
+            target.changeRole(request.role());
+        }
+        members.saveAll(targets);
+        return new BulkUpdateResponse(targets.size());
     }
 
     @GetMapping("/job-postings")
@@ -104,6 +127,16 @@ public class AdminController {
         return JobPostingSummary.from(postings.save(posting));
     }
 
+    @PatchMapping("/job-postings/bulk-status")
+    public BulkUpdateResponse changePostingStatuses(Authentication authentication, @Valid @RequestBody BulkPostingStatusRequest request) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        if (!request.status().matches("ACTIVE|CLOSED|HIDDEN")) throw new IllegalArgumentException("지원하지 않는 공고 상태입니다.");
+        java.util.List<JobPosting> targets = postings.findAllById(request.jobPostingIds());
+        targets.forEach(posting -> posting.changeStatus(request.status()));
+        postings.saveAll(targets);
+        return new BulkUpdateResponse(targets.size());
+    }
+
     @PutMapping("/job-postings/{jobPostingId}")
     public JobPostingSummary updatePosting(Authentication authentication, @PathVariable Long jobPostingId,
                                             @Valid @RequestBody UpdatePostingRequest request) {
@@ -126,9 +159,13 @@ public class AdminController {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    public record OverviewResponse(long memberCount, long adminCount, long jobPostingCount, long activePostingCount, long closedPostingCount) {}
+    public record OverviewResponse(long memberCount, long adminCount, long jobPostingCount, long activePostingCount, long closedPostingCount,
+                                   long todayVisitorCount, long todayUserVisitorCount, long todayAdminVisitorCount) {}
     public record ChangeRoleRequest(@NotNull MemberRole role) {}
+    public record BulkRoleRequest(@NotNull java.util.List<Long> memberIds, @NotNull MemberRole role) {}
     public record ChangePostingStatusRequest(@NotNull String status) {}
+    public record BulkPostingStatusRequest(@NotNull java.util.List<Long> jobPostingIds, @NotBlank String status) {}
+    public record BulkUpdateResponse(int updatedCount) {}
     public record UpdatePostingRequest(@NotBlank String title, String companyName, String location,
                                        LocalDateTime deadlineAt, @NotBlank String status) {}
     public record JobPostingSummary(Long id, String title, String companyName, String status, String location, LocalDateTime deadlineAt, long viewCount) {

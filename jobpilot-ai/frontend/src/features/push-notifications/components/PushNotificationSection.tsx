@@ -46,6 +46,17 @@ export function PushNotificationSection() {
     setError("");
     setIsBusy(true);
     try {
+      // 2026-08-13: iOS 사파리(WebKit)는 pushManager.subscribe()가 알림 권한을 암묵적으로
+      // 요청해주는 걸 크롬만큼 안정적으로 처리하지 않는다 - Notification.requestPermission()을
+      // 사용자 클릭 핸들러 안에서 명시적으로 먼저 호출해야 iOS에서도 프롬프트가 확실히 뜬다.
+      if ("Notification" in window && Notification.permission === "default") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          throw new DOMException("알림 권한이 거부되었습니다.", "NotAllowedError");
+        }
+      } else if ("Notification" in window && Notification.permission === "denied") {
+        throw new DOMException("알림 권한이 차단되어 있습니다.", "NotAllowedError");
+      }
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -53,15 +64,19 @@ export function PushNotificationSection() {
       });
       const json = subscription.toJSON();
       if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        throw new Error("구독 정보가 올바르지 않습니다.");
+        throw new Error("알림 등록 정보가 올바르지 않습니다.");
       }
       await subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
       setSubscribed(true);
     } catch (e) {
+      // 2026-08-13: iOS 등 원격 기기에서는 개발자도구로 실제 에러를 확인하기 어려워서,
+      // 사용자에게 보이는 메시지에 원인(e.name/e.message)을 그대로 덧붙여 노출한다 -
+      // 디버깅 편의를 위한 임시 조치. 문제 해결되면 다시 일반 문구로 되돌려도 된다.
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       setError(
         e instanceof Error && e.name === "NotAllowedError"
           ? "브라우저 알림 권한이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해주세요."
-          : "알림 구독에 실패했습니다. 아이폰이라면 이 사이트를 홈 화면에 추가한 뒤 다시 시도해주세요.",
+          : `알림 켜기에 실패했습니다. 아이폰이라면 이 사이트를 홈 화면에 추가한 뒤 다시 시도해주세요. (${detail})`,
       );
     } finally {
       setIsBusy(false);
@@ -79,8 +94,9 @@ export function PushNotificationSection() {
         await subscription.unsubscribe();
       }
       setSubscribed(false);
-    } catch {
-      setError("알림 끄기에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } catch (e) {
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      setError(`알림 끄기에 실패했습니다. 잠시 후 다시 시도해주세요. (${detail})`);
     } finally {
       setIsBusy(false);
     }
@@ -116,7 +132,7 @@ export function PushNotificationSection() {
         </button>
       ) : (
         <button className="primary-button" disabled={isBusy} onClick={() => void handleSubscribe()}>
-          알림 받기
+          알림 켜기
         </button>
       )}
       {/* 2026-08-13: 관리자 전용 - 마감임박/추천 스케줄러(하루 한 번, 조건부 발송)를 기다리지
