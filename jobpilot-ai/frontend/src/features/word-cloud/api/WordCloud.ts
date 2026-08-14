@@ -6,7 +6,7 @@ export interface WordCloudResponse {
 
 // Production uses the same HTTPS origin; Nginx forwards this path internally.
 const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || '/wordcloud-api';
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export const getWordCloud = async (importance: string): Promise<WordCloudResponse> => {
   const controller = new AbortController();
