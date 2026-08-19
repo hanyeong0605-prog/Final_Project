@@ -1,11 +1,12 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { Minus, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { createResumeEntry, deleteResumeEntry, listResumeEntries, updateResumeEntry } from "../api/resumeEntriesApi";
 import type { ResumeEntry, ResumeEntryInput, ResumeEntryType } from "../model/resumeEntry.types";
 
 type Field = { key: string; label: string; kind?: "date" | "url" | "textarea" };
 type Section = { type: ResumeEntryType; id: string; title: string; fields: Field[] };
 const sections: Section[] = [
+  { type: "PERSONAL", id: "resume-personal", title: "인적사항", fields: [{ key: "name", label: "성명(한글)" }, { key: "hanjaName", label: "성명(한자)" }, { key: "birthDate", label: "생년월일", kind: "date" }, { key: "email", label: "이메일" }, { key: "phone", label: "휴대전화" }, { key: "address", label: "주소" }] },
   { type: "EDUCATION", id: "resume-education", title: "학력", fields: [{ key: "school", label: "학교명" }, { key: "major", label: "전공" }, { key: "degree", label: "학위/학력" }, { key: "status", label: "졸업 상태" }, { key: "startedAt", label: "입학일", kind: "date" }, { key: "endedAt", label: "졸업일", kind: "date" }, { key: "grade", label: "학점" }] },
   { type: "CAREER", id: "resume-career", title: "경력", fields: [{ key: "company", label: "회사명" }, { key: "department", label: "부서" }, { key: "position", label: "직급/직책" }, { key: "startedAt", label: "입사일", kind: "date" }, { key: "endedAt", label: "퇴사일", kind: "date" }, { key: "description", label: "담당 업무·성과", kind: "textarea" }] },
   { type: "ACTIVITY", id: "resume-activity", title: "인턴 · 대외활동", fields: [{ key: "activityType", label: "활동 유형" }, { key: "organization", label: "기관/주최" }, { key: "startedAt", label: "시작일", kind: "date" }, { key: "endedAt", label: "종료일", kind: "date" }, { key: "description", label: "활동 내용", kind: "textarea" }] },
@@ -17,16 +18,17 @@ const sections: Section[] = [
   { type: "PREFERENCE", id: "resume-preference", title: "취업우대 · 병역", fields: [{ key: "preferenceType", label: "구분" }, { key: "status", label: "상태/내용" }, { key: "description", label: "상세", kind: "textarea" }] },
 ];
 const navItems = [
+  ...sections.slice(0, 1).map(({ id, title, type }) => ({ id, title, type, add: true })),
   { id: "resume-desired-role", title: "희망직무", add: false }, { id: "resume-skills", title: "스킬", add: false },
-  ...sections.slice(0, 4).map(({ id, title, type }) => ({ id, title, type, add: true })),
+  ...sections.slice(1, 5).map(({ id, title, type }) => ({ id, title, type, add: true })),
   { id: "resume-certificates", title: "자격증", add: false },
-  ...sections.slice(4).map(({ id, title, type }) => ({ id, title, type, add: true })),
+  ...sections.slice(5).map(({ id, title, type }) => ({ id, title, type, add: true })),
   { id: "resume-self-introduction", title: "자기소개서", add: false },
 ];
 const blank = (section: Section, order: number): ResumeEntryInput => ({ entryType: section.type, title: "", content: Object.fromEntries(section.fields.map((field) => [field.key, ""])), displayOrder: order });
 
 export function ResumeEntryEditor({ profileEditor, selfIntroduction }: { profileEditor?: ReactNode; selfIntroduction?: ReactNode }) {
-  const [entries, setEntries] = useState<ResumeEntry[]>([]); const [drafts, setDrafts] = useState<Record<string, ResumeEntryInput>>({}); const [editingIds, setEditingIds] = useState<Record<string, number | null>>({}); const [busy, setBusy] = useState(false); const [message, setMessage] = useState("");
+  const [entries, setEntries] = useState<ResumeEntry[]>([]); const [drafts, setDrafts] = useState<Record<string, ResumeEntryInput>>({}); const [editingIds, setEditingIds] = useState<Record<string, number | null>>({}); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [navOpen, setNavOpen] = useState(true);
   useEffect(() => { void listResumeEntries().then(setEntries).catch(() => setMessage("상세 이력 정보를 불러오지 못했습니다.")); }, []);
   const byType = useMemo(() => new Map(sections.map((section) => [section.type, entries.filter((entry) => entry.entryType === section.type)])), [entries]);
   const add = (section: Section) => { setEditingIds((current) => ({ ...current, [section.type]: null })); setDrafts((current) => ({ ...current, [section.type]: blank(section, (byType.get(section.type) ?? []).length) })); };
@@ -34,10 +36,11 @@ export function ResumeEntryEditor({ profileEditor, selfIntroduction }: { profile
   const clear = (type: ResumeEntryType) => { setEditingIds((current) => { const next = { ...current }; delete next[type]; return next; }); setDrafts((current) => { const next = { ...current }; delete next[type]; return next; }); };
   const save = async (section: Section, entry?: ResumeEntry) => { const draft = drafts[section.type]; if (!draft?.title.trim()) return setMessage(`${section.title} 제목을 입력해 주세요.`); setBusy(true); try { const saved = entry ? await updateResumeEntry(entry.id, draft) : await createResumeEntry(draft); setEntries((current) => [...current.filter((value) => value.id !== saved.id), saved].sort((a, b) => a.entryType.localeCompare(b.entryType) || a.displayOrder - b.displayOrder || a.id - b.id)); clear(section.type); setMessage("임시 저장했습니다."); } catch (error) { setMessage(error instanceof Error ? error.message : "저장에 실패했습니다."); } finally { setBusy(false); } };
   const remove = async (entry: ResumeEntry) => { if (!confirm("이 항목을 삭제할까요?")) return; setBusy(true); try { await deleteResumeEntry(entry.id); setEntries((current) => current.filter((value) => value.id !== entry.id)); } catch (error) { setMessage(error instanceof Error ? error.message : "삭제에 실패했습니다."); } finally { setBusy(false); } };
+  const removeLatest = (section: Section) => { const latest = [...(byType.get(section.type) ?? [])].at(-1); if (latest) void remove(latest); };
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   return <div className="jobkorea-resume-layout"><div className="jobkorea-resume-main">{profileEditor}<div className="resume-entry-heading"><div><span className="eyebrow">RESUME EDITOR</span><h2>이력 항목</h2><p>중앙에서 내용을 작성하고, 우측 목록에서 원하는 항목으로 바로 이동하거나 추가할 수 있습니다.</p></div></div>{message && <p className="resume-document-message">{message}</p>}
     {sections.map((section) => { const items = byType.get(section.type) ?? []; const draft = drafts[section.type]; return <section className="jobkorea-entry-section" id={section.id} key={section.type}><div className="jobkorea-entry-title"><h3>{section.title}</h3><button type="button" className="text-button" onClick={() => add(section)}><Plus size={15} /> {section.title} 추가</button></div>{items.map((entry) => <EntryCard key={entry.id} section={section} entry={entry} draft={editingIds[section.type] === entry.id ? draft : null} busy={busy} onEdit={() => edit(entry)} onDelete={() => void remove(entry)} onChange={(next) => setDrafts((current) => ({ ...current, [section.type]: next }))} onSave={() => void save(section, entry)} onCancel={() => clear(section.type)} />)}{draft && editingIds[section.type] === null && <EntryCard section={section} entry={null} draft={draft} busy={busy} onEdit={() => undefined} onDelete={() => undefined} onChange={(next) => setDrafts((current) => ({ ...current, [section.type]: next }))} onSave={() => void save(section)} onCancel={() => clear(section.type)} />}{items.length === 0 && !draft && <button type="button" className="jobkorea-empty-add" onClick={() => add(section)}><Plus size={16} /> {section.title} 추가</button>}</section>; })}{selfIntroduction}</div>
-    <aside className="jobkorea-resume-nav" aria-label="이력서 항목"><strong>이력서 항목</strong>{navItems.map((item) => <div className="jobkorea-nav-row" key={item.id}><button type="button" onClick={() => go(item.id)}>{item.title}</button>{item.add && "type" in item && <button aria-label={`${item.title} 추가`} type="button" onClick={() => { const section = sections.find((value) => value.type === item.type); if (section) { go(section.id); add(section); } }}><Plus size={15} /></button>}</div>)}</aside></div>;
+    <div className="jobkorea-nav-wrap"><button className="jobkorea-nav-toggle" type="button" onClick={() => setNavOpen((current) => !current)} aria-expanded={navOpen}>{navOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />} 이력서 항목</button>{navOpen && <aside className="jobkorea-resume-nav" aria-label="이력서 항목"><strong>이력서 항목</strong>{navItems.map((item) => <div className="jobkorea-nav-row" key={item.id}><button type="button" onClick={() => go(item.id)}>{item.title}</button>{item.add && "type" in item && (() => { const section = sections.find((value) => value.type === item.type); const hasItem = section && (byType.get(section.type) ?? []).length > 0; return <span><button aria-label={`${item.title} 추가`} type="button" onClick={() => { if (section) { go(section.id); add(section); } }}><Plus size={15} /></button>{hasItem && <button aria-label={`${item.title} 마지막 항목 삭제`} type="button" disabled={busy} onClick={() => section && removeLatest(section)}><Minus size={15} /></button>}</span>; })()}</div>)}</aside>}</div></div>;
 }
 
 function EntryCard({ section, entry, draft, busy, onEdit, onDelete, onChange, onSave, onCancel }: { section: Section; entry: ResumeEntry | null; draft: ResumeEntryInput | null; busy: boolean; onEdit: () => void; onDelete: () => void; onChange: (value: ResumeEntryInput) => void; onSave: () => void; onCancel: () => void }) {

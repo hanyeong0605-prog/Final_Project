@@ -85,7 +85,6 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section"><h3>외부 근거 및 추가 설명</h3><div className="form-fields">
       <label>GitHub 아이디<input value={form.githubUsername ?? ""} onChange={(event) => set("githubUsername", event.target.value || null)} placeholder="github 사용자명" /></label>
       <label>포트폴리오 URL<input type="url" value={form.portfolioUrl ?? ""} onChange={(event) => set("portfolioUrl", event.target.value || null)} placeholder="https://..." /></label>
-      <label className="wide">추가 설명<textarea rows={3} value={form.technicalSummary ?? ""} onChange={(event) => set("technicalSummary", event.target.value || null)} placeholder="프로젝트 역할, 자격증, 교육 이수 등 분석에 참고할 내용을 적어주세요." /></label>
     </div></div>
     {error && <div className="auth-error">{error}</div>}
     <div className="form-actions">{onCancel && <button type="button" className="outline-button" onClick={onCancel}>취소</button>}<button className="primary-button" disabled={saving}>{saving ? "저장 중..." : saveLabel}</button></div>
