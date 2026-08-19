@@ -30,7 +30,11 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   useEffect(() => { onCertificatesChange?.(certificates); }, [certificates, onCertificatesChange]);
   useEffect(() => {
     const addCertificate = () => setCertificates((current) => current.length >= 20 ? current : [...current, emptyMemberCertificate()]);
-    const removeCertificate = () => setCertificates((current) => current.slice(0, -1));
+    const removeCertificate = () => setCertificates((current) => {
+      const certificate = current.at(-1);
+      const hasContent = certificate && Object.values(certificate).some((value) => typeof value === "string" && value.trim());
+      return hasContent && !confirm("작성중이던 내용이 있습니다. 정말로 삭제하시겠습니까?") ? current : current.slice(0, -1);
+    });
     window.addEventListener("resume-certificates:add", addCertificate);
     window.addEventListener("resume-certificates:remove", removeCertificate);
     return () => { window.removeEventListener("resume-certificates:add", addCertificate); window.removeEventListener("resume-certificates:remove", removeCertificate); };
@@ -79,7 +83,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       <CertificateSearchModal showDetail={false} onManual={(name) => setCertificates((current) => [...current, { ...emptyMemberCertificate(), name }])} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
       <div className="certificate-list">
         {certificates.map((certificate, index) => <div className="certificate-card" key={certificate.id ?? `new-${index}`}>
-          <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>
+          <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => { const hasContent = Object.values(certificate).some((value) => typeof value === "string" && value.trim()); return hasContent && !confirm("작성중이던 내용이 있습니다. 정말로 삭제하시겠습니까?") ? current : current.filter((_, itemIndex) => itemIndex !== index); })}>×</button>
           <div className="form-fields">
             <label>자격증명*<input required maxLength={255} value={certificate.name} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="예: 정보처리기사" /></label>
             <label>발급기관<input maxLength={255} value={certificate.issuer ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, issuer: event.target.value || null } : item))} placeholder="예: 한국산업인력공단" /></label>
