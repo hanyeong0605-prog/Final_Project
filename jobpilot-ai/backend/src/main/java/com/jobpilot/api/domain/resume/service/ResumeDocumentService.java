@@ -11,6 +11,7 @@ import com.jobpilot.api.domain.resume.dto.ResumeDocumentResponse;
 import com.jobpilot.api.domain.resume.dto.ResumeDraftRequest;
 import com.jobpilot.api.domain.resume.entity.*;
 import com.jobpilot.api.domain.resume.repository.ResumeDocumentRepository;
+import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import jakarta.transaction.Transactional;
 import java.util.HashSet;
 import java.util.List;
@@ -31,12 +32,12 @@ public class ResumeDocumentService {
     private final ResumeDocumentRepository documents; private final ResumeDocumentTextExtractor extractor;
     private final MemberRepository members; private final MemberProfileRepository profiles; private final MemberSpecificationRepository specs;
     private final MemberSkillRepository memberSkills; private final SkillRepository skillCatalog; private final CertificateRepository certificates; private final ProjectRepository projects;
-    private final SelfIntroductionRepository introductions; private final ObjectMapper json; private final JobMatchRefreshScheduler refreshScheduler; private final ResumeDocumentAiClient aiClient;
+    private final SelfIntroductionRepository introductions; private final ResumeEntryRepository resumeEntries; private final ObjectMapper json; private final JobMatchRefreshScheduler refreshScheduler; private final ResumeDocumentAiClient aiClient; private final ResumeAiConsentService aiConsent;
     public ResumeDocumentService(ResumeDocumentRepository documents, ResumeDocumentTextExtractor extractor, MemberRepository members,
         MemberProfileRepository profiles, MemberSpecificationRepository specs, MemberSkillRepository memberSkills, SkillRepository skillCatalog, CertificateRepository certificates,
-        ProjectRepository projects, SelfIntroductionRepository introductions, ObjectMapper json, JobMatchRefreshScheduler refreshScheduler, ResumeDocumentAiClient aiClient) {
+        ProjectRepository projects, SelfIntroductionRepository introductions, ResumeEntryRepository resumeEntries, ObjectMapper json, JobMatchRefreshScheduler refreshScheduler, ResumeDocumentAiClient aiClient, ResumeAiConsentService aiConsent) {
         this.documents=documents; this.extractor=extractor; this.members=members; this.profiles=profiles; this.specs=specs; this.memberSkills=memberSkills;
-        this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.json=json; this.refreshScheduler=refreshScheduler; this.aiClient=aiClient;
+        this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.resumeEntries=resumeEntries; this.json=json; this.refreshScheduler=refreshScheduler; this.aiClient=aiClient; this.aiConsent=aiConsent;
     }
     public List<ResumeDocumentResponse> list(Long memberId) { return documents.findByMemberIdOrderByCreatedAtDesc(memberId).stream().map(ResumeDocumentResponse::from).toList(); }
     public void delete(Long memberId, Long documentId) {
@@ -47,7 +48,10 @@ public class ResumeDocumentService {
     public ResumeDocumentResponse extract(Long memberId, MultipartFile file) {
         String text = extractor.extract(file);
         ObjectNode extracted = inferStructured(text);
-        enrichWithAi(extracted, text);
+        // Uploading a resume is useful even without AI consent: local extraction still finds
+        // obvious values. Only the explicit AI analysis sends text to the external model.
+        if (aiConsent.hasAgreed(memberId)) enrichWithAi(extracted, text);
+        else extracted.put("analysisWarning", "AI 분석은 이력서 정보 처리 동의 후 사용할 수 있습니다. 현재는 파일 안에서 직접 확인한 정보만 제안합니다.");
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -76,12 +80,15 @@ public class ResumeDocumentService {
         return ResumeDocumentResponse.from(document);
     }
     public ResumeDocumentResponse generate(Long memberId, ResumeDraftRequest request, MultipartFile templateFile) {
+        aiConsent.requireAgreed(memberId);
         MemberProfile profile=profiles.findById(memberId).orElse(null); MemberSpecification spec=specs.findById(memberId).orElse(null);
         String skillList=memberSkills.findByMemberId(memberId).stream()
                 .map(v -> skillCatalog.findById(v.getSkillId()).map(Skill::getName).orElse(v.getNote()))
                 .filter(v -> !blank(v)).collect(Collectors.joining(", "));
         String certList=certificates.findByMemberId(memberId).stream().map(Certificate::getName).collect(Collectors.joining(", "));
         String projectList=projects.findByMemberId(memberId).stream().map(Project::getTitle).collect(Collectors.joining(", "));
+        List<Map<String, Object>> detailedEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .map(entry -> Map.<String, Object>of("type", entry.getEntryType().name(), "title", entry.getTitle(), "content", json.convertValue(entry.getContent(), Map.class))).toList();
         String intro=introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().map(SelfIntroduction::getContent).findFirst().orElse("");
         String title=blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim();
         String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
@@ -94,7 +101,7 @@ public class ResumeDocumentService {
                 enabledSections.contains("certificates") ? certList : "", enabledSections.contains("projects") ? projectList : "",
                 enabledSections.contains("projects") ? intro : "",
                 request.additionalRequest(), templateKey(request.templateKey()), templateSource);
-        String content = generateWithAi(profile, spec, skillList, certList, projectList, intro, enabledSections, request, templateSource, fallback);
+        String content = generateWithAi(profile, spec, skillList, certList, projectList, intro, detailedEntries, enabledSections, request, templateSource, fallback);
         ObjectNode metadata = json.createObjectNode();
         metadata.put("templateReference", !blank(templateSource));
         metadata.put("templateFilename", templateFile == null || templateFile.isEmpty() ? "" : empty(templateFile.getOriginalFilename()));
@@ -262,7 +269,7 @@ public class ResumeDocumentService {
         for (Object value:list) { String text=String.valueOf(value).trim(); if (!blank(text) && existing.add(normalize(text))) target.add(text); }
     }
     @SuppressWarnings("unchecked")
-    private String generateWithAi(MemberProfile profile, MemberSpecification spec, String skills, String certificates, String projects, String introduction,
+    private String generateWithAi(MemberProfile profile, MemberSpecification spec, String skills, String certificates, String projects, String introduction, List<Map<String, Object>> detailedEntries,
             Set<String> enabledSections, ResumeDraftRequest request, String templateSource, String fallback) {
         try {
             Map<String,Object> context=new java.util.LinkedHashMap<>();
@@ -271,6 +278,7 @@ public class ResumeDocumentService {
             context.put("education", enabledSections.contains("education") && spec != null ? joinNonBlank(spec.getEducationLevel(), spec.getMajor()) : "");
             context.put("careerMonths", enabledSections.contains("profile") && spec != null ? spec.getTotalCareerMonths() : 0);
             context.put("projects", enabledSections.contains("projects") ? projects : ""); context.put("existingIntroduction", enabledSections.contains("projects") ? introduction : "");
+            context.put("detailedEntries", detailedEntries);
             List<String> answers = request.answers() == null || request.answers().isEmpty() ? List.of(empty(request.additionalRequest())) : request.answers();
             Map<String,Object> result=aiClient.generate(context, answers, templateKey(request.templateKey()), templateSource);
             Object generated=result.get("content"); if (Boolean.TRUE.equals(result.get("ok")) && generated instanceof String value && !blank(value)) return "# " + (blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim()) + "\n\n" + value.trim();
