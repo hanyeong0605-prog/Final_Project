@@ -33,7 +33,7 @@ const detailedProfileFields: Array<{ label: string; value: (profile: Profile) =>
   { label: "인턴 · 대외활동", value: () => "" }, { label: "교육이수", value: () => "" },
   { label: "자격증", value: (profile) => Array.isArray(profile.suggestedCertificates) ? profile.suggestedCertificates.join(", ") : "" },
   { label: "수상", value: () => "" }, { label: "해외경험", value: () => "" }, { label: "어학", value: () => "" },
-  { label: "포트폴리오", value: () => "" }, { label: "취업우대 · 병역", value: () => "" },
+  { label: "포트폴리오", value: () => "" }, { label: "병역사항", value: () => "" },
 ];
 
 function useDocuments() {
