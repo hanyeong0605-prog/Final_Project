@@ -106,6 +106,7 @@ export function LoginPage() {
         )}
 
         <div className="auth-switch">계정이 없나요? <Link to="/signup">회원가입</Link></div>
+        <div className="auth-switch">채용 담당자이신가요? <Link to="/employer/login">기업회원으로 로그인</Link></div>
       </section>
     </main>
   );

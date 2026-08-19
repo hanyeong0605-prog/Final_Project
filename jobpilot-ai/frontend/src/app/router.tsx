@@ -14,8 +14,12 @@ import { JobPostingDetailPage } from "../pages/JobPostingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
 import { SignupPage } from "../pages/SignupPage";
 import { MyPage } from "../pages/MyPage";
+import { EmployerLoginPage } from "../pages/EmployerLoginPage";
+import { EmployerSignupPage } from "../pages/EmployerSignupPage";
+import { EmployerMyPage } from "../pages/EmployerMyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { RequireAdmin } from "../features/auth/components/RequireAdmin";
+import { RequireEmployer } from "../features/employer/components/RequireEmployer";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import { StatisticsDashboard } from "../pages/StatisticsDashboard";
 import { QuestionPage } from "../pages/QuestionPage";
@@ -32,6 +36,9 @@ import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
+  { path: "/employer/login", element: <EmployerLoginPage /> },
+  { path: "/employer/signup", element: <EmployerSignupPage /> },
+  { path: "/employer", element: <RequireEmployer><EmployerMyPage /></RequireEmployer> },
   { path: "/oauth/callback", element: <OAuthCallbackPage /> },
   { path: "/oauth/complete", element: <OAuthCompletePage /> },
   { path: "/camera-pair", element: <CameraPairPage /> },
