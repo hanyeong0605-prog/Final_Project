@@ -1,10 +1,9 @@
-import { FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { jobFamilies } from "../data/profileCatalog";
 import { emptyCareerProfile, type CareerProfile } from "../model/careerProfile.types";
 import type { MemberSkill } from "../model/memberSkill.types";
 import { emptyMemberCertificate, type MemberCertificate } from "../model/memberCertificate.types";
 import { CertificateSearchModal } from "./CertificateSearchModal";
-import { EducationSearchModal } from "./EducationSearchModal";
 import { RegionSelectionModal } from "./RegionSelectionModal";
 import { SkillProfileEditor } from "./SkillProfileEditor";
 
@@ -16,10 +15,12 @@ type Props = {
   onSave: (value: CareerProfile, skills: MemberSkill[], certificates: MemberCertificate[]) => Promise<void>;
   onCancel?: () => void;
   saveLabel?: string;
+  educationSection?: ReactNode;
 };
 
-export function CareerProfileForm({ initial, initialSkills, initialCertificates, onCertificatesChange, onSave, onCancel, saveLabel = "정보 저장하기" }: Props) {
+export function CareerProfileForm({ initial, initialSkills, initialCertificates, onCertificatesChange, onSave, educationSection }: Props) {
   const [form, setForm] = useState<CareerProfile>(initial ?? emptyCareerProfile());
+  const formRef = useRef<HTMLFormElement>(null);
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
   const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
   const [error, setError] = useState("");
@@ -39,6 +40,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     window.addEventListener("resume-certificates:remove", removeCertificate);
     return () => { window.removeEventListener("resume-certificates:add", addCertificate); window.removeEventListener("resume-certificates:remove", removeCertificate); };
   }, []);
+  useEffect(() => { const submitProfile = () => formRef.current?.requestSubmit(); window.addEventListener("resume-profile:save", submitProfile); return () => window.removeEventListener("resume-profile:save", submitProfile); }, []);
 
   const set = <K extends keyof CareerProfile>(key: K, value: CareerProfile[K]) => setForm((current) => ({ ...current, [key]: value }));
   const knownFamily = Object.hasOwn(jobFamilies, form.targetJobFamily);
@@ -55,13 +57,13 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     finally { setSaving(false); }
   };
 
-  return <form className="career-profile-form" onSubmit={submit}>
+  return <form ref={formRef} className="career-profile-form" onSubmit={submit}>
     <div className="form-section" id="resume-desired-role"><h3>희망 직무</h3><div className="form-fields">
       <label>직무 분야*<select required value={knownFamily ? form.targetJobFamily : "OTHER"} onChange={(event) => { const next = event.target.value; set("targetJobFamily", next === "OTHER" ? "" : next); set("targetRole", ""); }}><option value="" disabled>직무 분야를 선택하세요</option>{Object.keys(jobFamilies).map((family) => <option key={family} value={family}>{family}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>
       {!knownFamily ? <label>직접 입력 직무 분야*<input required maxLength={80} value={form.targetJobFamily} onChange={(event) => set("targetJobFamily", event.target.value)} placeholder="예: 건설·환경" /></label> : <label>목표 직무*<select required value={knownRole ? form.targetRole : "OTHER"} onChange={(event) => set("targetRole", event.target.value === "OTHER" ? "" : event.target.value)}><option value="" disabled>목표 직무를 선택하세요</option>{roles.map((role) => <option key={role} value={role}>{role}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>}
       {knownFamily && !knownRole && <label>직접 입력 목표 직무*<input required maxLength={80} value={form.targetRole} onChange={(event) => set("targetRole", event.target.value)} placeholder="예: 게임 서버 개발자" /></label>}
       {!knownFamily && <label>목표 직무*<input required maxLength={80} value={form.targetRole} onChange={(event) => set("targetRole", event.target.value)} placeholder="예: 게임 서버 개발자" /></label>}
-    </div></div>
+    </div></div>{educationSection}
 
     <div className="form-section"><h3>지원 조건</h3><div className="form-fields">
       <label>희망 지역<RegionSelectionModal value={form.preferredLocations} onChange={(next) => set("preferredLocations", next)} /></label>
@@ -71,13 +73,6 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     </div></div>
 
     <div className="form-section" id="resume-skills"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
-
-    <div className="form-section"><h3>학력</h3><div className="form-fields">
-      <label>최종 학력<select value={form.educationLevel ?? ""} onChange={(event) => { const next = event.target.value || null; set("educationLevel", next); set("schoolName", null); set("major", null); }}><option value="">선택 안 함</option><option value="HIGH_SCHOOL">고등학교</option><option value="COLLEGE">전문대</option><option value="BACHELOR">대학교</option><option value="MASTER">대학원</option></select></label>
-      <label>학교명<EducationSearchModal kind="school" educationLevel={form.educationLevel} selectedSchool={form.schoolName} value={form.schoolName} onSelect={(name) => { set("schoolName", name); set("major", null); }} /></label>
-      <label>전공<EducationSearchModal kind="major" educationLevel={form.educationLevel} selectedSchool={form.schoolName} value={form.major} onSelect={(name) => set("major", name)} /></label>
-      <label>졸업 상태<select value={form.graduationStatus ?? ""} onChange={(event) => set("graduationStatus", event.target.value || null)}><option value="">선택 안 함</option><option value="GRADUATED">졸업</option><option value="EXPECTED">졸업 예정</option><option value="ENROLLED">재학</option></select></label>
-    </div></div>
 
     <div className="form-section" id="resume-certificates"><h3>자격증</h3><p className="form-hint">보유한 자격증만 필요한 수만큼 추가해 입력하세요.</p>
       <CertificateSearchModal showDetail={false} onManual={(name) => setCertificates((current) => [...current, { ...emptyMemberCertificate(), name }])} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
@@ -95,6 +90,5 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     </div>
 
     {error && <div className="auth-error">{error}</div>}
-    <div className="form-actions">{onCancel && <button type="button" className="outline-button" onClick={onCancel}>취소</button>}<button className="primary-button" disabled={saving}>{saving ? "저장 중..." : saveLabel}</button></div>
   </form>;
 }
