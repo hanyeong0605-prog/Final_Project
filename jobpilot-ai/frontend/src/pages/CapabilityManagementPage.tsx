@@ -12,6 +12,7 @@ import { getMemberCertificates } from "../features/profile/api/memberCertificate
 import { listResumeEntries } from "../features/resume/api/resumeEntriesApi";
 import { listSelfIntroductions } from "../features/resume/api/resumeApi";
 import { getResumeSaveState, type ResumeSaveState } from "../features/resume/api/resumeSaveStateApi";
+import type { ResumeEntryType } from "../features/resume/model/resumeEntry.types";
 
 type CapabilityTool = "profile" | "manage" | "analysis" | "writer" | null;
 
@@ -67,13 +68,15 @@ function SavedCapabilityList({ onEdit }: { onEdit: () => void }) {
     void Promise.all([getCareerProfile(), getMemberSkills(), getMemberCertificates(), listResumeEntries(), listSelfIntroductions(), getResumeSaveState()])
       .then(([profile, skills, certificates, entries, introductions, state]) => {
         setSaveState(state);
-        const latestEntry = [...entries, ...introductions].map((item) => item.updatedAt).filter(Boolean).sort().at(-1);
+        const entryLabels: Partial<Record<ResumeEntryType, string>> = { EDUCATION: "학력", CAREER: "경력", ACTIVITY: "인턴 · 대외활동", TRAINING: "교육이수", AWARD: "수상", LANGUAGE: "어학", PORTFOLIO: "포트폴리오", PREFERENCE: "병역사항" };
+        const entryItems = Object.entries(entryLabels).flatMap(([entryType, label]) => { const matching = entries.filter((entry) => entry.entryType === entryType); return matching.length ? [{ label, count: matching.length, updatedAt: matching.map((entry) => entry.updatedAt).sort().at(-1) }] : []; });
+        const baseSaved = Boolean(profile?.targetRole || profile?.schoolName || profile?.major || profile?.preferredLocations?.length || profile?.technicalSummary || profile?.portfolioUrl);
         setItems([
-          { label: "기본 스펙정보", count: Number(Boolean(profile?.targetRole || profile?.schoolName || profile?.major)), updatedAt: latestEntry },
-          { label: "보유 기술 스택", count: skills.length, updatedAt: latestEntry },
-          { label: "자격증", count: certificates.length, updatedAt: latestEntry },
-          { label: "상세 이력 항목", count: entries.length, updatedAt: latestEntry },
-          { label: "자기소개서", count: introductions.length, updatedAt: latestEntry },
+          ...(baseSaved ? [{ label: "기본 스펙정보", count: 1 }] : []),
+          ...(skills.length ? [{ label: "보유 기술 스택", count: skills.length }] : []),
+          ...(certificates.length ? [{ label: "자격증", count: certificates.length }] : []),
+          ...entryItems,
+          ...(introductions.length ? [{ label: "자기소개서", count: introductions.length, updatedAt: introductions.map((entry) => entry.updatedAt).sort().at(-1) }] : []),
         ]);
       })
       .catch(() => setMessage("저장된 스펙정보를 불러오지 못했습니다."))
@@ -83,7 +86,7 @@ function SavedCapabilityList({ onEdit }: { onEdit: () => void }) {
   if (message) return <p className="resume-document-message">{message}</p>;
   const stateLabel = saveState.status === "SAVED" ? "저장 완료" : saveState.status === "DRAFT" ? "임시저장" : "저장 전";
   const stateDate = saveState.updatedAt ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(saveState.updatedAt)) : "";
-  return <div className="saved-capability-list"><div className="saved-capability-list-head"><div><h3>내 스펙정보 목록</h3><p><b className={`save-state-badge ${saveState.status.toLowerCase()}`}>{stateLabel}</b>{stateDate && ` · ${stateDate}`}</p></div><button type="button" className="primary-button" onClick={onEdit}>스펙정보 수정</button></div>{items.map((item) => <article key={item.label}><div><strong>{item.label}</strong><span>{item.count > 0 ? `${item.count}건 저장됨` : "아직 입력하지 않음"}</span></div><small>{item.updatedAt ? `최근 수정 ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}` : "저장 이력 없음"}</small></article>)}</div>;
+  return <div className="saved-capability-list"><div className="saved-capability-list-head"><div><h3>내 스펙정보 목록</h3><p><b className={`save-state-badge ${saveState.status.toLowerCase()}`}>{stateLabel}</b>{stateDate && ` · ${stateDate}`}</p></div><button type="button" className="primary-button" onClick={onEdit}>스펙정보 수정</button></div>{items.length ? items.map((item) => <article key={item.label}><div><strong>{item.label}</strong><span>{item.count}건 저장됨</span></div><small>{item.updatedAt ? `최근 수정 ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}` : "저장 이력 없음"}</small></article>) : <p className="empty-state">아직 저장된 스펙정보가 없습니다.</p>}</div>;
 }
 
 function ToolHeader({ title, body, close, action }: { title: string; body: string; close: () => void; action?: () => void }) {
