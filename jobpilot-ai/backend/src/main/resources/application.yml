@@ -96,6 +96,9 @@ app:
   ai-server:
     # 스프링이 크롤링을 트리거할 때 부르는 ai-server 주소. AiServerCrawlClient 참고.
     base-url: ${AI_SERVER_BASE_URL:http://localhost:8001}
+  # 기업회원이 등록한 채용공고의 sourceUrl(내부 상세페이지 링크)을 만들 때 쓰는 공개 도메인.
+  # EmployerJobPostingService 참고.
+  public-base-url: ${PUBLIC_BASE_URL:https://job-a-dream.site}
 
 # SaraminDATA: 키는 SARAMIN_ACCESS_KEY 환경변수로만 주입한다.
 saramin-data:
@@ -138,6 +141,13 @@ career:
 qnet:
   api:
     key: ${QNET_API_KEY:}
+
+# 국세청 사업자등록정보 진위확인 API (공공데이터포털/data.go.kr) - 기업회원 가입 시
+# 사업자번호 진위를 자동 확인한다. 키가 비어있으면 NtsBusinessVerificationClient가
+# fail-open으로 "확인 필요" 처리만 하고 가입 자체는 막지 않는다.
+nts:
+  api:
+    key: ${NTS_API_KEY:}
 
 barun:
   api:

@@ -1,12 +1,13 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
+import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
 
 // Vite's DEV is true only for `npm run dev`; production builds never show this button.
 const developmentLoginEnabled = import.meta.env.DEV;
 
 export function LoginPage() {
-  const { member, login, developmentLogin } = useAuth();
+  const { member, login, developmentLogin, developmentAdminLogin } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const requestedReturnTo = params.get("returnTo");
@@ -18,6 +19,7 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [developmentSigningIn, setDevelopmentSigningIn] = useState(false);
+  const [developmentAdminSigningIn, setDevelopmentAdminSigningIn] = useState(false);
 
   if (member) return <Navigate to={returnTo} replace />;
 
@@ -50,6 +52,22 @@ export function LoginPage() {
     }
   };
 
+  // 관리자 페이지 테스트용 - 로컬 전용 계정을 만들어 ADMIN 권한으로 바로 들어간다.
+  // 기존 "개발 계정으로 바로 입장"(local-dev, 일반 회원)과는 별도 계정이라 권한 테스트에 영향 없다.
+  const signInAsDevelopmentAdmin = async () => {
+    setError("");
+    setDevelopmentAdminSigningIn(true);
+
+    try {
+      await developmentAdminLogin();
+      navigate("/admin");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "관리자 계정 로그인에 실패했습니다.");
+    } finally {
+      setDevelopmentAdminSigningIn(false);
+    }
+  };
+
   return (
     <main className="auth-page">
       <section className="auth-card">
@@ -60,6 +78,7 @@ export function LoginPage() {
             <small>career action coach</small>
           </div>
         </div>
+        <AccountTypeToggle value="member" memberTo="/login" employerTo="/employer/login" />
         <span className="eyebrow">WELCOME BACK</span>
         <h1>로그인</h1>
         <p>맞춤형 채용공고와 분석 결과를 확인하세요.</p>
@@ -98,9 +117,17 @@ export function LoginPage() {
               type="button"
               className="development-login-button"
               onClick={signInAsDevelopmentMember}
-              disabled={submitting || developmentSigningIn}
+              disabled={submitting || developmentSigningIn || developmentAdminSigningIn}
             >
               {developmentSigningIn ? "개발 계정으로 입장 중..." : "개발 계정으로 바로 입장"}
+            </button>
+            <button
+              type="button"
+              className="development-login-button admin"
+              onClick={signInAsDevelopmentAdmin}
+              disabled={submitting || developmentSigningIn || developmentAdminSigningIn}
+            >
+              {developmentAdminSigningIn ? "관리자 계정으로 입장 중..." : "관리자 계정으로 바로 입장"}
             </button>
           </>
         )}

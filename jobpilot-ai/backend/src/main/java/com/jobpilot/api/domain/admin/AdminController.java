@@ -2,6 +2,9 @@ package com.jobpilot.api.domain.admin;
 
 import com.jobpilot.api.domain.auth.dto.MemberResponse;
 import com.jobpilot.api.domain.analytics.service.MemberDailyVisitService;
+import com.jobpilot.api.domain.employer.entity.EmployerAccount;
+import com.jobpilot.api.domain.employer.entity.EmployerAccountStatus;
+import com.jobpilot.api.domain.employer.repository.EmployerAccountRepository;
 import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.member.entity.Member;
@@ -34,13 +37,15 @@ public class AdminController {
     private final AdminAccessService adminAccess;
     private final MemberRepository members;
     private final JobPostingRepository postings;
+    private final EmployerAccountRepository employers;
     private final MemberDailyVisitService dailyVisits;
 
     public AdminController(AdminAccessService adminAccess, MemberRepository members, JobPostingRepository postings,
-                           MemberDailyVisitService dailyVisits) {
+                           EmployerAccountRepository employers, MemberDailyVisitService dailyVisits) {
         this.adminAccess = adminAccess;
         this.members = members;
         this.postings = postings;
+        this.employers = employers;
         this.dailyVisits = dailyVisits;
     }
 
@@ -51,7 +56,8 @@ public class AdminController {
         return new OverviewResponse(
                 members.count(), members.countByRole(MemberRole.ADMIN),
                 postings.count(), postings.countByStatus("ACTIVE"), postings.countByStatus("CLOSED"),
-                visitors.total(), visitors.users(), visitors.admins());
+                visitors.total(), visitors.users(), visitors.admins(),
+                employers.countByStatus(EmployerAccountStatus.PENDING));
     }
 
     @GetMapping("/members")
@@ -155,12 +161,63 @@ public class AdminController {
         return JobPostingSummary.from(postings.save(posting));
     }
 
+    // 2026-08-19: 기업회원 승인 관리 - 목록/승인/거절. 상태(PENDING/APPROVED/REJECTED)
+    // 필터는 회원 관리 검색과 동일하게 페이지네이션+검색어 조합으로 처리한다.
+    @GetMapping("/employers")
+    public PageResponse<EmployerSummary> employers(
+            Authentication authentication,
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(Sort.Direction.DESC, "createdAt"));
+        String normalizedStatus = status == null ? "ALL" : status.toUpperCase();
+        if (!normalizedStatus.matches("ALL|PENDING|APPROVED|REJECTED")) throw new IllegalArgumentException("지원하지 않는 기업회원 상태입니다.");
+        String trimmedQuery = query == null ? "" : query.trim();
+        Page<EmployerAccount> result = normalizedStatus.equals("ALL")
+                ? (trimmedQuery.isBlank()
+                        ? employers.findAll(pageable)
+                        : employers.findByCompanyNameContainingIgnoreCaseOrManagerNameContainingIgnoreCaseOrBusinessRegistrationNumberContaining(trimmedQuery, trimmedQuery, trimmedQuery, pageable))
+                : employers.findByStatus(EmployerAccountStatus.valueOf(normalizedStatus), pageable);
+        return PageResponse.from(result.map(EmployerSummary::from));
+    }
+
+    @PatchMapping("/employers/{employerId}/approve")
+    public EmployerSummary approveEmployer(Authentication authentication, @PathVariable Long employerId) {
+        Member actor = adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        EmployerAccount employer = employers.findById(employerId).orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다."));
+        employer.approve(actor.getId());
+        return EmployerSummary.from(employers.save(employer));
+    }
+
+    @PatchMapping("/employers/{employerId}/reject")
+    public EmployerSummary rejectEmployer(Authentication authentication, @PathVariable Long employerId,
+                                           @Valid @RequestBody RejectEmployerRequest request) {
+        Member actor = adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        EmployerAccount employer = employers.findById(employerId).orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다."));
+        employer.reject(actor.getId(), blankToNull(request.reason()));
+        return EmployerSummary.from(employers.save(employer));
+    }
+
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
     public record OverviewResponse(long memberCount, long adminCount, long jobPostingCount, long activePostingCount, long closedPostingCount,
-                                   long todayVisitorCount, long todayUserVisitorCount, long todayAdminVisitorCount) {}
+                                   long todayVisitorCount, long todayUserVisitorCount, long todayAdminVisitorCount,
+                                   long employerPendingCount) {}
+    public record RejectEmployerRequest(String reason) {}
+    public record EmployerSummary(Long id, String companyName, String managerName, String managerPhone, String email,
+                                   String businessRegistrationNumber, String representativeName, String openingDate,
+                                   boolean ntsVerified, EmployerAccountStatus status, String rejectionReason, LocalDateTime createdAt) {
+        static EmployerSummary from(EmployerAccount employer) {
+            return new EmployerSummary(employer.getId(), employer.getCompanyName(), employer.getManagerName(), employer.getManagerPhone(),
+                    employer.getEmail(), employer.getBusinessRegistrationNumber(), employer.getRepresentativeName(),
+                    employer.getOpeningDate(), employer.isNtsVerified(), employer.getStatus(), employer.getRejectionReason(), employer.getCreatedAt());
+        }
+    }
     public record ChangeRoleRequest(@NotNull MemberRole role) {}
     public record BulkRoleRequest(@NotNull java.util.List<Long> memberIds, @NotNull MemberRole role) {}
     public record ChangePostingStatusRequest(@NotNull String status) {}

@@ -3,6 +3,7 @@ package com.jobpilot.api.domain.jobposting.entity;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -21,6 +22,11 @@ public class JobPosting {
 
     @Column(name = "source_company_id", length = 150)
     private String sourceCompanyId;
+
+    // 2026-08-19: 기업회원이 직접 등록한 공고만 값이 있다(크롤링 공고는 NULL) -
+    // sourceProvider="EMPLOYER"일 때만 채워진다. V31__employer_accounts.sql 참고.
+    @Column(name = "employer_account_id")
+    private Long employerAccountId;
 
     @Column(name = "company_name")
     private String companyName;
@@ -172,5 +178,57 @@ public class JobPosting {
         this.location = location;
         this.deadlineAt = deadlineAt;
         this.status = status;
+    }
+
+    public Long getEmployerAccountId() { return employerAccountId; }
+    public boolean isEmployerPosting() { return employerAccountId != null; }
+
+    /** 저장 후 생성된 id로 우리 사이트 상세 페이지 URL을 채워 넣을 때 쓴다(기업 자체 등록 공고 전용). */
+    public void assignInternalSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
+
+    /**
+     * 2026-08-19: 기업회원이 직접 등록하는 공고 - 크롤링 공고와 같은 job_postings
+     * 테이블/컬럼을 그대로 쓰되(사용자 요청: "크롤링 한 채용 테이블 컬럼과 동일하게"),
+     * sourceProvider="EMPLOYER" + externalJobId="EMP-{UUID}"로 구분한다. 이렇게 하면
+     * 기존 (source_provider, external_job_id) 유니크 제약과 크롤러 upsert 경로를
+     * 하나도 안 건드리고 그대로 재사용할 수 있다.
+     */
+    public static JobPosting createByEmployer(Long employerAccountId, String title, String companyName, String companyUrl,
+                                                String description, String location, String employmentType,
+                                                String experienceType, String salary, LocalDateTime deadlineAt,
+                                                boolean rollingDeadline) {
+        JobPosting posting = new JobPosting("EMPLOYER", "EMP-" + UUID.randomUUID());
+        posting.employerAccountId = employerAccountId;
+        posting.applyEmployerFields(title, companyName, companyUrl, description, location, employmentType,
+                experienceType, salary, deadlineAt, rollingDeadline);
+        LocalDateTime now = LocalDateTime.now();
+        posting.status = "ACTIVE";
+        posting.publishedAt = now;
+        posting.fetchedAt = now;
+        posting.crawlStatus = "MANUAL";
+        posting.sourceUrl = "";
+        return posting;
+    }
+
+    public void updateByEmployer(String title, String companyName, String companyUrl, String description, String location,
+                                  String employmentType, String experienceType, String salary, LocalDateTime deadlineAt,
+                                  boolean rollingDeadline) {
+        applyEmployerFields(title, companyName, companyUrl, description, location, employmentType, experienceType,
+                salary, deadlineAt, rollingDeadline);
+    }
+
+    private void applyEmployerFields(String title, String companyName, String companyUrl, String description, String location,
+                                      String employmentType, String experienceType, String salary, LocalDateTime deadlineAt,
+                                      boolean rollingDeadline) {
+        this.title = title;
+        this.companyName = companyName;
+        this.companyUrl = companyUrl;
+        this.description = description;
+        this.location = location;
+        this.employmentType = employmentType;
+        this.experienceType = experienceType;
+        this.salary = salary;
+        this.deadlineAt = deadlineAt;
+        this.rollingDeadline = rollingDeadline;
     }
 }

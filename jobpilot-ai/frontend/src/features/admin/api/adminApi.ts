@@ -1,9 +1,15 @@
 import { deleteJsonReturning, getJson, patchJson, putJson } from "../../../api/httpClient";
 
 export type MemberRole = "USER" | "ADMIN";
+export type EmployerAccountStatus = "PENDING" | "APPROVED" | "REJECTED";
 export interface AdminOverview {
   memberCount: number; adminCount: number; jobPostingCount: number; activePostingCount: number; closedPostingCount: number;
-  todayVisitorCount: number; todayUserVisitorCount: number; todayAdminVisitorCount: number;
+  todayVisitorCount: number; todayUserVisitorCount: number; todayAdminVisitorCount: number; employerPendingCount: number;
+}
+export interface AdminEmployer {
+  id: number; companyName: string; managerName: string; managerPhone: string | null; email: string;
+  businessRegistrationNumber: string; representativeName: string; openingDate: string;
+  ntsVerified: boolean; status: EmployerAccountStatus; rejectionReason: string | null; createdAt: string;
 }
 export interface AdminMember { id: number; loginId: string; email: string; nickname: string; onboardingCompleted: boolean; role: MemberRole; }
 export interface AdminJobPosting { id: number; title: string; companyName: string | null; status: "ACTIVE" | "CLOSED" | "HIDDEN"; location: string | null; deadlineAt: string | null; viewCount: number; }
@@ -31,3 +37,8 @@ export const updateAdminJobPosting = (jobPostingId: number, request: UpdateAdmin
   putJson<AdminJobPosting>(`${BASE}/job-postings/${jobPostingId}`, request);
 export const deleteAdminJobPosting = (jobPostingId: number) =>
   deleteJsonReturning<AdminJobPosting>(`${BASE}/job-postings/${jobPostingId}`);
+export const getAdminEmployers = (query = "", status: EmployerAccountStatus | "ALL" = "ALL", page = 0, size = 20) =>
+  getJson<AdminPage<AdminEmployer>>(`${BASE}/employers?size=${size}&page=${page}&query=${encodeURIComponent(query)}&status=${status}`);
+export const approveAdminEmployer = (employerId: number) => patchJson<AdminEmployer>(`${BASE}/employers/${employerId}/approve`, {});
+export const rejectAdminEmployer = (employerId: number, reason: string) =>
+  patchJson<AdminEmployer>(`${BASE}/employers/${employerId}/reject`, { reason });

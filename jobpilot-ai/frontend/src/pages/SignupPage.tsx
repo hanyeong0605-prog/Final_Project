@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { checkLoginIdAvailability, confirmEmailVerificationCode, sendEmailVerificationCode } from "../features/auth/api/authApi";
 import { useAuth } from "../features/auth/model/AuthContext";
+import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
 
 type TextField = "loginId" | "email" | "password" | "nickname";
 type ConsentField = "termsAgreed" | "privacyCollectionAgreed" | "marketingEmailAgreed";
@@ -144,7 +145,7 @@ export function SignupPage() {
     }
   };
 
-  return <main className="auth-page"><section className="auth-card"><div className="auth-brand"><span className="brand-mark"><span>J</span></span><div><strong>Job-A-Dream AI</strong><small>career action coach</small></div></div><span className="eyebrow">CREATE ACCOUNT</span><h1>회원가입</h1><p>계정을 만든 뒤 목표 직무와 역량 근거를 등록할 수 있습니다.</p><form onSubmit={submit}>
+  return <main className="auth-page"><section className="auth-card"><div className="auth-brand"><span className="brand-mark"><span>J</span></span><div><strong>Job-A-Dream AI</strong><small>career action coach</small></div></div><AccountTypeToggle value="member" memberTo="/signup" employerTo="/employer/signup" /><span className="eyebrow">CREATE ACCOUNT</span><h1>회원가입</h1><p>계정을 만든 뒤 목표 직무와 역량 근거를 등록할 수 있습니다.</p><form onSubmit={submit}>
     <label>아이디<div className="field-input-action"><input required minLength={6} maxLength={80} value={form.loginId} onChange={(event) => updateText("loginId", event.target.value)} autoComplete="username" placeholder="영문·숫자·._- 6자 이상" /><button type="button" className="outline-button" onClick={checkLoginId} disabled={checkingLoginId || !form.loginId}>{checkingLoginId ? "확인 중..." : "중복 확인"}</button></div><small className={`field-status ${loginIdAvailable ? "success" : loginIdMessage ? "error" : "hint"}`}>{loginIdMessage || "이메일 주소 대신 로그인에 사용할 아이디를 입력해 주세요."}</small></label>
     <label>이메일<div className="field-input-action"><input required type="email" value={form.email} onChange={(event) => updateText("email", event.target.value)} autoComplete="email" /><button type="button" className="outline-button" onClick={requestCode} disabled={sendingCode || !form.email}>{sendingCode ? "발송 중..." : "인증 코드 보내기"}</button></div>{emailMessage && <small className={`field-status ${emailMessage.includes("보냈습니다") ? "success" : "error"}`}>{emailMessage}</small>}</label>
     <label>이메일 인증 코드<div className="field-input-action"><input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={emailCode} onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, ""))} placeholder="6자리 코드" /><button type="button" className="outline-button" onClick={confirmCode} disabled={verifyingCode || emailCode.length !== 6}>{verifyingCode ? "확인 중..." : "코드 확인"}</button></div>{codeMessage && <small className={`field-status ${form.emailVerificationToken ? "success" : "error"}`}>{codeMessage}</small>}</label>

@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BriefcaseBusiness, CheckSquare, CircleCheckBig, Pencil, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
+import { Briefcase, BriefcaseBusiness, CheckSquare, CircleCheckBig, Pencil, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { PageHeading } from "../shared/components/PageHeading";
 import { AdminFaceAuthModal } from "../features/admin/components/AdminFaceAuthModal";
 import {
+  approveAdminEmployer,
   changeAdminJobPostingStatus,
   changeAdminJobPostingStatuses,
   changeAdminMemberRole,
   changeAdminMemberRoles,
   deleteAdminJobPosting,
+  getAdminEmployers,
   getAdminJobPostings,
   getAdminMembers,
   getAdminOverview,
+  rejectAdminEmployer,
   updateAdminJobPosting,
+  type AdminEmployer,
   type AdminJobPosting,
   type AdminMember,
   type AdminOverview,
   type AdminPage as AdminPageData,
+  type EmployerAccountStatus,
   type MemberRole,
 } from "../features/admin/api/adminApi";
 
@@ -52,6 +57,11 @@ export function AdminPage() {
   const [postingPage, setPostingPage] = useState<AdminPageData<AdminJobPosting>>({
     content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0,
   });
+  const [employerPage, setEmployerPage] = useState<AdminPageData<AdminEmployer>>({
+    content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0,
+  });
+  const [employerQuery, setEmployerQuery] = useState("");
+  const [employerStatus, setEmployerStatus] = useState<EmployerAccountStatus | "ALL">("PENDING");
 
   const [memberQuery, setMemberQuery] = useState("");
   const [postingQuery, setPostingQuery] = useState("");
@@ -87,10 +97,15 @@ export function AdminPage() {
     setSelectedPostingIds([]);
   };
 
+  const loadEmployers = async (page = 0) => {
+    const result = await getAdminEmployers(employerQuery, employerStatus, page, PAGE_SIZE);
+    setEmployerPage(result);
+  };
+
   const loadAllData = async () => {
     setError("");
     try {
-      await Promise.all([loadOverviewAndMembers(), loadPostings(0)]);
+      await Promise.all([loadOverviewAndMembers(), loadPostings(0), loadEmployers(0)]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "관리자 정보를 불러오지 못했습니다.");
     }
@@ -183,6 +198,31 @@ export function AdminPage() {
     }
   };
 
+  const approveEmployer = async (employer: AdminEmployer) => {
+    if (!window.confirm(`'${employer.companyName}'을(를) 승인할까요?`)) return;
+    setError(""); setNotice("");
+    try {
+      await approveAdminEmployer(employer.id);
+      setNotice(`${employer.companyName}을(를) 승인했습니다.`);
+      await Promise.all([loadEmployers(employerPage.page), getAdminOverview().then(setOverview)]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "승인 실패");
+    }
+  };
+
+  const rejectEmployer = async (employer: AdminEmployer) => {
+    const reason = window.prompt(`'${employer.companyName}' 가입을 거절하는 사유를 입력해 주세요.`, "");
+    if (reason === null) return;
+    setError(""); setNotice("");
+    try {
+      await rejectAdminEmployer(employer.id, reason);
+      setNotice(`${employer.companyName} 가입을 거절했습니다.`);
+      await Promise.all([loadEmployers(employerPage.page), getAdminOverview().then(setOverview)]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "거절 실패");
+    }
+  };
+
   const hidePosting = async (posting: AdminJobPosting) => {
     if (!window.confirm(`'${posting.title}' 공고를 숨김 처리할까요?`)) return;
     setError(""); setNotice("");
@@ -224,6 +264,56 @@ export function AdminPage() {
             <article><BriefcaseBusiness size={20} /><span>전체 공고</span><strong>{overview?.jobPostingCount ?? "-"}</strong></article>
             <article><CircleCheckBig size={20} /><span>공개 공고</span><strong>{overview?.activePostingCount ?? "-"}</strong></article>
             <article className="admin-visitor-metric"><CheckSquare size={20} /><span>오늘 방문 회원</span><strong>{overview?.todayVisitorCount ?? "-"}</strong><small>일반 {overview?.todayUserVisitorCount ?? "-"} · 관리자 {overview?.todayAdminVisitorCount ?? "-"}</small></article>
+            <article><Briefcase size={20} /><span>기업회원 승인 대기</span><strong>{overview?.employerPendingCount ?? "-"}</strong></article>
+          </section>
+
+          <section className="panel admin-panel">
+            <div className="admin-panel-heading">
+              <div><span className="eyebrow">EMPLOYER APPROVAL</span><h2>기업회원 승인 관리</h2><p>가입 시 국세청 사업자 진위확인 결과가 자동으로 표시됩니다. 최종 승인/거절은 직접 처리해 주세요.</p></div>
+              <form onSubmit={(e) => { e.preventDefault(); void loadEmployers(0); }}>
+                <Search size={16} /><input value={employerQuery} onChange={(e) => setEmployerQuery(e.target.value)} placeholder="회사명·담당자명·사업자번호 검색" /><button className="outline-button">검색</button>
+              </form>
+            </div>
+            <div className="admin-posting-filters">
+              <label>상태<select value={employerStatus} onChange={(e) => { setEmployerStatus(e.target.value as EmployerAccountStatus | "ALL"); }}>
+                <option value="PENDING">승인 대기</option>
+                <option value="APPROVED">승인됨</option>
+                <option value="REJECTED">거절됨</option>
+                <option value="ALL">전체</option>
+              </select></label>
+              <button className="outline-button" onClick={() => void loadEmployers(0)}>필터 적용</button>
+              <span>{employerPage.totalElements.toLocaleString()}건</span>
+            </div>
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead><tr><th>기업</th><th>담당자</th><th>사업자번호</th><th>진위확인</th><th>상태</th><th>관리</th></tr></thead>
+                <tbody>
+                  {employerPage.content.map((employer) => (
+                    <tr key={employer.id}>
+                      <td><strong>{employer.companyName}</strong><small>{employer.representativeName} · {employer.openingDate}</small></td>
+                      <td>{employer.managerName}<small>{employer.email}</small></td>
+                      <td>{employer.businessRegistrationNumber}</td>
+                      <td><span className={`admin-role-badge ${employer.ntsVerified ? "admin" : ""}`}>{employer.ntsVerified ? "인증완료" : "확인필요"}</span></td>
+                      <td><span className={`admin-role-badge status-${employer.status.toLowerCase()}`}>{employer.status === "PENDING" ? "대기" : employer.status === "APPROVED" ? "승인" : "거절"}</span>{employer.status === "REJECTED" && employer.rejectionReason && <small>{employer.rejectionReason}</small>}</td>
+                      <td>
+                        <div className="admin-table-actions">
+                          <button className="outline-button" disabled={employer.status === "APPROVED"} onClick={() => void approveEmployer(employer)}>승인</button>
+                          <button className="outline-button" disabled={employer.status === "REJECTED"} onClick={() => void rejectEmployer(employer)}>거절</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {employerPage.content.length === 0 && <tr><td colSpan={6}>해당 조건의 기업회원이 없습니다.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            {employerPage.totalPages > 1 && (
+              <div className="admin-pagination">
+                <button className="outline-button" disabled={employerPage.page === 0} onClick={() => void loadEmployers(employerPage.page - 1)}>이전</button>
+                <span>{employerPage.page + 1} / {employerPage.totalPages} 페이지</span>
+                <button className="outline-button" disabled={employerPage.page + 1 >= employerPage.totalPages} onClick={() => void loadEmployers(employerPage.page + 1)}>다음</button>
+              </div>
+            )}
           </section>
 
           <section className="panel admin-panel">

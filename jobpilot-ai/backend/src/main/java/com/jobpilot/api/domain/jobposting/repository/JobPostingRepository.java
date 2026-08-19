@@ -15,6 +15,9 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long>, J
     Optional<JobPosting> findBySourceProviderAndExternalJobId(String sourceProvider, String externalJobId);
     List<JobPosting> findByStatusOrderByPublishedAtDesc(String status);
     long countByStatus(String status);
+    // 2026-08-19: 기업회원 마이페이지 - 내가 등록한 공고 목록/단건 조회(소유권 확인용).
+    Page<JobPosting> findByEmployerAccountIdOrderByIdDesc(Long employerAccountId, Pageable pageable);
+    Optional<JobPosting> findByIdAndEmployerAccountId(Long id, Long employerAccountId);
     Page<JobPosting> findByTitleContainingIgnoreCaseOrCompanyNameContainingIgnoreCase(String title, String companyName, Pageable pageable);
 
     @Query(value = """
