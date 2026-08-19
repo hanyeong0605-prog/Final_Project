@@ -58,6 +58,7 @@ public class ResumeDocumentService {
                 savedProfile == null ? "" : empty(savedProfile.getTargetJobFamily()),
                 savedProfile == null ? "" : empty(savedProfile.getTargetRole()));
         classifyCareerRelevance(extracted, targetContext);
+        normalizeCertificateSuggestions(extracted);
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -257,6 +258,16 @@ public class ResumeDocumentService {
         extracted.put("totalCareerMonths", careerMonths(careers));
         extracted.put("careerMonthsPolicy", "JOB_RELEVANT");
     }
+    private void normalizeCertificateSuggestions(ObjectNode extracted) {
+        ArrayNode details = extracted.withArray("certificateDetails");
+        ArrayNode suggestions = extracted.withArray("suggestedCertificates");
+        boolean firstClassLicense = containsFirstClassDriverLicense(details) || containsFirstClassDriverLicense(suggestions);
+        for (JsonNode detail : details) if (detail instanceof ObjectNode value) value.put("name", canonicalCertificateName(value.path("name").asText(), firstClassLicense));
+        Set<String> unique = new java.util.LinkedHashSet<>();
+        suggestions.forEach(value -> { String name = canonicalCertificateName(value.asText(), firstClassLicense); if (!name.isBlank()) unique.add(name); });
+        details.forEach(value -> { String name = canonicalCertificateName(value.path("name").asText(), firstClassLicense); if (!name.isBlank()) unique.add(name); });
+        suggestions.removeAll(); unique.forEach(suggestions::add);
+    }
     private boolean isRelevantCareer(String evidence, String targetContext) {
         String normalized = evidence.toLowerCase(Locale.ROOT);
         boolean itTarget = targetContext.isBlank() || List.of("개발", "프로그래", "소프트웨어", "데이터", "ai", "인공지능", "it", "서버", "웹", "앱", "클라우드", "보안", "네트워크", "인프라", "devops")
@@ -439,20 +450,38 @@ public class ResumeDocumentService {
         if (!additions.isEmpty()) memberSkills.saveAll(additions);
     }
     private void applyExtractedCertificates(Long memberId, JsonNode details, JsonNode candidates) {
+        normalizeExistingDriverLicense(memberId, details);
         Set<String> owned = certificates.findByMemberId(memberId).stream().map(Certificate::getName).map(this::normalize).collect(Collectors.toSet());
         List<Certificate> additions = new java.util.ArrayList<>();
         boolean structured = details.isArray() && !details.isEmpty();
         if (structured) for (JsonNode detail : details) {
-            String name = detail.path("name").asText("").trim();
+            String name = canonicalCertificateName(detail.path("name").asText(""), containsFirstClassDriverLicense(details));
             // "필기 합격" is useful in the review but is not an acquired certificate.
             if (!name.isBlank() && !name.contains("필기") && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, detail.path("issuer").asText("이력서 추출"), parseMonth(detail.path("acquiredMonth").asText()), null, null));
         }
         if (!structured && candidates.isArray()) for (JsonNode candidate : candidates) {
-            String name = candidate.asText("").trim();
+            String name = canonicalCertificateName(candidate.asText(""), containsFirstClassDriverLicense(candidates));
             if (!name.isBlank() && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, "이력서 추출", null, null, null));
         }
         if (!additions.isEmpty()) certificates.saveAll(additions);
     }
+    private void normalizeExistingDriverLicense(Long memberId, JsonNode details) {
+        List<Certificate> aliases = certificates.findByMemberId(memberId).stream().filter(item -> isDriverLicenseAlias(item.getName())).toList();
+        boolean firstClassLicense = aliases.stream().anyMatch(item -> isFirstClassDriverLicense(item.getName())) || containsFirstClassDriverLicense(details);
+        if (aliases.isEmpty() || !firstClassLicense) return;
+        JsonNode detail = details.isArray() ? java.util.stream.StreamSupport.stream(details.spliterator(), false)
+                .filter(item -> isFirstClassDriverLicense(item.path("name").asText())).findFirst().orElse(null) : null;
+        Certificate keeper = aliases.stream().filter(item -> normalize(item.getName()).contains("운전면허1종보통")).findFirst().orElse(aliases.get(0));
+        keeper.normalizeImportedIdentity("운전면허 1종보통", detail == null ? keeper.getIssuer() : detail.path("issuer").asText(keeper.getIssuer()),
+                detail == null ? keeper.getAcquiredAt() : parseMonth(detail.path("acquiredMonth").asText()));
+        certificates.save(keeper);
+        List<Certificate> duplicates = aliases.stream().filter(item -> !item.getId().equals(keeper.getId())).toList();
+        if (!duplicates.isEmpty()) certificates.deleteAll(duplicates);
+    }
+    private String canonicalCertificateName(String value, boolean firstClassContext) { return firstClassContext && isDriverLicenseAlias(value) ? "운전면허 1종보통" : value == null ? "" : value.trim(); }
+    private boolean isDriverLicenseAlias(String value) { String compact = normalize(value); return compact.equals("운전면허") || compact.equals("1종보통") || compact.equals("운전면허1종보통") || compact.equals("자동차운전면허1종보통"); }
+    private boolean isFirstClassDriverLicense(String value) { String compact = normalize(value); return compact.equals("1종보통") || compact.equals("운전면허1종보통") || compact.equals("자동차운전면허1종보통"); }
+    private boolean containsFirstClassDriverLicense(JsonNode values) { if (!values.isArray()) return false; for (JsonNode value : values) { String name = value.isObject() ? value.path("name").asText() : value.asText(); if (isFirstClassDriverLicense(name)) return true; } return false; }
     private void applyPersonalEntry(Long memberId, JsonNode personal) {
         if (personal == null || !personal.isObject() || personal.isEmpty()) return;
         String name = personal.path("name").asText("").trim();
