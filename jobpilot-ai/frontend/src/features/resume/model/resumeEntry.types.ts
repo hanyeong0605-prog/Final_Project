@@ -1,4 +1,4 @@
-export type ResumeEntryType = "EDUCATION" | "CAREER" | "ACTIVITY" | "AWARD" | "LANGUAGE" | "PORTFOLIO";
+export type ResumeEntryType = "EDUCATION" | "CAREER" | "ACTIVITY" | "TRAINING" | "AWARD" | "OVERSEAS" | "LANGUAGE" | "PORTFOLIO" | "PREFERENCE";
 
 export interface ResumeEntry {
   id: number; entryType: ResumeEntryType; title: string; content: Record<string, string>; displayOrder: number; createdAt: string; updatedAt: string;
