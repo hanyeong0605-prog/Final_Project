@@ -82,10 +82,6 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       <label>졸업 상태<select value={form.graduationStatus ?? ""} onChange={(event) => set("graduationStatus", event.target.value || null)}><option value="">선택 안 함</option><option value="GRADUATED">졸업</option><option value="EXPECTED">졸업 예정</option><option value="ENROLLED">재학</option></select></label>
     </div></div>
 
-    <div className="form-section"><h3>외부 근거 및 추가 설명</h3><div className="form-fields">
-      <label>GitHub 아이디<input value={form.githubUsername ?? ""} onChange={(event) => set("githubUsername", event.target.value || null)} placeholder="github 사용자명" /></label>
-      <label>포트폴리오 URL<input type="url" value={form.portfolioUrl ?? ""} onChange={(event) => set("portfolioUrl", event.target.value || null)} placeholder="https://..." /></label>
-    </div></div>
     {error && <div className="auth-error">{error}</div>}
     <div className="form-actions">{onCancel && <button type="button" className="outline-button" onClick={onCancel}>취소</button>}<button className="primary-button" disabled={saving}>{saving ? "저장 중..." : saveLabel}</button></div>
   </form>;
