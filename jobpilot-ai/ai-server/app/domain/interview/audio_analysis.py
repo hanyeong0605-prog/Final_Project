@@ -38,6 +38,7 @@ PATH에 있어야 한다(기존과 동일).
 """
 
 import base64
+import logging
 import subprocess
 from dataclasses import dataclass, asdict
 
@@ -45,6 +46,8 @@ import numpy as np
 import requests
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 AUDIO_SAMPLE_RATE = 16000  # Google STT LINEAR16 권장값(16000이 "최적"이라고 공식 문서에 명시됨)
 
@@ -133,15 +136,34 @@ _STT_TIMEOUT_SEC = 30
 _LOW_CONFIDENCE_THRESHOLD = 0.6
 
 
+def _robust_peak(rms: np.ndarray) -> float:
+    """"피크"를 np.max가 아니라 95th percentile로 잡는다.
+
+    2026-08-19: 실제로 겪은 버그 - 아이폰 크롬에서 6.8초 답변을 정상적으로 말했는데도
+    STT가 "인식된 내용 없음"으로 나온 사례(모바일 마이크는 녹음 시작 직후 AGC(자동
+    게인 조절)가 안정화되기 전이나 마이크 활성화 시점에 순간적으로 큰 "팝/클릭성" 잡음이
+    한두 프레임 섞이는 경우가 흔하다) - analyze_voice의 피치 분석(자기상관 기반, 진폭이
+    아니라 주기성만 봄)에는 168Hz대 정상적인 목소리가 잡혔는데, 정작 _detect_speech_frames는
+    빈 배열을 반환해서 transcribe()가 Google STT를 호출조차 안 하고 바로 빈 텍스트를
+    반환한 것으로 재현됨 - np.max(rms)를 "피크"로 쓰면 그 스파이크 한두 프레임이 전체
+    피크를 지배해버려서, 실제 목소리 프레임들이 스파이크 대비 -30dB보다 낮게 계산되어
+    통째로 "무음"으로 오판되는 구조였다. 95th percentile을 쓰면 그런 소수의 스파이크
+    프레임에 전체 판정이 휘둘리지 않는다 - 실제로 클립 전체가 무음인 경우엔 percentile을
+    써도 여전히 낮은 값이 나오므로(무음 판정 자체의 정확도는 그대로 유지) 부작용이 없다."""
+    if rms.size == 0:
+        return 0.0
+    return float(np.percentile(rms, 95))
+
+
 def _detect_speech_frames(y: np.ndarray) -> np.ndarray:
     """RMS 기준으로 "말소리가 있다고 보이는" 프레임 인덱스를 돌려준다(SILENCE_TOP_DB 기준
-    - 전체 클립 중 최대 음량 대비 상대적으로 조용한 구간은 무음으로 취급). 빈 배열이면
-    클립 전체가 무음에 가깝다는 뜻 - _trim_silence와 transcribe()의 환각 방지 체크가
-    같이 쓴다."""
+    - 클립의 (스파이크에 휘둘리지 않는) 대표 피크 대비 상대적으로 조용한 구간은 무음으로
+    취급). 빈 배열이면 클립 전체가 무음에 가깝다는 뜻 - _trim_silence와 transcribe()의
+    환각 방지 체크가 같이 쓴다."""
     rms = _frame_rms(y)
     if rms.size == 0:
         return np.array([], dtype=int)
-    peak = np.max(rms)
+    peak = _robust_peak(rms)
     if peak <= 0:
         return np.array([], dtype=int)
     with np.errstate(divide="ignore"):
@@ -253,12 +275,29 @@ def transcribe(audio_path: str, language: str = "ko-KR") -> TranscriptionResult:
         )
         response.raise_for_status()
         data = response.json()
+    except requests.exceptions.HTTPError as exc:
+        # 2026-08-19: 원래는 그냥 fail-open만 하고 아무 로그도 안 남겼다 - 그래서 "STT가
+        # 조용히 안 됨" 버그가 실제로 보고됐을 때 서버 로그에 아무 흔적이 없어 원인(쿼터
+        # 초과 429/RESOURCE_EXHAUSTED인지, 결제 미설정 403인지, 60초/10MB 초과인지, 그 외
+        # 뭔지)을 알 방법이 없었다. fail-open 동작 자체는 그대로 유지하되(응답 흐름은 안
+        # 죽인다), 상태 코드/응답 본문은 로그로 남겨서 다음에 같은 문제가 생기면 서버 로그
+        # 확인만으로 바로 원인을 알 수 있게 한다.
+        body = exc.response.text[:500] if exc.response is not None else ""
+        logger.warning("Google STT 요청 실패(HTTP %s): %s", getattr(exc.response, "status_code", "?"), body)
+        return TranscriptionResult(text="", low_confidence=True)
     except Exception:
-        # 네트워크 오류, 60초/10MB 초과로 인한 4xx, 그 외 예상 못 한 응답 전부 여기서
-        # 잡는다 - STT 실패가 전체 답변 분석 흐름을 죽이면 안 된다(fail-open).
+        # 네트워크 오류(타임아웃 등) 그 외 예상 못 한 예외 - 마찬가지로 fail-open이지만
+        # 로그는 남긴다.
+        logger.exception("Google STT 요청 중 예외 발생")
         return TranscriptionResult(text="", low_confidence=True)
 
     results = data.get("results") or []
+    if not results:
+        # HTTP 200으로 정상 응답이 왔는데 results가 비어있는 경우 - 이건 API 오류가 아니라
+        # Google STT가 "이 오디오에서 인식할 말이 없다"고 실제로 판단한 것(진짜 인식 실패).
+        # 위 HTTPError 로그와 구분해서 남겨두면, 다음에 같은 리포트가 들어왔을 때 "요청 자체가
+        # 실패한 건지" vs "요청은 됐는데 인식을 못 한 건지"를 로그만 보고 바로 구분할 수 있다.
+        logger.info("Google STT가 결과 없음을 반환함(요청은 정상) - response: %s", data)
     # SpeechRecognitionAlternative.transcript는 "각 결과를 구분자 없이 이어붙이면 전체
     # 텍스트가 된다"고 공식 문서에 명시돼 있다(첫 결과가 아니면 앞에 공백이 이미 포함됨).
     transcripts: list[str] = []
@@ -418,7 +457,12 @@ def _silence_stats(rms: np.ndarray, total_duration_sec: float) -> tuple[float, i
     if rms.size == 0:
         return 1.0, 0
 
-    peak = np.max(rms)
+    # 2026-08-19: _detect_speech_frames와 동일한 이유로 np.max 대신 _robust_peak(95th
+    # percentile) 사용 - 순간적인 스파이크 하나 때문에 "침묵 비율"이 실제보다 훨씬 높게
+    # (또는 리포트 표시용 구간이 실제 발화 구간과 어긋나게) 나오는 걸 막는다. 두 함수가
+    # 같은 rms 배열에 대해 서로 다른 피크 기준을 쓰면 리포트 지표(침묵 비율)와 STT 실행
+    # 여부가 서로 모순되는 결과를 보여줄 수 있어서 일관되게 맞춘다.
+    peak = _robust_peak(rms)
     if peak <= 0:
         return 1.0, 0  # 전부 무음
 
