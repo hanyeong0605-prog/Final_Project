@@ -23,4 +23,9 @@ public class LocalDevAuthController {
     public AuthResponse issueDevelopmentToken() {
         return service.issueDevelopmentToken();
     }
+
+    @PostMapping("/admin-token")
+    public AuthResponse issueDevelopmentAdminToken() {
+        return service.issueDevelopmentAdminToken();
+    }
 }

@@ -66,7 +66,7 @@ public class SecurityConfig {
                     authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
 
                     if (developmentAuthenticationEnabled) {
-                        authorize.requestMatchers("/api/v1/dev/auth/token").permitAll();
+                        authorize.requestMatchers("/api/v1/dev/auth/token", "/api/v1/dev/auth/admin-token").permitAll();
                     }
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/job-postings/**").permitAll();
                     // POST /ingest는 크롤러(ai-server)가 로그인 토큰 없이 호출한다 -
