@@ -65,7 +65,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       {!knownFamily && <label>목표 직무*<input required maxLength={80} value={form.targetRole} onChange={(event) => set("targetRole", event.target.value)} placeholder="예: 게임 서버 개발자" /></label>}
     </div></div>{educationSection}
 
-    <div className="form-section"><h3>지원 조건</h3><div className="form-fields">
+    <div className="form-section" id="resume-conditions"><h3>지원 조건</h3><div className="form-fields">
       <label>희망 지역<RegionSelectionModal value={form.preferredLocations} onChange={(next) => set("preferredLocations", next)} /></label>
       <label>입사 가능일<input type="date" value={form.availableFrom ?? ""} onChange={(event) => set("availableFrom", event.target.value || null)} /></label>
       <label>경력 구분<select value={form.experienceType} onChange={(event) => { const experienceType = event.target.value; set("experienceType", experienceType); if (experienceType === "ENTRY") set("totalCareerMonths", 0); }}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
