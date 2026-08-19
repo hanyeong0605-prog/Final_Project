@@ -76,6 +76,7 @@ public class ResumeDocumentService {
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
         applyExtractedSkills(memberId, data.path("suggestedSkills"));
         applyExtractedCertificates(memberId, data.path("suggestedCertificates"));
+        applyPersonalEntry(memberId, data.path("personalInfo"));
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
         return ResumeDocumentResponse.from(document);
     }
@@ -145,6 +146,12 @@ public class ResumeDocumentService {
         node.put("graduationStatus", inferGraduationStatus(text));
         node.put("targetRole", inferTargetRole(text));
         node.put("totalCareerMonths", inferCareerMonthsStructured(text));
+        ObjectNode personal = node.putObject("personalInfo");
+        putIfFound(personal, "name", find(text, "(?:성명|이름)\\s*(?:[|:：]\s*한글)?\\s*[|:：]?\\s*([가-힣]{2,5})"));
+        putIfFound(personal, "hanjaName", find(text, "한자\\s*[|:：]?\\s*([一-龥]{2,8})"));
+        putIfFound(personal, "birthDate", findBirthDate(text));
+        putIfFound(personal, "email", find(text, "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"));
+        putIfFound(personal, "phone", find(text, "(01[016789][- ]?\\d{3,4}[- ]?\\d{4})"));
         node.put("technicalSummary", summarizeExtracted(text, foundSkills));
         return node;
     }
@@ -156,8 +163,8 @@ public class ResumeDocumentService {
     private String inferEducationLevel(String text) {
         if (text.contains("박사")) return "DOCTOR";
         if (text.contains("석사")) return "MASTER";
-        if (text.contains("전문학사") || text.contains("전문대")) return "ASSOCIATE";
         if (text.contains("대학교") || text.contains("대학") || text.contains("학사")) return "BACHELOR";
+        if (text.contains("전문학사") || text.contains("전문대")) return "ASSOCIATE";
         if (text.contains("고등학교") || text.contains("고졸")) return "HIGH_SCHOOL";
         return "";
     }
@@ -198,10 +205,21 @@ public class ResumeDocumentService {
         while (matcher.find()) {
             int years = Integer.parseInt(matcher.group(1));
             int months = matcher.group(2) == null ? 0 : Integer.parseInt(matcher.group(2));
-            maximum = Math.max(maximum, years * 12 + months);
+            // 생년월일의 "2000년 06월" 같은 날짜를 경력으로 오인하지 않는다.
+            if (years > 0 && years <= 60 && months < 12) maximum = Math.max(maximum, years * 12 + months);
         }
         return maximum;
     }
+
+    private String find(String text, String pattern) {
+        Matcher matcher = Pattern.compile(pattern, Pattern.MULTILINE).matcher(text);
+        return matcher.find() ? matcher.group(1).trim() : "";
+    }
+    private String findBirthDate(String text) {
+        Matcher matcher = Pattern.compile("(\\d{4})\\s*년\\s*(\\d{1,2})\\s*월\\s*(\\d{1,2})\\s*일").matcher(text);
+        return matcher.find() ? String.format("%s-%02d-%02d", matcher.group(1), Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3))) : "";
+    }
+    private void putIfFound(ObjectNode target, String key, String value) { if (!blank(value)) target.put(key, value); }
 
     private String summarizeExtracted(String text, Set<String> skills) {
         List<String> lines = java.util.Arrays.stream(text.split("\\R"))
@@ -315,6 +333,21 @@ public class ResumeDocumentService {
             if (!name.isBlank() && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, "이력서 추출", null, null, null));
         }
         if (!additions.isEmpty()) certificates.saveAll(additions);
+    }
+    private void applyPersonalEntry(Long memberId, JsonNode personal) {
+        if (personal == null || !personal.isObject() || personal.isEmpty()) return;
+        String name = personal.path("name").asText("").trim();
+        if (name.isBlank()) return;
+        ResumeEntry existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).findFirst().orElse(null);
+        ObjectNode content = existing != null && existing.getContent().isObject()
+                ? (ObjectNode) existing.getContent().deepCopy() : json.createObjectNode();
+        for (String key : List.of("name", "hanjaName", "birthDate", "email", "phone", "address")) {
+            String value = personal.path(key).asText("").trim();
+            if (!value.isBlank()) content.put(key, value);
+        }
+        if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.PERSONAL, "인적사항", content, 0));
+        else existing.update("인적사항", content, existing.getDisplayOrder());
     }
     private String buildDraft(String title, String role, String skills, String education, int careerMonths, String certificates,
             String projects, String introduction, String additionalRequest, String template, String templateSource) {

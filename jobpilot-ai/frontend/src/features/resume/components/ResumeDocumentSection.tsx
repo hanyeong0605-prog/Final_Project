@@ -17,7 +17,14 @@ const questions = [
 ];
 
 type Profile = Record<string, unknown>;
+const personalInfo = (value: unknown) => {
+  if (!value || typeof value !== "object") return "";
+  const fields = value as Record<string, unknown>;
+  return [["성명", fields.name], ["한자", fields.hanjaName], ["생년월일", fields.birthDate], ["E-mail", fields.email], ["휴대전화", fields.phone]]
+    .filter(([, item]) => typeof item === "string" && item.trim()).map(([label, item]) => `${label}: ${item}`).join(" · ");
+};
 const profileFields: Array<{ key: string; label: string; format?: (value: unknown) => string }> = [
+  { key: "personalInfo", label: "인적사항", format: personalInfo },
   { key: "targetRole", label: "희망 직무" },
   { key: "suggestedSkills", label: "보유 기술 스택", format: (value) => Array.isArray(value) ? value.join(", ") : "" },
   { key: "suggestedCertificates", label: "보유 자격증", format: (value) => Array.isArray(value) ? value.join(", ") : "" },
@@ -26,7 +33,6 @@ const profileFields: Array<{ key: string; label: string; format?: (value: unknow
   { key: "major", label: "전공" },
   { key: "graduationStatus", label: "졸업 상태" },
   { key: "totalCareerMonths", label: "경력", format: (value) => Number(value) > 0 ? `${value}개월` : "" },
-  { key: "technicalSummary", label: "기술·경험 요약" },
 ];
 
 function useDocuments() {

@@ -30,8 +30,8 @@ export function CapabilityManagementPage() {
           <p>희망 직무, 경력, 기술 스택, 자격증, 학력을 직접 관리하거나 기존 이력서에서 자동으로 찾아볼 수 있어요.</p>
         </div>
         <div className="capability-tool-actions">
-          <button className="outline-button" onClick={() => setOpenTool("profile")}>스펙 정보 열기</button>
-          <button className="primary-button" onClick={() => setOpenTool("analysis")}>이력서 첨부하고 자동 채우기 <FileUp size={15} /></button>
+          <button className="primary-button" onClick={() => setOpenTool("profile")}>스펙정보 입력하기</button>
+          <button className="outline-button" onClick={() => setOpenTool("profile")}>스펙정보 관리</button>
         </div>
       </article>
       <article className={`capability-tool-card ${openTool === "writer" ? "selected" : ""}`}>
@@ -47,13 +47,13 @@ export function CapabilityManagementPage() {
       </article>
     </section>
 
-    {openTool === "profile" && <section className="panel capability-open-panel"><ToolHeader title="나의 스펙 정보" body="직접 수정한 내용은 공고 매칭 계산에 반영됩니다." close={() => setOpenTool(null)} /><ProfilePage /></section>}
+    {openTool === "profile" && <section className="panel capability-open-panel"><ToolHeader title="나의 스펙 정보 입력" body="이력서를 첨부해 자동으로 채우거나, 필요한 항목을 직접 입력해 저장할 수 있습니다." action={() => setOpenTool("analysis")} close={() => setOpenTool(null)} /><ProfilePage /></section>}
     {openTool === "analysis" && <section className="panel capability-open-panel"><ToolHeader title="이력서 첨부하고 자동 채우기" body="PDF/DOCX 이력서에서 발견한 정보만 스펙 제안으로 보여드립니다. 발견되지 않은 항목은 직접 기재해 주세요." close={() => setOpenTool(null)} /><ResumeProfileAnalysisSection /></section>}
     {openTool === "writer" && <section className="panel capability-open-panel"><ToolHeader title="이력서 작성 도우미" body="역량 불러오기 → 양식 선택 → 질문 답변 → AI 초안 생성 순서로 진행합니다." close={() => setOpenTool(null)} /><ResumeWritingAssistantSection /></section>}
     {!openTool && <section className="capability-guide panel"><Sparkles size={20} /><div><strong>기존 이력서가 있다면 먼저 분석해 보세요.</strong><p>추출 결과는 자동 저장되지 않습니다. 확인 후 프로필 반영을 누른 항목만 내 스펙과 채용공고 추천에 사용됩니다.</p></div></section>}
   </>;
 }
 
-function ToolHeader({ title, body, close }: { title: string; body: string; close: () => void }) {
-  return <div className="capability-open-heading"><div><span className="eyebrow">CAPABILITY WORKFLOW</span><h2>{title}</h2><p>{body}</p></div><button className="outline-button" onClick={close}>닫기</button></div>;
+function ToolHeader({ title, body, close, action }: { title: string; body: string; close: () => void; action?: () => void }) {
+  return <div className="capability-open-heading"><div><span className="eyebrow">CAPABILITY WORKFLOW</span><h2>{title}</h2><p>{body}</p></div><div className="form-actions">{action && <button className="primary-button" onClick={action}>이력서 첨부하고 자동 채우기 <FileUp size={15} /></button>}<button className="outline-button" onClick={close}>닫기</button></div></div>;
 }
