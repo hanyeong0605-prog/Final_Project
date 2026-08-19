@@ -1,6 +1,5 @@
 -- Detailed resume facts are kept independently from the one-row matching summary.
--- `entry_type` is a controlled application value (EDUCATION, CAREER, ACTIVITY,
--- AWARD, LANGUAGE, PORTFOLIO). `content` preserves the fields that differ per type.
+-- `entry_type` is a controlled application value; `content` preserves fields that differ per type.
 CREATE TABLE resume_entries (
     id BIGINT NOT NULL AUTO_INCREMENT,
     member_id BIGINT NOT NULL,
