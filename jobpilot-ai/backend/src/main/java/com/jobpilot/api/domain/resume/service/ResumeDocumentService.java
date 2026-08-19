@@ -13,6 +13,7 @@ import com.jobpilot.api.domain.resume.entity.*;
 import com.jobpilot.api.domain.resume.repository.ResumeDocumentRepository;
 import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import jakarta.transaction.Transactional;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +48,7 @@ public class ResumeDocumentService {
     }
     public ResumeDocumentResponse extract(Long memberId, MultipartFile file) {
         String text = extractor.extract(file);
-        ObjectNode extracted = inferStructured(text);
+        ObjectNode extracted = inferStructured(text, extractor.extractTableRows(file));
         // Uploading a resume is useful even without AI consent: local extraction still finds
         // obvious values. Only the explicit AI analysis sends text to the external model.
         if (aiConsent.hasAgreed(memberId)) enrichWithAi(extracted, text);
@@ -63,11 +64,11 @@ public class ResumeDocumentService {
         Member member = members.findById(memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "회원을 찾을 수 없습니다."));
         MemberProfile profile = profiles.findById(memberId).orElseGet(() -> new MemberProfile(memberId));
         MemberSpecification spec = specs.findById(memberId).orElseGet(() -> new MemberSpecification(memberId));
-        String role = first(data, "targetRole", profile.getTargetRole());
-        String schoolName = first(data, "schoolName", spec.getSchoolName());
-        String major = first(data, "major", spec.getMajor());
-        String education = first(data, "educationLevel", spec.getEducationLevel());
-        String graduationStatus = first(data, "graduationStatus", spec.getGraduationStatus());
+        String role = preserve(profile.getTargetRole(), data.path("targetRole").asText());
+        String schoolName = preserve(spec.getSchoolName(), data.path("schoolName").asText());
+        String major = preserve(spec.getMajor(), data.path("major").asText());
+        String education = preserve(spec.getEducationLevel(), data.path("educationLevel").asText());
+        String graduationStatus = preserve(spec.getGraduationStatus(), data.path("graduationStatus").asText());
         String summary = merge(sanitizeSummary(spec.getTechnicalSummary()),
                 sanitizeSummary(first(data, "technicalSummary", "")));
         int months = Math.max(spec.getTotalCareerMonths(), data.path("totalCareerMonths").asInt(0));
@@ -75,9 +76,9 @@ public class ResumeDocumentService {
         profile.update(empty(role), empty(profile.getTargetJobFamily()), locations, profile.getAvailableFrom(), empty(profile.getExperienceType()), empty(profile.getGithubUsername()));
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
         applyExtractedSkills(memberId, data.path("suggestedSkills"));
-        applyExtractedCertificates(memberId, data.path("suggestedCertificates"));
+        applyExtractedCertificates(memberId, data.path("certificateDetails"), data.path("suggestedCertificates"));
         applyPersonalEntry(memberId, data.path("personalInfo"));
-        applyEducationEntry(memberId, data);
+        applyStructuredEntries(memberId, data);
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
         return ResumeDocumentResponse.from(document);
     }
@@ -118,7 +119,7 @@ public class ResumeDocumentService {
      * value when the resume actually contains one, instead of copying section
      * headings such as "학력사항" into the profile summary.
      */
-    private ObjectNode inferStructured(String source) {
+    private ObjectNode inferStructured(String source, List<List<String>> tableRows) {
         String text = source == null ? "" : source.replace('\u00a0', ' ');
         String lower = text.toLowerCase(Locale.ROOT);
         ObjectNode node = json.createObjectNode();
@@ -153,10 +154,93 @@ public class ResumeDocumentService {
         putIfFound(personal, "birthDate", findBirthDate(text));
         putIfFound(personal, "email", find(text, "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"));
         putIfFound(personal, "phone", find(text, "(01[016789][- ]?\\d{3,4}[- ]?\\d{4})"));
+        parseResumeTables(node, tableRows);
+        // Prefer the latest structured academic record. Flat text heuristics are
+        // only a fallback for PDFs and non-tabular documents.
+        ArrayNode educations = node.withArray("educations");
+        if (!educations.isEmpty()) {
+            JsonNode latest = educations.get(educations.size() - 1);
+            node.put("schoolName", latest.path("school").asText(node.path("schoolName").asText()));
+            node.put("major", latest.path("major").asText(node.path("major").asText()));
+            node.put("educationLevel", latest.path("degree").asText(node.path("educationLevel").asText()));
+            node.put("graduationStatus", latest.path("status").asText(node.path("graduationStatus").asText()));
+        }
+        node.put("totalCareerMonths", careerMonths(node.withArray("careers")));
         // 문서 제목이 반복된 원문을 "추가 설명"으로 저장하지 않는다. 기술은 별도 기술 스택으로만 반영한다.
         node.put("technicalSummary", "");
         return node;
     }
+
+    /** Converts common Korean DOCX resume table rows into the editable entry shape. */
+    private void parseResumeTables(ObjectNode node, List<List<String>> rows) {
+        ArrayNode educations = node.putArray("educations"); ArrayNode trainings = node.putArray("trainings");
+        ArrayNode careers = node.putArray("careers"); ArrayNode awards = node.putArray("awards");
+        ArrayNode portfolios = node.putArray("portfolios"); ArrayNode certificates = node.putArray("certificateDetails");
+        ArrayNode introductions = node.putArray("selfIntroductions"); String section = "";
+        for (List<String> row : rows) {
+            if (row.isEmpty()) continue;
+            String joined = String.join(" | ", row); String compact = joined.replaceAll("\\s+", "");
+            if (compact.contains("성명") && compact.contains("한글")) { ObjectNode personal = (ObjectNode) node.path("personalInfo"); if (row.size() > 2) personal.put("name", row.get(2)); if (row.size() > 4) personal.put("hanjaName", row.get(4)); section = "personal"; continue; }
+            if (compact.contains("학교명") && compact.contains("졸업")) { section = "education"; continue; }
+            if (compact.contains("교육과정") && compact.contains("교육기관")) { section = "training"; continue; }
+            if (compact.contains("최종프로젝트") || compact.contains("중간프로젝트")) { section = "project"; continue; }
+            if (compact.contains("근무기간") && compact.contains("회사명")) { section = "career"; continue; }
+            if (compact.contains("자격증명") && compact.contains("발행기관")) { section = "certificate"; continue; }
+            if (compact.contains("복무기간") && compact.contains("병역사항")) { section = "military"; continue; }
+            if (compact.startsWith("성장과정") || compact.startsWith("내가잘할수있는일") || compact.startsWith("습득기술") || compact.startsWith("회사업무")) section = "introduction";
+            if ("personal".equals(section)) {
+                ObjectNode personal = (ObjectNode) node.path("personalInfo");
+                if (compact.contains("생년월일")) putIfFound(personal, "birthDate", findBirthDate(joined));
+                else if (compact.toLowerCase(Locale.ROOT).contains("e-mail") || compact.toLowerCase(Locale.ROOT).contains("email")) putIfFound(personal, "email", find(joined, "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"));
+                else if (compact.contains("휴대폰")) putIfFound(personal, "phone", find(joined, "(01[016789][- ]?\\d{3,4}[- ]?\\d{4})"));
+                else if (compact.contains("주소") && row.size() > 1) personal.put("address", row.get(1));
+                continue;
+            }
+            if ("education".equals(section) && row.size() >= 4 && hasPeriod(row.get(0))) {
+                ObjectNode value = educations.addObject(); String schoolRaw = row.get(1);
+                value.put("school", schoolRaw.replaceAll("\\s*\\([^)]*\\)", "").trim());
+                value.put("schoolNote", parenthesized(schoolRaw)); value.put("major", row.get(2).trim());
+                value.put("degree", degree(row.get(3))); value.put("status", graduation(row.get(3)));
+                putPeriod(value, row.get(0)); continue;
+            }
+            if ("training".equals(section) && row.size() >= 3 && hasPeriod(row.get(0))) {
+                String course = row.get(1).trim();
+                if (course.contains("상") || course.contains("수상")) { ObjectNode value = awards.addObject(); value.put("title", course); value.put("organization", row.get(2).trim()); value.put("description", course); }
+                else { ObjectNode value = trainings.addObject(); value.put("title", course); value.put("provider", row.get(2).trim()); value.put("description", course); putPeriod(value, row.get(0)); }
+                continue;
+            }
+            if ("career".equals(section) && row.size() >= 3 && hasPeriod(row.get(0))) {
+                ObjectNode value = careers.addObject(); value.put("company", row.get(1).trim()); value.put("description", row.get(2).trim()); if (row.size() > 3) value.put("position", row.get(3).trim()); putPeriod(value, row.get(0)); continue;
+            }
+            if ("certificate".equals(section) && row.size() >= 3 && row.get(0).matches("\\d{2}\\.\\d{2}.*")) {
+                ObjectNode value = certificates.addObject(); value.put("acquiredMonth", row.get(0).trim()); value.put("name", row.get(1).trim()); value.put("issuer", row.get(2).trim()); value.put("status", row.get(1).contains("합격") ? "필기 합격" : "취득"); continue;
+            }
+            if ("military".equals(section) && row.size() >= 3 && hasPeriod(row.get(0))) {
+                ObjectNode value = node.putObject("militaryService"); value.put("serviceType", row.get(2).contains("군필") ? "군필" : row.get(2).trim());
+                String detail = row.get(1); value.put("rank", firstContained(detail, List.of("이병", "일병", "상병", "병장", "하사", "중사", "상사", "원사")));
+                value.put("branch", firstContained(detail, List.of("육군", "해군", "공군", "해병"))); value.put("description", detail); putPeriod(value, row.get(0)); continue;
+            }
+            if ("project".equals(section) && row.size() >= 4 && hasPeriod(row.get(0)) && !"내용".equals(row.get(2).trim())) {
+                String title = row.get(1).replaceAll("\\s+", " ").trim(); if (!containsTitle(portfolios, title)) {
+                    ObjectNode value = portfolios.addObject(); value.put("title", title); value.put("description", "역할: " + row.get(2).trim() + "\n기술: " + row.get(3).trim()); putPeriod(value, row.get(0));
+                } continue;
+            }
+            if ("introduction".equals(section) && row.size() >= 2 && row.get(1).trim().length() > 40) {
+                ObjectNode value = introductions.addObject(); value.put("title", row.get(0).replaceAll("\\s+", " ").trim()); value.put("content", row.get(1).trim());
+            }
+        }
+        certificates.forEach(item -> node.withArray("suggestedCertificates").add(item.path("name").asText()));
+    }
+
+    private boolean hasPeriod(String value) { return value != null && value.matches(".*\\d{2,4}\\s*\\.\\s*\\d{1,2}.*"); }
+    private String parenthesized(String value) { Matcher matcher = Pattern.compile("\\(([^)]+)\\)").matcher(value); return matcher.find() ? matcher.group(1).trim() : ""; }
+    private String degree(String value) { if (value.contains("박사")) return "대학원"; if (value.contains("석사")) return "대학원"; if (value.contains("전문학사")) return "전문대"; if (value.contains("학사")) return "대학교"; return value.contains("고등") ? "고등학교" : ""; }
+    private String graduation(String value) { if (value.contains("예정")) return "졸업 예정"; if (value.contains("졸업")) return "졸업"; if (value.contains("재학")) return "재학"; if (value.contains("중퇴")) return "중퇴"; return ""; }
+    private String firstContained(String value, List<String> options) { return options.stream().filter(value::contains).findFirst().orElse(""); }
+    private void putPeriod(ObjectNode target, String period) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2}).*?[~\\-](\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(period); if (matcher.find()) { target.put("startedAt", monthDate(matcher.group(1), matcher.group(2))); target.put("endedAt", monthDate(matcher.group(3), matcher.group(4))); } }
+    private String monthDate(String year, String month) { int value = Integer.parseInt(year); if (value < 100) value += 2000; return String.format("%04d-%02d-01", value, Integer.parseInt(month)); }
+    private int careerMonths(ArrayNode careers) { int total = 0; for (JsonNode career : careers) { try { LocalDate start = LocalDate.parse(career.path("startedAt").asText()); LocalDate end = LocalDate.parse(career.path("endedAt").asText()); total += Math.max(0, (end.getYear() - start.getYear()) * 12 + end.getMonthValue() - start.getMonthValue()); } catch (Exception ignored) { } } return total; }
+    private boolean containsTitle(ArrayNode values, String title) { for (JsonNode value : values) if (title.equals(value.path("title").asText())) return true; return false; }
 
     private boolean containsTerm(String text, String term) {
         return !blank(term) && text.contains(term.toLowerCase(Locale.ROOT));
@@ -310,6 +394,7 @@ public class ResumeDocumentService {
     private String keywordAfter(String text,String... keys){ for(String k:keys){int i=text.indexOf(k); if(i>0)return text.substring(Math.max(0,i-24),Math.min(text.length(),i+k.length())).replaceAll("[\\r\\n]+"," ").trim();} return ""; }
     private String summarize(String text){ return text.replaceAll("\\s+"," ").trim().substring(0, Math.min(800, text.replaceAll("\\s+"," ").trim().length())); }
     private String first(JsonNode node,String field,String fallback){String v=node.path(field).asText(""); return blank(v)?fallback:v;}
+    private String preserve(String current, String extracted) { return blank(current) ? empty(extracted) : current; }
     private String templateKey(String value) {
         if ("PROJECT".equalsIgnoreCase(value)) return "PROJECT";
         if ("COMPACT".equalsIgnoreCase(value)) return "COMPACT";
@@ -326,11 +411,16 @@ public class ResumeDocumentService {
         }
         if (!additions.isEmpty()) memberSkills.saveAll(additions);
     }
-    private void applyExtractedCertificates(Long memberId, JsonNode candidates) {
-        if (!candidates.isArray()) return;
+    private void applyExtractedCertificates(Long memberId, JsonNode details, JsonNode candidates) {
         Set<String> owned = certificates.findByMemberId(memberId).stream().map(Certificate::getName).map(this::normalize).collect(Collectors.toSet());
         List<Certificate> additions = new java.util.ArrayList<>();
-        for (JsonNode candidate : candidates) {
+        boolean structured = details.isArray() && !details.isEmpty();
+        if (structured) for (JsonNode detail : details) {
+            String name = detail.path("name").asText("").trim();
+            // "필기 합격" is useful in the review but is not an acquired certificate.
+            if (!name.isBlank() && !name.contains("필기") && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, detail.path("issuer").asText("이력서 추출"), parseMonth(detail.path("acquiredMonth").asText()), null, null));
+        }
+        if (!structured && candidates.isArray()) for (JsonNode candidate : candidates) {
             String name = candidate.asText("").trim();
             if (!name.isBlank() && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, "이력서 추출", null, null, null));
         }
@@ -346,26 +436,32 @@ public class ResumeDocumentService {
                 ? (ObjectNode) existing.getContent().deepCopy() : json.createObjectNode();
         for (String key : List.of("name", "hanjaName", "birthDate", "email", "phone", "address")) {
             String value = personal.path(key).asText("").trim();
-            if (!value.isBlank()) content.put(key, value);
+            if (!value.isBlank() && content.path(key).asText("").isBlank()) content.put(key, value);
         }
         if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.PERSONAL, "인적사항", content, 0));
         else existing.update("인적사항", content, existing.getDisplayOrder());
     }
-    private void applyEducationEntry(Long memberId, JsonNode data) {
-        String school = data.path("schoolName").asText("").trim();
-        String major = data.path("major").asText("").trim();
-        if (school.isBlank() && major.isBlank()) return;
-        ResumeEntry existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
-                .filter(entry -> entry.getEntryType() == ResumeEntryType.EDUCATION).findFirst().orElse(null);
-        ObjectNode content = existing != null && existing.getContent().isObject()
-                ? (ObjectNode) existing.getContent().deepCopy() : json.createObjectNode();
-        for (String key : List.of("schoolName", "major", "educationLevel", "graduationStatus")) {
-            String value = data.path(key).asText("").trim(); if (!value.isBlank()) content.put(switch (key) { case "schoolName" -> "school"; case "educationLevel" -> "degree"; case "graduationStatus" -> "status"; default -> key; }, value);
+    private void applyStructuredEntries(Long memberId, JsonNode data) {
+        List<ResumeEntry> existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId);
+        appendEntries(memberId, existing, ResumeEntryType.EDUCATION, data.path("educations"), "school");
+        appendEntries(memberId, existing, ResumeEntryType.CAREER, data.path("careers"), "company");
+        appendEntries(memberId, existing, ResumeEntryType.TRAINING, data.path("trainings"), "title");
+        appendEntries(memberId, existing, ResumeEntryType.AWARD, data.path("awards"), "title");
+        appendEntries(memberId, existing, ResumeEntryType.PORTFOLIO, data.path("portfolios"), "title");
+        JsonNode military = data.path("militaryService");
+        if (military.isObject() && existing.stream().noneMatch(entry -> entry.getEntryType() == ResumeEntryType.PREFERENCE)) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.PREFERENCE, "병역사항", military, 0));
+        if (data.path("selfIntroductions").isArray()) for (JsonNode intro : data.path("selfIntroductions")) {
+            String title = intro.path("title").asText("").trim(); String content = intro.path("content").asText("").trim();
+            if (!title.isBlank() && !content.isBlank() && introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().noneMatch(item -> item.getTitle().equals(title))) introductions.save(new SelfIntroduction(memberId, title, content, false));
         }
-        String title = school.isBlank() ? "학력" : school;
-        if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.EDUCATION, title, content, 0));
-        else existing.update(title, content, existing.getDisplayOrder());
     }
+    private void appendEntries(Long memberId, List<ResumeEntry> existing, ResumeEntryType type, JsonNode values, String titleKey) {
+        if (!values.isArray()) return; int order = (int) existing.stream().filter(entry -> entry.getEntryType() == type).count();
+        for (JsonNode value : values) { String title = value.path(titleKey).asText("").trim();
+            if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == type && entry.getTitle().equals(title))) resumeEntries.save(new ResumeEntry(memberId, type, title, value, order++));
+        }
+    }
+    private LocalDate parseMonth(String value) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(value == null ? "" : value); return matcher.find() ? LocalDate.parse(monthDate(matcher.group(1), matcher.group(2))) : null; }
     private String buildDraft(String title, String role, String skills, String education, int careerMonths, String certificates,
             String projects, String introduction, String additionalRequest, String template, String templateSource) {
         String target = "## 지원 직무\n" + value(role, "지원 직무를 입력해 주세요");
