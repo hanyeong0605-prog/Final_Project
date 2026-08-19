@@ -45,6 +45,15 @@ export function HomePage() {
         <div><CheckCircle2 size={17} /><p><b>역량 프로필</b>을 채우면 공고별 준비도가 더 정확해져요.</p></div>
         <Link to="/profile">내 역량 업데이트 <ArrowRight size={15} /></Link>
       </aside>
+      {/* 2026-08-19: 모바일에서 히어로 그림이 별도 블록으로 분리되면서 생긴 빈 공간을
+          활용 - 그림 속 "노트북 고양이"를 누르면 채용공고로, 왼쪽 빈 자리에 올린
+          "면접모드" 마스코트를 누르면 모의면접으로 이동한다. (데스크톱은 기존 그대로) */}
+      <div className="home-hero-illustration">
+        <Link to="/jobs" className="home-hero-hotspot home-hero-hotspot-cat" aria-label="맞춤 채용공고 보기" />
+        <Link to="/mock-interview" className="home-hero-hotspot home-hero-hotspot-interview" aria-label="AI 모의면접 시작">
+          <img src="/mascot-interview.png" alt="AI 모의면접 시작" />
+        </Link>
+      </div>
     </section>
 
     <section className="home-quick-section" data-scroll-reveal>
