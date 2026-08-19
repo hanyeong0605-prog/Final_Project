@@ -637,6 +637,12 @@ a { color: inherit; text-decoration: none; }
 .interview-option-chip:hover { background: #e4e9ff; border-color: #a9b8ff; }
 .interview-option-chip:active { transform: scale(0.97); }
 .interview-option-chip.active { background: #596ff3; border-color: #596ff3; color: #fff; box-shadow: 0 6px 14px #596ff340; }
+/* 2026-08-19: "프로필 불러오기" 중엔 면접 유형/분야를 실제 면접처럼 직접 못 고르게
+   비활성화한다(MockInterviewPage.tsx 참고) - 클릭 자체를 막고(버튼 disabled), 흐릿하게
+   보이게 해서 "지금은 못 만진다"는 걸 시각적으로도 알려준다. */
+.interview-option-group-disabled { opacity: 0.45; }
+.interview-option-chip:disabled { cursor: not-allowed; }
+.interview-option-chip:disabled:hover { background: #f2f5ff; border-color: #cad5ff; }
 
 /* Profile skill editor */
 .skill-profile-editor { display: grid; gap: 12px; }
