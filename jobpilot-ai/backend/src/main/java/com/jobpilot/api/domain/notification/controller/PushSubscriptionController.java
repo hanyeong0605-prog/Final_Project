@@ -9,13 +9,18 @@ import com.jobpilot.api.domain.notification.service.WebPushService;
 import com.jobpilot.api.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/push")
 public class PushSubscriptionController {
+    private static final Logger log = LoggerFactory.getLogger(PushSubscriptionController.class);
+
     private final PushSubscriptionService service;
     private final WebPushService webPush;
     private final AdminAccessService adminAccess;
@@ -73,8 +78,20 @@ public class PushSubscriptionController {
         String body = "웹푸시가 정상적으로 도착했어요.";
         String url = "/mypage";
         webPush.sendToMember(memberId, title, body, url);
-        // target_id는 NOT NULL이라 실제 대상이 없는 테스트 발송은 memberId 자신을 넣어둔다.
-        notificationLogs.save(new NotificationLog(memberId, "TEST", memberId, "TEST", title, body, url));
+        // 2026-08-19: 버그 수정 - notification_logs에는 (member_id, target_type, target_id,
+        // notification_type) 유니크 제약(V25)이 걸려 있는데, 테스트 발송은 항상 같은 조합
+        // (memberId, "TEST", memberId, "TEST")으로 저장하려고 해서 관리자가 "테스트 알림
+        // 보기"를 두 번째 누르는 순간부터 DB가 중복 키를 거부해 DataIntegrityViolationException이
+        // 그대로 500으로 튀어나왔다(마감임박/추천 스케줄러는 저장 전에 existsBy...로 먼저
+        // 확인하는데, 이 테스트 엔드포인트만 그 가드가 없었음). 실제 웹푸시 발송(위 sendToMember)은
+        // 이미 끝난 뒤라 로그 저장 실패 때문에 "발송 자체가 실패했다"고 보여줄 이유가 없어서,
+        // 로그 저장은 fail-open으로 처리한다(저장 실패해도 응답은 sent:true 그대로).
+        try {
+            // target_id는 NOT NULL이라 실제 대상이 없는 테스트 발송은 memberId 자신을 넣어둔다.
+            notificationLogs.save(new NotificationLog(memberId, "TEST", memberId, "TEST", title, body, url));
+        } catch (DataIntegrityViolationException e) {
+            log.info("테스트 알림 로그 저장 생략(이미 같은 조합의 로그가 있음, memberId={})", memberId);
+        }
         return Map.of("sent", true);
     }
 }

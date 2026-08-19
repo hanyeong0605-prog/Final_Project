@@ -19,6 +19,7 @@ import {
   PauseCircle,
   Quote,
   RotateCcw,
+  SkipForward,
   Sparkles,
   Square,
   Volume2,
@@ -1699,6 +1700,37 @@ export function MockInterviewPage() {
     finishAnswer({ transcript: text, low_confidence_transcript: false, metrics: null }, null);
   };
 
+  // 2026-08-19: "질문 건너뛰기도 있었으면 좋겠다"는 요청으로 추가 - 녹음 중이던 내용은
+  // 서버로 보내서 분석(STT/음성분석)하지 않고 그냥 "건너뛴 질문"이라는 표시만 남긴 채
+  // 다음 질문으로 넘어간다. stopRecording과 달리 submitRecording(analyzeAnswer 호출)로
+  // 이어지면 안 되므로, recorder.onstop 핸들러를 먼저 떼어낸 뒤 stop한다 - onstop이 그대로
+  // 붙어있으면 방금 건너뛴 질문의 (짧고 의미 없을 가능성이 큰) 녹음이 그대로 분석돼버린다.
+  // 세션 리포트(evaluation.py generate_session_report)는 각 답변의 transcript를 그대로
+  // Gemini 프롬프트에 넣으므로, 빈 문자열 대신 "건너뛰었다"는 걸 명시한 문장을 넣어서
+  // 모델이 "답변 없음"과 헷갈리지 않고 그대로 코멘트할 수 있게 한다.
+  const skipCurrentQuestion = () => {
+    if (isRecordingRef.current && mediaRecorderRef.current) {
+      mediaRecorderRef.current.onstop = null;
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        // 이미 멈춘 상태 등은 무시 - 어차피 아래에서 상태를 정리한다.
+      }
+    }
+    isRecordingRef.current = false;
+    stopFaceLoop();
+    if (timerIdRef.current !== null) {
+      window.clearInterval(timerIdRef.current);
+      timerIdRef.current = null;
+    }
+    pendingAnalysisRef.current = null;
+    breakCountdownDoneRef.current = false;
+    finishAnswer(
+      { transcript: "(사용자가 이 질문을 건너뛰었습니다)", low_confidence_transcript: false, metrics: null },
+      null,
+    );
+  };
+
   // 세션을 완전히 종료하고 랜딩 화면으로 돌아간다 - 카메라/마이크 스트림도 이 시점에만 끈다.
   const endSession = () => {
     stopMeterLoop();
@@ -1973,15 +2005,87 @@ export function MockInterviewPage() {
                 </button>
               </div>
 
-              {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
-                  계열 질문(팀 갈등, 강점/약점 등)은 지원자의 경험을 묻는 거라 분야가 달라도
-                  질문 자체는 같아도 되지만, 직무(기술) 면접만 분야별로 내용이 달라야 한다는
-                  게 핵심 아이디어. "전체"(선택 안 함)는 기존처럼 6개 카테고리를 다 순환한다. */}
+              {/* 2026-08-19: "연습(범용 질문) 없애고 프로필 불러오기는 따로 만들어서, 프로필을
+                  불러오면 실제 면접처럼 면접 유형/면접 분야를 비활성화해달라"는 요청으로 개편.
+                  예전엔 "연습"/"프로필 불러오기" 두 칩 중 하나를 고르는 그룹이었는데, 이제
+                  "프로필 불러오기" 하나만 있는 토글이다(안 누르면 기존 "연습"과 동일하게
+                  면접 유형/분야를 직접 고른다 - 기본값은 그대로 questionSource="practice").
+                  이 토글이 맨 위로 올라온 이유: 아래 두 그룹(면접 유형/면접 분야)의 활성화
+                  여부가 이 값에 달려있어서, 사용자가 먼저 보고 정할 수 있게 순서를 바꿨다. */}
               <div className="interview-option-group">
-                <span className="interview-option-label">면접 유형</span>
+                <span className="interview-option-label">질문 기준</span>
                 <div className="interview-option-row">
                   <button
                     type="button"
+                    className={`interview-option-chip${questionSource === "profile" ? " active" : ""}`}
+                    onClick={() => {
+                      const next = questionSource === "profile" ? "practice" : "profile";
+                      setQuestionSource(next);
+                      // 프로필 불러오기를 켜는 순간, 그 자리에서 직접 고른 면접 유형/분야는
+                      // 초기화한다 - 안 그러면 buildSessionQuestions에서 이 값들이 프로필의
+                      // job/techSummary보다 우선해버려서 "프로필 불러오기"가 무의미해진다.
+                      if (next === "profile") {
+                        setSelectedInterviewType(null);
+                        setSelectedRole(null);
+                      }
+                    }}
+                  >
+                    프로필 불러오기
+                  </button>
+                </div>
+                {questionSource === "profile" && (
+                  <p style={{ marginTop: 10, fontSize: 12, color: "#9098a7" }}>
+                    실제 면접처럼 면접 유형·분야를 직접 고르지 않고, 마이페이지에 입력한 목표
+                    직무·기술 요약을 그대로 반영해서 질문을 만들어요.
+                  </p>
+                )}
+                {questionSource === "profile" && !subscribed && (
+                  <p className="account-alert" style={{ marginTop: 10 }}>
+                    프로필 맞춤 질문은 구독자 전용 기능이에요. 구독하면 마이페이지에 입력해둔
+                    목표 직무·기술 요약을 반영한 질문을 받을 수 있어요.{" "}
+                    <Link to="/account" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>
+                      맞춤 모의면접 보기
+                    </Link>
+                  </p>
+                )}
+                {questionSource === "profile" && subscribed && !careerJob && !careerTechSummary && (
+                  <p className="account-alert" style={{ marginTop: 10 }}>
+                    아직 프로필에 입력된 목표 직무·기술 요약이 없어요.{" "}
+                    <Link to="/profile">프로필 작성하기</Link>
+                  </p>
+                )}
+                {/* 2026-08-19: "프로필 불러오기가 된 건지 어떻게 아냐, 구독자는 불러와졌으면
+                    '프로필을 불러왔어요!' 식으로 알려줘야 한다"는 요청으로 추가 - 구독 중이고
+                    실제로 반영할 프로필 데이터(목표 직무 또는 기술 요약)가 있을 때만 보여준다
+                    (subscribed && !careerJob && !careerTechSummary 분기와 상호 배타적). */}
+                {questionSource === "profile" && subscribed && (careerJob || careerTechSummary) && (
+                  <p className="account-alert" style={{ marginTop: 10 }}>
+                    프로필을 불러왔어요! 마이페이지에 입력한 목표 직무·기술 요약을 반영해서
+                    질문을 만들게요.
+                    {careerJob && (
+                      <>
+                        {" "}
+                        (목표 직무: <strong>{careerJob}</strong>)
+                      </>
+                    )}
+                  </p>
+                )}
+              </div>
+
+              {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
+                  계열 질문(팀 갈등, 강점/약점 등)은 지원자의 경험을 묻는 거라 분야가 달라도
+                  질문 자체는 같아도 되지만, 직무(기술) 면접만 분야별로 내용이 달라야 한다는
+                  게 핵심 아이디어. "전체"(선택 안 함)는 기존처럼 6개 카테고리를 다 순환한다.
+                  2026-08-19: "프로필 불러오기" 중엔 실제 면접처럼 유형을 직접 못 고르게
+                  비활성화한다(위 토글 참고). */}
+              <div className={`interview-option-group${questionSource === "profile" ? " interview-option-group-disabled" : ""}`}>
+                <span className="interview-option-label">
+                  면접 유형{questionSource === "profile" && <span style={{ fontWeight: 400, color: "#9098a7" }}> (프로필 기준으로 자동 결정)</span>}
+                </span>
+                <div className="interview-option-row">
+                  <button
+                    type="button"
+                    disabled={questionSource === "profile"}
                     className={`interview-option-chip${selectedInterviewType === "" ? " active" : ""}`}
                     onClick={() => setSelectedInterviewType("")}
                   >
@@ -1991,6 +2095,7 @@ export function MockInterviewPage() {
                     <button
                       key={type}
                       type="button"
+                      disabled={questionSource === "profile"}
                       className={`interview-option-chip${selectedInterviewType === type ? " active" : ""}`}
                       onClick={() => setSelectedInterviewType(type)}
                     >
@@ -2000,56 +2105,20 @@ export function MockInterviewPage() {
                 </div>
               </div>
 
-              {/* 2026-08-13: "프로필 불러오기는 구독자만, 그리고 연습/프로필 불러오기를 직접
-                  고르게 해달라"는 요청으로 추가한 그룹. 예전엔 "면접 분야"에서 "선택 안 함"을
-                  고르면 프로필이 있을 때 조용히 자동 적용됐는데, 이제 이 그룹에서 명시적으로
-                  "프로필 불러오기"를 골라야 하고 구독 중(관리자는 항상 subscribed=true)일
-                  때만 실제로 반영된다 - 비구독자가 고르면 TimelinePage 누적 인사이트와 같은
-                  스타일의 구독 유도 패널을 보여준다. */}
-              <div className="interview-option-group">
-                <span className="interview-option-label">질문 기준</span>
-                <div className="interview-option-row">
-                  <button
-                    type="button"
-                    className={`interview-option-chip${questionSource === "practice" ? " active" : ""}`}
-                    onClick={() => setQuestionSource("practice")}
-                  >
-                    연습 (범용 질문)
-                  </button>
-                  <button
-                    type="button"
-                    className={`interview-option-chip${questionSource === "profile" ? " active" : ""}`}
-                    onClick={() => setQuestionSource("profile")}
-                  >
-                    프로필 불러오기
-                  </button>
-                </div>
-                {questionSource === "profile" && !subscribed && (
-                  <p className="account-alert" style={{ marginTop: 10 }}>
-                    프로필 맞춤 질문은 구독자 전용 기능이에요. 구독하면 마이페이지에 입력해둔
-                    목표 직무·기술 요약을 반영한 질문을 받을 수 있어요.{" "}
-                    <Link to="/account">구독하기</Link>
-                  </p>
-                )}
-                {questionSource === "profile" && subscribed && !careerJob && !careerTechSummary && (
-                  <p className="account-alert" style={{ marginTop: 10 }}>
-                    아직 프로필에 입력된 목표 직무·기술 요약이 없어요.{" "}
-                    <Link to="/profile">프로필 작성하기</Link>
-                  </p>
-                )}
-              </div>
-
-              {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다 - "프로필 불러오기"
-                  여부와 무관하게 여기서 명시적으로 고른 분야가 항상 우선한다. 드롭다운 대신
+              {/* 2026-08-06: 분야를 고르면 그 분야에 맞는 질문이 나온다. 드롭다운 대신
                   라디오버튼처럼 클릭하는 카드(칩) 형태로 해달라는 요청으로 select를 버튼
-                  그룹으로 바꿨다. */}
-              <div className="interview-option-group">
-                <span className="interview-option-label">면접 분야</span>
+                  그룹으로 바꿨다. 2026-08-19: "프로필 불러오기" 중엔 위 면접 유형과 같은
+                  이유로 비활성화한다. */}
+              <div className={`interview-option-group${questionSource === "profile" ? " interview-option-group-disabled" : ""}`}>
+                <span className="interview-option-label">
+                  면접 분야{questionSource === "profile" && <span style={{ fontWeight: 400, color: "#9098a7" }}> (프로필 기준으로 자동 결정)</span>}
+                </span>
                 {/* 2026-08-07: 선택 안 함 + 분야 5개 = 6개라 auto-fit이 5+1로 어색하게
                     쪼개졌다 - 3열로 고정해서 3+3으로 깔끔하게 떨어지게 했다. */}
                 <div className="interview-option-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                   <button
                     type="button"
+                    disabled={questionSource === "profile"}
                     className={`interview-option-chip${selectedRole === "" ? " active" : ""}`}
                     onClick={() => setSelectedRole("")}
                   >
@@ -2059,6 +2128,7 @@ export function MockInterviewPage() {
                     <button
                       key={code}
                       type="button"
+                      disabled={questionSource === "profile"}
                       className={`interview-option-chip${selectedRole === code ? " active" : ""}`}
                       onClick={() => setSelectedRole(code)}
                     >
@@ -2226,6 +2296,11 @@ export function MockInterviewPage() {
                     <button className="primary-button" onClick={submitTypedAnswer} type="button" disabled={!typedAnswer.trim()}>
                       답변 제출
                     </button>
+                    {/* 2026-08-19: "질문 건너뛰기" 요청으로 추가 - 답변을 안 쓰고 다음 질문으로
+                        바로 넘어간다(취소와 달리 세션 자체는 계속 진행됨). */}
+                    <button className="text-button" onClick={skipCurrentQuestion} type="button">
+                      <SkipForward size={14} /> 이 질문 건너뛰기
+                    </button>
                     <button
                       className="text-button"
                       onClick={() => {
@@ -2333,9 +2408,16 @@ export function MockInterviewPage() {
                 {String(Math.floor(elapsedSec / 60)).padStart(2, "0")}:{String(elapsedSec % 60).padStart(2, "0")}
               </strong>
               <span style={{ fontSize: 11, color: "#9098a7" }}>권장 답변 길이: 30초~1분</span>
-              <button className="primary-button" onClick={stopRecording} type="button">
-                <Square size={14} /> 답변 완료
-              </button>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="primary-button" onClick={stopRecording} type="button">
+                  <Square size={14} /> 답변 완료
+                </button>
+                {/* 2026-08-19: "질문 건너뛰기" 요청으로 추가 - 지금까지 녹음한 내용은 분석하지
+                    않고 버리고(skipCurrentQuestion 참고) 바로 다음 질문으로 넘어간다. */}
+                <button className="text-button" onClick={skipCurrentQuestion} type="button">
+                  <SkipForward size={14} /> 건너뛰기
+                </button>
+              </div>
             </>
           )}
 
