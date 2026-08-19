@@ -77,6 +77,7 @@ public class ResumeDocumentService {
         applyExtractedSkills(memberId, data.path("suggestedSkills"));
         applyExtractedCertificates(memberId, data.path("suggestedCertificates"));
         applyPersonalEntry(memberId, data.path("personalInfo"));
+        applyEducationEntry(memberId, data);
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
         return ResumeDocumentResponse.from(document);
     }
@@ -137,7 +138,7 @@ public class ResumeDocumentService {
         foundSkills.stream().limit(30).forEach(skills::add);
 
         ArrayNode certificates = node.putArray("suggestedCertificates");
-        for (String certificate : List.of("정보처리기사", "정보처리산업기사", "SQLD", "SQLP", "ADsP", "ADP", "AWS Certified", "컴퓨터활용능력", "OPIc", "토익")) {
+        for (String certificate : List.of("정보처리기사", "정보처리산업기사", "정보처리기능사", "SQLD", "SQLP", "ADsP", "ADP", "AWS Certified", "컴퓨터활용능력", "ITQ", "운전면허", "1종보통", "2종보통", "OPIc", "토익")) {
             if (text.contains(certificate)) certificates.add(certificate);
         }
         node.put("educationLevel", inferEducationLevel(text));
@@ -152,7 +153,8 @@ public class ResumeDocumentService {
         putIfFound(personal, "birthDate", findBirthDate(text));
         putIfFound(personal, "email", find(text, "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"));
         putIfFound(personal, "phone", find(text, "(01[016789][- ]?\\d{3,4}[- ]?\\d{4})"));
-        node.put("technicalSummary", summarizeExtracted(text, foundSkills));
+        // 문서 제목이 반복된 원문을 "추가 설명"으로 저장하지 않는다. 기술은 별도 기술 스택으로만 반영한다.
+        node.put("technicalSummary", "");
         return node;
     }
 
@@ -348,6 +350,21 @@ public class ResumeDocumentService {
         }
         if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.PERSONAL, "인적사항", content, 0));
         else existing.update("인적사항", content, existing.getDisplayOrder());
+    }
+    private void applyEducationEntry(Long memberId, JsonNode data) {
+        String school = data.path("schoolName").asText("").trim();
+        String major = data.path("major").asText("").trim();
+        if (school.isBlank() && major.isBlank()) return;
+        ResumeEntry existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .filter(entry -> entry.getEntryType() == ResumeEntryType.EDUCATION).findFirst().orElse(null);
+        ObjectNode content = existing != null && existing.getContent().isObject()
+                ? (ObjectNode) existing.getContent().deepCopy() : json.createObjectNode();
+        for (String key : List.of("schoolName", "major", "educationLevel", "graduationStatus")) {
+            String value = data.path(key).asText("").trim(); if (!value.isBlank()) content.put(switch (key) { case "schoolName" -> "school"; case "educationLevel" -> "degree"; case "graduationStatus" -> "status"; default -> key; }, value);
+        }
+        String title = school.isBlank() ? "학력" : school;
+        if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.EDUCATION, title, content, 0));
+        else existing.update(title, content, existing.getDisplayOrder());
     }
     private String buildDraft(String title, String role, String skills, String education, int careerMonths, String certificates,
             String projects, String introduction, String additionalRequest, String template, String templateSource) {
