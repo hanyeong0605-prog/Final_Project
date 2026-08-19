@@ -6,7 +6,7 @@ import { CertificateDetailModal } from "./CertificateDetailModal";
 // 2026-08-11: showDetail=false면 상세보기 버튼/모달을 아예 안 띄운다 - CareerProfileForm의
 // 스펙 입력 칸처럼 "종목만 골라서 바로 추가"가 목적인 곳에서는 상세보기가 불필요한
 // 클릭 유도라 뺀다(성장 기회 추천 페이지의 찜하기 모달은 기본값 true로 유지).
-type Props = { onSelect: (item: QnetQualification) => void; actionLabel?: string; showDetail?: boolean; onManual?: () => void };
+type Props = { onSelect: (item: QnetQualification) => void; actionLabel?: string; showDetail?: boolean; onManual?: (name: string) => void };
 
 // 2026-08-11: 인라인 드롭다운으로 카드 안 좁은 컬럼에 결과를 욱여넣다 보니 폭 계산이
 // 계속 깨져서(선택 버튼 0px로 찌부러지는 버그 등), EducationSearchModal과 똑같은
@@ -51,7 +51,7 @@ export function CertificateSearchModal({ onSelect, actionLabel = "선택", showD
             <button type="button" className="certificate-modal-select" onClick={() => choose(item)}>{actionLabel}</button>
             {showDetail && <button type="button" className="certificate-modal-detail" onClick={() => setDetailItem(item)}>상세보기</button>}
           </div>)}
-          {!loading && query.trim().length > 0 && results.length === 0 && !error && <div className="education-search-hint"><p>검색 결과가 없습니다.</p>{onManual && <button type="button" className="outline-button" onClick={() => { onManual(); setOpen(false); }}>직접 입력하기</button>}</div>}
+          {!loading && query.trim().length > 0 && results.length === 0 && !error && <div className="education-search-hint"><p>검색 결과가 없습니다.</p>{onManual && <button type="button" className="outline-button" onClick={() => { onManual(query.trim()); setOpen(false); }}>“{query.trim()}” 직접 입력하기</button>}</div>}
         </div>
       </section>
     </div>}

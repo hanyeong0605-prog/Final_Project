@@ -12,12 +12,13 @@ type Props = {
   initial?: CareerProfile;
   initialSkills?: MemberSkill[];
   initialCertificates?: MemberCertificate[];
+  onCertificatesChange?: (value: MemberCertificate[]) => void;
   onSave: (value: CareerProfile, skills: MemberSkill[], certificates: MemberCertificate[]) => Promise<void>;
   onCancel?: () => void;
   saveLabel?: string;
 };
 
-export function CareerProfileForm({ initial, initialSkills, initialCertificates, onSave, onCancel, saveLabel = "정보 저장하기" }: Props) {
+export function CareerProfileForm({ initial, initialSkills, initialCertificates, onCertificatesChange, onSave, onCancel, saveLabel = "정보 저장하기" }: Props) {
   const [form, setForm] = useState<CareerProfile>(initial ?? emptyCareerProfile());
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
   const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
@@ -26,6 +27,14 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   useEffect(() => { if (initial) setForm(initial); }, [initial]);
   useEffect(() => { if (initialSkills) setSkills(initialSkills); }, [initialSkills]);
   useEffect(() => { if (initialCertificates) setCertificates(initialCertificates); }, [initialCertificates]);
+  useEffect(() => { onCertificatesChange?.(certificates); }, [certificates, onCertificatesChange]);
+  useEffect(() => {
+    const addCertificate = () => setCertificates((current) => current.length >= 20 ? current : [...current, emptyMemberCertificate()]);
+    const removeCertificate = () => setCertificates((current) => current.slice(0, -1));
+    window.addEventListener("resume-certificates:add", addCertificate);
+    window.addEventListener("resume-certificates:remove", removeCertificate);
+    return () => { window.removeEventListener("resume-certificates:add", addCertificate); window.removeEventListener("resume-certificates:remove", removeCertificate); };
+  }, []);
 
   const set = <K extends keyof CareerProfile>(key: K, value: CareerProfile[K]) => setForm((current) => ({ ...current, [key]: value }));
   const knownFamily = Object.hasOwn(jobFamilies, form.targetJobFamily);
@@ -59,8 +68,15 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
 
     <div className="form-section" id="resume-skills"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
 
-    <div className="form-section" id="resume-certificates"><h3>자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
-      <CertificateSearchModal showDetail={false} onManual={() => setCertificates((current) => [...current, emptyMemberCertificate()])} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
+    <div className="form-section"><h3>학력</h3><div className="form-fields">
+      <label>최종 학력<select value={form.educationLevel ?? ""} onChange={(event) => { const next = event.target.value || null; set("educationLevel", next); set("schoolName", null); set("major", null); }}><option value="">선택 안 함</option><option value="HIGH_SCHOOL">고등학교</option><option value="COLLEGE">전문대</option><option value="BACHELOR">대학교</option><option value="MASTER">대학원</option></select></label>
+      <label>학교명<EducationSearchModal kind="school" educationLevel={form.educationLevel} selectedSchool={form.schoolName} value={form.schoolName} onSelect={(name) => { set("schoolName", name); set("major", null); }} /></label>
+      <label>전공<EducationSearchModal kind="major" educationLevel={form.educationLevel} selectedSchool={form.schoolName} value={form.major} onSelect={(name) => set("major", name)} /></label>
+      <label>졸업 상태<select value={form.graduationStatus ?? ""} onChange={(event) => set("graduationStatus", event.target.value || null)}><option value="">선택 안 함</option><option value="GRADUATED">졸업</option><option value="EXPECTED">졸업 예정</option><option value="ENROLLED">재학</option></select></label>
+    </div></div>
+
+    <div className="form-section" id="resume-certificates"><h3>자격증</h3><p className="form-hint">보유한 자격증만 필요한 수만큼 추가해 입력하세요.</p>
+      <CertificateSearchModal showDetail={false} onManual={(name) => setCertificates((current) => [...current, { ...emptyMemberCertificate(), name }])} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
       <div className="certificate-list">
         {certificates.map((certificate, index) => <div className="certificate-card" key={certificate.id ?? `new-${index}`}>
           <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>
@@ -68,19 +84,11 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
             <label>자격증명*<input required maxLength={255} value={certificate.name} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="예: 정보처리기사" /></label>
             <label>발급기관<input maxLength={255} value={certificate.issuer ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, issuer: event.target.value || null } : item))} placeholder="예: 한국산업인력공단" /></label>
             <label>취득일<input type="date" value={certificate.acquiredAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, acquiredAt: event.target.value || null } : item))} /></label>
-            <label>만료일(선택)<input type="date" value={certificate.expiresAt ?? ""} onChange={(event) => setCertificates((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expiresAt: event.target.value || null } : item))} /></label>
           </div>
         </div>)}
       </div>
-      <button type="button" className="outline-button certificate-manual-add" disabled={certificates.length >= 20 || certificates.some((certificate) => !certificate.name.trim())} onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 직접 입력</button>
+      <button type="button" className="outline-button certificate-manual-add" disabled={certificates.length >= 20} onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 직접 입력</button>
     </div>
-
-    <div className="form-section"><h3>학력</h3><div className="form-fields">
-      <label>최종 학력<select value={form.educationLevel ?? ""} onChange={(event) => { const next = event.target.value || null; set("educationLevel", next); set("schoolName", null); set("major", null); }}><option value="">선택 안 함</option><option value="HIGH_SCHOOL">고등학교</option><option value="COLLEGE">전문대</option><option value="BACHELOR">대학교</option><option value="MASTER">대학원</option></select></label>
-      <label>학교명<EducationSearchModal kind="school" educationLevel={form.educationLevel} selectedSchool={form.schoolName} value={form.schoolName} onSelect={(name) => { set("schoolName", name); set("major", null); }} /></label>
-      <label>전공<EducationSearchModal kind="major" educationLevel={form.educationLevel} selectedSchool={form.schoolName} value={form.major} onSelect={(name) => set("major", name)} /></label>
-      <label>졸업 상태<select value={form.graduationStatus ?? ""} onChange={(event) => set("graduationStatus", event.target.value || null)}><option value="">선택 안 함</option><option value="GRADUATED">졸업</option><option value="EXPECTED">졸업 예정</option><option value="ENROLLED">재학</option></select></label>
-    </div></div>
 
     {error && <div className="auth-error">{error}</div>}
     <div className="form-actions">{onCancel && <button type="button" className="outline-button" onClick={onCancel}>취소</button>}<button className="primary-button" disabled={saving}>{saving ? "저장 중..." : saveLabel}</button></div>
