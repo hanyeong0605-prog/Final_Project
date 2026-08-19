@@ -444,6 +444,26 @@ a { color: inherit; text-decoration: none; }
   .mobile-navigation { display: grid; margin-top: 24px; gap: 4px; }.mobile-nav-group { display: grid; gap: 2px; }.mobile-group-trigger { justify-content: flex-start; }.mobile-group-trigger svg:last-child { margin-left: auto; transition: transform .18s; }.mobile-nav-group.expanded .mobile-group-trigger svg:last-child { transform: rotate(180deg); }.mobile-submenu { display: none; margin: 0 0 4px 33px; border-left: 1px solid #e7eaf2; padding: 3px 0 3px 10px; }.mobile-nav-group.expanded .mobile-submenu { display: grid; }.mobile-submenu-item { border-radius: 7px; color: #7e899a; padding: 8px 10px; font-size: 11px; font-weight: 700; text-decoration: none; }.mobile-submenu-item.active { background: #eef2ff; color: #566fe8; }
   .content { padding: 26px 18px 48px; }.home-hero { min-height: 330px; }.home-hero-copy { width: min(62%, 610px); }.home-quick-grid, .home-job-carousel { grid-template-columns: 1fr; }.home-market-layout { grid-template-columns: 1fr; }.home-stat-card, .home-wordcloud-card { min-height: 0; }
 }
+/* 2026-08-19: "화면 줄였을 때나 모바일에서도 반응형으로" 요청으로 추가 - 위 1180px
+   구간은 사이드바 메뉴 전환 기준이라 태블릿 폭까지는 커버하는데, 실제 휴대폰 폭
+   (390px 안팎)에서는 아래 요소들이 여전히 데스크톱 레이아웃을 욱여넣은 것처럼 보였다:
+   히어로 텍스트 컬럼이 62%로 좁게 고정돼 줄바꿈이 심하고, ICT 인사이트 패널의
+   제목+탭 버튼이 가로로 붙어서 좁고, 통계 메시지 카드가 122px 고정폭 숫자 칸 때문에
+   글자가 눌리고, "성장 기회 추천" 배너가 아이콘/텍스트/버튼 3단 가로 배치라 버튼이
+   비좁았다. 640px 아래에서는 이런 가로 배치를 전부 세로로 풀어준다. */
+@media (max-width: 640px) {
+  .home-hero { padding: 24px 20px; min-height: 0; }
+  .home-hero-copy { width: 100%; }
+  .home-hero h1 { font-size: clamp(26px, 8vw, 34px); }
+  .home-hero > div > p br { display: none; }
+  .home-section-heading { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ict-statistics-panel__top { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .ict-statistics-tabs { width: 100%; }
+  .ict-statistics-tabs button { flex: 1; }
+  .ict-statistics-message { grid-template-columns: 1fr; justify-items: start; text-align: left; }
+  .home-growth-banner { grid-template-columns: 1fr; justify-items: start; text-align: left; }
+  .home-growth-banner > a { justify-self: start; }
+}
 @media (prefers-reduced-motion: no-preference) {
   [data-scroll-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
   [data-scroll-reveal].is-visible { opacity: 1; transform: translateY(0); }

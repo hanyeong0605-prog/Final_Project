@@ -99,6 +99,28 @@ def test_detect_speech_frames_nonempty_for_loud_signal():
     assert audio_analysis._detect_speech_frames(loud).size > 0
 
 
+# 2026-08-19: 실제로 겪은 버그 재발 방지 - 아이폰 크롬에서 정상적으로 답을 했는데도
+# "인식된 내용 없음"이 나온 사례. 녹음 시작 직후 마이크 팝/클릭성 스파이크가 한두 프레임
+# 섞이면, np.max(rms) 기준 상대 dB 임계값이 스파이크에 휘둘려서 그보다 훨씬 조용한(하지만
+# 실제로 존재하는) 목소리 구간 전체를 "무음"으로 오판했다 - _robust_peak(95th percentile)
+# 도입 후에도 이 사례를 못 잡으면 회귀다.
+def test_detect_speech_frames_not_fooled_by_transient_spike():
+    sr = 16000
+    t = np.linspace(0, 2, sr * 2, dtype=np.float32)
+    # 2초 중 뒤쪽 1.5초는 평범한 크기(0.15)의 목소리 - 스파이크 없이도 그 자체로는
+    # 충분히 "말소리"로 잡힐 크기다.
+    speech = (0.15 * np.sin(2 * np.pi * 200 * t)).astype(np.float32)
+    # 맨 앞 5ms(80 샘플)에 훨씬 더 큰(1.0) 순간적인 팝/클릭 스파이크를 얹는다 - 목소리보다
+    # 20dB 이상 더 큼(마이크 활성화 시점 노이즈를 흉내).
+    speech[:80] = 1.0
+    frames = audio_analysis._detect_speech_frames(speech)
+    assert frames.size > 0
+    # 스파이크가 낀 맨 첫 프레임 이후, 뒤쪽(평범한 크기의 목소리 구간)도 "말소리"로
+    # 잡혀야 한다 - 스파이크 때문에 그 뒤가 전부 묻혀버리면 회귀.
+    frame_sec = audio_analysis._HOP_LENGTH / sr
+    assert any(frame_idx * frame_sec > 1.0 for frame_idx in frames)
+
+
 def _loud_signal() -> np.ndarray:
     t = np.linspace(0, 1, 16000, dtype=np.float32)
     return (0.8 * np.sin(2 * np.pi * 200 * t)).astype(np.float32)
