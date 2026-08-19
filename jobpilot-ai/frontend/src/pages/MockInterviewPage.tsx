@@ -2054,6 +2054,22 @@ export function MockInterviewPage() {
                     <Link to="/profile">프로필 작성하기</Link>
                   </p>
                 )}
+                {/* 2026-08-19: "프로필 불러오기가 된 건지 어떻게 아냐, 구독자는 불러와졌으면
+                    '프로필을 불러왔어요!' 식으로 알려줘야 한다"는 요청으로 추가 - 구독 중이고
+                    실제로 반영할 프로필 데이터(목표 직무 또는 기술 요약)가 있을 때만 보여준다
+                    (subscribed && !careerJob && !careerTechSummary 분기와 상호 배타적). */}
+                {questionSource === "profile" && subscribed && (careerJob || careerTechSummary) && (
+                  <p className="account-alert" style={{ marginTop: 10 }}>
+                    프로필을 불러왔어요! 마이페이지에 입력한 목표 직무·기술 요약을 반영해서
+                    질문을 만들게요.
+                    {careerJob && (
+                      <>
+                        {" "}
+                        (목표 직무: <strong>{careerJob}</strong>)
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
