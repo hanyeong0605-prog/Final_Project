@@ -22,8 +22,8 @@ type NavItem = { id: string; title: string; type?: ResumeEntryType; add: boolean
 const navItems: NavItem[] = [
   { id: "resume-personal", title: "인적사항", add: false },
   { id: "resume-desired-role", title: "희망직무", add: false },
-  ...sections.filter(({ type }) => type === "EDUCATION").map(({ id, title, type }) => ({ id, title, type, add: true })),
   { id: "resume-conditions", title: "지원 조건", add: false },
+  ...sections.filter(({ type }) => type === "EDUCATION").map(({ id, title, type }) => ({ id, title, type, add: true })),
   { id: "resume-skills", title: "스킬", add: false },
   { id: "resume-certificates", title: "자격증", add: true, certificate: true },
   ...sections.filter(({ type }) => ["CAREER", "ACTIVITY", "TRAINING", "AWARD", "LANGUAGE", "PORTFOLIO", "PREFERENCE"].includes(type)).map(({ id, title, type }) => ({ id, title, type, add: type !== "PREFERENCE" })),
