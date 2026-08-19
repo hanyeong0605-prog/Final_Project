@@ -29,7 +29,7 @@ const profileFields: Array<{ key: string; label: string; format?: (value: unknow
 ];
 const detailedProfileFields: Array<{ label: string; value: (profile: Profile) => string }> = [
   { label: "학력", value: (profile) => itemNames(profile.educations, "school") || [profile.schoolName, profile.major, profile.educationLevel, profile.graduationStatus].filter(Boolean).join(" · ") },
-  { label: "경력", value: (profile) => itemNames(profile.careers, "company") || (Number(profile.totalCareerMonths) > 0 ? `${profile.totalCareerMonths}개월` : "") },
+  { label: "관련 경력", value: (profile) => relevantCareerNames(profile.careers) || (Number(profile.totalCareerMonths) > 0 ? `${profile.totalCareerMonths}개월` : "") },
   { label: "인턴 · 대외활동", value: () => "" }, { label: "교육이수", value: (profile) => itemNames(profile.trainings, "title") },
   { label: "자격증", value: (profile) => itemNames(profile.certificateDetails, "name") || (Array.isArray(profile.suggestedCertificates) ? profile.suggestedCertificates.join(", ") : "") },
   { label: "수상", value: (profile) => itemNames(profile.awards, "title") }, { label: "해외경험", value: () => "" }, { label: "어학", value: () => "" },
@@ -37,6 +37,7 @@ const detailedProfileFields: Array<{ label: string; value: (profile: Profile) =>
   { label: "자기소개서", value: (profile) => itemNames(profile.selfIntroductions, "title") },
 ];
 const itemNames = (value: unknown, key: string) => Array.isArray(value) ? value.map((item) => item && typeof item === "object" ? String((item as Record<string, unknown>)[key] ?? "") : "").filter(Boolean).join(" · ") : "";
+const relevantCareerNames = (value: unknown) => Array.isArray(value) ? value.filter((item) => item && typeof item === "object" && (item as Record<string, unknown>).relevantCareer === true).map((item) => String((item as Record<string, unknown>).company ?? "")).filter(Boolean).join(" · ") : "";
 const militaryText = (value: unknown) => value && typeof value === "object" ? ["serviceType", "branch", "rank"].map((key) => String((value as Record<string, unknown>)[key] ?? "")).filter(Boolean).join(" · ") : "";
 
 function useDocuments() {

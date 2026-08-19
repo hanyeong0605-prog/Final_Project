@@ -53,6 +53,11 @@ public class ResumeDocumentService {
         // obvious values. Only the explicit AI analysis sends text to the external model.
         if (aiConsent.hasAgreed(memberId)) enrichWithAi(extracted, text);
         else extracted.put("analysisWarning", "AI 분석은 이력서 정보 처리 동의 후 사용할 수 있습니다. 현재는 파일 안에서 직접 확인한 정보만 제안합니다.");
+        MemberProfile savedProfile = profiles.findById(memberId).orElse(null);
+        String targetContext = String.join(" ", extracted.path("targetRole").asText(""),
+                savedProfile == null ? "" : empty(savedProfile.getTargetJobFamily()),
+                savedProfile == null ? "" : empty(savedProfile.getTargetRole()));
+        classifyCareerRelevance(extracted, targetContext);
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -71,7 +76,9 @@ public class ResumeDocumentService {
         String graduationStatus = preserve(spec.getGraduationStatus(), data.path("graduationStatus").asText());
         String summary = merge(sanitizeSummary(spec.getTechnicalSummary()),
                 sanitizeSummary(first(data, "technicalSummary", "")));
-        int months = Math.max(spec.getTotalCareerMonths(), data.path("totalCareerMonths").asInt(0));
+        int months = "JOB_RELEVANT".equals(data.path("careerMonthsPolicy").asText())
+                ? data.path("totalCareerMonths").asInt(0)
+                : Math.max(spec.getTotalCareerMonths(), data.path("totalCareerMonths").asInt(0));
         ArrayNode locations = profile.getPreferredLocations() instanceof ArrayNode array ? array : json.createArrayNode();
         profile.update(empty(role), empty(profile.getTargetJobFamily()), locations, profile.getAvailableFrom(), empty(profile.getExperienceType()), empty(profile.getGithubUsername()));
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
@@ -165,7 +172,7 @@ public class ResumeDocumentService {
             node.put("educationLevel", latest.path("degree").asText(node.path("educationLevel").asText()));
             node.put("graduationStatus", latest.path("status").asText(node.path("graduationStatus").asText()));
         }
-        node.put("totalCareerMonths", careerMonths(node.withArray("careers")));
+        node.put("totalCareerMonths", 0);
         // 문서 제목이 반복된 원문을 "추가 설명"으로 저장하지 않는다. 기술은 별도 기술 스택으로만 반영한다.
         node.put("technicalSummary", "");
         return node;
@@ -239,7 +246,27 @@ public class ResumeDocumentService {
     private String firstContained(String value, List<String> options) { return options.stream().filter(value::contains).findFirst().orElse(""); }
     private void putPeriod(ObjectNode target, String period) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2}).*?[~\\-](\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(period); if (matcher.find()) { target.put("startedAt", monthDate(matcher.group(1), matcher.group(2))); target.put("endedAt", monthDate(matcher.group(3), matcher.group(4))); } }
     private String monthDate(String year, String month) { int value = Integer.parseInt(year); if (value < 100) value += 2000; return String.format("%04d-%02d-01", value, Integer.parseInt(month)); }
-    private int careerMonths(ArrayNode careers) { int total = 0; for (JsonNode career : careers) { try { LocalDate start = LocalDate.parse(career.path("startedAt").asText()); LocalDate end = LocalDate.parse(career.path("endedAt").asText()); total += Math.max(0, (end.getYear() - start.getYear()) * 12 + end.getMonthValue() - start.getMonthValue()); } catch (Exception ignored) { } } return total; }
+    private void classifyCareerRelevance(ObjectNode extracted, String targetContext) {
+        ArrayNode careers = extracted.withArray("careers");
+        for (JsonNode career : careers) if (career instanceof ObjectNode value) {
+            String evidence = String.join(" ", value.path("company").asText(), value.path("position").asText(), value.path("description").asText());
+            boolean relevant = isRelevantCareer(evidence, targetContext);
+            value.put("relevantCareer", relevant);
+            if (!relevant) value.put("exclusionReason", "지원 직무와 연결되는 업무 근거가 없어 관련 경력에서 제외");
+        }
+        extracted.put("totalCareerMonths", careerMonths(careers));
+        extracted.put("careerMonthsPolicy", "JOB_RELEVANT");
+    }
+    private boolean isRelevantCareer(String evidence, String targetContext) {
+        String normalized = evidence.toLowerCase(Locale.ROOT);
+        boolean itTarget = targetContext.isBlank() || List.of("개발", "프로그래", "소프트웨어", "데이터", "ai", "인공지능", "it", "서버", "웹", "앱", "클라우드", "보안", "네트워크", "인프라", "devops")
+                .stream().anyMatch(keyword -> targetContext.toLowerCase(Locale.ROOT).contains(keyword));
+        if (itTarget) return List.of("개발", "프로그래", "소프트웨어", "데이터", "ai", "인공지능", "서버", "웹", "앱", "클라우드", "보안", "네트워크", "인프라", "devops", "java", "python", "spring", "react")
+                .stream().anyMatch(normalized::contains);
+        return java.util.Arrays.stream(targetContext.toLowerCase(Locale.ROOT).split("[^가-힣a-z0-9+#.]+"))
+                .filter(word -> word.length() >= 2).anyMatch(word -> evidence.toLowerCase(Locale.ROOT).contains(word));
+    }
+    private int careerMonths(ArrayNode careers) { int total = 0; for (JsonNode career : careers) { if (!career.path("relevantCareer").asBoolean(false)) continue; try { LocalDate start = LocalDate.parse(career.path("startedAt").asText()); LocalDate end = LocalDate.parse(career.path("endedAt").asText()); total += Math.max(0, (end.getYear() - start.getYear()) * 12 + end.getMonthValue() - start.getMonthValue()); } catch (Exception ignored) { } } return total; }
     private boolean containsTitle(ArrayNode values, String title) { for (JsonNode value : values) if (title.equals(value.path("title").asText())) return true; return false; }
 
     private boolean containsTerm(String text, String term) {
@@ -444,7 +471,7 @@ public class ResumeDocumentService {
     private void applyStructuredEntries(Long memberId, JsonNode data) {
         List<ResumeEntry> existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId);
         appendEntries(memberId, existing, ResumeEntryType.EDUCATION, data.path("educations"), "school");
-        appendEntries(memberId, existing, ResumeEntryType.CAREER, data.path("careers"), "company");
+        appendRelevantCareers(memberId, existing, data.path("careers"));
         appendEntries(memberId, existing, ResumeEntryType.TRAINING, data.path("trainings"), "title");
         appendEntries(memberId, existing, ResumeEntryType.AWARD, data.path("awards"), "title");
         appendEntries(memberId, existing, ResumeEntryType.PORTFOLIO, data.path("portfolios"), "title");
@@ -459,6 +486,12 @@ public class ResumeDocumentService {
         if (!values.isArray()) return; int order = (int) existing.stream().filter(entry -> entry.getEntryType() == type).count();
         for (JsonNode value : values) { String title = value.path(titleKey).asText("").trim();
             if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == type && entry.getTitle().equals(title))) resumeEntries.save(new ResumeEntry(memberId, type, title, value, order++));
+        }
+    }
+    private void appendRelevantCareers(Long memberId, List<ResumeEntry> existing, JsonNode values) {
+        if (!values.isArray()) return; int order = (int) existing.stream().filter(entry -> entry.getEntryType() == ResumeEntryType.CAREER).count();
+        for (JsonNode value : values) { if (!value.path("relevantCareer").asBoolean(false)) continue; String title = value.path("company").asText("").trim();
+            if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == ResumeEntryType.CAREER && entry.getTitle().equals(title))) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.CAREER, title, value, order++));
         }
     }
     private LocalDate parseMonth(String value) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(value == null ? "" : value); return matcher.find() ? LocalDate.parse(monthDate(matcher.group(1), matcher.group(2))) : null; }
