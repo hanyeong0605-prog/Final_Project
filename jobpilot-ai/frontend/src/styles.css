@@ -468,17 +468,15 @@ a { color: inherit; text-decoration: none; }
    글자가 눌리고, "성장 기회 추천" 배너가 아이콘/텍스트/버튼 3단 가로 배치라 버튼이
    비좁았다. 640px 아래에서는 이런 가로 배치를 전부 세로로 풀어준다. */
 @media (max-width: 640px) {
-  /* 2026-08-19: 히어로 배경 이미지(2097x750, 가로로 긴 이미지)가 세로로 좁은 모바일
-     박스에서 background-size:cover로 채워지다 보니 이미지 중앙의 고양이/카드
-     일러스트 부분만 확대돼 텍스트와 겹쳐 보였다. 모바일에서는 박스를 세로로 쌓아
-     텍스트를 먼저 보여주고, 그 아래에 이미지를 원본 비율 그대로(잘리지 않게) 보여준다. */
-  .home-hero { display: flex; flex-direction: column; gap: 14px; padding: 22px 20px; min-height: 0; }
-  .home-hero::before { position: static; order: 2; width: 100%; aspect-ratio: 2097 / 750; border-radius: 14px; background: url("/hero/cat-career-hero-background.png") center / contain no-repeat; }
+  /* 2026-08-19: 히어로 배경 이미지가 세로로 좁은 모바일 박스에서 cover로 채워지다
+     보니 이미지 중앙 일러스트 부분만 확대돼 텍스트와 겹쳐 보였다. 모바일에서는 박스를
+     세로로 쌓아 텍스트를 먼저 보여주고, 그 아래에 모바일 전용 이미지(빈 여백 없이
+     양쪽에 마스코트가 다 채워진 버전)를 원본 비율 그대로(잘리지 않게) 보여준다.
+     텍스트 색은 데스크톱과 동일하게 유지하고, 텍스트 영역 배경만 사진의 파란 톤과
+     맞춰서 사진과 텍스트 패널이 하나처럼 이어져 보이게 한다. */
+  .home-hero { display: flex; flex-direction: column; gap: 14px; padding: 22px 20px; min-height: 0; background: linear-gradient(180deg, #8dbdfc 0%, #bcdafd 100%); }
+  .home-hero::before { position: static; order: 2; width: 100%; aspect-ratio: 2097 / 750; border-radius: 14px; background: url("/hero/cat-career-hero-mobile.png") center / contain no-repeat; }
   .home-hero-copy { order: 1; width: 100%; }
-  .home-hero .eyebrow { color: #cfe0ff; }
-  .home-hero h1 { font-size: clamp(26px, 8vw, 34px); color: #fff; }
-  .home-hero h1 em { color: #ffd166; }
-  .home-hero > div > p { color: #dde6ff; }
   .home-hero > div > p br { display: none; }
   .home-section-heading { flex-direction: column; align-items: flex-start; gap: 8px; }
   .ict-statistics-panel__top { flex-direction: column; align-items: flex-start; gap: 12px; }
