@@ -7,6 +7,7 @@ import type { CareerProfile } from "../features/profile/model/careerProfile.type
 import type { MemberSkill } from "../features/profile/model/memberSkill.types";
 import type { MemberCertificate } from "../features/profile/model/memberCertificate.types";
 import { PageHeading } from "../shared/components/PageHeading";
+import { ResumeEntryEditor } from "../features/resume/components/ResumeEntryEditor";
 
 export function ProfilePage() {
   const [profile, setProfile] = useState<CareerProfile>();
@@ -31,5 +32,6 @@ export function ProfilePage() {
         setProfile(savedProfile); setSkills(savedSkills); setCertificates(savedCertificates); setSaved(true);
       }} />
     </section>
+    <ResumeEntryEditor />
   </>;
 }
