@@ -1,9 +1,10 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
+import { PostcodeSearchModal } from "../../location-jobs/components/PostcodeSearchModal";
 import { createResumeEntry, deleteResumeEntry, listResumeEntries, updateResumeEntry } from "../api/resumeEntriesApi";
 import type { ResumeEntry, ResumeEntryInput, ResumeEntryType } from "../model/resumeEntry.types";
 
-type Field = { key: string; label: string; kind?: "date" | "url" | "textarea" };
+type Field = { key: string; label: string; kind?: "date" | "url" | "textarea" | "select"; options?: string[] };
 type Section = { type: ResumeEntryType; id: string; title: string; fields: Field[] };
 const sections: Section[] = [
   { type: "PERSONAL", id: "resume-personal", title: "인적사항", fields: [{ key: "name", label: "성명(한글)" }, { key: "hanjaName", label: "성명(한자)" }, { key: "birthDate", label: "생년월일", kind: "date" }, { key: "email", label: "이메일" }, { key: "phone", label: "휴대전화" }, { key: "address", label: "주소" }] },
@@ -14,7 +15,7 @@ const sections: Section[] = [
   { type: "AWARD", id: "resume-award", title: "수상", fields: [{ key: "organization", label: "수여기관" }, { key: "awardedAt", label: "수상일", kind: "date" }, { key: "description", label: "수상 내용", kind: "textarea" }] },
   { type: "LANGUAGE", id: "resume-language", title: "어학", fields: [{ key: "language", label: "외국어" }, { key: "exam", label: "시험명" }, { key: "score", label: "점수/등급" }, { key: "acquiredAt", label: "취득일", kind: "date" }] },
   { type: "PORTFOLIO", id: "resume-portfolio", title: "포트폴리오", fields: [{ key: "linkType", label: "링크 유형" }, { key: "url", label: "URL", kind: "url" }, { key: "description", label: "설명", kind: "textarea" }] },
-  { type: "PREFERENCE", id: "resume-preference", title: "취업우대 · 병역", fields: [{ key: "preferenceType", label: "구분" }, { key: "status", label: "상태/내용" }, { key: "description", label: "상세", kind: "textarea" }] },
+  { type: "PREFERENCE", id: "resume-preference", title: "취업우대 · 병역", fields: [{ key: "preferenceType", label: "구분", kind: "select", options: ["병역", "보훈대상", "취업보호대상", "고용지원금 대상", "장애"] }, { key: "serviceType", label: "병역 구분", kind: "select", options: ["군필", "복무중", "면제", "미필", "해당없음"] }, { key: "branch", label: "군별" }, { key: "rank", label: "계급" }, { key: "startedAt", label: "입대일", kind: "date" }, { key: "endedAt", label: "전역일", kind: "date" }, { key: "description", label: "상세", kind: "textarea" }] },
 ];
 const navItems = [
   { id: "resume-personal", title: "인적사항", add: false },
@@ -55,5 +56,10 @@ export function ResumeEntryEditor({ profileEditor, selfIntroduction }: { profile
 function EntryCard({ section, entry, draft, busy, personal, onEdit, onDelete, onChange }: { section: Section; entry: ResumeEntry | null; draft: ResumeEntryInput | null; busy: boolean; personal: boolean; onEdit: () => void; onDelete: () => void; onChange: (value: ResumeEntryInput) => void }) {
   if (!draft) return <article className="jobkorea-entry-card"><div><strong>{entry?.title}</strong><p>{section.fields.map((field) => entry?.content[field.key]).filter(Boolean).join(" · ") || "입력해 주세요"}</p></div><div className="form-actions"><button type="button" className="outline-button" onClick={onEdit}>수정</button>{!personal && <button type="button" className="outline-button danger-button" disabled={busy} onClick={onDelete}><Minus size={13} /> 삭제</button>}</div></article>;
   const set = (key: string, value: string) => onChange({ ...draft, content: { ...draft.content, [key]: value } });
-  return <article className="jobkorea-entry-card editing"><div className="form-fields">{!personal && <label className="wide">{section.title}명*<input value={draft.title} onChange={(event) => onChange({ ...draft, title: event.target.value })} /></label>}{section.fields.map((field) => <label className={field.kind === "textarea" ? "wide" : ""} key={field.key}>{field.label}{field.kind === "textarea" ? <textarea rows={3} value={draft.content[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)} /> : <input type={field.kind ?? "text"} value={draft.content[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)} />}</label>)}</div></article>;
+  return <article className="jobkorea-entry-card editing"><div className="form-fields">{!personal && <label className="wide">{section.title}명*<input value={draft.title} onChange={(event) => onChange({ ...draft, title: event.target.value })} /></label>}{section.fields.map((field) => field.key === "address" && personal ? <AddressInput key={field.key} value={draft.content[field.key] ?? ""} onChange={(value) => set(field.key, value)} /> : <label className={field.kind === "textarea" ? "wide" : ""} key={field.key}>{field.label}{field.kind === "textarea" ? <textarea rows={3} value={draft.content[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)} /> : field.kind === "select" ? <select value={draft.content[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)}><option value="">선택 안 함</option>{field.options?.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <input type={field.kind ?? "text"} value={draft.content[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)} />}</label>)}</div></article>;
+}
+
+function AddressInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return <label className="wide">주소<div className="address-search-field"><input value={value} readOnly placeholder="주소 검색을 눌러 선택해 주세요" /><button type="button" className="outline-button" onClick={() => setOpen(true)}>주소 검색</button></div><PostcodeSearchModal isOpen={open} onClose={() => setOpen(false)} onSelectAddress={onChange} /></label>;
 }

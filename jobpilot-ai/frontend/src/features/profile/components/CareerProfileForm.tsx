@@ -53,14 +53,14 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section"><h3>지원 조건</h3><div className="form-fields">
       <label>희망 지역<RegionSelectionModal value={form.preferredLocations} onChange={(next) => set("preferredLocations", next)} /></label>
       <label>입사 가능일<input type="date" value={form.availableFrom ?? ""} onChange={(event) => set("availableFrom", event.target.value || null)} /></label>
-      <label>경력 구분<select value={form.experienceType} onChange={(event) => set("experienceType", event.target.value)}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
-      <label>관련 경력 기간(개월)<input type="number" min={0} value={form.totalCareerMonths} onChange={(event) => set("totalCareerMonths", Number(event.target.value))} /></label>
+      <label>경력 구분<select value={form.experienceType} onChange={(event) => { const experienceType = event.target.value; set("experienceType", experienceType); if (experienceType === "ENTRY") set("totalCareerMonths", 0); }}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
+      <label className={form.experienceType === "ENTRY" ? "is-disabled" : ""}>관련 경력 기간(개월)<input type="number" min={0} disabled={form.experienceType === "ENTRY"} value={form.experienceType === "ENTRY" ? 0 : form.totalCareerMonths} onChange={(event) => set("totalCareerMonths", Number(event.target.value))} /></label>
     </div></div>
 
     <div className="form-section" id="resume-skills"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
 
     <div className="form-section" id="resume-certificates"><h3>자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
-      <CertificateSearchModal showDetail={false} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
+      <CertificateSearchModal showDetail={false} onManual={() => setCertificates((current) => [...current, emptyMemberCertificate()])} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
       <div className="certificate-list">
         {certificates.map((certificate, index) => <div className="certificate-card" key={certificate.id ?? `new-${index}`}>
           <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>
