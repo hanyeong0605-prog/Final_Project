@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
 import type { EmployerSignupInput } from "../features/employer/model/employer.types";
 import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
+import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
 
 const initialForm: EmployerSignupInput = {
   loginId: "", email: "", password: "", managerName: "", managerPhone: "",
@@ -15,11 +16,28 @@ export function EmployerSignupPage() {
   const [form, setForm] = useState<EmployerSignupInput>(initialForm);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [addressSearchOpen, setAddressSearchOpen] = useState(false);
+  const [baseAddress, setBaseAddress] = useState("");
+  const [detailAddress, setDetailAddress] = useState("");
 
   if (employer) return <Navigate to="/employer" replace />;
 
   const update = (field: keyof EmployerSignupInput) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const applyAddress = (base: string, detail: string) => {
+    setForm((prev) => ({ ...prev, companyAddress: [base, detail].filter(Boolean).join(" ") }));
+  };
+
+  const handleSelectAddress = (address: string) => {
+    setBaseAddress(address);
+    applyAddress(address, detailAddress);
+  };
+
+  const handleDetailAddressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setDetailAddress(event.target.value);
+    applyAddress(baseAddress, event.target.value);
   };
 
   const submit = async (event: FormEvent) => {
@@ -63,13 +81,26 @@ export function EmployerSignupPage() {
           <label>사업자등록번호<input required value={form.businessRegistrationNumber} onChange={update("businessRegistrationNumber")} placeholder="1234567890 (하이픈 없이)" /></label>
           <label>대표자명<input required value={form.representativeName} onChange={update("representativeName")} /></label>
           <label>개업일자<input required value={form.openingDate} onChange={update("openingDate")} placeholder="YYYYMMDD" maxLength={8} /></label>
-          <label>회사 주소<input value={form.companyAddress} onChange={update("companyAddress")} placeholder="선택 입력" /></label>
+          <label>
+            회사 주소
+            <div className="field-input-action">
+              <input value={baseAddress} readOnly placeholder="주소 찾기를 눌러 주세요 (선택 입력)" />
+              <button type="button" className="outline-button" onClick={() => setAddressSearchOpen(true)}>주소 찾기</button>
+            </div>
+            {baseAddress && <input value={detailAddress} onChange={handleDetailAddressChange} placeholder="상세 주소 (동/호수 등, 선택 입력)" />}
+          </label>
           {error && <div className="auth-error">{error}</div>}
           <button className="primary-button" disabled={submitting}>{submitting ? "가입 처리 중..." : "기업회원 가입"}</button>
         </form>
 
         <div className="auth-switch">이미 가입하셨나요? <Link to="/employer/login">기업회원 로그인</Link></div>
       </section>
+
+      <PostcodeSearchModal
+        isOpen={addressSearchOpen}
+        onClose={() => setAddressSearchOpen(false)}
+        onSelectAddress={handleSelectAddress}
+      />
     </main>
   );
 }

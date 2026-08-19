@@ -31,14 +31,11 @@ export const PostcodeSearchModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl p-4 w-full max-w-lg relative shadow-2xl">
-        <div className="flex justify-between items-center mb-3 pb-2 border-b">
-          <h3 className="font-bold text-gray-800">주소 검색</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 font-bold text-lg"
-          >
+    <div className="postcode-modal-overlay">
+      <div className="postcode-modal-card">
+        <div className="postcode-modal-header">
+          <h3>주소 검색</h3>
+          <button type="button" onClick={onClose} className="postcode-modal-close" aria-label="닫기">
             ✕
           </button>
         </div>
