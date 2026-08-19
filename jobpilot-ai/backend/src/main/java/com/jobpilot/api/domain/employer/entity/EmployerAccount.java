@@ -52,7 +52,7 @@ public class EmployerAccount {
     private LocalDateTime ntsCheckedAt;
 
     @Lob
-    @Column(name = "nts_raw_response")
+    @Column(name = "nts_raw_response", columnDefinition = "TEXT")
     private String ntsRawResponse;
 
     @Enumerated(EnumType.STRING)
