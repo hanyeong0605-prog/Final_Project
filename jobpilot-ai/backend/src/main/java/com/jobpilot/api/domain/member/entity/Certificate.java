@@ -25,6 +25,12 @@ public class Certificate {
         this.officialUrl = officialUrl;
     }
 
+    public void normalizeImportedIdentity(String name, String issuer, LocalDate acquiredAt) {
+        this.name = name;
+        if (issuer != null && !issuer.isBlank()) this.issuer = issuer;
+        if (acquiredAt != null) this.acquiredAt = acquiredAt;
+    }
+
     public Long getId() { return id; }
     public Long getMemberId() { return memberId; }
     public String getName() { return name; }
