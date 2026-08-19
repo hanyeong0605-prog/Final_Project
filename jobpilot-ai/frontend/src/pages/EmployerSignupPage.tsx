@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
 import type { EmployerSignupInput } from "../features/employer/model/employer.types";
+import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
 
 const initialForm: EmployerSignupInput = {
   loginId: "", email: "", password: "", managerName: "", managerPhone: "",
@@ -45,6 +46,7 @@ export function EmployerSignupPage() {
             <small>기업회원 채용 관리</small>
           </div>
         </div>
+        <AccountTypeToggle value="employer" memberTo="/signup" employerTo="/employer/signup" />
         <span className="eyebrow">EMPLOYER SIGNUP</span>
         <h1>기업회원 가입</h1>
         <p>

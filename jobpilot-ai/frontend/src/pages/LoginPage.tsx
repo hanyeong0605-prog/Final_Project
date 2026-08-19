@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
+import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
 
 // Vite's DEV is true only for `npm run dev`; production builds never show this button.
 const developmentLoginEnabled = import.meta.env.DEV;
@@ -60,6 +61,7 @@ export function LoginPage() {
             <small>career action coach</small>
           </div>
         </div>
+        <AccountTypeToggle value="member" memberTo="/login" employerTo="/employer/login" />
         <span className="eyebrow">WELCOME BACK</span>
         <h1>로그인</h1>
         <p>맞춤형 채용공고와 분석 결과를 확인하세요.</p>
@@ -106,7 +108,6 @@ export function LoginPage() {
         )}
 
         <div className="auth-switch">계정이 없나요? <Link to="/signup">회원가입</Link></div>
-        <div className="auth-switch">채용 담당자이신가요? <Link to="/employer/login">기업회원으로 로그인</Link></div>
       </section>
     </main>
   );

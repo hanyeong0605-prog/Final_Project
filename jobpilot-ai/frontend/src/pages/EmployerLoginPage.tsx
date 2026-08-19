@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
+import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
 
 export function EmployerLoginPage() {
   const { employer, login } = useEmployerAuth();
@@ -36,6 +37,7 @@ export function EmployerLoginPage() {
             <small>기업회원 채용 관리</small>
           </div>
         </div>
+        <AccountTypeToggle value="employer" memberTo="/login" employerTo="/employer/login" />
         <span className="eyebrow">EMPLOYER LOGIN</span>
         <h1>기업회원 로그인</h1>
         <p>승인된 기업회원은 채용공고를 직접 등록·관리할 수 있어요.</p>
@@ -52,7 +54,6 @@ export function EmployerLoginPage() {
           <button className="primary-button" disabled={submitting}>{submitting ? "로그인 중..." : "로그인"}</button>
         </form>
 
-        <div className="auth-switch">기업회원이 아니신가요? <Link to="/login">개인회원으로 로그인</Link></div>
         <div className="auth-switch">아직 가입 전이신가요? <Link to="/employer/signup">기업회원 가입</Link></div>
       </section>
     </main>
