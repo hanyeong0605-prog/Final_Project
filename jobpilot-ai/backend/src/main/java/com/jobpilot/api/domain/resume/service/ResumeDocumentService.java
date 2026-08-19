@@ -11,6 +11,7 @@ import com.jobpilot.api.domain.resume.dto.ResumeDocumentResponse;
 import com.jobpilot.api.domain.resume.dto.ResumeDraftRequest;
 import com.jobpilot.api.domain.resume.entity.*;
 import com.jobpilot.api.domain.resume.repository.ResumeDocumentRepository;
+import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import jakarta.transaction.Transactional;
 import java.util.HashSet;
 import java.util.List;
@@ -31,12 +32,12 @@ public class ResumeDocumentService {
     private final ResumeDocumentRepository documents; private final ResumeDocumentTextExtractor extractor;
     private final MemberRepository members; private final MemberProfileRepository profiles; private final MemberSpecificationRepository specs;
     private final MemberSkillRepository memberSkills; private final SkillRepository skillCatalog; private final CertificateRepository certificates; private final ProjectRepository projects;
-    private final SelfIntroductionRepository introductions; private final ObjectMapper json; private final JobMatchRefreshScheduler refreshScheduler; private final ResumeDocumentAiClient aiClient;
+    private final SelfIntroductionRepository introductions; private final ResumeEntryRepository resumeEntries; private final ObjectMapper json; private final JobMatchRefreshScheduler refreshScheduler; private final ResumeDocumentAiClient aiClient; private final ResumeAiConsentService aiConsent;
     public ResumeDocumentService(ResumeDocumentRepository documents, ResumeDocumentTextExtractor extractor, MemberRepository members,
         MemberProfileRepository profiles, MemberSpecificationRepository specs, MemberSkillRepository memberSkills, SkillRepository skillCatalog, CertificateRepository certificates,
-        ProjectRepository projects, SelfIntroductionRepository introductions, ObjectMapper json, JobMatchRefreshScheduler refreshScheduler, ResumeDocumentAiClient aiClient) {
+        ProjectRepository projects, SelfIntroductionRepository introductions, ResumeEntryRepository resumeEntries, ObjectMapper json, JobMatchRefreshScheduler refreshScheduler, ResumeDocumentAiClient aiClient, ResumeAiConsentService aiConsent) {
         this.documents=documents; this.extractor=extractor; this.members=members; this.profiles=profiles; this.specs=specs; this.memberSkills=memberSkills;
-        this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.json=json; this.refreshScheduler=refreshScheduler; this.aiClient=aiClient;
+        this.skillCatalog=skillCatalog; this.certificates=certificates; this.projects=projects; this.introductions=introductions; this.resumeEntries=resumeEntries; this.json=json; this.refreshScheduler=refreshScheduler; this.aiClient=aiClient; this.aiConsent=aiConsent;
     }
     public List<ResumeDocumentResponse> list(Long memberId) { return documents.findByMemberIdOrderByCreatedAtDesc(memberId).stream().map(ResumeDocumentResponse::from).toList(); }
     public void delete(Long memberId, Long documentId) {
@@ -47,7 +48,10 @@ public class ResumeDocumentService {
     public ResumeDocumentResponse extract(Long memberId, MultipartFile file) {
         String text = extractor.extract(file);
         ObjectNode extracted = inferStructured(text);
-        enrichWithAi(extracted, text);
+        // Uploading a resume is useful even without AI consent: local extraction still finds
+        // obvious values. Only the explicit AI analysis sends text to the external model.
+        if (aiConsent.hasAgreed(memberId)) enrichWithAi(extracted, text);
+        else extracted.put("analysisWarning", "AI 분석은 이력서 정보 처리 동의 후 사용할 수 있습니다. 현재는 파일 안에서 직접 확인한 정보만 제안합니다.");
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -72,16 +76,21 @@ public class ResumeDocumentService {
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
         applyExtractedSkills(memberId, data.path("suggestedSkills"));
         applyExtractedCertificates(memberId, data.path("suggestedCertificates"));
+        applyPersonalEntry(memberId, data.path("personalInfo"));
+        applyEducationEntry(memberId, data);
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
         return ResumeDocumentResponse.from(document);
     }
     public ResumeDocumentResponse generate(Long memberId, ResumeDraftRequest request, MultipartFile templateFile) {
+        aiConsent.requireAgreed(memberId);
         MemberProfile profile=profiles.findById(memberId).orElse(null); MemberSpecification spec=specs.findById(memberId).orElse(null);
         String skillList=memberSkills.findByMemberId(memberId).stream()
                 .map(v -> skillCatalog.findById(v.getSkillId()).map(Skill::getName).orElse(v.getNote()))
                 .filter(v -> !blank(v)).collect(Collectors.joining(", "));
         String certList=certificates.findByMemberId(memberId).stream().map(Certificate::getName).collect(Collectors.joining(", "));
         String projectList=projects.findByMemberId(memberId).stream().map(Project::getTitle).collect(Collectors.joining(", "));
+        List<Map<String, Object>> detailedEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .map(entry -> Map.<String, Object>of("type", entry.getEntryType().name(), "title", entry.getTitle(), "content", json.convertValue(entry.getContent(), Map.class))).toList();
         String intro=introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().map(SelfIntroduction::getContent).findFirst().orElse("");
         String title=blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim();
         String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
@@ -94,7 +103,7 @@ public class ResumeDocumentService {
                 enabledSections.contains("certificates") ? certList : "", enabledSections.contains("projects") ? projectList : "",
                 enabledSections.contains("projects") ? intro : "",
                 request.additionalRequest(), templateKey(request.templateKey()), templateSource);
-        String content = generateWithAi(profile, spec, skillList, certList, projectList, intro, enabledSections, request, templateSource, fallback);
+        String content = generateWithAi(profile, spec, skillList, certList, projectList, intro, detailedEntries, enabledSections, request, templateSource, fallback);
         ObjectNode metadata = json.createObjectNode();
         metadata.put("templateReference", !blank(templateSource));
         metadata.put("templateFilename", templateFile == null || templateFile.isEmpty() ? "" : empty(templateFile.getOriginalFilename()));
@@ -129,7 +138,7 @@ public class ResumeDocumentService {
         foundSkills.stream().limit(30).forEach(skills::add);
 
         ArrayNode certificates = node.putArray("suggestedCertificates");
-        for (String certificate : List.of("정보처리기사", "정보처리산업기사", "SQLD", "SQLP", "ADsP", "ADP", "AWS Certified", "컴퓨터활용능력", "OPIc", "토익")) {
+        for (String certificate : List.of("정보처리기사", "정보처리산업기사", "정보처리기능사", "SQLD", "SQLP", "ADsP", "ADP", "AWS Certified", "컴퓨터활용능력", "ITQ", "운전면허", "1종보통", "2종보통", "OPIc", "토익")) {
             if (text.contains(certificate)) certificates.add(certificate);
         }
         node.put("educationLevel", inferEducationLevel(text));
@@ -138,7 +147,14 @@ public class ResumeDocumentService {
         node.put("graduationStatus", inferGraduationStatus(text));
         node.put("targetRole", inferTargetRole(text));
         node.put("totalCareerMonths", inferCareerMonthsStructured(text));
-        node.put("technicalSummary", summarizeExtracted(text, foundSkills));
+        ObjectNode personal = node.putObject("personalInfo");
+        putIfFound(personal, "name", find(text, "(?:성명|이름)\\s*(?:[|:：]\s*한글)?\\s*[|:：]?\\s*([가-힣]{2,5})"));
+        putIfFound(personal, "hanjaName", find(text, "한자\\s*[|:：]?\\s*([一-龥]{2,8})"));
+        putIfFound(personal, "birthDate", findBirthDate(text));
+        putIfFound(personal, "email", find(text, "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"));
+        putIfFound(personal, "phone", find(text, "(01[016789][- ]?\\d{3,4}[- ]?\\d{4})"));
+        // 문서 제목이 반복된 원문을 "추가 설명"으로 저장하지 않는다. 기술은 별도 기술 스택으로만 반영한다.
+        node.put("technicalSummary", "");
         return node;
     }
 
@@ -149,8 +165,8 @@ public class ResumeDocumentService {
     private String inferEducationLevel(String text) {
         if (text.contains("박사")) return "DOCTOR";
         if (text.contains("석사")) return "MASTER";
-        if (text.contains("전문학사") || text.contains("전문대")) return "ASSOCIATE";
         if (text.contains("대학교") || text.contains("대학") || text.contains("학사")) return "BACHELOR";
+        if (text.contains("전문학사") || text.contains("전문대")) return "ASSOCIATE";
         if (text.contains("고등학교") || text.contains("고졸")) return "HIGH_SCHOOL";
         return "";
     }
@@ -191,10 +207,21 @@ public class ResumeDocumentService {
         while (matcher.find()) {
             int years = Integer.parseInt(matcher.group(1));
             int months = matcher.group(2) == null ? 0 : Integer.parseInt(matcher.group(2));
-            maximum = Math.max(maximum, years * 12 + months);
+            // 생년월일의 "2000년 06월" 같은 날짜를 경력으로 오인하지 않는다.
+            if (years > 0 && years <= 60 && months < 12) maximum = Math.max(maximum, years * 12 + months);
         }
         return maximum;
     }
+
+    private String find(String text, String pattern) {
+        Matcher matcher = Pattern.compile(pattern, Pattern.MULTILINE).matcher(text);
+        return matcher.find() ? matcher.group(1).trim() : "";
+    }
+    private String findBirthDate(String text) {
+        Matcher matcher = Pattern.compile("(\\d{4})\\s*년\\s*(\\d{1,2})\\s*월\\s*(\\d{1,2})\\s*일").matcher(text);
+        return matcher.find() ? String.format("%s-%02d-%02d", matcher.group(1), Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3))) : "";
+    }
+    private void putIfFound(ObjectNode target, String key, String value) { if (!blank(value)) target.put(key, value); }
 
     private String summarizeExtracted(String text, Set<String> skills) {
         List<String> lines = java.util.Arrays.stream(text.split("\\R"))
@@ -262,7 +289,7 @@ public class ResumeDocumentService {
         for (Object value:list) { String text=String.valueOf(value).trim(); if (!blank(text) && existing.add(normalize(text))) target.add(text); }
     }
     @SuppressWarnings("unchecked")
-    private String generateWithAi(MemberProfile profile, MemberSpecification spec, String skills, String certificates, String projects, String introduction,
+    private String generateWithAi(MemberProfile profile, MemberSpecification spec, String skills, String certificates, String projects, String introduction, List<Map<String, Object>> detailedEntries,
             Set<String> enabledSections, ResumeDraftRequest request, String templateSource, String fallback) {
         try {
             Map<String,Object> context=new java.util.LinkedHashMap<>();
@@ -271,6 +298,7 @@ public class ResumeDocumentService {
             context.put("education", enabledSections.contains("education") && spec != null ? joinNonBlank(spec.getEducationLevel(), spec.getMajor()) : "");
             context.put("careerMonths", enabledSections.contains("profile") && spec != null ? spec.getTotalCareerMonths() : 0);
             context.put("projects", enabledSections.contains("projects") ? projects : ""); context.put("existingIntroduction", enabledSections.contains("projects") ? introduction : "");
+            context.put("detailedEntries", detailedEntries);
             List<String> answers = request.answers() == null || request.answers().isEmpty() ? List.of(empty(request.additionalRequest())) : request.answers();
             Map<String,Object> result=aiClient.generate(context, answers, templateKey(request.templateKey()), templateSource);
             Object generated=result.get("content"); if (Boolean.TRUE.equals(result.get("ok")) && generated instanceof String value && !blank(value)) return "# " + (blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim()) + "\n\n" + value.trim();
@@ -307,6 +335,36 @@ public class ResumeDocumentService {
             if (!name.isBlank() && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, "이력서 추출", null, null, null));
         }
         if (!additions.isEmpty()) certificates.saveAll(additions);
+    }
+    private void applyPersonalEntry(Long memberId, JsonNode personal) {
+        if (personal == null || !personal.isObject() || personal.isEmpty()) return;
+        String name = personal.path("name").asText("").trim();
+        if (name.isBlank()) return;
+        ResumeEntry existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).findFirst().orElse(null);
+        ObjectNode content = existing != null && existing.getContent().isObject()
+                ? (ObjectNode) existing.getContent().deepCopy() : json.createObjectNode();
+        for (String key : List.of("name", "hanjaName", "birthDate", "email", "phone", "address")) {
+            String value = personal.path(key).asText("").trim();
+            if (!value.isBlank()) content.put(key, value);
+        }
+        if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.PERSONAL, "인적사항", content, 0));
+        else existing.update("인적사항", content, existing.getDisplayOrder());
+    }
+    private void applyEducationEntry(Long memberId, JsonNode data) {
+        String school = data.path("schoolName").asText("").trim();
+        String major = data.path("major").asText("").trim();
+        if (school.isBlank() && major.isBlank()) return;
+        ResumeEntry existing = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .filter(entry -> entry.getEntryType() == ResumeEntryType.EDUCATION).findFirst().orElse(null);
+        ObjectNode content = existing != null && existing.getContent().isObject()
+                ? (ObjectNode) existing.getContent().deepCopy() : json.createObjectNode();
+        for (String key : List.of("schoolName", "major", "educationLevel", "graduationStatus")) {
+            String value = data.path(key).asText("").trim(); if (!value.isBlank()) content.put(switch (key) { case "schoolName" -> "school"; case "educationLevel" -> "degree"; case "graduationStatus" -> "status"; default -> key; }, value);
+        }
+        String title = school.isBlank() ? "학력" : school;
+        if (existing == null) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.EDUCATION, title, content, 0));
+        else existing.update(title, content, existing.getDisplayOrder());
     }
     private String buildDraft(String title, String role, String skills, String education, int careerMonths, String certificates,
             String projects, String introduction, String additionalRequest, String template, String templateSource) {

@@ -58,4 +58,9 @@ public class MemberConsent {
     public boolean isAgreed() {
         return agreed;
     }
+
+    public void updateAgreement(boolean agreed) {
+        this.agreed = agreed;
+        this.agreedAt = agreed ? LocalDateTime.now() : null;
+    }
 }

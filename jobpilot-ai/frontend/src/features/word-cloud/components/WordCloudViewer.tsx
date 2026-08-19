@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface WordCloudViewerProps {
@@ -10,17 +11,18 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
   return (
     <div
       style={{
-        width: compact ? 'min(100%, 360px)' : '460px',
-        height: compact ? 'min(100vw - 92px, 360px)' : '460px',
+        width: compact ? 'min(100%, 380px)' : '600px',
+        height: compact ? 'min(100vw - 40px, 380px)' : '600px',
         margin: '0 auto',
-        borderRadius: '50%',
-        backgroundColor: '#ffffff',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.02)',
+        borderRadius: '20px', // ⭐ '50%'(동그라미) 대신 부드러운 카드형 모서리로 변경
+        backgroundColor: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
+        padding: '16px', // ⭐ 고양이 외곽선 여백 확보
         overflow: 'hidden',
       }}
     >
@@ -45,12 +47,11 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
       ) : imageData ? (
         <img
           src={imageData}
-          alt="Skill Trend WordCloud"
+          alt="Mascot Skill Trend WordCloud"
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
-            borderRadius: '50%',
+            objectFit: 'contain', // ⭐ 'cover' 대신 'contain'으로 고양이 비율 유지
             transition: 'transform 0.25s ease-out',
             cursor: 'default',
           }}

@@ -43,7 +43,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   };
 
   return <form className="career-profile-form" onSubmit={submit}>
-    <div className="form-section"><h3>희망 직무</h3><div className="form-fields">
+    <div className="form-section" id="resume-desired-role"><h3>희망 직무</h3><div className="form-fields">
       <label>직무 분야*<select required value={knownFamily ? form.targetJobFamily : "OTHER"} onChange={(event) => { const next = event.target.value; set("targetJobFamily", next === "OTHER" ? "" : next); set("targetRole", ""); }}><option value="" disabled>직무 분야를 선택하세요</option>{Object.keys(jobFamilies).map((family) => <option key={family} value={family}>{family}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>
       {!knownFamily ? <label>직접 입력 직무 분야*<input required maxLength={80} value={form.targetJobFamily} onChange={(event) => set("targetJobFamily", event.target.value)} placeholder="예: 건설·환경" /></label> : <label>목표 직무*<select required value={knownRole ? form.targetRole : "OTHER"} onChange={(event) => set("targetRole", event.target.value === "OTHER" ? "" : event.target.value)}><option value="" disabled>목표 직무를 선택하세요</option>{roles.map((role) => <option key={role} value={role}>{role}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>}
       {knownFamily && !knownRole && <label>직접 입력 목표 직무*<input required maxLength={80} value={form.targetRole} onChange={(event) => set("targetRole", event.target.value)} placeholder="예: 게임 서버 개발자" /></label>}
@@ -53,14 +53,14 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section"><h3>지원 조건</h3><div className="form-fields">
       <label>희망 지역<RegionSelectionModal value={form.preferredLocations} onChange={(next) => set("preferredLocations", next)} /></label>
       <label>입사 가능일<input type="date" value={form.availableFrom ?? ""} onChange={(event) => set("availableFrom", event.target.value || null)} /></label>
-      <label>경력 구분<select value={form.experienceType} onChange={(event) => set("experienceType", event.target.value)}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
-      <label>관련 경력 기간(개월)<input type="number" min={0} value={form.totalCareerMonths} onChange={(event) => set("totalCareerMonths", Number(event.target.value))} /></label>
+      <label>경력 구분<select value={form.experienceType} onChange={(event) => { const experienceType = event.target.value; set("experienceType", experienceType); if (experienceType === "ENTRY") set("totalCareerMonths", 0); }}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
+      <label className={form.experienceType === "ENTRY" ? "is-disabled" : ""}>관련 경력 기간(개월)<input type="number" min={0} disabled={form.experienceType === "ENTRY"} value={form.experienceType === "ENTRY" ? 0 : form.totalCareerMonths} onChange={(event) => set("totalCareerMonths", Number(event.target.value))} /></label>
     </div></div>
 
-    <div className="form-section"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
+    <div className="form-section" id="resume-skills"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
 
-    <div className="form-section"><h3>보유 자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
-      <CertificateSearchModal showDetail={false} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
+    <div className="form-section" id="resume-certificates"><h3>자격증</h3><p className="form-hint">공고의 자격증 요구사항과 비교해 추천 근거에 반영됩니다.</p>
+      <CertificateSearchModal showDetail={false} onManual={() => setCertificates((current) => [...current, emptyMemberCertificate()])} onSelect={(item) => setCertificates((current) => current.some((certificate) => certificate.name === item.name) ? current : [...current, { ...emptyMemberCertificate(), name: item.name, issuer: "한국산업인력공단" }])} />
       <div className="certificate-list">
         {certificates.map((certificate, index) => <div className="certificate-card" key={certificate.id ?? `new-${index}`}>
           <button type="button" className="certificate-remove" aria-label={`${certificate.name || "자격증"} 삭제`} title="자격증 삭제" onClick={() => setCertificates((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button>
@@ -82,11 +82,6 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       <label>졸업 상태<select value={form.graduationStatus ?? ""} onChange={(event) => set("graduationStatus", event.target.value || null)}><option value="">선택 안 함</option><option value="GRADUATED">졸업</option><option value="EXPECTED">졸업 예정</option><option value="ENROLLED">재학</option></select></label>
     </div></div>
 
-    <div className="form-section"><h3>외부 근거 및 추가 설명</h3><div className="form-fields">
-      <label>GitHub 아이디<input value={form.githubUsername ?? ""} onChange={(event) => set("githubUsername", event.target.value || null)} placeholder="github 사용자명" /></label>
-      <label>포트폴리오 URL<input type="url" value={form.portfolioUrl ?? ""} onChange={(event) => set("portfolioUrl", event.target.value || null)} placeholder="https://..." /></label>
-      <label className="wide">추가 설명<textarea rows={3} value={form.technicalSummary ?? ""} onChange={(event) => set("technicalSummary", event.target.value || null)} placeholder="프로젝트 역할, 자격증, 교육 이수 등 분석에 참고할 내용을 적어주세요." /></label>
-    </div></div>
     {error && <div className="auth-error">{error}</div>}
     <div className="form-actions">{onCancel && <button type="button" className="outline-button" onClick={onCancel}>취소</button>}<button className="primary-button" disabled={saving}>{saving ? "저장 중..." : saveLabel}</button></div>
   </form>;
