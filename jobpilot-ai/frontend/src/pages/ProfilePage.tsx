@@ -32,6 +32,6 @@ export function ProfilePage() {
         const savedCertificates = await saveMemberCertificates(memberCertificates.map(({ name, issuer, acquiredAt, expiresAt, officialUrl }) => ({ name, issuer, acquiredAt, expiresAt, officialUrl })));
         setProfile(savedProfile); setSkills(savedSkills); setCertificates(savedCertificates); setSaved(true);
       }} />
-    </section>} selfIntroduction={<section className="panel profile-form-panel" id="resume-self-introduction"><SelfIntroductionSection job={profile?.targetRole ?? ""} techSummary={profile?.technicalSummary ?? ""} /></section>} />
+    </section>} selfIntroduction={<section className="panel profile-form-panel" id="resume-self-introduction"><SelfIntroductionSection /></section>} />
   </>;
 }

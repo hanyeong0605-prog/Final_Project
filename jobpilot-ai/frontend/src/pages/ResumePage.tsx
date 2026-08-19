@@ -47,7 +47,7 @@ export function ResumePage() {
 
       <section className="panel profile-form-panel">
         {tab === "self-intro" ? (
-          <SelfIntroductionSection job={job} techSummary={techSummary} />
+          <SelfIntroductionSection />
         ) : tab === "project" ? (
           <ProjectSection job={job} techSummary={techSummary} />
         ) : <ResumeDocumentSection />}
