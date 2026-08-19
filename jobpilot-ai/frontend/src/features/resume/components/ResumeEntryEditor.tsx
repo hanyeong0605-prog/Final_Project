@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
 ];
 const blank = (section: Section, order: number): ResumeEntryInput => ({ entryType: section.type, title: section.type === "PERSONAL" ? "인적사항" : "", content: Object.fromEntries(section.fields.map((field) => [field.key, ""])), displayOrder: order });
 
-export function ResumeEntryEditor({ profileEditor, selfIntroduction, certificateCount = 0, onCertificateAction }: { profileEditor?: ReactNode; selfIntroduction?: ReactNode; certificateCount?: number; onCertificateAction?: (action: "add" | "remove") => void }) {
+export function ResumeEntryEditor({ profileEditor, selfIntroduction, certificateCount = 0, onCertificateAction, onSaveState }: { profileEditor?: ReactNode; selfIntroduction?: ReactNode; certificateCount?: number; onCertificateAction?: (action: "add" | "remove") => void; onSaveState?: (status: "DRAFT" | "SAVED") => Promise<unknown> }) {
   const [entries, setEntries] = useState<ResumeEntry[]>([]); const [drafts, setDrafts] = useState<Record<string, ResumeEntryInput>>({}); const [editingIds, setEditingIds] = useState<Record<string, number | null>>({}); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [navOpen, setNavOpen] = useState(true); const [loaded, setLoaded] = useState(false);
   useEffect(() => { void listResumeEntries().then(setEntries).catch(() => setMessage("상세 이력 정보를 불러오지 못했습니다.")).finally(() => setLoaded(true)); }, []);
   useEffect(() => { if (loaded && !entries.some((entry) => entry.entryType === "PERSONAL")) add(sections[0]); }, [loaded, entries]);
@@ -42,12 +42,12 @@ export function ResumeEntryEditor({ profileEditor, selfIntroduction, certificate
   const remove = async (entry: ResumeEntry) => { if (!confirm("이 항목을 삭제할까요?")) return; setBusy(true); try { await deleteResumeEntry(entry.id); setEntries((current) => current.filter((value) => value.id !== entry.id)); } catch (error) { setMessage(error instanceof Error ? error.message : "삭제에 실패했습니다."); } finally { setBusy(false); } };
   const removeLatest = (section: Section) => { const latest = [...(byType.get(section.type) ?? [])].at(-1); if (latest) void remove(latest); };
   const saveAll = async (finalSave: boolean) => {
-    const pending = Object.values(drafts); if (pending.length === 0) return setMessage("저장할 변경 사항이 없습니다.");
+    const pending = Object.values(drafts); if (pending.length === 0) { try { await onSaveState?.(finalSave ? "SAVED" : "DRAFT"); setMessage(finalSave ? "이력서 전체를 저장했습니다." : "이력서 전체를 임시 저장했습니다."); } catch { setMessage("저장 상태를 기록하지 못했습니다."); } return; }
     const invalid = pending.find((draft) => !draft.title.trim()); if (invalid) return setMessage("추가한 항목의 제목을 입력해 주세요.");
     setBusy(true); try {
       const saved = await Promise.all(pending.map((draft) => { const editingId = editingIds[draft.entryType]; return editingId ? updateResumeEntry(editingId, draft) : createResumeEntry(draft); }));
       setEntries((current) => [...current.filter((entry) => !saved.some((value) => value.id === entry.id)), ...saved].sort((a, b) => a.entryType.localeCompare(b.entryType) || a.displayOrder - b.displayOrder || a.id - b.id));
-      setDrafts({}); setEditingIds({}); setMessage(finalSave ? "이력서 항목을 저장했습니다." : "이력서 항목을 임시 저장했습니다.");
+      await onSaveState?.(finalSave ? "SAVED" : "DRAFT"); setDrafts({}); setEditingIds({}); setMessage(finalSave ? "이력서 전체를 저장했습니다." : "이력서 전체를 임시 저장했습니다.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "저장에 실패했습니다."); } finally { setBusy(false); }
   };
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
