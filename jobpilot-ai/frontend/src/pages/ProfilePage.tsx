@@ -9,6 +9,7 @@ import type { MemberCertificate } from "../features/profile/model/memberCertific
 import { PageHeading } from "../shared/components/PageHeading";
 import { ResumeEntryEditor } from "../features/resume/components/ResumeEntryEditor";
 import { SelfIntroductionSection } from "../features/resume/components/SelfIntroductionSection";
+import { saveResumeSaveState } from "../features/resume/api/resumeSaveStateApi";
 
 export function ProfilePage() {
   const [profile, setProfile] = useState<CareerProfile>();
@@ -26,7 +27,7 @@ export function ProfilePage() {
   return <>
     <PageHeading eyebrow="EVIDENCE-BASED PROFILE" title="나의 스펙정보" body="입력한 목표·경력·기술 경험을 채용공고의 필수·우대 조건과 비교하는 추천 근거로 사용합니다." />
     {saved && <div className="account-alert">스펙정보와 보유 기술을 저장했습니다.</div>}
-    <ResumeEntryEditor certificateCount={certificateCount} onCertificateAction={(action) => window.dispatchEvent(new Event(`resume-certificates:${action}`))} profileEditor={<section className="panel profile-form-panel">
+    <ResumeEntryEditor certificateCount={certificateCount} onSaveState={saveResumeSaveState} onCertificateAction={(action) => window.dispatchEvent(new Event(`resume-certificates:${action}`))} profileEditor={<section className="panel profile-form-panel">
       <CareerProfileForm initial={profile} initialSkills={skills} initialCertificates={certificates} onCertificatesChange={(items) => setCertificateCount(items.length)} onSave={async (value, memberSkills, memberCertificates) => {
         const savedProfile = await saveCareerProfile(value);
         const savedSkills = await saveMemberSkills(memberSkills.map(({ skillId, selfReportedLevel, note }) => ({ skillId, selfReportedLevel, note })));
