@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 import { PostcodeSearchModal } from "../../location-jobs/components/PostcodeSearchModal";
 import { EducationSearchModal } from "../../profile/components/EducationSearchModal";
+import { searchEducationMajors, searchEducationSchools, type EducationMajor, type EducationSchool } from "../../profile/api/educationLookupApi";
 import { createResumeEntry, deleteResumeEntry, listResumeEntries, updateResumeEntry } from "../api/resumeEntriesApi";
 import type { ResumeEntry, ResumeEntryInput, ResumeEntryType } from "../model/resumeEntry.types";
 
@@ -70,7 +71,19 @@ function EntryCard({ section, entry, draft, busy, personal, onEdit, onDelete, on
 function EducationLookupInput({ kind, value, degree, school, onChange }: { kind: "school" | "major"; value: string; degree: string; school: string; onChange: (value: string) => void }) {
   const educationLevel = ({ "고등학교": "HIGH_SCHOOL", "전문대": "COLLEGE", "대학교": "BACHELOR", "대학원": "MASTER" } as Record<string, string>)[degree] ?? null;
   const label = kind === "school" ? "학교명" : "전공";
-  return <label>{label}<div className="education-entry-input"><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={`${label} 직접 입력`} /><EducationSearchModal kind={kind} educationLevel={educationLevel} selectedSchool={school || null} value={null} onSelect={onChange} /></div></label>;
+  const [results, setResults] = useState<(EducationSchool | EducationMajor)[]>([]);
+  const [loading, setLoading] = useState(false);
+  const canSearch = Boolean(educationLevel && (kind === "school" || school));
+  useEffect(() => {
+    if (!canSearch || value.trim().length < 2) { setResults([]); return; }
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      const request = kind === "school" ? searchEducationSchools(value.trim(), educationLevel) : searchEducationMajors(value.trim(), educationLevel, school);
+      void request.then((items) => setResults(items.slice(0, 6))).catch(() => setResults([])).finally(() => setLoading(false));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [canSearch, educationLevel, kind, school, value]);
+  return <label>{label}<div className="education-entry-lookup"><div className="education-entry-input"><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={`${label} 직접 입력 또는 검색`} /><EducationSearchModal kind={kind} educationLevel={educationLevel} selectedSchool={school || null} value={null} onSelect={(selected) => { onChange(selected); setResults([]); }} /></div>{loading && <small>검색 중</small>}{results.length > 0 && <div className="education-inline-results">{results.map((item) => <button key={`${item.id}-${item.name}`} type="button" onClick={() => { onChange(item.name); setResults([]); }}><strong>{item.name}</strong><span>{kind === "school" ? `${(item as EducationSchool).schoolType} · ${(item as EducationSchool).region}` : (item as EducationMajor).field}</span></button>)}</div>}</div></label>;
 }
 
 function AddressInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
