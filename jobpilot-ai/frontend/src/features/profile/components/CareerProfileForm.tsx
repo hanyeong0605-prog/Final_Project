@@ -23,7 +23,6 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   const formRef = useRef<HTMLFormElement>(null);
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
   const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => { if (initial) setForm(initial); }, [initial]);
   useEffect(() => { if (initialSkills) setSkills(initialSkills); }, [initialSkills]);
@@ -40,24 +39,32 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     window.addEventListener("resume-certificates:remove", removeCertificate);
     return () => { window.removeEventListener("resume-certificates:add", addCertificate); window.removeEventListener("resume-certificates:remove", removeCertificate); };
   }, []);
-  useEffect(() => { const submitProfile = () => formRef.current?.requestSubmit(); window.addEventListener("resume-profile:save", submitProfile); return () => window.removeEventListener("resume-profile:save", submitProfile); }, []);
+  const notify = (type: "success" | "error", text: string) => window.dispatchEvent(new CustomEvent("resume:toast", { detail: { type, text } }));
+  const focusSection = (id: string) => window.setTimeout(() => { const section = document.getElementById(id); section?.scrollIntoView({ behavior: "smooth", block: "center" }); (section?.querySelector("input, select, textarea") as HTMLElement | null)?.focus({ preventScroll: true }); }, 0);
+  const validate = () => {
+    if (!form.targetJobFamily.trim() || !form.targetRole.trim()) { notify("error", "공백인 항목이 있습니다. 희망 직무로 이동합니다."); focusSection("resume-desired-role"); return false; }
+    if (certificates.some((certificate) => !certificate.name.trim())) { notify("error", "공백인 항목이 있습니다. 자격증으로 이동합니다."); focusSection("resume-certificates"); return false; }
+    return true;
+  };
+  useEffect(() => { const submitProfile = (event: Event) => { if (!validate()) { event.preventDefault(); return; } formRef.current?.requestSubmit(); }; window.addEventListener("resume-profile:save", submitProfile); return () => window.removeEventListener("resume-profile:save", submitProfile); }, [form, certificates]);
 
   const set = <K extends keyof CareerProfile>(key: K, value: CareerProfile[K]) => setForm((current) => ({ ...current, [key]: value }));
   const knownFamily = Object.hasOwn(jobFamilies, form.targetJobFamily);
   const roles = knownFamily ? jobFamilies[form.targetJobFamily] : [];
   const knownRole = roles.includes(form.targetRole);
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); setError(""); setSaving(true);
+    event.preventDefault(); if (!validate()) return; setSaving(true);
     try {
       const validCertificates = certificates.filter((certificate) => certificate.name.trim());
-      if (validCertificates.length !== certificates.length) throw new Error("자격증명은 비워 둘 수 없습니다.");
+      if (validCertificates.length !== certificates.length) return;
       await onSave(form, skills, validCertificates);
+      notify("success", "스펙정보와 보유 기술을 저장했습니다.");
     }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "저장에 실패했습니다."); }
+    catch { notify("error", "스펙정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."); }
     finally { setSaving(false); }
   };
 
-  return <form ref={formRef} className="career-profile-form" onSubmit={submit}>
+  return <form ref={formRef} className="career-profile-form" noValidate onSubmit={submit}>
     <div className="form-section" id="resume-desired-role"><h3>희망 직무</h3><div className="form-fields">
       <label>직무 분야*<select required value={knownFamily ? form.targetJobFamily : "OTHER"} onChange={(event) => { const next = event.target.value; set("targetJobFamily", next === "OTHER" ? "" : next); set("targetRole", ""); }}><option value="" disabled>직무 분야를 선택하세요</option>{Object.keys(jobFamilies).map((family) => <option key={family} value={family}>{family}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>
       {!knownFamily ? <label>직접 입력 직무 분야*<input required maxLength={80} value={form.targetJobFamily} onChange={(event) => set("targetJobFamily", event.target.value)} placeholder="예: 건설·환경" /></label> : <label>목표 직무*<select required value={knownRole ? form.targetRole : "OTHER"} onChange={(event) => set("targetRole", event.target.value === "OTHER" ? "" : event.target.value)}><option value="" disabled>목표 직무를 선택하세요</option>{roles.map((role) => <option key={role} value={role}>{role}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>}
@@ -89,6 +96,5 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       <button type="button" className="outline-button certificate-manual-add" disabled={certificates.length >= 20} onClick={() => setCertificates((current) => [...current, emptyMemberCertificate()])}>+ 직접 입력</button>
     </div>
 
-    {error && <div className="auth-error">{error}</div>}
   </form>;
 }
