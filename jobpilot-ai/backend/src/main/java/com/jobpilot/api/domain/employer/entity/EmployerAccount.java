@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 /**
  * 2026-08-19: 기업회원(구인 기업) 계정. Member(구직자/관리자)와는 완전히 분리된 테이블 -
- * V31__employer_accounts.sql 주석 참고. 담당자 1명이 회사를 대표해서 가입하는 구조라
+ * V32__employer_accounts.sql 주석 참고. 담당자 1명이 회사를 대표해서 가입하는 구조라
  * 담당자 정보와 사업자 정보를 한 행에 같이 둔다.
  */
 @Entity
