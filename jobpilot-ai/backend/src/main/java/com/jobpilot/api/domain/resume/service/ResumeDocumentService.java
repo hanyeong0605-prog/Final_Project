@@ -59,6 +59,7 @@ public class ResumeDocumentService {
                 savedProfile == null ? "" : empty(savedProfile.getTargetRole()));
         classifyCareerRelevance(extracted, targetContext);
         normalizeCertificateSuggestions(extracted);
+        normalizeStructuredProfile(extracted);
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -143,7 +144,7 @@ public class ResumeDocumentService {
         aliases.put("python", "Python"); aliases.put("파이썬", "Python");
         aliases.put("javascript", "JavaScript"); aliases.put("typescript", "TypeScript");
         aliases.put("aws", "AWS"); aliases.put("docker", "Docker"); aliases.put("kubernetes", "Kubernetes");
-        aliases.forEach((alias, canonical) -> { if (lower.contains(alias)) foundSkills.add(canonical); });
+        aliases.forEach((alias, canonical) -> { if (containsTerm(lower, alias)) foundSkills.add(canonical); });
         foundSkills.stream().limit(30).forEach(skills::add);
 
         ArrayNode certificates = node.putArray("suggestedCertificates");
@@ -206,27 +207,28 @@ public class ResumeDocumentService {
             }
             if ("education".equals(section) && row.size() >= 4 && hasPeriod(row.get(0))) {
                 ObjectNode value = educations.addObject(); String schoolRaw = row.get(1);
-                value.put("school", schoolRaw.replaceAll("\\s*\\([^)]*\\)", "").trim());
-                value.put("schoolNote", parenthesized(schoolRaw)); value.put("major", row.get(2).trim());
-                value.put("degree", degree(row.get(3))); value.put("status", graduation(row.get(3)));
+                value.put("school", normalizedSchool(schoolRaw));
+                value.put("schoolNote", schoolNote(schoolRaw)); value.put("major", normalizedMajor(row.get(2)));
+                value.put("degree", degree(schoolRaw + " " + row.get(3))); value.put("status", graduation(row.get(3)));
+                value.put("rawSchool", schoolRaw); value.put("source", "DOCX_TABLE");
                 putPeriod(value, row.get(0)); continue;
             }
             if ("training".equals(section) && row.size() >= 3 && hasPeriod(row.get(0))) {
                 String course = row.get(1).trim();
-                if (course.contains("상") || course.contains("수상")) { ObjectNode value = awards.addObject(); value.put("title", course); value.put("organization", row.get(2).trim()); value.put("description", course); }
+                if (isAwardRecord(course)) { ObjectNode value = awards.addObject(); value.put("title", course); value.put("organization", row.get(2).trim()); value.put("description", course); value.put("source", "DOCX_TABLE"); }
                 else { ObjectNode value = trainings.addObject(); value.put("title", course); value.put("provider", row.get(2).trim()); value.put("description", course); putPeriod(value, row.get(0)); }
                 continue;
             }
             if ("career".equals(section) && row.size() >= 3 && hasPeriod(row.get(0))) {
-                ObjectNode value = careers.addObject(); value.put("company", row.get(1).trim()); value.put("description", row.get(2).trim()); if (row.size() > 3) value.put("position", row.get(3).trim()); putPeriod(value, row.get(0)); continue;
+                ObjectNode value = careers.addObject(); value.put("company", row.get(1).trim()); value.put("description", row.get(2).trim()); if (row.size() > 3) { value.put("position", row.get(3).trim()); value.put("employmentType", employmentType(row.get(3))); } value.put("source", "DOCX_TABLE"); putPeriod(value, row.get(0)); continue;
             }
             if ("certificate".equals(section) && row.size() >= 3 && row.get(0).matches("\\d{2}\\.\\d{2}.*")) {
-                ObjectNode value = certificates.addObject(); value.put("acquiredMonth", row.get(0).trim()); value.put("name", row.get(1).trim()); value.put("issuer", row.get(2).trim()); value.put("status", row.get(1).contains("합격") ? "필기 합격" : "취득"); continue;
+                ObjectNode value = certificates.addObject(); String rawName = row.get(1).trim(); value.put("acquiredMonth", row.get(0).trim()); value.put("rawName", rawName); value.put("name", rawName); value.put("issuer", canonicalIssuer(row.get(2))); value.put("status", certificateStatus(rawName)); value.put("source", "DOCX_TABLE"); continue;
             }
             if ("military".equals(section) && row.size() >= 3 && hasPeriod(row.get(0))) {
                 ObjectNode value = node.putObject("militaryService"); value.put("serviceType", row.get(2).contains("군필") ? "군필" : row.get(2).trim());
                 String detail = row.get(1); value.put("rank", firstContained(detail, List.of("이병", "일병", "상병", "병장", "하사", "중사", "상사", "원사")));
-                value.put("branch", firstContained(detail, List.of("육군", "해군", "공군", "해병"))); value.put("description", detail); putPeriod(value, row.get(0)); continue;
+                value.put("branch", firstContained(detail, List.of("육군", "해군", "공군", "해병"))); value.put("serviceCategory", firstContained(detail, List.of("현역", "예비역", "보충역", "사회복무요원", "산업기능요원", "전문연구요원"))); value.put("specialty", detail.contains("병") ? detail.substring(detail.lastIndexOf(',') + 1).trim() : ""); value.put("description", detail); value.put("source", "DOCX_TABLE"); if (value.path("branch").asText().isBlank()) value.put("needsReview", true); putPeriod(value, row.get(0)); continue;
             }
             if ("project".equals(section) && row.size() >= 4 && hasPeriod(row.get(0)) && !"내용".equals(row.get(2).trim())) {
                 String title = row.get(1).replaceAll("\\s+", " ").trim(); if (!containsTitle(portfolios, title)) {
@@ -241,12 +243,16 @@ public class ResumeDocumentService {
     }
 
     private boolean hasPeriod(String value) { return value != null && value.matches(".*\\d{2,4}\\s*\\.\\s*\\d{1,2}.*"); }
-    private String parenthesized(String value) { Matcher matcher = Pattern.compile("\\(([^)]+)\\)").matcher(value); return matcher.find() ? matcher.group(1).trim() : ""; }
-    private String degree(String value) { if (value.contains("박사")) return "대학원"; if (value.contains("석사")) return "대학원"; if (value.contains("전문학사")) return "전문대"; if (value.contains("학사")) return "대학교"; return value.contains("고등") ? "고등학교" : ""; }
-    private String graduation(String value) { if (value.contains("예정")) return "졸업 예정"; if (value.contains("졸업")) return "졸업"; if (value.contains("재학")) return "재학"; if (value.contains("중퇴")) return "중퇴"; return ""; }
+    private String schoolNote(String value) { Matcher matcher = Pattern.compile("\\(([^)]+)\\)").matcher(value); if (!matcher.find()) return ""; String note = matcher.group(1).trim(); return note.matches(".*(전공심화|[234]년제|주간|야간|편입).*" ) ? note : ""; }
+    private String normalizedSchool(String value) { String note = schoolNote(value); return note.isBlank() ? value.trim() : value.replaceFirst("\\s*\\(" + Pattern.quote(note) + "\\)", "").trim(); }
+    private String normalizedMajor(String value) { return value == null ? "" : value.replaceAll("\\s+", " ").replaceAll("\\s*(학과|학부)$", "$1").trim(); }
+    private boolean isAwardRecord(String value) { return value != null && Pattern.compile("(^|\\s)(대상|최우수상|우수상|장려상|공로상|모범상|표창|수상)(\\s|$|\\()|상$|표창$").matcher(value.trim()).find(); }
+    private String employmentType(String value) { String raw = value == null ? "" : value; if (raw.contains("아르바이트") || raw.contains("알바")) return "아르바이트"; if (raw.contains("인턴")) return "인턴"; if (raw.contains("계약")) return "계약직"; if (raw.contains("프리랜서")) return "프리랜서"; if (raw.contains("정규")) return "정규직"; return "미확인"; }
+    private String degree(String value) { if (value.contains("박사") || value.contains("석사") || value.contains("대학원")) return "대학원"; if (value.contains("전문학사") || value.contains("전문대")) return "전문대"; if (value.contains("학사") || value.contains("대학교") || value.matches(".*\\b대학\\b.*")) return "대학교"; return value.contains("고등") || value.contains("고졸") ? "고등학교" : ""; }
+    private String graduation(String value) { String raw = value == null ? "" : value.replaceAll("\\s+", ""); if (raw.contains("졸업예정") || raw.equalsIgnoreCase("EXPECTED")) return "졸업 예정"; if (raw.contains("졸업") || raw.equalsIgnoreCase("GRADUATED")) return "졸업"; if (raw.contains("재학") || raw.equalsIgnoreCase("ENROLLED")) return "재학"; if (raw.contains("휴학")) return "휴학"; if (raw.contains("수료")) return "수료"; if (raw.contains("중퇴")) return "중퇴"; return ""; }
     private String firstContained(String value, List<String> options) { return options.stream().filter(value::contains).findFirst().orElse(""); }
-    private void putPeriod(ObjectNode target, String period) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2}).*?[~\\-](\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(period); if (matcher.find()) { target.put("startedAt", monthDate(matcher.group(1), matcher.group(2))); target.put("endedAt", monthDate(matcher.group(3), matcher.group(4))); } }
-    private String monthDate(String year, String month) { int value = Integer.parseInt(year); if (value < 100) value += 2000; return String.format("%04d-%02d-01", value, Integer.parseInt(month)); }
+    private void putPeriod(ObjectNode target, String period) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2}).*?[~\\-](\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(period); if (matcher.find()) { String start = monthDate(matcher.group(1), matcher.group(2)); String end = monthDate(matcher.group(3), matcher.group(4)); if (!start.isBlank() && !end.isBlank() && !LocalDate.parse(start).isAfter(LocalDate.parse(end))) { target.put("startedAt", start); target.put("endedAt", end); } else target.put("needsReview", true); } }
+    private String monthDate(String year, String month) { int value = Integer.parseInt(year); int monthValue = Integer.parseInt(month); if (monthValue < 1 || monthValue > 12) return ""; if (value < 100) { int current = LocalDate.now().getYear() % 100; value += value <= current + 5 ? 2000 : 1900; } return String.format("%04d-%02d-01", value, monthValue); }
     private void classifyCareerRelevance(ObjectNode extracted, String targetContext) {
         ArrayNode careers = extracted.withArray("careers");
         for (JsonNode career : careers) if (career instanceof ObjectNode value) {
@@ -261,13 +267,35 @@ public class ResumeDocumentService {
     private void normalizeCertificateSuggestions(ObjectNode extracted) {
         ArrayNode details = extracted.withArray("certificateDetails");
         ArrayNode suggestions = extracted.withArray("suggestedCertificates");
-        boolean firstClassLicense = containsFirstClassDriverLicense(details) || containsFirstClassDriverLicense(suggestions);
-        for (JsonNode detail : details) if (detail instanceof ObjectNode value) value.put("name", canonicalCertificateName(value.path("name").asText(), firstClassLicense));
+        String driverKind = firstDriverLicenseKind(details); if (driverKind.isBlank()) driverKind = firstDriverLicenseKind(suggestions);
+        String contextKind = driverKind;
+        for (JsonNode detail : details) if (detail instanceof ObjectNode value) { String raw = value.path("rawName").asText(value.path("name").asText()); value.put("name", canonicalCertificateName(raw, contextKind)); value.put("status", certificateStatus(raw)); }
         Set<String> unique = new java.util.LinkedHashSet<>();
-        suggestions.forEach(value -> { String name = canonicalCertificateName(value.asText(), firstClassLicense); if (!name.isBlank()) unique.add(name); });
-        details.forEach(value -> { String name = canonicalCertificateName(value.path("name").asText(), firstClassLicense); if (!name.isBlank()) unique.add(name); });
+        suggestions.forEach(value -> { String name = canonicalCertificateName(value.asText(), contextKind); if (!name.isBlank()) unique.add(name); });
+        details.forEach(value -> { String name = canonicalCertificateName(value.path("name").asText(), contextKind); if (!name.isBlank()) unique.add(name); });
         suggestions.removeAll(); unique.forEach(suggestions::add);
     }
+    private void normalizeStructuredProfile(ObjectNode extracted) {
+        for (JsonNode item : extracted.withArray("educations")) if (item instanceof ObjectNode value) {
+            String rawSchool = value.path("rawSchool").asText(value.path("school").asText()); value.put("rawSchool", rawSchool); value.put("school", normalizedSchool(rawSchool));
+            value.put("schoolNote", schoolNote(rawSchool)); value.put("major", normalizedMajor(value.path("major").asText())); value.put("degree", degree(rawSchool + " " + value.path("degree").asText())); value.put("status", graduation(value.path("status").asText()));
+            normalizeDateField(value, "startedAt"); normalizeDateField(value, "endedAt"); if (value.path("school").asText().isBlank() || value.path("degree").asText().isBlank()) value.put("needsReview", true);
+        }
+        for (String array : List.of("careers", "trainings", "portfolios")) for (JsonNode item : extracted.withArray(array)) if (item instanceof ObjectNode value) { normalizeDateField(value, "startedAt"); normalizeDateField(value, "endedAt"); }
+        for (JsonNode item : extracted.withArray("awards")) if (item instanceof ObjectNode value) normalizeDateField(value, "awardedAt");
+        ObjectNode personal = extracted.path("personalInfo") instanceof ObjectNode value ? value : extracted.putObject("personalInfo");
+        if (!personal.path("email").asText().isBlank()) personal.put("email", personal.path("email").asText().trim().toLowerCase(Locale.ROOT));
+        if (!personal.path("phone").asText().isBlank()) personal.put("phone", normalizedPhone(personal.path("phone").asText()));
+        deduplicate(extracted.withArray("educations"), List.of("school", "degree", "startedAt", "endedAt"));
+        deduplicate(extracted.withArray("careers"), List.of("company", "position", "startedAt", "endedAt"));
+        deduplicate(extracted.withArray("trainings"), List.of("provider", "title", "startedAt", "endedAt"));
+        deduplicate(extracted.withArray("awards"), List.of("organization", "title", "awardedAt"));
+        deduplicate(extracted.withArray("portfolios"), List.of("title", "startedAt", "endedAt"));
+        deduplicate(extracted.withArray("selfIntroductions"), List.of("title", "content"));
+    }
+    private void normalizeDateField(ObjectNode value, String key) { String raw = value.path(key).asText("").trim(); if (raw.isBlank()) return; Matcher matcher = Pattern.compile("(\\d{2,4})[.\\-/년\\s]+(\\d{1,2})(?:[.\\-/월\\s]+(\\d{1,2}))?").matcher(raw); if (!matcher.find()) { value.put("needsReview", true); return; } String month = monthDate(matcher.group(1), matcher.group(2)); if (month.isBlank()) { value.put("needsReview", true); return; } value.put(key, matcher.group(3) == null ? month : month.substring(0, 8) + String.format("%02d", Math.clamp(Integer.parseInt(matcher.group(3)), 1, 28))); }
+    private void deduplicate(ArrayNode values, List<String> keys) { Set<String> seen = new HashSet<>(); for (int index = values.size() - 1; index >= 0; index--) { JsonNode value = values.get(index); String identity = keys.stream().map(key -> normalize(value.path(key).asText())).collect(Collectors.joining("|")); if (identity.replace("|", "").isBlank() || !seen.add(identity)) values.remove(index); } }
+    private String normalizedPhone(String value) { String digits = value == null ? "" : value.replaceAll("\\D", ""); if (digits.startsWith("82")) digits = "0" + digits.substring(2); if (digits.matches("01\\d{8}")) return digits.replaceFirst("(\\d{3})(\\d{3})(\\d{4})", "$1-$2-$3"); if (digits.matches("01\\d{9}")) return digits.replaceFirst("(\\d{3})(\\d{4})(\\d{4})", "$1-$2-$3"); return value.trim(); }
     private boolean isRelevantCareer(String evidence, String targetContext) {
         String normalized = evidence.toLowerCase(Locale.ROOT);
         boolean itTarget = targetContext.isBlank() || List.of("개발", "프로그래", "소프트웨어", "데이터", "ai", "인공지능", "it", "서버", "웹", "앱", "클라우드", "보안", "네트워크", "인프라", "devops")
@@ -281,7 +309,9 @@ public class ResumeDocumentService {
     private boolean containsTitle(ArrayNode values, String title) { for (JsonNode value : values) if (title.equals(value.path("title").asText())) return true; return false; }
 
     private boolean containsTerm(String text, String term) {
-        return !blank(term) && text.contains(term.toLowerCase(Locale.ROOT));
+        if (blank(term)) return false;
+        String candidate = term.toLowerCase(Locale.ROOT).trim();
+        return Pattern.compile("(?<![a-z0-9가-힣+#])" + Pattern.quote(candidate) + "(?![a-z0-9가-힣+#])", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(text).find();
     }
 
     private String inferEducationLevel(String text) {
@@ -398,6 +428,10 @@ public class ResumeDocumentService {
             Object months = profile.get("totalCareerMonths"); if (months instanceof Number number && number.intValue() > extracted.path("totalCareerMonths").asInt()) extracted.put("totalCareerMonths", number.intValue());
             mergeArray(extracted.withArray("suggestedSkills"), profile.get("suggestedSkills"));
             mergeArray(extracted.withArray("suggestedCertificates"), profile.get("suggestedCertificates"));
+            for (String key : List.of("educations", "careers", "trainings", "awards", "portfolios", "certificateDetails", "selfIntroductions")) mergeObjectArray(extracted.withArray(key), profile.get(key));
+            if (extracted.path("militaryService").isMissingNode() || extracted.path("militaryService").isEmpty()) {
+                JsonNode military = json.valueToTree(profile.get("militaryService")); if (military.isObject() && !military.isEmpty()) extracted.set("militaryService", military);
+            }
         } catch (Exception exception) {
             extracted.put("analysisWarning", "AI 분석을 사용할 수 없어 이력서의 텍스트를 기준으로 추출했습니다.");
         }
@@ -455,33 +489,48 @@ public class ResumeDocumentService {
         List<Certificate> additions = new java.util.ArrayList<>();
         boolean structured = details.isArray() && !details.isEmpty();
         if (structured) for (JsonNode detail : details) {
-            String name = canonicalCertificateName(detail.path("name").asText(""), containsFirstClassDriverLicense(details));
-            // "필기 합격" is useful in the review but is not an acquired certificate.
-            if (!name.isBlank() && !name.contains("필기") && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, detail.path("issuer").asText("이력서 추출"), parseMonth(detail.path("acquiredMonth").asText()), null, null));
+            String name = canonicalCertificateName(detail.path("name").asText(""), firstDriverLicenseKind(details));
+            // 합격·예정·접수 상태는 검토 정보이며 취득 자격증으로 저장하지 않는다.
+            if (!name.isBlank() && "취득".equals(detail.path("status").asText("취득")) && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, canonicalIssuer(detail.path("issuer").asText("이력서 추출")), parseMonth(detail.path("acquiredMonth").asText()), null, null));
         }
         if (!structured && candidates.isArray()) for (JsonNode candidate : candidates) {
-            String name = canonicalCertificateName(candidate.asText(""), containsFirstClassDriverLicense(candidates));
+            String name = canonicalCertificateName(candidate.asText(""), firstDriverLicenseKind(candidates));
             if (!name.isBlank() && owned.add(normalize(name))) additions.add(new Certificate(memberId, name, "이력서 추출", null, null, null));
         }
         if (!additions.isEmpty()) certificates.saveAll(additions);
     }
+    private void mergeObjectArray(ArrayNode target, Object values) { if (!(values instanceof List<?> list)) return; for (Object value : list) { JsonNode node = json.valueToTree(value); if (node.isObject() && !node.isEmpty()) target.add(node); } }
     private void normalizeExistingDriverLicense(Long memberId, JsonNode details) {
-        List<Certificate> aliases = certificates.findByMemberId(memberId).stream().filter(item -> isDriverLicenseAlias(item.getName())).toList();
-        boolean firstClassLicense = aliases.stream().anyMatch(item -> isFirstClassDriverLicense(item.getName())) || containsFirstClassDriverLicense(details);
-        if (aliases.isEmpty() || !firstClassLicense) return;
+        String driverKind = firstDriverLicenseKind(details); if (driverKind.isBlank()) return;
+        List<Certificate> aliases = certificates.findByMemberId(memberId).stream().filter(item -> { String kind = driverLicenseKind(item.getName()); return isGenericDriverLicense(item.getName()) || driverKind.equals(kind); }).toList();
+        if (aliases.isEmpty()) return;
         JsonNode detail = details.isArray() ? java.util.stream.StreamSupport.stream(details.spliterator(), false)
-                .filter(item -> isFirstClassDriverLicense(item.path("name").asText())).findFirst().orElse(null) : null;
-        Certificate keeper = aliases.stream().filter(item -> normalize(item.getName()).contains("운전면허1종보통")).findFirst().orElse(aliases.get(0));
-        keeper.normalizeImportedIdentity("운전면허 1종보통", detail == null ? keeper.getIssuer() : detail.path("issuer").asText(keeper.getIssuer()),
+                .filter(item -> driverKind.equals(driverLicenseKind(item.path("name").asText()))).findFirst().orElse(null) : null;
+        Certificate keeper = aliases.stream().filter(item -> driverKind.equals(driverLicenseKind(item.getName()))).findFirst().orElse(aliases.get(0));
+        keeper.normalizeImportedIdentity("자동차운전면허 " + driverKind, detail == null ? keeper.getIssuer() : canonicalIssuer(detail.path("issuer").asText(keeper.getIssuer())),
                 detail == null ? keeper.getAcquiredAt() : parseMonth(detail.path("acquiredMonth").asText()));
         certificates.save(keeper);
         List<Certificate> duplicates = aliases.stream().filter(item -> !item.getId().equals(keeper.getId())).toList();
         if (!duplicates.isEmpty()) certificates.deleteAll(duplicates);
     }
-    private String canonicalCertificateName(String value, boolean firstClassContext) { return firstClassContext && isDriverLicenseAlias(value) ? "운전면허 1종보통" : value == null ? "" : value.trim(); }
-    private boolean isDriverLicenseAlias(String value) { String compact = normalize(value); return compact.equals("운전면허") || compact.equals("1종보통") || compact.equals("운전면허1종보통") || compact.equals("자동차운전면허1종보통"); }
-    private boolean isFirstClassDriverLicense(String value) { String compact = normalize(value); return compact.equals("1종보통") || compact.equals("운전면허1종보통") || compact.equals("자동차운전면허1종보통"); }
-    private boolean containsFirstClassDriverLicense(JsonNode values) { if (!values.isArray()) return false; for (JsonNode value : values) { String name = value.isObject() ? value.path("name").asText() : value.asText(); if (isFirstClassDriverLicense(name)) return true; } return false; }
+    private String canonicalCertificateName(String value, String driverContext) {
+        String raw = value == null ? "" : value.trim(); String compact = normalize(raw); String driverKind = driverLicenseKind(raw);
+        if (!driverKind.isBlank()) return "자동차운전면허 " + driverKind;
+        if (isGenericDriverLicense(raw) && !driverContext.isBlank()) return "자동차운전면허 " + driverContext;
+        if (isGenericDriverLicense(raw)) return "자동차운전면허 (종류 미확인)";
+        String statusRemoved = raw.replaceAll("\\s*(필기|실기|최종)?\\s*(합격|취득예정|응시예정|접수|만료|갱신필요)\\s*$", "").trim(); compact = normalize(statusRemoved);
+        if (compact.startsWith("itq")) { if (compact.contains("파워포인트")) return "ITQ 한글파워포인트"; if (compact.contains("엑셀")) return "ITQ 한글엑셀"; if (compact.contains("아래한글") || compact.contains("한글")) return "ITQ 아래한글"; if (compact.contains("인터넷")) return "ITQ 인터넷"; return "ITQ (종목 미확인)"; }
+        if (compact.startsWith("gtq")) { Matcher grade = Pattern.compile("([123])급").matcher(compact); return "GTQ 그래픽기술자격" + (grade.find() ? " " + grade.group(1) + "급" : ""); }
+        if (compact.contains("컴퓨터활용능력") || compact.startsWith("컴활")) { Matcher grade = Pattern.compile("([12])급").matcher(compact); return "컴퓨터활용능력" + (grade.find() ? " " + grade.group(1) + "급" : ""); }
+        if (compact.equals("sqld") || compact.equals("sql개발자")) return "SQLD"; if (compact.equals("sqlp") || compact.equals("sql전문가")) return "SQLP";
+        if (compact.equals("opic") || compact.equals("오픽")) return "OPIc"; if (compact.equals("toeic") || compact.equals("토익")) return "TOEIC";
+        return statusRemoved;
+    }
+    private String driverLicenseKind(String value) { String compact = normalize(value).replace("제", ""); if (compact.contains("대형견인")) return "1종 특수 대형견인"; if (compact.contains("소형견인")) return "1종 특수 소형견인"; if (compact.contains("구난")) return "1종 특수 구난"; if (compact.contains("1종대형") || compact.equals("대형면허")) return "1종 대형"; if (compact.contains("1종보통") || compact.equals("보통1종")) return "1종 보통"; if (compact.contains("2종소형")) return "2종 소형"; if (compact.contains("2종보통") || compact.equals("보통2종")) return "2종 보통"; if (compact.contains("원동기")) return "원동기장치자전거"; return ""; }
+    private String firstDriverLicenseKind(JsonNode values) { if (!values.isArray()) return ""; for (JsonNode value : values) { String name = value.isObject() ? value.path("rawName").asText(value.path("name").asText()) : value.asText(); String kind = driverLicenseKind(name); if (!kind.isBlank()) return kind; } return ""; }
+    private boolean isGenericDriverLicense(String value) { String compact = normalize(value); return compact.equals("운전면허") || compact.equals("자동차운전면허"); }
+    private String certificateStatus(String value) { String raw = value == null ? "" : value.replaceAll("\\s+", ""); if (raw.contains("필기합격")) return "필기 합격"; if (raw.contains("실기합격")) return "실기 합격"; if (raw.contains("최종합격")) return "최종 합격"; if (raw.contains("취득예정")) return "취득 예정"; if (raw.contains("응시예정")) return "응시 예정"; if (raw.contains("접수")) return "접수"; if (raw.contains("만료")) return "만료"; return "취득"; }
+    private String canonicalIssuer(String value) { String raw = value == null ? "" : value.trim(); String compact = normalize(raw); if (compact.equals("산업인력공단") || compact.equals("hrdk") || compact.contains("한국산업인력공단")) return "한국산업인력공단"; if (compact.equals("kpc") || compact.contains("한국생산성본부")) return "한국생산성본부"; if (compact.contains("도로교통공단")) return "도로교통공단"; if (compact.equals("k-data") || compact.contains("한국데이터산업진흥원")) return "한국데이터산업진흥원"; if (compact.contains("대한상공회의소") || compact.equals("상공회의소")) return "대한상공회의소"; return raw; }
     private void applyPersonalEntry(Long memberId, JsonNode personal) {
         if (personal == null || !personal.isObject() || personal.isEmpty()) return;
         String name = personal.path("name").asText("").trim();
@@ -508,22 +557,23 @@ public class ResumeDocumentService {
         if (military.isObject() && existing.stream().noneMatch(entry -> entry.getEntryType() == ResumeEntryType.PREFERENCE)) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.PREFERENCE, "병역사항", military, 0));
         if (data.path("selfIntroductions").isArray()) for (JsonNode intro : data.path("selfIntroductions")) {
             String title = intro.path("title").asText("").trim(); String content = intro.path("content").asText("").trim();
-            if (!title.isBlank() && !content.isBlank() && introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().noneMatch(item -> item.getTitle().equals(title))) introductions.save(new SelfIntroduction(memberId, title, content, false));
+            if (!title.isBlank() && !content.isBlank() && introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().noneMatch(item -> normalize(item.getTitle()).equals(normalize(title)) && normalize(item.getContent()).equals(normalize(content)))) introductions.save(new SelfIntroduction(memberId, title, content, false));
         }
     }
     private void appendEntries(Long memberId, List<ResumeEntry> existing, ResumeEntryType type, JsonNode values, String titleKey) {
         if (!values.isArray()) return; int order = (int) existing.stream().filter(entry -> entry.getEntryType() == type).count();
         for (JsonNode value : values) { String title = value.path(titleKey).asText("").trim();
-            if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == type && entry.getTitle().equals(title))) resumeEntries.save(new ResumeEntry(memberId, type, title, value, order++));
+            String identity = entryIdentity(type, title, value); if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == type && entryIdentity(type, entry.getTitle(), entry.getContent()).equals(identity))) { ResumeEntry saved = resumeEntries.save(new ResumeEntry(memberId, type, title, value, order++)); existing.add(saved); }
         }
     }
     private void appendRelevantCareers(Long memberId, List<ResumeEntry> existing, JsonNode values) {
         if (!values.isArray()) return; int order = (int) existing.stream().filter(entry -> entry.getEntryType() == ResumeEntryType.CAREER).count();
         for (JsonNode value : values) { if (!value.path("relevantCareer").asBoolean(false)) continue; String title = value.path("company").asText("").trim();
-            if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == ResumeEntryType.CAREER && entry.getTitle().equals(title))) resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.CAREER, title, value, order++));
+            String identity = entryIdentity(ResumeEntryType.CAREER, title, value); if (!title.isBlank() && existing.stream().noneMatch(entry -> entry.getEntryType() == ResumeEntryType.CAREER && entryIdentity(ResumeEntryType.CAREER, entry.getTitle(), entry.getContent()).equals(identity))) { ResumeEntry saved = resumeEntries.save(new ResumeEntry(memberId, ResumeEntryType.CAREER, title, value, order++)); existing.add(saved); }
         }
     }
-    private LocalDate parseMonth(String value) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(value == null ? "" : value); return matcher.find() ? LocalDate.parse(monthDate(matcher.group(1), matcher.group(2))) : null; }
+    private String entryIdentity(ResumeEntryType type, String title, JsonNode value) { List<String> keys = switch (type) { case EDUCATION -> List.of("school", "degree", "startedAt", "endedAt"); case CAREER -> List.of("company", "position", "startedAt", "endedAt"); case TRAINING -> List.of("provider", "title", "startedAt", "endedAt"); case AWARD -> List.of("organization", "title", "awardedAt"); case PORTFOLIO -> List.of("title", "startedAt", "endedAt"); default -> List.of(); }; return normalize(title) + "|" + keys.stream().map(key -> normalize(value.path(key).asText())).collect(Collectors.joining("|")); }
+    private LocalDate parseMonth(String value) { Matcher matcher = Pattern.compile("(\\d{2,4})\\s*\\.\\s*(\\d{1,2})").matcher(value == null ? "" : value); if (!matcher.find()) return null; String normalized = monthDate(matcher.group(1), matcher.group(2)); return normalized.isBlank() ? null : LocalDate.parse(normalized); }
     private String buildDraft(String title, String role, String skills, String education, int careerMonths, String certificates,
             String projects, String introduction, String additionalRequest, String template, String templateSource) {
         String target = "## 지원 직무\n" + value(role, "지원 직무를 입력해 주세요");
