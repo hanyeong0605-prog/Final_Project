@@ -8,6 +8,7 @@ export interface RequirementEvidence {
   sourceExcerpt: string;
   sourceNumber: number;
   memberEvidenceType?: string;
+  memberEvidence?: string;
   evidence: string;
   status: RequirementStatus;
   action: string;
