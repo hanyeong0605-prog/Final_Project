@@ -17,6 +17,7 @@ import com.jobpilot.api.domain.member.entity.MemberSkill;
 import com.jobpilot.api.domain.member.entity.Skill;
 import com.jobpilot.api.domain.member.repository.CertificateRepository;
 import com.jobpilot.api.domain.member.repository.MemberSkillRepository;
+import com.jobpilot.api.domain.member.repository.MemberSpecificationRepository;
 import com.jobpilot.api.domain.member.repository.SkillRepository;
 import com.jobpilot.api.domain.resume.entity.ResumeEntry;
 import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
@@ -43,6 +44,7 @@ public class JobMatchService {
     private final MemberSkillRepository memberSkills;
     private final SkillRepository skills;
     private final CertificateRepository certificates;
+    private final MemberSpecificationRepository specifications;
 
     public JobMatchService(
             JobMatchRepository jobMatchRepository,
@@ -50,7 +52,7 @@ public class JobMatchService {
             JobPostingRepository jobPostingRepository,
             JobRequirementRepository jobRequirementRepository,
             ResumeEntryRepository resumeEntries, MemberSkillRepository memberSkills,
-            SkillRepository skills, CertificateRepository certificates
+            SkillRepository skills, CertificateRepository certificates, MemberSpecificationRepository specifications
     ) {
         this.jobMatchRepository = jobMatchRepository;
         this.jobMatchEvidenceRepository = jobMatchEvidenceRepository;
@@ -60,6 +62,7 @@ public class JobMatchService {
         this.memberSkills = memberSkills;
         this.skills = skills;
         this.certificates = certificates;
+        this.specifications = specifications;
     }
 
     public List<JobMatchSummaryResponse> findMatches(Long memberId, RecommendationLevel level) {
@@ -109,19 +112,20 @@ public class JobMatchService {
                 requirement == null ? null : requirement.getContent(),
                 requirement == null ? null : requirement.getType(),
                 requirement == null ? null : requirement.getSourceExcerpt(),
-                evidence.getMemberEvidenceType(), evidence.getMemberEvidenceId(), memberEvidence(memberId, evidence),
+                evidence.getMemberEvidenceType(), evidence.getMemberEvidenceId(), memberEvidence(memberId, evidence, requirement),
                 evidence.getStatus(), evidence.getComment(), evidence.getGapAction()
         );
     }
 
-    private String memberEvidence(Long memberId, JobMatchEvidence evidence) {
+    private String memberEvidence(Long memberId, JobMatchEvidence evidence, JobRequirement requirement) {
         Long evidenceId = evidence.getMemberEvidenceId();
-        if ("PROFILE".equals(evidence.getMemberEvidenceType())) return "등록 기본 스펙 · 경력 또는 학력 정보";
+        if ("PROFILE".equals(evidence.getMemberEvidenceType())) return profileEvidence(memberId, requirement == null ? "" : requirement.getType());
         if (evidenceId == null) return null;
         return switch (evidence.getMemberEvidenceType()) {
             case "RESUME_ENTRY" -> resumeEntries.findByIdAndMemberId(evidenceId, memberId).map(this::resumeExcerpt).orElse(null);
-            case "MEMBER_SKILL" -> memberSkills.findById(evidenceId)
-                    .filter(skill -> memberId.equals(skill.getMemberId()))
+            case "MEMBER_SKILL" -> memberSkills.findByMemberId(memberId).stream()
+                    .filter(skill -> evidenceId.equals(skill.getSkillId()))
+                    .findFirst()
                     .flatMap(skill -> skills.findById(skill.getSkillId()).map(catalog -> skillEvidence(catalog, skill)))
                     .orElse(null);
             case "CERTIFICATE" -> certificates.findById(evidenceId)
@@ -129,6 +133,20 @@ public class JobMatchService {
                     .map(certificate -> "자격증 · " + certificate.getName()).orElse(null);
             default -> null;
         };
+    }
+
+    private String profileEvidence(Long memberId, String requirementType) {
+        return specifications.findById(memberId).map(specification -> {
+            if ("EDUCATION".equalsIgnoreCase(requirementType)) {
+                String school = specification.getSchoolName();
+                String major = specification.getMajor();
+                String detail = String.join(" · ", java.util.stream.Stream.of(specification.getEducationLevel(), school, major)
+                        .filter(value -> value != null && !value.isBlank()).toList());
+                return detail.isBlank() ? null : "역량 프로필 > 학력 · " + detail;
+            }
+            int months = specification.getTotalCareerMonths();
+            return "역량 프로필 > 총 실무경력 · " + (months / 12) + "년 " + (months % 12) + "개월";
+        }).orElse(null);
     }
 
     private String skillEvidence(Skill skill, MemberSkill memberSkill) {

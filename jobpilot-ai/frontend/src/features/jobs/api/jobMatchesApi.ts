@@ -84,4 +84,13 @@ export async function getJobMatchDetail(jobPostingId: number): Promise<JobMatch>
   };
 }
 
+export async function refreshJobMatchEvidence(jobPostingId: number): Promise<JobMatch> {
+  const response = await postJson<JobMatchDetailResponse>(`/api/v1/job-matches/${jobPostingId}/refresh-evidence`, undefined);
+  return {
+    ...toJobMatch(response.match),
+    postingDescription: response.postingDescription ?? "",
+    requirements: response.evidences.map(toRequirement),
+  };
+}
+
 export const getGrowthActions = (jobPostingId: number) => getJson<GrowthAction[]>(`/api/v1/job-matches/${jobPostingId}/growth-actions`);

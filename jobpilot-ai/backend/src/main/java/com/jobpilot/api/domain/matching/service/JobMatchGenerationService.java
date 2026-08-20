@@ -227,6 +227,17 @@ public class JobMatchGenerationService {
         return actual.length() >= 2 && (expected.contains(actual) || actual.contains(expected));
     }
 
+    /** Rebuilds evidence only for the posting the member is currently viewing. */
+    public void regenerateForMemberAndPosting(Long memberId, Long jobPostingId) {
+        JobPosting posting = postings.findById(jobPostingId)
+                .orElseThrow(() -> new IllegalArgumentException("채용공고를 찾을 수 없습니다."));
+        List<JobRequirement> postingRequirements = requirements.findByJobPostingId(jobPostingId);
+        if (postingRequirements.isEmpty()) return;
+        MemberProfile profile = profiles.findById(memberId).orElse(null);
+        MemberSpecification specification = specifications.findById(memberId).orElse(null);
+        generateOne(memberId, posting, postingRequirements, profile, specification);
+    }
+
     /** Links a direct match to the member's own project/career wording when possible. */
     private ResumeEntry findResumeEvidence(String requirement, Skill matchedSkill, List<ResumeEntry> entries) {
         if (entries == null || entries.isEmpty()) return null;

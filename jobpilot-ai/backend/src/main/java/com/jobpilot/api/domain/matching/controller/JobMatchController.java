@@ -52,6 +52,14 @@ public class JobMatchController {
         return jobMatchService.findDetail(AuthenticatedMember.id(authentication), jobPostingId);
     }
 
+    /** Detail evidence is refreshed on demand, avoiding an expensive full-posting refresh. */
+    @PostMapping("/{jobPostingId}/refresh-evidence")
+    public JobMatchDetailResponse refreshEvidence(@PathVariable Long jobPostingId, Authentication authentication) {
+        Long memberId = AuthenticatedMember.id(authentication);
+        matchGenerationService.regenerateForMemberAndPosting(memberId, jobPostingId);
+        return jobMatchService.findDetail(memberId, jobPostingId);
+    }
+
     @GetMapping("/{jobPostingId}/growth-actions")
     public List<GrowthActionResponse> growthActions(@PathVariable Long jobPostingId, Authentication authentication) {
         return growthActions.forMatch(AuthenticatedMember.id(authentication), jobPostingId);
