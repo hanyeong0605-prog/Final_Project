@@ -3,6 +3,7 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const tokenKey = "jobpilot.accessToken";
 const adminFaceSessionKey = "admin_face_session_id";
+const adminFaceVerifiedAtKey = "admin_face_verified_at";
 
 function addAdminFaceSession(path: string, headers: Headers) {
   // Pairing endpoints must remain reachable before face verification completes.
@@ -14,7 +15,12 @@ function addAdminFaceSession(path: string, headers: Headers) {
 
 export function getAccessToken() { return localStorage.getItem(tokenKey); }
 export function setAccessToken(token: string) { localStorage.setItem(tokenKey, token); }
-export function clearAccessToken() { localStorage.removeItem(tokenKey); }
+export function clearAccessToken() {
+  localStorage.removeItem(tokenKey);
+  // The face proof must never survive an explicit logout in this browser tab.
+  sessionStorage.removeItem(adminFaceSessionKey);
+  sessionStorage.removeItem(adminFaceVerifiedAtKey);
+}
 
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAccessToken();

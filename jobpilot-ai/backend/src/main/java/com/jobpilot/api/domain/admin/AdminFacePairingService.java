@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class AdminFacePairingService {
     private static final Duration LIFETIME = Duration.ofMinutes(2);
-    /** A successful QR verification authorizes sensitive admin actions briefly in this browser. */
-    private static final Duration VERIFIED_LIFETIME = Duration.ofMinutes(10);
+    /** A face-verified browser session stays valid until logout, browser close, or this safety limit. */
+    private static final Duration VERIFIED_LIFETIME = Duration.ofHours(8);
     private static final int TOKEN_BYTES = 32;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
