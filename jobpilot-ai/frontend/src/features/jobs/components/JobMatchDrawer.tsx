@@ -8,6 +8,7 @@ import { getGrowthActions } from "../api/jobMatchesApi";
 
 interface JobMatchDrawerProps {
   job: JobMatch;
+  evidenceLoading?: boolean;
   interested: boolean;
   onInterest: () => void;
   onClose: () => void;
@@ -31,7 +32,7 @@ function matchingNumbers(text: string, requirements: RequirementEvidence[]) {
     .map((item) => item.sourceNumber);
 }
 
-export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatchDrawerProps) {
+export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInterest, onClose }: JobMatchDrawerProps) {
   const meta = gradeMeta[job.recommendationLevel];
   const [activeEvidence, setActiveEvidence] = useState<number | null>(null);
   const [growthActions, setGrowthActions] = useState<GrowthAction[]>([]);
@@ -40,7 +41,10 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
     () => job.postingDescription.split(/\n+/).map((item) => item.trim()).filter(Boolean),
     [job.postingDescription],
   );
-  useEffect(() => { void getGrowthActions(job.id).then(setGrowthActions).catch(() => setGrowthActions([])); }, [job.id]);
+  useEffect(() => {
+    if (evidenceLoading) { setGrowthActions([]); return; }
+    void getGrowthActions(job.id).then(setGrowthActions).catch(() => setGrowthActions([]));
+  }, [job.id, evidenceLoading]);
 
   const focusEvidence = (sourceNumber: number) => {
     setActiveEvidence(sourceNumber);
@@ -96,7 +100,7 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
             <div><span className="eyebrow">WHY THIS RESULT</span><h3>요구사항 · 내 근거 매트릭스</h3></div>
             <p>각 항목을 누르면 왼쪽 원문에서 연결된 근거를 강조합니다.</p>
           </div>
-          <div className="matrix-list">
+          {evidenceLoading ? <div className="match-evidence-loading"><span className="match-evidence-spinner" /><strong>근거 가져오는 중</strong><p>회원님의 프로젝트·경력 이력에서 요구사항별 증거 문장을 찾고 있습니다.</p></div> : <div className="matrix-list">
             {job.requirements.map((item) => {
               const evidence = evidenceMeta[item.status];
               const isActive = activeEvidence === item.sourceNumber;
@@ -113,11 +117,11 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
                 </div>
                 <div className="member-evidence">
                   <span>내 이력 근거</span>
-                  {item.memberEvidence ? <strong>{item.memberEvidence}</strong> : <p>{item.status === "DIRECT" ? "연결된 이력 항목을 찾는 중입니다. 매칭 결과를 새로고침해 주세요." : "연결 가능한 이력 근거가 없습니다."}</p>}
+                  {item.memberEvidence ? <strong>{item.memberEvidence}</strong> : <p>{item.status === "DIRECT" ? "직접 증명 항목이지만, 저장된 이력 문장과 연결되지 않았습니다." : "연결 가능한 이력 근거가 없습니다."}</p>}
                 </div>
               </button>;
             })}
-          </div>
+          </div>}
           {growthActions.length > 0 && <section className="match-growth-panel">
             <span className="eyebrow">NEXT ACTIONS</span><h3>부족 요건 보강 플랜</h3><p>확인되지 않은 요건을 실제 행동으로 바꿔보세요.</p>
             <div className="match-growth-list">{growthActions.map((action) => <Link key={`${action.requirementId}-${action.title}`} to={action.href} className="match-growth-card">

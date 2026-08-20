@@ -3,7 +3,7 @@ import { Bookmark, BriefcaseBusiness, ChevronLeft, ChevronRight, Target } from "
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "../features/dashboard/components/MetricCard";
 import { useInterests } from "../features/interests/model/InterestContext";
-import { getJobMatchDetail, getJobMatches, recalculateJobMatches } from "../features/jobs/api/jobMatchesApi";
+import { getJobMatches, recalculateJobMatches, refreshJobMatchEvidence } from "../features/jobs/api/jobMatchesApi";
 import { CompactJobCard } from "../features/jobs/components/CompactJobCard";
 import { JobMatchDrawer } from "../features/jobs/components/JobMatchDrawer";
 import type { JobMatch } from "../features/jobs/model/job.types";
@@ -50,6 +50,7 @@ export function DashboardPage() {
   const [jobs, setJobs] = useState<JobMatch[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("ALL");
   const [page, setPage] = useState(0);
   const [recalculating, setRecalculating] = useState(false);
@@ -57,7 +58,15 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   const openJob = (job: JobMatch) => {
-    void getJobMatchDetail(job.id).then(setSelectedJob).catch(() => setSelectedJob(job));
+    setSelectedJob(job);
+    setEvidenceLoading(true);
+    void refreshJobMatchEvidence(job.id)
+      .then((detail) => {
+        setSelectedJob(detail);
+        setJobs((current) => current.map((item) => item.id === detail.id ? { ...item, score: detail.score, comment: detail.comment, recommendationLevel: detail.recommendationLevel } : item));
+      })
+      .catch(() => setSelectedJob(job))
+      .finally(() => setEvidenceLoading(false));
   };
 
   const recalculate = async () => {
@@ -130,6 +139,6 @@ export function DashboardPage() {
         </>}
       </section>
     </>}
-    {selectedJob && <JobMatchDrawer job={selectedJob} interested={isInterested(selectedJob.id)} onInterest={() => void toggleInterest(selectedJob.id)} onClose={() => setSelectedJob(null)} />}
+    {selectedJob && <JobMatchDrawer job={selectedJob} evidenceLoading={evidenceLoading} interested={isInterested(selectedJob.id)} onInterest={() => void toggleInterest(selectedJob.id)} onClose={() => setSelectedJob(null)} />}
   </>;
 }
