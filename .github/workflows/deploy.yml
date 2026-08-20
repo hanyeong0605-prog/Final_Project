@@ -57,38 +57,42 @@ jobs:
             fi
             COMPOSE="sudo -E docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml"
 
-            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
+            if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
+              # Free only unused build layers and dangling images. Running
+              # containers/images are retained. Build sequentially so this
+              # small EC2 volume never needs space for every AI image at once.
+              sudo docker builder prune --all --force
+              sudo docker image prune --force
               $COMPOSE build frontend
               $COMPOSE up -d --no-deps frontend
-            fi
-
-            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/backend/'; then
               $COMPOSE build backend
               $COMPOSE up -d --no-deps backend
-            fi
-
-            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ai-server/'; then
-              $COMPOSE build ai-server
-              $COMPOSE up -d --no-deps ai-server
-            fi
-
-            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ml-project/'; then
               $COMPOSE build wordcloud-server
               $COMPOSE up -d --no-deps wordcloud-server
-            fi
+            else
+              if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
+                $COMPOSE build frontend
+                $COMPOSE up -d --no-deps frontend
+              fi
 
-            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
-              # Compose configuration changes can affect any service. Build
-              # before starting so a previously failed deploy never reuses an
-              # old image with the new configuration.
-              $COMPOSE up -d --build
-            fi
+              if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/backend/'; then
+                $COMPOSE build backend
+                $COMPOSE up -d --no-deps backend
+              fi
 
-            # This branch is intentionally deployed as a complete production
-            # candidate without merging into main. Rebuild all containers so a
-            # failed earlier run cannot leave an old frontend image behind.
-            if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
-              $COMPOSE up -d --build
+              if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ai-server/'; then
+                $COMPOSE build ai-server
+                $COMPOSE up -d --no-deps ai-server
+              fi
+
+              if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ml-project/'; then
+                $COMPOSE build wordcloud-server
+                $COMPOSE up -d --no-deps wordcloud-server
+              fi
+
+              if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
+                $COMPOSE up -d
+              fi
             fi
 
             $COMPOSE ps
