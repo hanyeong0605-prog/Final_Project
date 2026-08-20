@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import Event, RLock, Thread
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 import numpy as np
 from PIL import Image
@@ -365,7 +366,10 @@ def verify_admin_face(req: FaceVerifyRequest, x_internal_api_key: str | None = H
         if not admin_photo_path.exists():
             raise HTTPException(status_code=404, detail="등록된 관리자 얼굴 사진이 없습니다.")
 
-    temp_webcam_path = BASE_DIR / "runtime-cache" / f"temp_{target_id}.jpg"
+    # A user can tap the capture button again while a prior request is still
+    # running. Give each request its own file so cleanup never removes another
+    # request's image mid-analysis.
+    temp_webcam_path = BASE_DIR / "runtime-cache" / f"temp_{target_id}_{uuid4().hex}.jpg"
     temp_webcam_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -375,6 +379,7 @@ def verify_admin_face(req: FaceVerifyRequest, x_internal_api_key: str | None = H
             img1_path=str(temp_webcam_path),
             img2_path=str(admin_photo_path),
             model_name="VGG-Face",
+            detector_backend="retinaface",
             enforce_detection=True,
         )
 
@@ -392,6 +397,9 @@ def verify_admin_face(req: FaceVerifyRequest, x_internal_api_key: str | None = H
             "threshold": threshold,
             "message": "인증 성공" if is_matched else f"일치율 미달 (현재: {similarity}%, 기준: {threshold}%)",
         }
+    except ValueError as error:
+        LOGGER.info("No face detected for %s: %s", target_id, error)
+        raise HTTPException(status_code=422, detail="사진에서 얼굴을 찾지 못했습니다. 얼굴 전체가 밝게 나오도록 다시 촬영해 주세요.") from error
     except Exception as error:
         LOGGER.exception("Face verify error for %s", target_id)
         raise HTTPException(status_code=500, detail=f"얼굴 분석 실패: {str(error)}")

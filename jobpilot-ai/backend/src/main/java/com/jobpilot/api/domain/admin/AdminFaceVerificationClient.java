@@ -38,6 +38,9 @@ public class AdminFaceVerificationClient {
             if (error.getStatusCode().value() == 401) {
                 throw new AdminFacePairingException("얼굴 인증 서비스 권한 설정이 올바르지 않습니다.");
             }
+            if (error.getStatusCode().value() == 422) {
+                throw new AdminFacePairingException("사진에서 얼굴을 찾지 못했습니다. 얼굴 전체가 밝게 나오도록 다시 촬영해 주세요.");
+            }
             throw new AdminFacePairingException("얼굴 인증 서버 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
         } catch (RestClientException error) {
             throw new AdminFacePairingException("얼굴 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
