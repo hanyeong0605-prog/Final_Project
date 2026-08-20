@@ -74,6 +74,7 @@ services:
       - ${ENV_FILE:?Set ENV_FILE to the absolute path of the server environment file}
     environment:
       FACE_REFERENCE_DIR: /app/admin_photos
+      WORDCLOUD_MASK_IMAGE: /assets/mascot_nukki.png
       WORDCLOUD_CACHE_REFRESH_ENABLED: ${WORDCLOUD_CACHE_REFRESH_ENABLED:-true}
       WORDCLOUD_CACHE_REFRESH_ON_START: ${WORDCLOUD_CACHE_REFRESH_ON_START:-true}
       WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-360}
@@ -83,6 +84,8 @@ services:
       # Keep biometric reference images outside the image and Git. Set the
       # absolute host directory in the production environment file.
       - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos:ro
+      # The cat-shaped word-cloud mask is an application asset, not generated data.
+      - ./frontend/public/mascot/mascot_nukki.png:/assets/mascot_nukki.png:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
