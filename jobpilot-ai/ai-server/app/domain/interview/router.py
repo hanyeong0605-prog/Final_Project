@@ -11,7 +11,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, Header, HTTPException, Response, UploadFile
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -19,10 +19,12 @@ from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
 from app.domain.interview.question_generator import (
     DEFAULT_JOB,
-    _generate_raw_candidates_locally,
     generate_personalized_question,
     generate_validated_question,
 )
+# 2026-08-20: _generate_raw_candidates_locally import 제거 - LoRA 코드가 question_generator.py에서
+# 주석 처리되면서 더는 존재하지 않는다. 아래 /internal/lora/generate-candidates 엔드포인트도
+# 같은 이유로 주석 처리했다(question_generator.py 모듈 docstring의 2026-08-20 메모 참고).
 from app.domain.interview.tts import DEFAULT_VOICE_ID, list_voice_options, synthesize_speech
 
 logger = logging.getLogger(__name__)
@@ -85,30 +87,30 @@ def next_question(body: NextQuestionRequest):
     return {"question": question}
 
 
-class LoraCandidatesRequest(BaseModel):
-    job: str = DEFAULT_JOB
-    context: str = ""
-    category: str = ""
-
-
-# 2026-08-10: EC2 프리티어에는 LoRA 모델 파일이 없어서(question_generator.py 모듈 docstring
-# 참고), Tailscale로 연결된 로컬/학원 PC에서 이 ai-server 코드를 그대로 한 벌 더 띄워두고
-# EC2가 이 엔드포인트를 원격 호출하는 용도다 - 이 PC에 실제 모델 파일이 있을 때만 의미가
-# 있고, 프론트/사용자가 직접 부르는 엔드포인트가 아니다.
-@router.post("/internal/lora/generate-candidates")
-def internal_lora_generate_candidates(body: LoraCandidatesRequest, x_internal_key: str = Header(default="")):
-    # lora_server_key를 설정 안 한 로컬 개발 환경(둘 다 빈 문자열)은 그냥 통과시킨다 - 키를
-    # 안 정했다는 건 아직 Tailscale로 외부에 노출할 계획이 없다는 뜻이라 굳이 막지 않는다.
-    if settings.lora_server_key and x_internal_key != settings.lora_server_key:
-        raise HTTPException(status_code=401, detail="인증 실패")
-    try:
-        candidates = _generate_raw_candidates_locally(job=body.job, context=body.context, category=body.category)
-    except RuntimeError as e:
-        # 이 PC에도 모델 파일이 없는 경우(설정 실수 등) - 503으로 명확히 알려준다. 호출부
-        # (EC2)는 어차피 requests 예외/4xx/5xx를 전부 fail-open으로 처리하므로 그대로 로컬
-        # 추론 시도나 코퍼스 폴백으로 넘어간다(question_generator.py 참고).
-        raise HTTPException(status_code=503, detail=str(e))
-    return {"candidates": candidates}
+# class LoraCandidatesRequest(BaseModel):
+#     job: str = DEFAULT_JOB
+#     context: str = ""
+#     category: str = ""
+#
+#
+# # 2026-08-10: EC2 프리티어에는 LoRA 모델 파일이 없어서(question_generator.py 모듈 docstring
+# # 참고), Tailscale로 연결된 로컬/학원 PC에서 이 ai-server 코드를 그대로 한 벌 더 띄워두고
+# # EC2가 이 엔드포인트를 원격 호출하는 용도다 - 이 PC에 실제 모델 파일이 있을 때만 의미가
+# # 있고, 프론트/사용자가 직접 부르는 엔드포인트가 아니다.
+# @router.post("/internal/lora/generate-candidates")
+# def internal_lora_generate_candidates(body: LoraCandidatesRequest, x_internal_key: str = Header(default="")):
+#     # lora_server_key를 설정 안 한 로컬 개발 환경(둘 다 빈 문자열)은 그냥 통과시킨다 - 키를
+#     # 안 정했다는 건 아직 Tailscale로 외부에 노출할 계획이 없다는 뜻이라 굳이 막지 않는다.
+#     if settings.lora_server_key and x_internal_key != settings.lora_server_key:
+#         raise HTTPException(status_code=401, detail="인증 실패")
+#     try:
+#         candidates = _generate_raw_candidates_locally(job=body.job, context=body.context, category=body.category)
+#     except RuntimeError as e:
+#         # 이 PC에도 모델 파일이 없는 경우(설정 실수 등) - 503으로 명확히 알려준다. 호출부
+#         # (EC2)는 어차피 requests 예외/4xx/5xx를 전부 fail-open으로 처리하므로 그대로 로컬
+#         # 추론 시도나 코퍼스 폴백으로 넘어간다(question_generator.py 참고).
+#         raise HTTPException(status_code=503, detail=str(e))
+#     return {"candidates": candidates}
 
 
 # 브라우저 MediaRecorder 기본 산출물(webm/opus)과 흔한 업로드 포맷을 넉넉히 허용.

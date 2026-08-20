@@ -28,6 +28,18 @@ lora_server_url이 설정돼 있으면 _generate_raw_candidates()가 그 PC의
 /internal/lora/generate-candidates(router.py)를 먼저 시도하고, 없거나 실패하면 로컬 모델
 파일 로드를 시도한다 - 두 경로 다 실패하면 generate_validated_question()의 코퍼스 폴백으로
 이어진다(동작이 안 나오는 상황 자체는 없음).
+
+2026-08-20: LoRA 추론 코드(생성 함수 전부)를 주석 처리했다. 실제로는 이미 죽어있던
+경로였다는 게 확인됐기 때문이다 - EC2 배포 이미지엔 처음부터 모델 파일이 없고
+(위 설명대로 .gitignore 제외), Tailscale 원격 서버(lora_server_url)도 실제로 연결해 본
+적이 없어서(태스크 리스트 "Tailscale로 로컬 LoRA 모델을 EC2 무료 티어에 연결" 계속
+pending) 프로덕션에서는 router.py가 Gemini(generate_personalized_question)를 먼저
+시도하고, 그게 실패하면 이 LoRA 경로를 시도하긴 하지만 모델 파일이 없어서 즉시
+RuntimeError로 죽어 결과적으로 코퍼스 폴백으로만 빠지고 있었다 - "직접 학습시킨 모델을
+실제로 쓰는 상태"가 아니라 이름만 남은 죽은 코드였던 셈이다. 그래서 코드는 지우지 않고
+주석 처리만 해뒀다(나중에 Tailscale 라우팅을 실제로 완성하면 그대로 되살릴 수 있다).
+generate_validated_question()은 이제 LoRA 대신 Gemini를 한 번 더 시도하는 것으로
+바뀌었다 - 아래 해당 함수 docstring 참고.
 """
 
 import logging
@@ -39,12 +51,12 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# 학습된 LoRA 어댑터 + 토크나이저가 저장된 경로 (노트북 9단계에서 다운로드한 zip을 풀어서 여기 둠).
-MODEL_DIR = Path(__file__).parent / "model" / "question_generator_lora"
-
-# LoRA 베이스 모델. 어댑터 자체는 MODEL_DIR에 있지만, 베이스 가중치는 최초 1회 HuggingFace Hub에서
-# 받아서 로컬 캐시에 저장된다(그 이후는 오프라인으로도 동작). 어댑터 학습 때와 반드시 같은 베이스여야 한다.
-BASE_MODEL_NAME = "EleutherAI/polyglot-ko-1.3b"
+# # 학습된 LoRA 어댑터 + 토크나이저가 저장된 경로 (노트북 9단계에서 다운로드한 zip을 풀어서 여기 둠).
+# MODEL_DIR = Path(__file__).parent / "model" / "question_generator_lora"
+# 
+# # LoRA 베이스 모델. 어댑터 자체는 MODEL_DIR에 있지만, 베이스 가중치는 최초 1회 HuggingFace Hub에서
+# # 받아서 로컬 캐시에 저장된다(그 이후는 오프라인으로도 동작). 어댑터 학습 때와 반드시 같은 베이스여야 한다.
+# BASE_MODEL_NAME = "EleutherAI/polyglot-ko-1.3b"
 
 DEFAULT_JOB = "ICT 개발자(신입)"
 
@@ -373,221 +385,219 @@ def generate_personalized_question(
         return None
 
 
-@dataclass
-class LoadedModel:
-    tokenizer: object
-    model: object
-
-
-# 2026-08-06: 원인 불명 KeyError('__reduce_cython__') 버그 재발 방지 메모 - 프론트가 세션
-# 시작 시 fetchNextQuestion 2개를 Promise.allSettled로 "동시에" 쏘는데(질문 생성 병렬화,
-# 위쪽 개편 이력 참고), FastAPI의 next_question은 동기 def라 스레드풀에서 실행되고, 서버가
-# 막 떠서 아직 모델이 한 번도 로드 안 된 "첫 콜드 스타트" 시점엔 두 스레드가 동시에
-# _get_loaded_model()에 들어온다. functools.lru_cache는 캐시가 비어있을 때 원본 함수 호출
-# 구간은 락을 잡지 않는다(캐시 딕셔너리 갱신만 락으로 보호) - 그래서 두 스레드가 동시에
-# AutoModelForCausalLM.from_pretrained/PeftModel.from_pretrained(같은 safetensors 파일을
-# 동시에 mmap 등)를 중복 실행하면서 torch/safetensors 내부 상태가 꼬여 저 알 수 없는 에러가
-# 났던 것으로 보인다(실제로 재현 시 "처음 한 번만" 실패하고 그 뒤로는 항상 성공했다 - 캐시가
-# 채워진 뒤엔 경합이 없어지므로 이 가설과 일치). lru_cache 대신 명시적 락 기반 더블체크
-# 락킹으로 바꿔서, 로딩 자체가 항상 스레드 하나에서만 실행되도록 강제한다.
-_loaded_model: LoadedModel | None = None
-_load_lock = threading.Lock()
-
-
-def _get_loaded_model() -> LoadedModel:
-    global _loaded_model
-    if _loaded_model is not None:  # 이미 로드됨 - 대부분의 요청은 락 없이 여기서 바로 반환
-        return _loaded_model
-    with _load_lock:
-        if _loaded_model is not None:  # 락 기다리는 동안 다른 스레드가 이미 로드를 끝냈을 수 있음
-            return _loaded_model
-        _loaded_model = _load_model()
-        return _loaded_model
-
-
-def _load_model() -> LoadedModel:
-    """실제 모델 로딩 로직 - _get_loaded_model의 락 안에서만 호출된다(위 설계 메모 참고)."""
-    if not MODEL_DIR.exists():
-        raise RuntimeError(
-            f"질문 생성 모델을 찾을 수 없습니다: {MODEL_DIR}. "
-            "ai-server/ml/mock_interview_question_generator.ipynb로 학습한 결과물(zip)을 "
-            "풀어서 이 경로에 둬야 합니다."
-        )
-
-    import torch
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
-    # 2026-08-04: tokenizer.json 파싱이 "ModelWrapper" 에러처럼 보이는 증상으로 계속 실패했다 -
-    # 실제 원인은 transformers가 import 시점에 내부 deps 테이블로 tokenizers 버전을 강제 검사하는
-    # 것이었다(transformers/dependency_versions_check.py). tokenizers==0.23.1이 설치된 상태에서는
-    # transformers가 요구하는 상한(<=0.23.0)을 넘어서 "import transformers" 자체가 ImportError로
-    # 죽었는데, 에러 로그만 보고는 tokenizer.json 파싱 실패로 오인하기 쉬웠다(네트워크 요청/다운로드
-    # 까지도 못 간 상태였음). requirements.txt에 tokenizers>=0.22.0,<=0.23.0 핀을 추가해서 해결 -
-    # 이 모델은 vocab.json/merges.txt가 없어 use_fast=False(slow tokenizer)는 애초에 쓸 수 없다
-    # (HuggingFace 저장소에 tokenizer.json만 있음).
-    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL_NAME)
-    model = PeftModel.from_pretrained(base_model, str(MODEL_DIR))
-    model.eval()
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
-
-    return LoadedModel(tokenizer=tokenizer, model=model)
-
-
-def _generate_raw_candidates_locally(job: str, context: str, category: str) -> list[str]:
-    """이 프로세스 안에서 직접 torch/transformers로 LoRA 추론을 돌려 후보 문장들을 뽑는다
-    (필터링/Gemini 다듬기 전 원본). 2026-08-10: 원격 라우팅(_fetch_raw_candidates_remote)과
-    대칭이 되도록 generate_question()에서 분리했다 - 로직 자체는 그대로다."""
-    loaded = _get_loaded_model()
-    tokenizer, model = loaded.tokenizer, loaded.model
-
-    prompt = f"직무: {job}\n이전 답변: {context}\n카테고리: {category}\n다음 질문:"
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    # 2026-08-06: GPT-NeoX(polyglot-ko) 계열은 token_type_ids를 안 받는데 토크나이저가 그걸 같이
-    # 반환해서 generate()에 그대로 넘기면 ValueError("model_kwargs are not used by the model")가
-    # 난다 - 재학습 노트북에서 같은 문제를 겪고서 여기도 동일하게 걸릴 걸 확인하고 고쳤다.
-    inputs.pop("token_type_ids", None)
-
-    import torch
-
-    with torch.no_grad():
-        # 2026-08-04: temperature/top_p를 살짝 낮추고 repetition_penalty를 올려서 "본인이
-        # 가지고 있으신 이 직무에"처럼 두 표현이 어색하게 뭉개져 나오는 빈도를 줄였다.
-        # 그래도 완전히 없어지진 않아서 _looks_like_question 길이 상한 + 강화된 Gemini
-        # 프롬프트(어색한 이어붙임 체크)로 이중 방어한다.
-        # 2026-08-05: num_return_sequences로 한 번의 generate() 호출에서 후보 여러 개를 뽑는다
-        # (예전엔 이 블록 자체를 루프 안에서 최대 5번 새로 호출했음).
-        output = model.generate(
-            **inputs,
-            max_new_tokens=40,
-            do_sample=True,
-            top_p=0.85,
-            temperature=0.7,
-            repetition_penalty=1.3,
-            no_repeat_ngram_size=3,
-            pad_token_id=tokenizer.pad_token_id,
-            num_return_sequences=_NUM_CANDIDATES,
-        )
-
-    candidates: list[str] = []
-    for sequence in output:
-        text = tokenizer.decode(sequence, skip_special_tokens=True)
-        candidate = text.split("다음 질문:")[-1].strip()
-        candidate = _cut_at_first_ending(candidate)
-        candidate = _normalize_addressing(candidate)
-        if candidate:
-            candidates.append(candidate)
-    return candidates
-
-
-_LORA_SERVER_TIMEOUT_SEC = 15
-
-
-def _fetch_raw_candidates_remote(job: str, context: str, category: str) -> list[str]:
-    """2026-08-10: EC2 프리티어에는 LoRA 모델 파일이 없어서(config.py lora_server_url 설명
-    참고), Tailscale로 연결된 로컬/학원 PC에서 이 코드베이스를 그대로 한 벌 더 띄워두고 그
-    인스턴스의 /internal/lora/generate-candidates를 원격 호출한다. 네트워크 오류/타임아웃/그
-    PC가 꺼져 있는 경우 전부 fail-open으로 빈 리스트를 반환한다(예외를 던지지 않는다) -
-    호출부(_generate_raw_candidates)가 빈 리스트를 보고 로컬 시도로 넘어가거나(로컬에도 모델
-    파일이 있는 개발 환경), 그마저 없으면 RuntimeError가 나서 generate_validated_question의
-    코퍼스 폴백으로 이어진다."""
-    import requests
-
-    try:
-        response = requests.post(
-            f"{settings.lora_server_url.rstrip('/')}/internal/lora/generate-candidates",
-            headers={"X-Internal-Key": settings.lora_server_key},
-            json={"job": job, "context": context, "category": category},
-            timeout=_LORA_SERVER_TIMEOUT_SEC,
-        )
-        response.raise_for_status()
-        data = response.json()
-    except Exception:
-        return []
-    return [c for c in data.get("candidates", []) if isinstance(c, str) and c]
-
-
-def _generate_raw_candidates(job: str, context: str, category: str) -> list[str]:
-    """lora_server_url이 설정돼 있으면 Tailscale 원격 서버를 먼저 시도하고, 응답이 비어
-    있으면(설정이 아예 없는 경우 포함) 이 프로세스에 모델 파일이 직접 있는지를 보고 로컬
-    추론으로 넘어간다. 로컬에도 모델이 있는 개발 PC에서는 원격 서버가 잠깐 꺼져 있어도
-    자동으로 로컬 추론으로 복구되고, EC2처럼 로컬에 모델 파일이 없는 환경에서는 원격도
-    실패하면 RuntimeError가 나서 (generate_validated_question이 처리하는) 코퍼스 폴백으로
-    이어진다."""
-    if settings.lora_server_url:
-        remote = _fetch_raw_candidates_remote(job, context, category)
-        if remote:
-            return remote
-    return _generate_raw_candidates_locally(job, context, category)
-
-
-def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
-    """면접 질문 하나를 생성한다.
-
-    job: 직무 (지금 학습 데이터가 전부 "ICT/신입"이라, 다른 값을 넣어도 그 스타일 질문이 나올 확률이
-         높다 - 다른 직무 데이터 추가 전까진 실질적인 분기가 안 된다는 점 인지하고 쓴다).
-    context: 이전 답변 텍스트 (선택). 지금 학습 데이터엔 진짜 문맥 연결이 없어서 효과가 제한적이다.
-    category: QUESTION_CATEGORIES 중 하나(선택). 학습 프롬프트에 포함된 값이라 지정하면 그
-              카테고리 스타일 질문이 나올 확률이 올라간다 - 안 넣으면 빈 문자열로 들어가서
-              카테고리 지정 효과 없이 무작위에 가깝게 나온다. 학습 데이터에 없는 값을 넣어도
-              에러는 안 나지만(그냥 프롬프트 텍스트일 뿐) 의미 있는 결과를 기대하기 어렵다.
-    """
-    candidates = _generate_raw_candidates(job, context, category)
-
-    # 로컬 필터(끝맺음/길이)를 통과한 후보들을 순서대로 최선으로 삼고, 하나도 없으면 아무거나라도
-    # 폴백으로 쓴다("아예 안 나오는" 것보단 낫다).
-    any_fallback = candidates[0] if candidates else ""
-    locally_valid = [c for c in candidates if _looks_like_question(c)]
-
-    if not locally_valid and not any_fallback:
-        return "질문 생성에 실패했습니다. 다시 시도해 주세요."
-
-    # 2026-08-05: 버리고 재생성하는 대신, 그 자리에서 Gemini에게 "내용은 그대로, 문장만
-    # 자연스럽게" 다듬어달라고 한다. 다만 도저히 못 고칠 정도로 이상한 후보는 Gemini가
-    # None(DISCARD)을 돌려주는데, 이럴 땐 재시도 대신 이미 뽑아둔 다음 로컬 후보로 넘어간다
-    # (한 번의 generate() 호출에서 여러 개를 뽑아뒀으니 그냥 버리지 않고 활용).
-    for candidate in locally_valid:
-        polished = _gemini_polish(candidate)
-        if polished is None:  # DISCARD - 다음 후보로
-            continue
-        if _looks_like_question(polished):
-            return polished
-        return candidate  # 다듬은 결과가 형식을 깨면 다듬기 전 원본으로
-
-    # 로컬 필터 통과한 후보가 전부 DISCARD당했거나 애초에 하나도 없었던 경우의 최후 폴백.
-    return any_fallback or "질문 생성에 실패했습니다. 다시 시도해 주세요."
+# @dataclass
+# class LoadedModel:
+#     tokenizer: object
+#     model: object
+# 
+# 
+# # 2026-08-06: 원인 불명 KeyError('__reduce_cython__') 버그 재발 방지 메모 - 프론트가 세션
+# # 시작 시 fetchNextQuestion 2개를 Promise.allSettled로 "동시에" 쏘는데(질문 생성 병렬화,
+# # 위쪽 개편 이력 참고), FastAPI의 next_question은 동기 def라 스레드풀에서 실행되고, 서버가
+# # 막 떠서 아직 모델이 한 번도 로드 안 된 "첫 콜드 스타트" 시점엔 두 스레드가 동시에
+# # _get_loaded_model()에 들어온다. functools.lru_cache는 캐시가 비어있을 때 원본 함수 호출
+# # 구간은 락을 잡지 않는다(캐시 딕셔너리 갱신만 락으로 보호) - 그래서 두 스레드가 동시에
+# # AutoModelForCausalLM.from_pretrained/PeftModel.from_pretrained(같은 safetensors 파일을
+# # 동시에 mmap 등)를 중복 실행하면서 torch/safetensors 내부 상태가 꼬여 저 알 수 없는 에러가
+# # 났던 것으로 보인다(실제로 재현 시 "처음 한 번만" 실패하고 그 뒤로는 항상 성공했다 - 캐시가
+# # 채워진 뒤엔 경합이 없어지므로 이 가설과 일치). lru_cache 대신 명시적 락 기반 더블체크
+# # 락킹으로 바꿔서, 로딩 자체가 항상 스레드 하나에서만 실행되도록 강제한다.
+# _loaded_model: LoadedModel | None = None
+# _load_lock = threading.Lock()
+# 
+# 
+# def _get_loaded_model() -> LoadedModel:
+#     global _loaded_model
+#     if _loaded_model is not None:  # 이미 로드됨 - 대부분의 요청은 락 없이 여기서 바로 반환
+#         return _loaded_model
+#     with _load_lock:
+#         if _loaded_model is not None:  # 락 기다리는 동안 다른 스레드가 이미 로드를 끝냈을 수 있음
+#             return _loaded_model
+#         _loaded_model = _load_model()
+#         return _loaded_model
+# 
+# 
+# def _load_model() -> LoadedModel:
+#     """실제 모델 로딩 로직 - _get_loaded_model의 락 안에서만 호출된다(위 설계 메모 참고)."""
+#     if not MODEL_DIR.exists():
+#         raise RuntimeError(
+#             f"질문 생성 모델을 찾을 수 없습니다: {MODEL_DIR}. "
+#             "ai-server/ml/mock_interview_question_generator.ipynb로 학습한 결과물(zip)을 "
+#             "풀어서 이 경로에 둬야 합니다."
+#         )
+# 
+#     import torch
+#     from peft import PeftModel
+#     from transformers import AutoModelForCausalLM, AutoTokenizer
+# 
+#     # 2026-08-04: tokenizer.json 파싱이 "ModelWrapper" 에러처럼 보이는 증상으로 계속 실패했다 -
+#     # 실제 원인은 transformers가 import 시점에 내부 deps 테이블로 tokenizers 버전을 강제 검사하는
+#     # 것이었다(transformers/dependency_versions_check.py). tokenizers==0.23.1이 설치된 상태에서는
+#     # transformers가 요구하는 상한(<=0.23.0)을 넘어서 "import transformers" 자체가 ImportError로
+#     # 죽었는데, 에러 로그만 보고는 tokenizer.json 파싱 실패로 오인하기 쉬웠다(네트워크 요청/다운로드
+#     # 까지도 못 간 상태였음). requirements.txt에 tokenizers>=0.22.0,<=0.23.0 핀을 추가해서 해결 -
+#     # 이 모델은 vocab.json/merges.txt가 없어 use_fast=False(slow tokenizer)는 애초에 쓸 수 없다
+#     # (HuggingFace 저장소에 tokenizer.json만 있음).
+#     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME)
+#     if tokenizer.pad_token is None:
+#         tokenizer.pad_token = tokenizer.eos_token
+#     base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL_NAME)
+#     model = PeftModel.from_pretrained(base_model, str(MODEL_DIR))
+#     model.eval()
+# 
+#     device = "cuda" if torch.cuda.is_available() else "cpu"
+#     model.to(device)
+# 
+#     return LoadedModel(tokenizer=tokenizer, model=model)
+# 
+# 
+# def _generate_raw_candidates_locally(job: str, context: str, category: str) -> list[str]:
+#     """이 프로세스 안에서 직접 torch/transformers로 LoRA 추론을 돌려 후보 문장들을 뽑는다
+#     (필터링/Gemini 다듬기 전 원본). 2026-08-10: 원격 라우팅(_fetch_raw_candidates_remote)과
+#     대칭이 되도록 generate_question()에서 분리했다 - 로직 자체는 그대로다."""
+#     loaded = _get_loaded_model()
+#     tokenizer, model = loaded.tokenizer, loaded.model
+# 
+#     prompt = f"직무: {job}\n이전 답변: {context}\n카테고리: {category}\n다음 질문:"
+#     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+#     # 2026-08-06: GPT-NeoX(polyglot-ko) 계열은 token_type_ids를 안 받는데 토크나이저가 그걸 같이
+#     # 반환해서 generate()에 그대로 넘기면 ValueError("model_kwargs are not used by the model")가
+#     # 난다 - 재학습 노트북에서 같은 문제를 겪고서 여기도 동일하게 걸릴 걸 확인하고 고쳤다.
+#     inputs.pop("token_type_ids", None)
+# 
+#     import torch
+# 
+#     with torch.no_grad():
+#         # 2026-08-04: temperature/top_p를 살짝 낮추고 repetition_penalty를 올려서 "본인이
+#         # 가지고 있으신 이 직무에"처럼 두 표현이 어색하게 뭉개져 나오는 빈도를 줄였다.
+#         # 그래도 완전히 없어지진 않아서 _looks_like_question 길이 상한 + 강화된 Gemini
+#         # 프롬프트(어색한 이어붙임 체크)로 이중 방어한다.
+#         # 2026-08-05: num_return_sequences로 한 번의 generate() 호출에서 후보 여러 개를 뽑는다
+#         # (예전엔 이 블록 자체를 루프 안에서 최대 5번 새로 호출했음).
+#         output = model.generate(
+#             **inputs,
+#             max_new_tokens=40,
+#             do_sample=True,
+#             top_p=0.85,
+#             temperature=0.7,
+#             repetition_penalty=1.3,
+#             no_repeat_ngram_size=3,
+#             pad_token_id=tokenizer.pad_token_id,
+#             num_return_sequences=_NUM_CANDIDATES,
+#         )
+# 
+#     candidates: list[str] = []
+#     for sequence in output:
+#         text = tokenizer.decode(sequence, skip_special_tokens=True)
+#         candidate = text.split("다음 질문:")[-1].strip()
+#         candidate = _cut_at_first_ending(candidate)
+#         candidate = _normalize_addressing(candidate)
+#         if candidate:
+#             candidates.append(candidate)
+#     return candidates
+# 
+# 
+# _LORA_SERVER_TIMEOUT_SEC = 15
+# 
+# 
+# def _fetch_raw_candidates_remote(job: str, context: str, category: str) -> list[str]:
+#     """2026-08-10: EC2 프리티어에는 LoRA 모델 파일이 없어서(config.py lora_server_url 설명
+#     참고), Tailscale로 연결된 로컬/학원 PC에서 이 코드베이스를 그대로 한 벌 더 띄워두고 그
+#     인스턴스의 /internal/lora/generate-candidates를 원격 호출한다. 네트워크 오류/타임아웃/그
+#     PC가 꺼져 있는 경우 전부 fail-open으로 빈 리스트를 반환한다(예외를 던지지 않는다) -
+#     호출부(_generate_raw_candidates)가 빈 리스트를 보고 로컬 시도로 넘어가거나(로컬에도 모델
+#     파일이 있는 개발 환경), 그마저 없으면 RuntimeError가 나서 generate_validated_question의
+#     코퍼스 폴백으로 이어진다."""
+#     import requests
+# 
+#     try:
+#         response = requests.post(
+#             f"{settings.lora_server_url.rstrip('/')}/internal/lora/generate-candidates",
+#             headers={"X-Internal-Key": settings.lora_server_key},
+#             json={"job": job, "context": context, "category": category},
+#             timeout=_LORA_SERVER_TIMEOUT_SEC,
+#         )
+#         response.raise_for_status()
+#         data = response.json()
+#     except Exception:
+#         return []
+#     return [c for c in data.get("candidates", []) if isinstance(c, str) and c]
+# 
+# 
+# def _generate_raw_candidates(job: str, context: str, category: str) -> list[str]:
+#     """lora_server_url이 설정돼 있으면 Tailscale 원격 서버를 먼저 시도하고, 응답이 비어
+#     있으면(설정이 아예 없는 경우 포함) 이 프로세스에 모델 파일이 직접 있는지를 보고 로컬
+#     추론으로 넘어간다. 로컬에도 모델이 있는 개발 PC에서는 원격 서버가 잠깐 꺼져 있어도
+#     자동으로 로컬 추론으로 복구되고, EC2처럼 로컬에 모델 파일이 없는 환경에서는 원격도
+#     실패하면 RuntimeError가 나서 (generate_validated_question이 처리하는) 코퍼스 폴백으로
+#     이어진다."""
+#     if settings.lora_server_url:
+#         remote = _fetch_raw_candidates_remote(job, context, category)
+#         if remote:
+#             return remote
+#     return _generate_raw_candidates_locally(job, context, category)
+# 
+# 
+# def generate_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
+#     """면접 질문 하나를 생성한다.
+# 
+#     job: 직무 (지금 학습 데이터가 전부 "ICT/신입"이라, 다른 값을 넣어도 그 스타일 질문이 나올 확률이
+#          높다 - 다른 직무 데이터 추가 전까진 실질적인 분기가 안 된다는 점 인지하고 쓴다).
+#     context: 이전 답변 텍스트 (선택). 지금 학습 데이터엔 진짜 문맥 연결이 없어서 효과가 제한적이다.
+#     category: QUESTION_CATEGORIES 중 하나(선택). 학습 프롬프트에 포함된 값이라 지정하면 그
+#               카테고리 스타일 질문이 나올 확률이 올라간다 - 안 넣으면 빈 문자열로 들어가서
+#               카테고리 지정 효과 없이 무작위에 가깝게 나온다. 학습 데이터에 없는 값을 넣어도
+#               에러는 안 나지만(그냥 프롬프트 텍스트일 뿐) 의미 있는 결과를 기대하기 어렵다.
+#     """
+#     candidates = _generate_raw_candidates(job, context, category)
+# 
+#     # 로컬 필터(끝맺음/길이)를 통과한 후보들을 순서대로 최선으로 삼고, 하나도 없으면 아무거나라도
+#     # 폴백으로 쓴다("아예 안 나오는" 것보단 낫다).
+#     any_fallback = candidates[0] if candidates else ""
+#     locally_valid = [c for c in candidates if _looks_like_question(c)]
+# 
+#     if not locally_valid and not any_fallback:
+#         return "질문 생성에 실패했습니다. 다시 시도해 주세요."
+# 
+#     # 2026-08-05: 버리고 재생성하는 대신, 그 자리에서 Gemini에게 "내용은 그대로, 문장만
+#     # 자연스럽게" 다듬어달라고 한다. 다만 도저히 못 고칠 정도로 이상한 후보는 Gemini가
+#     # None(DISCARD)을 돌려주는데, 이럴 땐 재시도 대신 이미 뽑아둔 다음 로컬 후보로 넘어간다
+#     # (한 번의 generate() 호출에서 여러 개를 뽑아뒀으니 그냥 버리지 않고 활용).
+#     for candidate in locally_valid:
+#         polished = _gemini_polish(candidate)
+#         if polished is None:  # DISCARD - 다음 후보로
+#             continue
+#         if _looks_like_question(polished):
+#             return polished
+#         return candidate  # 다듬은 결과가 형식을 깨면 다듬기 전 원본으로
+# 
+#     # 로컬 필터 통과한 후보가 전부 DISCARD당했거나 애초에 하나도 없었던 경우의 최후 폴백.
+#     return any_fallback or "질문 생성에 실패했습니다. 다시 시도해 주세요."
 
 
 def generate_validated_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
-    """generate_question()(LoRA)이 만든 결과가 실제로 그 분야/카테고리에 어울리는지
-    question_similarity.py로 검증하고, 기준 미달이면 question_corpus.py의 진짜 질문으로
-    조용히 대체한다.
+    """router.py에서 generate_personalized_question()(Gemini, 1차 시도)이 실패했을 때 호출되는
+    2차 시도 + 안전장치.
 
-    2026-08-07 배경: 재학습(rank 16, 분야당 120개)으로 LoRA의 분야 혼동 빈도는 크게
-    줄었지만(test_field_questions.py로 직접 확인 - 예전엔 여러 개, 지금은 10개 중 1개꼴로
-    감소) 0%는 아니다. "~하지 마라"는 프롬프트 지시로는 못 고친다(question_similarity.py
-    상단 설계 메모 참고 - 작은 모델은 지시를 이해할 능력이 없다) - 그래서 생성 자체는 그대로
-    LoRA가 하게 두고, 결과가 나온 뒤에 검증해서 이상하면 실제 질문으로 바꿔치기하는 방식을
-    택했다. 이러면 LoRA가 매 요청마다 실제로 호출되면서도(그냥 "혹시 몰라 넣어둔 폴백"이
-    아니라 실제로 쓰이는 상태), 사용자는 절대 이상한 질문을 보지 않는다.
+    2026-08-20 재설계: 원래는 여기서 LoRA(generate_question)를 호출했다. 그런데 프로덕션에서는
+    이 경로가 사실상 죽어 있었다 - EC2 이미지엔 모델 파일이 없고 Tailscale 원격 서버도 실제로
+    붙여본 적이 없어서, LoRA를 시도해도 즉시 RuntimeError로 실패하고 아래 코퍼스 폴백으로
+    빠지는 게 전부였다(question_generator.py 모듈 docstring 참고). 그래서 LoRA 코드는 주석
+    처리만 해두고, 여기서는 대신 Gemini를 한 번 더 시도한다 - router.py의 1차 시도가 키
+    누락처럼 지속적인 이유로 실패했다면 이것도 마찬가지로 실패하겠지만, 일시적인 네트워크
+    오류나 순간적인 rate limit이었다면 이 재시도로 복구될 수 있다.
 
-    router.py에서 Gemini 실패 시 generate_question() 대신 이 함수를 호출한다.
+    Gemini가 만든 결과라도 question_similarity.py(TF-IDF, API 비용 없음)로 한 번 더
+    검증한다 - LoRA만큼 주제 이탈 위험이 크진 않지만 공짜로 돌릴 수 있는 안전장치라 굳이
+    뺄 이유가 없다. 기준 미달이면 question_corpus.py의 진짜 질문으로 조용히 대체한다.
 
-    2026-08-07 안전장치 추가: generate_question() 자체가 예외를 던지는 경우도 있다 - 지금은
-    모델 파일이 배포 이미지에 없는 경우(RuntimeError, question_generator.py docstring 참고)가
-    그렇고, 나중에 무료 티어를 Tailscale로 연결된 로컬/학원 컴퓨터의 LoRA 서버로 라우팅하게
-    되면 그 컴퓨터가 꺼져 있거나 네트워크가 끊긴 경우도 여기 해당된다. 이전엔 이 예외가 그대로
-    router.py까지 흘러가서 503/500으로 죽었는데(사용자가 질문을 아예 못 받음), 그러면
-    "이상한 질문이 나오는 것"은 막았어도 "질문이 아예 안 나오는 것"은 못 막는 셈이라 의미가
-    없다. 그래서 생성 실패도 검증 실패와 똑같이 코퍼스 폴백으로 처리한다 - 두 실패 모드
-    (내용이 이상함 / 아예 생성이 안 됨) 모두 같은 안전장치 하나로 커버한다."""
+    2026-08-07 안전장치 추가: 생성 자체가 예외를 던지는 경우(Gemini 호출 실패 등)도 검증
+    실패와 똑같이 코퍼스 폴백으로 처리한다 - 이전엔 이 예외가 그대로 router.py까지 흘러가서
+    503/500으로 죽었는데(사용자가 질문을 아예 못 받음), 그러면 "이상한 질문이 나오는 것"은
+    막았어도 "질문이 아예 안 나오는 것"은 못 막는 셈이라 의미가 없다. 두 실패 모드(내용이
+    이상함 / 아예 생성이 안 됨) 모두 같은 안전장치 하나로 커버한다."""
     try:
-        candidate = generate_question(job=job, context=context, category=category)
+        candidate = generate_personalized_question(job=job, tech_summary="", category=category)
     except Exception:
         candidate = None
 

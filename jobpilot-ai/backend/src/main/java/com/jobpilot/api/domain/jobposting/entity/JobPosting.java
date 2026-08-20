@@ -24,7 +24,7 @@ public class JobPosting {
     private String sourceCompanyId;
 
     // 2026-08-19: 기업회원이 직접 등록한 공고만 값이 있다(크롤링 공고는 NULL) -
-    // sourceProvider="EMPLOYER"일 때만 채워진다. V31__employer_accounts.sql 참고.
+    // sourceProvider="EMPLOYER"일 때만 채워진다. V32__employer_accounts.sql 참고.
     @Column(name = "employer_account_id")
     private Long employerAccountId;
 

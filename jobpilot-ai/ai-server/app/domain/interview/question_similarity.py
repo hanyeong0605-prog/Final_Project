@@ -1,110 +1,71 @@
-"""LoRA가 생성한 질문이 해당 분야/카테고리에 실제로 어울리는지 임베딩 유사도로 검증한다.
+"""LoRA가 생성한 질문이 해당 분야/카테고리에 실제로 어울리는지 로컬 TF-IDF 유사도로 검증한다.
 
 2026-08-07 설계 메모:
 - question_generator.py의 LoRA는 "~하지 마라" 같은 자연어 지시를 이해하고 지킬 능력이 없다
   (지시 따르기 훈련을 받은 적 없는, 200~600개 예시로 패턴만 학습한 작은 모델이라서) - 그래서
   프롬프트로 타이르는 방식 대신, 결과가 나온 *뒤에* 기계적으로 검사하는 방식을 쓴다.
-- 검사 기준은 "우리가 갖고 있는 진짜 질문들(question_corpus.py)과 의미적으로 얼마나 비슷한가"다.
-  단순 키워드 대조 대신 임베딩 코사인 유사도를 쓰는 이유: "GitHub와 Docker의 차이점을 설명해
+- 검사 기준은 "우리가 갖고 있는 진짜 질문들(question_corpus.py)과 얼마나 비슷한가"다.
+  단순 키워드 대조 대신 유사도 점수를 쓰는 이유: "GitHub와 Docker의 차이점을 설명해
   주세요"처럼 특정 금지 단어가 있는 게 아니라 주제 자체가 통째로 다른 경우까지 잡아내야 해서다.
-- 임베딩은 로컬에 별도 모델(sentence-transformers 등)을 새로 설치하는 대신 Gemini Embedding
-  API(client.models.embed_content, model="gemini-embedding-001")를 쓴다 - LoRA가 도는 기기
-  (Tailscale로 연결된 로컬 컴퓨터, ai-server ml/generate_field_technical_questions.py의
-  Gemini 데이터 생성 스크립트와 동일한 GEMINI_API_KEY 재사용)에 무거운 새 모델을 또 얹지
-  않아도 되고, question_generator.py의 _gemini_polish()가 이미 매 LoRA 결과마다 Gemini를
-  한 번 호출하는 구조라 API 의존성이 새로 생기는 것도 아니다.
-- 코퍼스 풀 전체를 매 요청마다 다시 임베딩하면 느리고 API 호출도 낭비이므로, 풀 단위로 한 번만
-  임베딩해서 디스크에 캐시해둔다(_CACHE_PATH) - 코퍼스 파일이 안 바뀌는 한 서버를 껐다 켜도
-  재사용된다.
+
+2026-08-20 재설계 (Gemini Embedding API 제거):
+- 기존에는 이 비교를 Gemini Embedding API(client.models.embed_content)로 했다. 그런데
+  이 프로젝트는 배포가 잦고(docker-compose.prod.yml에 ai-server용 볼륨 마운트가 없어서
+  배포=컨테이너 재생성=캐시 파일 소실), 코퍼스 풀 중 제일 큰 게 500개라 배포 직후 첫
+  요청마다 500개를 API로 새로 임베딩해야 했다. 8/13에 무료 티어 할당량을 통째로
+  소진시킨 사고가 이 구조 때문에 일어났다 - 캐시를 영구 저장하는 정도로는 "배포가 잦다"는
+  이 프로젝트 특성상 근본 해결이 안 된다고 보고, 아예 외부 API 호출 자체를 없앴다.
+- 대신 이미 requirements.txt에 있는 scikit-learn의 TfidfVectorizer로 로컬에서 계산한다.
+  API 토큰을 전혀 쓰지 않으므로 풀 크기가 얼마든, 요청이 얼마나 몰리든 할당량 걱정이 없다.
+- analyzer="char_wb"(문자 2~4-gram)를 쓰는 이유: 한국어는 조사/어미가 붙어서 단어 단위
+  토큰화(예: "문제를" vs "문제가")로는 같은 어근도 다른 토큰으로 갈리기 쉬운데, 문자
+  n-gram은 형태소 분석기 없이도 그 어근 겹침을 어느 정도 잡아낸다. Gemini 임베딩만큼
+  정교한 의미 비교는 아니지만, 이 모듈의 목적(완전히 동떨어진 주제를 걸러내는 것)에는
+  충분한 것으로 보고 시작한다 - 부족하면 SIMILARITY_THRESHOLD를 조정하거나 다른 방식을
+  다시 검토한다.
+- 풀 벡터화는 카테고리/직무 조합별로 인메모리에 캐시한다(서버 실행 중 코퍼스 파일이
+  안 바뀌므로 (category, job) 키만으로 충분하다) - 디스크 캐시나 만료 로직이 필요 없다.
 """
 
-import hashlib
-import json
-import math
-from pathlib import Path
-
-from app.core.config import settings
 from app.domain.interview import question_corpus
 
-_CACHE_PATH = Path(__file__).parent / "model" / "corpus_embeddings_cache.json"
-_EMBED_MODEL = "gemini-embedding-001"
-# 한 번의 embed_content 호출에 너무 많은 텍스트를 몰아넣으면 요청 크기 제한에 걸릴 수 있어
-# 방어적으로 쪼갠다 - 기술_직무역량의 공통 풀(500개)이 제일 큰 풀이라 이 값이 필요하다.
-_EMBED_BATCH_SIZE = 100
-# 코사인 유사도 임계값 - 1에 가까울수록 엄격. 0.5는 "완전히 다른 주제는 걸러내되, 같은
-# 분야 안에서의 표현 차이는 너그럽게 봐준다"는 선에서 잡은 시작값이었다. 실제 배포 후 오탐/누락
-# 비율을 보고 조정이 필요할 수 있다(코드 밖에서 값만 바꾸면 되도록 상수로 뺐다).
-# 2026-08-12: 0.5에서는 "AWS 스토리지(NAS) 장애 경험"(모바일로 요청) 같은 - 개념 자체는
-# 실존하지만 분야가 명백히 다른 - 질문이 그대로 통과되는 사례가 실제 테스트(test_field_
-# questions_validated.py)에서 확인됐다. 0.6으로 올려서 더 엄격하게 걸러지는지 확인 중 -
-# 반대로 너무 올리면 같은 분야의 정상 질문까지 코퍼스로 대체되는 오탐이 늘 수 있으니,
-# 아래 print 로그(score)로 실제 값을 보면서 재조정해야 한다.
-SIMILARITY_THRESHOLD = 0.6
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# TF-IDF(문자 2~4-gram) 코사인 유사도 임계값. Gemini 임베딩 때 쓰던 0.6과는 척도가 전혀
+# 다르다(문자 n-gram 기반이라 값 분포 자체가 다름) - 실제 코퍼스로 확인한 결과, 같은 분야
+# 안에서의 표현 차이는 대략 0.27~0.64, 완전히 다른 주제는 0.2~0.33 사이에서 나타났다.
+# 분야별 풀(120개 안팎)은 구분이 잘 되지만, job 미指정 시 폴백되는 공통 풀(500개, 여러
+# 분야가 섞여 있음)은 원래도 폭이 좁아서 오탐/누락이 상대적으로 더 있을 수 있다 - 실제
+# 배포 후 아래 print 로그(score)로 값을 보면서 조정이 필요할 수 있다(코드 밖에서 값만
+# 바꾸면 되도록 상수로 뺐다).
+SIMILARITY_THRESHOLD = 0.3
+
+# (category, job) -> (pool, vectorizer, tfidf_matrix). 풀 내용이 서버 실행 중 바뀌지
+# 않는다는 전제(question_corpus.py와 동일)로, 같은 풀이면 재계산하지 않고 재사용한다.
+_vectorizer_cache: dict[str, tuple[list[str], TfidfVectorizer, object]] = {}
 
 
 def _pool_cache_key(category: str, job: str) -> str:
     return f"{category}|{job}"
 
 
-def _pool_hash(questions: list[str]) -> str:
-    return hashlib.sha256("\n".join(questions).encode("utf-8")).hexdigest()
-
-
-def _load_cache() -> dict:
-    if not _CACHE_PATH.exists():
-        return {}
-    try:
-        return json.loads(_CACHE_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
-def _save_cache(cache: dict) -> None:
-    _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-
-
-def _embed_texts(texts: list[str]) -> list[list[float]]:
-    """Gemini Embedding API로 텍스트 목록을 임베딩한다 - 호출 실패 시 예외를 그대로 던진다
-    (호출부인 is_topically_relevant가 fail-open으로 처리)."""
-    from google import genai
-
-    client = genai.Client(api_key=settings.gemini_api_key)
-    vectors: list[list[float]] = []
-    for start in range(0, len(texts), _EMBED_BATCH_SIZE):
-        chunk = texts[start : start + _EMBED_BATCH_SIZE]
-        result = client.models.embed_content(model=_EMBED_MODEL, contents=chunk)
-        vectors.extend(embedding.values for embedding in result.embeddings)
-    return vectors
-
-
-def _get_pool_embeddings(category: str, job: str) -> tuple[list[str], list[list[float]]]:
-    """category/job에 해당하는 코퍼스 풀과, 그 풀 각 질문의 임베딩 벡터를 돌려준다.
-    캐시에 없거나 코퍼스 내용이 바뀌었으면(해시 불일치) 새로 임베딩해서 캐시에 저장한다."""
+def _get_pool_vectorizer(category: str, job: str) -> tuple[list[str], TfidfVectorizer | None, object]:
+    """category/job에 해당하는 코퍼스 풀과, 그 풀로 학습된 TF-IDF 벡터라이저·행렬을
+    돌려준다. 풀이 없으면 (빈 리스트, None, None)."""
     pool = question_corpus.get_pool(category, job)
     if not pool:
-        return [], []
+        return [], None, None
 
     key = _pool_cache_key(category, job)
-    pool_hash = _pool_hash(pool)
-    cache = _load_cache()
-    cached_entry = cache.get(key)
-    if cached_entry and cached_entry.get("hash") == pool_hash:
-        return pool, cached_entry["embeddings"]
+    cached = _vectorizer_cache.get(key)
+    if cached is not None and cached[0] == pool:
+        return cached
 
-    embeddings = _embed_texts(pool)
-    cache[key] = {"hash": pool_hash, "embeddings": embeddings}
-    _save_cache(cache)
-    return pool, embeddings
-
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
+    vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4))
+    matrix = vectorizer.fit_transform(pool)
+    _vectorizer_cache[key] = (pool, vectorizer, matrix)
+    return pool, vectorizer, matrix
 
 
 def similarity_score(question: str, category: str, job: str) -> float | None:
@@ -112,27 +73,23 @@ def similarity_score(question: str, category: str, job: str) -> float | None:
     돌려준다. 비교할 풀 자체가 없으면(코퍼스에 그 category/job 조합이 없음) None을 돌려준다
     - 이 경우 호출부는 검증을 건너뛰고 원본을 그대로 신뢰해야 한다(비교 기준이 없는데 억지로
     떨어뜨리면 안 됨)."""
-    pool, pool_embeddings = _get_pool_embeddings(category, job)
-    if not pool_embeddings:
+    pool, vectorizer, matrix = _get_pool_vectorizer(category, job)
+    if vectorizer is None:
         return None
-    candidate_embedding = _embed_texts([question])[0]
-    return max(_cosine_similarity(candidate_embedding, vec) for vec in pool_embeddings)
+    candidate_vector = vectorizer.transform([question])
+    return float(cosine_similarity(candidate_vector, matrix)[0].max())
 
 
 def is_topically_relevant(question: str, category: str, job: str) -> bool:
     """question이 해당 분야/카테고리 주제에서 크게 벗어나지 않았으면 True.
 
-    fail-open: Gemini Embedding 호출 자체가 실패하면(키 없음, 네트워크 오류 등) 검증을
-    포기하고 True를 돌려준다 - question_generator.py의 다른 Gemini 연동(_gemini_polish 등)과
-    같은 설계 원칙으로, 검증 인프라 장애가 곧 "질문 생성 실패"로 이어지면 안 된다."""
-    if not settings.gemini_api_key:
-        print("[유사도검증] gemini_api_key가 비어있어서 검증을 건너뜀")
-        return True
+    fail-open: 벡터화 과정에서 예상치 못한 예외가 나면(코퍼스 파일 손상 등) 검증을 포기하고
+    True를 돌려준다 - question_generator.py의 다른 검증/생성 로직과 같은 설계 원칙으로,
+    검증 인프라 장애가 곧 "질문 생성 실패"로 이어지면 안 된다. (2026-08-20: 이 검증은 더는
+    외부 API를 쓰지 않으므로 rate limit류 예외는 사실상 없고, 이 처리는 순수 방어용이다.)"""
     try:
         score = similarity_score(question, category, job)
     except Exception as exc:
-        # 2026-08-12: 튜닝 중 - fail-open으로 조용히 넘어가던 예외를 눈에 보이게 임시로 출력.
-        # 튜닝 끝나면 이 print는 지우거나 logger.warning으로 낮춰도 된다.
         print(f"[유사도검증] 예외로 fail-open 처리됨: {type(exc).__name__}: {exc}")
         return True
     if score is None:
