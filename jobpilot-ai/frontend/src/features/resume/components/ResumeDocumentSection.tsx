@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, ChevronRight, Download, FileText, Sparkles, Upload } from "lucide-react";
-import { applyResumeExtraction, deleteResumeDocument, extractResumeDocument, generateResumeDocument, listResumeDocuments, type ResumeDocument } from "../api/resumeApi";
+import { CheckCircle2, ChevronRight, Download, FileText, LoaderCircle, Sparkles, Upload, X } from "lucide-react";
+import { applyResumeExtraction, deleteResumeDocument, downloadResumeDocument, extractResumeDocument, generateResumeDocument, getResumeDraftContext, listResumeDocuments, type ResumeDocument, type ResumeDraftContext } from "../api/resumeApi";
 import { getResumeAiConsent, saveResumeAiConsent } from "../api/resumeConsentApi";
 
 const templates = [
-  { key: "STANDARD", name: "기본 역량형", description: "학력·역량·경력·프로젝트를 균형 있게 정리합니다." },
-  { key: "PROJECT", name: "프로젝트 강조형", description: "기술 스택과 프로젝트 성과를 먼저 보여줍니다." },
-  { key: "COMPACT", name: "간결 경력형", description: "한 페이지 중심으로 핵심만 간결하게 구성합니다." },
+  { key: "ACADEMY", name: "개발교육원형", description: "교육·수행 프로젝트·기술 역량을 자세히 보여줍니다.", preview: "/resume-templates/academy.png" },
+  { key: "SARAMIN", name: "사람인형", description: "기본사항과 학력·경력 중심으로 정리합니다.", preview: "/resume-templates/saramin.png" },
+  { key: "JOBKOREA", name: "잡코리아형", description: "핵심 이력을 간결한 표 형식으로 정리합니다.", preview: "/resume-templates/jobkorea.png" },
 ] as const;
 
 type Profile = Record<string, unknown>;
@@ -100,28 +100,45 @@ export function ResumeProfileAnalysisSection() {
 }
 
 export function ResumeWritingAssistantSection() {
-  const [step, setStep] = useState<1 | 2 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [open, setOpen] = useState(true);
   const [enabled, setEnabled] = useState({ profile: true, skills: true, certificates: true, education: true, projects: true });
-  const [templateKey, setTemplateKey] = useState<(typeof templates)[number]["key"]>("STANDARD");
+  const [templateKey, setTemplateKey] = useState<(typeof templates)[number]["key"]>("ACADEMY");
   const [loading, setLoading] = useState(false);
+  const [loadingCapabilities, setLoadingCapabilities] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [context, setContext] = useState<ResumeDraftContext | null>(null);
   const [aiConsent, setAiConsent] = useState(false);
   const { documents, setDocuments, message, setMessage } = useDocuments();
   useEffect(() => { void getResumeAiConsent().then((value) => setAiConsent(value.agreed)).catch(() => undefined); }, []);
+  const loadCapabilities = async () => {
+    setLoadingCapabilities(true); setMessage("");
+    try { setContext(await getResumeDraftContext()); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "저장된 스펙 정보를 불러오지 못했습니다."); }
+    finally { setLoadingCapabilities(false); }
+  };
+  const moveToTemplates = () => {
+    if (!context) { void loadCapabilities(); return; }
+    if (!Object.values(enabled).some(Boolean)) { setMessage("초안에 사용할 역량 항목을 하나 이상 선택해 주세요."); return; }
+    setShowConfirm(true);
+  };
   const generate = async () => {
     if (!aiConsent) return setMessage("AI 초안 생성 전 이력서 정보의 AI 처리 동의가 필요합니다.");
     setLoading(true); setMessage("");
-    try { const enabledSections = Object.entries(enabled).filter(([, active]) => active).map(([key]) => key); const saved = await generateResumeDocument({ title: "Job-A-Dream 이력서 초안", additionalRequest: "", templateKey, answers: [], enabledSections }); setDocuments((current) => [saved, ...current]); setStep(4); setMessage("수정 가능한 Word 이력서 초안을 만들었습니다. 내 이력서 자료에서 내려받을 수 있어요."); }
+    try { const enabledSections = Object.entries(enabled).filter(([, active]) => active).map(([key]) => key); const saved = await generateResumeDocument({ title: "Job-A-Dream 이력서 초안", additionalRequest: "", templateKey, answers: ["저장된 이력·프로젝트 문장에 있는 사실만 사용하고, 비어 있는 정보는 추측하지 마세요."], enabledSections }); setDocuments((current) => [saved, ...current]); setStep(3); setMessage("수정 가능한 Word 이력서 초안을 만들었습니다. 양식 원본과 AI 초안 모두 Word에서 바로 수정할 수 있습니다."); }
     catch (error) { setMessage(error instanceof Error ? error.message : "이력서 초안 생성에 실패했습니다."); }
     finally { setLoading(false); }
   };
   const generated = documents.filter((document) => document.type === "GENERATED");
+  if (!open) return <section className="resume-document-card resume-assistant-collapsed"><div><span className="eyebrow">RESUME ASSISTANT</span><h3>이력서 작성 도우미</h3><p>저장한 역량을 불러와 선택 양식의 Word 초안을 만들 수 있습니다.</p></div><button className="primary-button" onClick={() => setOpen(true)}>도우미 열기</button></section>;
   return <div className="resume-document-section">
-    <section className="resume-analysis-hero"><div><span className="eyebrow">RESUME ASSISTANT</span><h2>내 역량을 바탕으로 이력서 초안을 작성하세요.</h2><p>내 역량 불러오기, 양식 선택, 질문 답변을 거쳐 AI가 사실에 기반한 수정 가능한 Word 초안을 만듭니다.</p></div><Sparkles size={36} /></section>
-    <ol className="resume-stepper"><li className={step >= 1 ? "active" : ""}>1. 역량 불러오기</li><li className={step >= 2 ? "active" : ""}>2. 양식 선택</li><li className={step >= 4 ? "active" : ""}>3. 초안 생성</li></ol>
-    {step === 1 && <section className="resume-document-card"><h3>내 역량 불러오기</h3><p>초안에 쓸 항목을 켜거나 끌 수 있습니다. 실제 저장된 역량은 다음 단계에서 AI 작성 재료로 사용됩니다.</p><div className="resume-capability-toggles">{Object.entries({ profile: "희망 직무·경력", skills: "보유 기술 스택", certificates: "보유 자격증", education: "학력", projects: "프로젝트·자기소개" }).map(([key, label]) => <label key={key}><input type="checkbox" checked={enabled[key as keyof typeof enabled]} onChange={() => setEnabled((current) => ({ ...current, [key]: !current[key as keyof typeof enabled] }))} />{label}</label>)}</div><button className="primary-button" onClick={() => setStep(2)}>양식 선택으로 <ChevronRight size={15} /></button></section>}
-    {step === 2 && <section className="resume-template-panel"><div><span className="eyebrow">DOCUMENT TEMPLATE</span><h3>이력서 양식을 선택해 주세요</h3><p>선택한 내 역량과 상세 이력 항목을 바탕으로 바로 AI 초안을 만듭니다.</p></div><div className="resume-template-options">{templates.map((template) => <button type="button" key={template.key} className={`resume-template-option ${templateKey === template.key ? "selected" : ""}`} onClick={() => setTemplateKey(template.key)}><CheckCircle2 size={16} /><strong>{template.name}</strong><small>{template.description}</small></button>)}</div><label className="resume-consent"><input type="checkbox" checked={aiConsent} onChange={async (event) => { try { const saved = await saveResumeAiConsent(event.target.checked); setAiConsent(saved.agreed); } catch (error) { setMessage(error instanceof Error ? error.message : "동의 상태를 저장하지 못했습니다."); } }} /> 이력서에 입력한 개인정보와 경력 정보를 AI 초안 생성에 전송하는 것에 동의합니다.</label><div className="form-actions"><button className="outline-button" onClick={() => setStep(1)}>이전</button><button className="primary-button" disabled={loading} onClick={generate}>{loading ? "AI 초안 작성 중…" : "내 이력서 초안 만들기"}</button></div></section>}
+    <section className="resume-analysis-hero"><div><span className="eyebrow">RESUME ASSISTANT</span><h2>내 역량을 바탕으로 이력서 초안을 작성하세요.</h2><p>저장된 이력·기술·프로젝트의 실제 문장만 불러온 뒤, 선택한 양식에 맞는 수정 가능한 Word 초안을 만듭니다.</p></div><button className="resume-hero-close" onClick={() => setOpen(false)} aria-label="이력서 작성 도우미 닫기"><X size={18} /></button><Sparkles size={36} /></section>
+    <ol className="resume-stepper"><li className={step >= 1 ? "active" : ""}>1. 역량 불러오기</li><li className={step >= 2 ? "active" : ""}>2. 양식 선택</li><li className={step >= 3 ? "active" : ""}>3. 초안 생성</li></ol>
+    {step === 1 && <section className="resume-document-card"><div className="resume-result-heading"><div><h3>내 역량 불러오기</h3><p>버튼을 누르면 저장한 이력·기술·프로젝트를 불러옵니다. 필요한 항목만 선택할 수 있습니다.</p></div><button className="primary-button" disabled={loadingCapabilities} onClick={() => void loadCapabilities()}>{loadingCapabilities ? <><LoaderCircle className="spinning" size={15} /> 불러오는 중…</> : "내 역량 불러오기"}</button></div>{loadingCapabilities && <div className="resume-loading"><LoaderCircle className="spinning" size={20} /><strong>내 스펙 정보를 불러오는 중입니다…</strong><span>저장된 이력과 프로젝트를 확인하고 있어요.</span></div>}{context && <details className="resume-capability-preview" open><summary>불러온 내 역량 보기 · 열기/닫기</summary>{Object.entries({ profile: "희망 직무·경력", skills: "보유 기술 스택", certificates: "보유 자격증", education: "학력·경력 이력", projects: "프로젝트·자기소개" }).map(([key, label]) => <article key={key}><label><input type="checkbox" checked={enabled[key as keyof typeof enabled]} onChange={() => setEnabled((current) => ({ ...current, [key]: !current[key as keyof typeof enabled] }))} /><strong>{label}</strong></label><p>{(context[key as keyof ResumeDraftContext] ?? []).length ? (context[key as keyof ResumeDraftContext] ?? []).join("\n") : "저장된 정보가 없습니다."}</p></article>)}</details>}<button className="primary-button" disabled={loadingCapabilities || !context} onClick={moveToTemplates}>양식 선택으로 <ChevronRight size={15} /></button></section>}
+    {step === 2 && <section className="resume-template-panel"><div><span className="eyebrow">DOCUMENT TEMPLATE</span><h3>이력서 양식을 선택해 주세요</h3><p>올려주신 빈 양식의 첫 페이지 미리보기입니다. 생성본은 선택 양식을 포함한 편집 가능한 Word 파일입니다.</p></div><div className="resume-template-options">{templates.map((template) => <button type="button" key={template.key} className={`resume-template-option ${templateKey === template.key ? "selected" : ""}`} onClick={() => setTemplateKey(template.key)}><img src={template.preview} alt={`${template.name} 빈 양식 미리보기`} /><div><CheckCircle2 size={16} /><strong>{template.name}</strong><small>{template.description}</small></div></button>)}</div><label className="resume-consent"><input type="checkbox" checked={aiConsent} onChange={async (event) => { try { const saved = await saveResumeAiConsent(event.target.checked); setAiConsent(saved.agreed); } catch (error) { setMessage(error instanceof Error ? error.message : "동의 상태를 저장하지 못했습니다."); } }} /> 이력서에 입력한 개인정보와 경력 정보를 AI 초안 생성에 전송하는 것에 동의합니다.</label><div className="form-actions"><button className="outline-button" onClick={() => setStep(1)}>이전</button><button className="primary-button" disabled={loading} onClick={generate}>{loading ? <><LoaderCircle className="spinning" size={15} /> 초안을 작성 중입니다…</> : "내 이력서 초안 만들기"}</button></div>{loading && <div className="resume-loading"><LoaderCircle className="spinning" size={20} /><strong>초안을 작성 중입니다…</strong><span>선택한 양식과 저장한 역량을 연결하고 있어요.</span></div>}</section>}
     {message && <p className="resume-document-message">{message}</p>}
-    {generated.length > 0 && <section className="resume-document-list"><h3>생성한 이력서 초안</h3>{generated.map((document) => <article key={document.id} className="resume-document-item"><div><span>AI 생성 초안</span><strong>{document.title}</strong><small>{new Intl.DateTimeFormat("ko-KR").format(new Date(document.createdAt))}</small></div><a className="primary-button" href={`/api/v1/members/me/resume-documents/${document.id}/download.docx`}><Download size={15} /> Word 내려받기</a></article>)}</section>}
+    {generated.length > 0 && <section className="resume-document-list"><h3>생성한 이력서 초안</h3>{generated.map((document) => <article key={document.id} className="resume-document-item"><div><span>AI 생성 초안</span><strong>{document.title}</strong><small>{new Intl.DateTimeFormat("ko-KR").format(new Date(document.createdAt))}</small></div><button className="primary-button" onClick={() => void downloadResumeDocument(document.id).catch((error) => setMessage(error instanceof Error ? error.message : "Word 파일을 내려받지 못했습니다."))}><Download size={15} /> Word 내려받기</button></article>)}</section>}
+    {showConfirm && <div className="resume-confirm-backdrop" role="dialog" aria-modal="true"><section className="resume-confirm-modal"><Sparkles size={24} /><h3>이 내용으로 이력서 초안을 작성할까요?</h3><p>선택한 저장 역량과 실제 이력 문장을 바탕으로 작성합니다. 저장되지 않은 사실은 새로 만들지 않습니다.</p><div className="form-actions"><button className="outline-button" onClick={() => setShowConfirm(false)}>아니요</button><button className="primary-button" onClick={() => { setShowConfirm(false); setStep(2); }}>예, 양식 선택하기</button></div></section></div>}
   </div>;
 }
 
