@@ -30,6 +30,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 9000
       AI_SERVER_BASE_URL: http://ai-server:8001
+      FACE_VERIFICATION_BASE_URL: http://wordcloud-server:8000
       GEMINI_API_KEY: ${GEMINI_API_KEY_BACKEND:-}
     expose:
       - "9000"
@@ -65,11 +66,16 @@ services:
     env_file:
       - ${ENV_FILE:?Set ENV_FILE to the absolute path of the server environment file}
     environment:
+      FACE_REFERENCE_DIR: /app/admin_photos
       WORDCLOUD_CACHE_REFRESH_ENABLED: ${WORDCLOUD_CACHE_REFRESH_ENABLED:-true}
       WORDCLOUD_CACHE_REFRESH_ON_START: ${WORDCLOUD_CACHE_REFRESH_ON_START:-true}
       WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-360}
     expose:
       - "8000"
+    volumes:
+      # Keep biometric reference images outside the image and Git. Set the
+      # absolute host directory in the production environment file.
+      - ${ADMIN_FACE_PHOTOS_DIR:?Set ADMIN_FACE_PHOTOS_DIR to the protected host directory}:/app/admin_photos:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s

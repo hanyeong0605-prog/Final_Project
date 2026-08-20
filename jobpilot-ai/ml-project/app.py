@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image
 from scipy.ndimage import binary_fill_holes
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from kiwipiepy import Kiwi
 from pydantic import BaseModel
@@ -36,7 +36,7 @@ SEED_CACHE_FILE = BASE_DIR / "cache" / "wordcloud_cache.json"
 RUNTIME_CACHE_FILE = Path(
     os.getenv("WORDCLOUD_RUNTIME_CACHE_FILE", str(BASE_DIR / "runtime-cache" / "wordcloud_cache.json"))
 )
-ADMIN_PHOTOS_DIR = BASE_DIR / "admin_photos"
+ADMIN_PHOTOS_DIR = Path(os.getenv("FACE_REFERENCE_DIR", str(BASE_DIR / "admin_photos"))).resolve()
 ADMIN_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 MASK_IMAGE_PATH = BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot_nukki.png"
 
@@ -323,10 +323,8 @@ def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|pr
 # 🔒 안면 인식 2차 인증 (DeepFace)
 # ==============================================================================
 class FaceVerifyRequest(BaseModel):
-    admin_id: Optional[Any] = "local-dev"
-    adminId: Optional[Any] = None
-    image_base64: Optional[str] = None
-    imageBase64: Optional[str] = None
+    admin_id: str
+    image_base64: str
 
 
 def save_base64_image(base64_str: str, target_path: Path) -> None:
@@ -336,28 +334,36 @@ def save_base64_image(base64_str: str, target_path: Path) -> None:
     if missing_padding:
         base64_str += "=" * (4 - missing_padding)
 
+    try:
+        image_bytes = base64.b64decode(base64_str, validate=True)
+        # Reject non-images before DeepFace touches the file. This also prevents
+        # the face endpoint being used as an arbitrary-file upload endpoint.
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            image.verify()
+    except Exception as error:
+        raise HTTPException(status_code=400, detail="유효한 카메라 이미지가 아닙니다.") from error
     with open(target_path, "wb") as f:
-        f.write(base64.b64decode(base64_str))
+        f.write(image_bytes)
 
 
-@app.post("/api/admin/face/verify")
-def verify_admin_face(req: FaceVerifyRequest) -> dict[str, Any]:
+@app.post("/api/internal/admin/face/verify")
+def verify_admin_face(req: FaceVerifyRequest, x_internal_api_key: str | None = Header(default=None)) -> dict[str, Any]:
+    expected_api_key = os.getenv("INTERNAL_API_KEY", "")
+    if not expected_api_key or x_internal_api_key != expected_api_key:
+        raise HTTPException(status_code=401, detail="내부 서비스 인증에 실패했습니다.")
     if DeepFace is None:
         raise HTTPException(status_code=503, detail="안면 인증 런타임이 배포되어 있지 않습니다.")
 
-    target_id = str(req.admin_id or req.adminId or "local-dev").strip()
-    img_data = req.image_base64 or req.imageBase64
-
-    if not img_data:
-        raise HTTPException(status_code=400, detail="카메라 이미지 데이터가 누락되었습니다.")
+    target_id = req.admin_id.strip()
+    if not target_id or not target_id.replace("-", "").replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="유효하지 않은 관리자 식별자입니다.")
+    img_data = req.image_base64
 
     admin_photo_path = ADMIN_PHOTOS_DIR / f"{target_id}.jpg"
     if not admin_photo_path.exists():
         admin_photo_path = ADMIN_PHOTOS_DIR / f"{target_id}.png"
         if not admin_photo_path.exists():
-            admin_photo_path = ADMIN_PHOTOS_DIR / "local-dev.jpg"
-            if not admin_photo_path.exists():
-                raise HTTPException(status_code=404, detail=f"등록된 관리자 사진({target_id})이 없습니다.")
+            raise HTTPException(status_code=404, detail="등록된 관리자 얼굴 사진이 없습니다.")
 
     temp_webcam_path = BASE_DIR / "runtime-cache" / f"temp_{target_id}.jpg"
     temp_webcam_path.parent.mkdir(parents=True, exist_ok=True)
@@ -369,13 +375,15 @@ def verify_admin_face(req: FaceVerifyRequest) -> dict[str, Any]:
             img1_path=str(temp_webcam_path),
             img2_path=str(admin_photo_path),
             model_name="VGG-Face",
-            enforce_detection=False,
+            enforce_detection=True,
         )
 
         distance = result.get("distance", 1.0)
         similarity = round((1 - distance) * 100, 2)
-        threshold = 50.0
-        is_matched = similarity >= threshold
+        # DeepFace's model-specific threshold is calibrated by the library.
+        # Do not replace it with an arbitrary similarity percentage.
+        threshold = result.get("threshold")
+        is_matched = bool(result.get("verified", False))
 
         return {
             "admin_id": target_id,

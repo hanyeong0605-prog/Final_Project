@@ -13,7 +13,7 @@ export function LoginPage() {
   const requestedReturnTo = params.get("returnTo");
   const socialError = params.get("socialError");
   // Preserve only an internal phone-pairing route after login.
-  const returnTo = requestedReturnTo?.startsWith("/camera-pair?") ? requestedReturnTo : "/";
+  const returnTo = requestedReturnTo?.startsWith("/camera-pair?") || requestedReturnTo?.startsWith("/admin-face-pair?") ? requestedReturnTo : "/";
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
