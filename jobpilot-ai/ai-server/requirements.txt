@@ -47,7 +47,10 @@ accelerate>=0.33
 
 # mock interview - question quality check (optional, see question_generator.py _gemini_polish).
 # Falls back to no-op if GEMINI_API_KEY isn't set.
-google-genai
+# Pin the SDK so pip does not backtrack across every released version during
+# the EC2 Docker build. The unpinned resolver was exhausting the deploy SSH
+# command timeout before the image could be exported.
+google-genai==2.8.0
 
 # mock interview - 답변 전달력(delivery_score) 예측 모델 (ml/build_delivery_score_dataset.py,
 # ml/train_delivery_score_model.py). audio_analysis.py가 뽑는 숫자 피처만 입력으로 쓰는
