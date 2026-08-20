@@ -75,7 +75,7 @@ services:
     volumes:
       # Keep biometric reference images outside the image and Git. Set the
       # absolute host directory in the production environment file.
-      - ${ADMIN_FACE_PHOTOS_DIR:?Set ADMIN_FACE_PHOTOS_DIR to the protected host directory}:/app/admin_photos:ro
+      - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s

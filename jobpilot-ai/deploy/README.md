@@ -21,10 +21,12 @@
 ## Administrator phone face verification
 
 The administrator screen shows a short-lived QR code instead of requiring a PC
-webcam. Before deploying, create the private directory configured by
-`ADMIN_FACE_PHOTOS_DIR` in `/etc/jobpilot/jobpilot.env` and place one reference
-photo per administrator in it. The file name must be the member's `loginId`, for
-example `admin01.jpg` or `admin01.png`.
+webcam. Before deploying, create `/srv/jobpilot/admin-face-photos` (or the
+private directory configured by `ADMIN_FACE_PHOTOS_DIR` in
+`/etc/jobpilot/jobpilot.env`) and place one reference photo per administrator in
+it. The file name must be the member's `loginId`, for example `admin01.jpg` or
+`admin01.png`. The default path lets the first deployment complete even when the
+optional environment variable has not yet been added.
 
 The directory is mounted read-only into the internal face service; it is not
 included in the Docker image, Git repository, or Nginx public paths. Keep
