@@ -19,6 +19,7 @@ interface JobMatchEvidenceResponse {
   requirementType: string | null;
   sourceExcerpt: string | null;
   memberEvidenceType: string | null;
+  memberEvidence: string | null;
   status: RequirementStatus;
   comment: string | null;
   gapAction: string | null;
@@ -56,6 +57,7 @@ function toRequirement(value: JobMatchEvidenceResponse, index: number): Requirem
     sourceExcerpt: value.sourceExcerpt ?? value.requirement ?? "",
     sourceNumber: index + 1,
     memberEvidenceType: value.memberEvidenceType ?? undefined,
+    memberEvidence: value.memberEvidence ?? undefined,
     status: value.status,
     evidence: value.comment ?? "등록한 스펙과의 연결 근거가 없습니다.",
     action: value.gapAction ?? (value.status === "MISSING" ? "관련 스펙을 등록하거나 준비 계획을 세워 보세요." : "공고 원문에서 해당 조건을 확인해 주세요."),

@@ -142,7 +142,7 @@ export const WordCloudSection: React.FC<{ showHeader?: boolean; compact?: boolea
       )}
 
       
-      <WordCloudViewer imageData={data?.image_data || null} loading={loading} compact={compact} />
+      <WordCloudViewer imageData={data?.image_data || null} loading={loading} compact={compact} topKeywords={data?.top_keywords ?? []} />
     </div>
   );
 };

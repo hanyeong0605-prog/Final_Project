@@ -12,11 +12,21 @@ import com.jobpilot.api.domain.matching.entity.JobMatchEvidence;
 import com.jobpilot.api.domain.matching.policy.RecommendationLevel;
 import com.jobpilot.api.domain.matching.repository.JobMatchEvidenceRepository;
 import com.jobpilot.api.domain.matching.repository.JobMatchRepository;
+import com.jobpilot.api.domain.member.entity.Certificate;
+import com.jobpilot.api.domain.member.entity.MemberSkill;
+import com.jobpilot.api.domain.member.entity.Skill;
+import com.jobpilot.api.domain.member.repository.CertificateRepository;
+import com.jobpilot.api.domain.member.repository.MemberSkillRepository;
+import com.jobpilot.api.domain.member.repository.SkillRepository;
+import com.jobpilot.api.domain.resume.entity.ResumeEntry;
+import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -29,17 +39,27 @@ public class JobMatchService {
     private final JobMatchEvidenceRepository jobMatchEvidenceRepository;
     private final JobPostingRepository jobPostingRepository;
     private final JobRequirementRepository jobRequirementRepository;
+    private final ResumeEntryRepository resumeEntries;
+    private final MemberSkillRepository memberSkills;
+    private final SkillRepository skills;
+    private final CertificateRepository certificates;
 
     public JobMatchService(
             JobMatchRepository jobMatchRepository,
             JobMatchEvidenceRepository jobMatchEvidenceRepository,
             JobPostingRepository jobPostingRepository,
-            JobRequirementRepository jobRequirementRepository
+            JobRequirementRepository jobRequirementRepository,
+            ResumeEntryRepository resumeEntries, MemberSkillRepository memberSkills,
+            SkillRepository skills, CertificateRepository certificates
     ) {
         this.jobMatchRepository = jobMatchRepository;
         this.jobMatchEvidenceRepository = jobMatchEvidenceRepository;
         this.jobPostingRepository = jobPostingRepository;
         this.jobRequirementRepository = jobRequirementRepository;
+        this.resumeEntries = resumeEntries;
+        this.memberSkills = memberSkills;
+        this.skills = skills;
+        this.certificates = certificates;
     }
 
     public List<JobMatchSummaryResponse> findMatches(Long memberId, RecommendationLevel level) {
@@ -71,7 +91,7 @@ public class JobMatchService {
 
         return new JobMatchDetailResponse(
                 toSummary(match, posting),
-                evidences.stream().map(evidence -> toEvidence(evidence, requirements.get(evidence.getJobRequirementId()))).toList(),
+                evidences.stream().map(evidence -> toEvidence(memberId, evidence, requirements.get(evidence.getJobRequirementId()))).toList(),
                 posting.getDescription()
         );
     }
@@ -83,14 +103,50 @@ public class JobMatchService {
         );
     }
 
-    private JobMatchEvidenceResponse toEvidence(JobMatchEvidence evidence, JobRequirement requirement) {
+    private JobMatchEvidenceResponse toEvidence(Long memberId, JobMatchEvidence evidence, JobRequirement requirement) {
         return new JobMatchEvidenceResponse(
                 evidence.getJobRequirementId(),
                 requirement == null ? null : requirement.getContent(),
                 requirement == null ? null : requirement.getType(),
                 requirement == null ? null : requirement.getSourceExcerpt(),
-                evidence.getMemberEvidenceType(), evidence.getMemberEvidenceId(), evidence.getStatus(), evidence.getComment(), evidence.getGapAction()
+                evidence.getMemberEvidenceType(), evidence.getMemberEvidenceId(), memberEvidence(memberId, evidence),
+                evidence.getStatus(), evidence.getComment(), evidence.getGapAction()
         );
+    }
+
+    private String memberEvidence(Long memberId, JobMatchEvidence evidence) {
+        Long evidenceId = evidence.getMemberEvidenceId();
+        if (evidenceId == null) return null;
+        return switch (evidence.getMemberEvidenceType()) {
+            case "RESUME_ENTRY" -> resumeEntries.findByIdAndMemberId(evidenceId, memberId).map(this::resumeExcerpt).orElse(null);
+            case "MEMBER_SKILL" -> memberSkills.findById(evidenceId)
+                    .filter(skill -> memberId.equals(skill.getMemberId()))
+                    .flatMap(skill -> skills.findById(skill.getSkillId()).map(catalog -> skillEvidence(catalog, skill)))
+                    .orElse(null);
+            case "CERTIFICATE" -> certificates.findById(evidenceId)
+                    .filter(certificate -> memberId.equals(certificate.getMemberId()))
+                    .map(certificate -> "자격증 · " + certificate.getName()).orElse(null);
+            default -> null;
+        };
+    }
+
+    private String skillEvidence(Skill skill, MemberSkill memberSkill) {
+        String level = memberSkill.getSelfReportedLevel();
+        return "보유 기술 · " + skill.getName() + (level == null || level.isBlank() ? "" : " (" + level + ")");
+    }
+
+    private String resumeExcerpt(ResumeEntry entry) {
+        List<String> values = new ArrayList<>();
+        collectText(entry.getContent(), values);
+        String text = String.join(" · ", values).replaceAll("\\s+", " ").trim();
+        if (text.length() > 120) text = text.substring(0, 117).trim() + "…";
+        return "이력 · " + entry.getTitle() + (text.isBlank() ? "" : " — " + text);
+    }
+
+    private void collectText(JsonNode node, List<String> values) {
+        if (node == null || node.isNull()) return;
+        if (node.isValueNode()) { if (!node.asText().isBlank()) values.add(node.asText()); return; }
+        node.elements().forEachRemaining(child -> collectText(child, values));
     }
 
     private JobPosting requiredPosting(Map<Long, JobPosting> postings, Long jobPostingId) {

@@ -3,6 +3,8 @@ import io
 import json
 import logging
 import os
+import re
+from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,11 +15,10 @@ from uuid import uuid4
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_fill_holes
+from scipy.ndimage import binary_fill_holes, label
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from kiwipiepy import Kiwi
 from pydantic import BaseModel
 import pymysql
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -43,8 +44,8 @@ ADMIN_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 # Keep the source-tree location as the default for local execution.
 MASK_IMAGE_PATH = Path(os.getenv(
     "WORDCLOUD_MASK_IMAGE",
-    "/assets/mascot_nukki.png" if Path("/assets/mascot_nukki.png").exists()
-    else str(BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot_nukki.png"),
+    "/assets/mascot-fullbody-wordcloud.png" if Path("/assets/mascot-fullbody-wordcloud.png").exists()
+    else str(BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot-fullbody-wordcloud.png"),
 ))
 
 DEFAULT_LINUX_FONT = Path("/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
@@ -57,10 +58,17 @@ STOPWORDS = {
     "채용", "우대", "경력", "신입", "가능자", "관련", "업무", "자격", "요건",
     "성남시", "분당구", "서울특별시", "강남구", "구로구", "판교", "위치",
 }
+FALLBACK_TECH_SKILLS = (
+    "Java", "Kotlin", "Python", "JavaScript", "TypeScript", "React", "Vue", "Angular",
+    "Next.js", "Node.js", "Spring", "Spring Boot", "JPA", "MySQL", "PostgreSQL", "MongoDB",
+    "Redis", "AWS", "Docker", "Kubernetes", "Git", "GitHub", "Linux", "Figma", "Flutter",
+    "Android", "iOS", "TensorFlow", "PyTorch", "OpenAI", "FastAPI", "Django",
+)
 
 LOGGER = logging.getLogger("jobpilot.ai")
 CACHE_LOCK = RLock()
 WORDCLOUD_CACHE: dict[str, Any] = {}
+WORDCLOUD_IMAGE_CACHE: dict[str, str] = {}
 CAT_MASK_CACHE: Optional[np.ndarray] = None
 CACHE_SOURCE = "uninitialized"
 LAST_REFRESH_AT: str | None = None
@@ -94,15 +102,30 @@ def load_cat_mask() -> np.ndarray | None:
         return None
 
     try:
-        img = Image.open(MASK_IMAGE_PATH).convert("L")
-        np_img = np.array(img)
+        # The mascot PNG has a transparent background.  Its alpha matte is a
+        # much more accurate silhouette than trying to infer a shape from its
+        # white body or black outlines.
+        alpha = np.array(Image.open(MASK_IMAGE_PATH).convert("RGBA").getchannel("A"))
+        silhouette = alpha > 32
 
-        # 검은 선(외곽선) 추출 후 구멍 채우기
-        outline = np_img < 90
-        filled = binary_fill_holes(outline)
+        # Ignore tiny detached anti-aliasing artifacts, while preserving the
+        # connected ears, body, paws and tail of the actual mascot.
+        components, component_count = label(silhouette)
+        if component_count:
+            component_sizes = np.bincount(components.ravel())
+            component_sizes[0] = 0
+            silhouette = components == component_sizes.argmax()
+        filled = binary_fill_holes(silhouette)
 
-        # 형태 손상 없는 고해상도 마스크 생성 (0: 글자 채움, 255: 배경)
-        CAT_MASK_CACHE = np.where(filled, 0, 255).astype(np.uint8)
+        # 빈 캔버스를 제거해 단어가 정사각형 전체가 아니라 고양이 실루엣을 꽉 채우게 한다.
+        y, x = np.where(filled)
+        if not len(y) or not len(x):
+            raise ValueError("고양이 마스크에서 실루엣을 찾지 못했습니다.")
+        padding = 14
+        y0, y1 = max(0, y.min() - padding), min(filled.shape[0], y.max() + padding + 1)
+        x0, x1 = max(0, x.min() - padding), min(filled.shape[1], x.max() + padding + 1)
+        # 0: 글자 채움, 255: 배경
+        CAT_MASK_CACHE = np.where(filled[y0:y1, x0:x1], 0, 255).astype(np.uint8)
         return CAT_MASK_CACHE
     except Exception as e:
         LOGGER.error("마스크 로드 에러: %s", str(e))
@@ -132,12 +155,16 @@ def load_existing_cache() -> tuple[dict[str, Any], str] | None:
 
 
 def initialize_cache() -> None:
-    global CACHE_SOURCE, WORDCLOUD_CACHE
+    global CACHE_SOURCE, WORDCLOUD_CACHE, WORDCLOUD_IMAGE_CACHE
     loaded = load_existing_cache()
     if loaded:
         cache, source = loaded
         with CACHE_LOCK:
             WORDCLOUD_CACHE = cache
+            WORDCLOUD_IMAGE_CACHE = {
+                group: image for group, image in cache.get("_images", {}).items()
+                if group in REQUIRED_GROUPS and isinstance(image, str)
+            }
             CACHE_SOURCE = source
 
 
@@ -181,21 +208,76 @@ def fetch_job_requirements() -> list[tuple[str, str]]:
     ]
 
 
-def extract_keywords(kiwi: Kiwi, text: str) -> str:
-    return " ".join(
-        t.form for t in kiwi.tokenize(text)
-        if (t.tag.startswith("N") or t.tag in {"SL", "SH"}) and t.form not in STOPWORDS and len(t.form) > 1
-    )
+def normalize_technical_term(value: str) -> str:
+    return re.sub(r"[\s._\-/]", "", value.lower())
 
 
-def score_documents(kiwi: Kiwi, documents: list[str]) -> dict[str, float]:
-    processed = [extract_keywords(kiwi, doc) for doc in documents if doc]
+def fetch_technical_catalog() -> dict[str, str]:
+    """Maps catalog aliases to a display-safe canonical technical skill name."""
+    catalog = {normalize_technical_term(skill): skill for skill in FALLBACK_TECH_SKILLS}
+    try:
+        conn = pymysql.connect(**mysql_connection_settings())
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT s.name, s.normalized_name, a.alias, a.normalized_alias
+                    FROM skills s
+                    LEFT JOIN skill_aliases a ON a.skill_id = s.id
+                    WHERE s.catalog_status = 'CANONICAL'
+                """)
+                rows = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception as error:
+        # The fixed fallback keeps the dashboard usable while an older database schema is upgraded.
+        LOGGER.warning("기술 카탈로그를 읽지 못해 기본 기술 사전을 사용합니다: %s", error)
+        return catalog
+
+    for name, normalized_name, alias, normalized_alias in rows:
+        canonical = str(name).strip()
+        for candidate in (name, normalized_name, alias, normalized_alias):
+            if candidate:
+                normalized = normalize_technical_term(str(candidate))
+                if normalized:
+                    catalog[normalized] = canonical
+    return catalog
+
+
+def extract_technical_skills(text: str, catalog: dict[str, str]) -> list[str]:
+    """Select known technologies only; generic recruiting nouns never enter the trend ranking."""
+    normalized_text = normalize_technical_term(text)
+    matches: set[str] = set()
+    matched_aliases: list[str] = []
+    # Long aliases first keeps Spring Boot / React Native from being reduced to a shorter skill.
+    for alias, canonical in sorted(catalog.items(), key=lambda item: len(item[0]), reverse=True):
+        # Two-character English strings (for example 'go') cause too many false positives.
+        if len(alias) < 3 and alias not in {"c++"}:
+            continue
+        # If "springboot" already matched, do not add its less-specific "spring" fragment too.
+        if alias in normalized_text and not any(alias in matched for matched in matched_aliases):
+            matches.add(canonical)
+            matched_aliases.append(alias)
+    return sorted(matches)
+
+
+def score_documents(documents: list[str], catalog: dict[str, str]) -> tuple[dict[str, float], Counter[str]]:
+    extracted = [extract_technical_skills(doc, catalog) for doc in documents if doc]
+    processed = [" ".join(skills) for skills in extracted if skills]
     if not processed:
-        return {}
+        return {}, Counter()
     vectorizer = TfidfVectorizer(max_features=150, lowercase=False)
     matrix = vectorizer.fit_transform(processed)
     scores = matrix.sum(axis=0).A1
-    return dict(zip(vectorizer.get_feature_names_out(), (float(s) for s in scores)))
+    mentions = Counter(skill for skills in extracted for skill in set(skills))
+    return dict(zip(vectorizer.get_feature_names_out(), (float(s) for s in scores))), mentions
+
+
+def top_keywords(scores: dict[str, float], mentions: Counter[str], limit: int = 5) -> list[dict[str, Any]]:
+    ranked = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    return [
+        {"rank": rank, "keyword": keyword, "score": round(score, 3), "mention_count": mentions.get(keyword, 0)}
+        for rank, (keyword, score) in enumerate(ranked, start=1)
+    ]
 
 
 def build_cache_from_database() -> dict[str, Any]:
@@ -203,16 +285,20 @@ def build_cache_from_database() -> dict[str, Any]:
     if not requirements:
         raise RuntimeError("job_requirements에 분석할 데이터가 없습니다.")
 
-    kiwi = Kiwi()
+    catalog = fetch_technical_catalog()
     docs_by_group = {
         "all": [text for text, _ in requirements],
         "required": [text for text, imp in requirements if imp == "required"],
         "preferred": [text for text, imp in requirements if imp == "preferred"],
     }
-    cache = {
-        group: {"scores": score_documents(kiwi, docs), "total_records": len(docs)}
-        for group, docs in docs_by_group.items()
-    }
+    cache: dict[str, Any] = {}
+    for group, docs in docs_by_group.items():
+        scores, mentions = score_documents(docs, catalog)
+        cache[group] = {
+            "scores": scores,
+            "total_records": len(docs),
+            "top_keywords": top_keywords(scores, mentions),
+        }
     cache["_meta"] = {"generated_at": datetime.now(timezone.utc).isoformat(), "source": "job_requirements"}
     return cache
 
@@ -225,13 +311,60 @@ def write_runtime_cache(cache: dict[str, Any]) -> None:
     temp.replace(RUNTIME_CACHE_FILE)
 
 
+# Fixed brand palette keeps the visualization legible and visually consistent with Job-A-Dream.
+BRAND_WORD_COLORS = ("#4338ca", "#4f46e5", "#6366f1", "#6d5ce7", "#7c6ee6", "#3b82f6", "#2563eb")
+
+
+def brand_color_func(word: str, **_: Any) -> str:
+    return BRAND_WORD_COLORS[sum(ord(char) for char in word) % len(BRAND_WORD_COLORS)]
+
+
+def render_wordcloud_image(scores: dict[str, float]) -> str:
+    mask = load_cat_mask()
+    cloud = WordCloud(
+        font_path=FONT_PATH,
+        background_color="white",
+        mask=mask,
+        max_words=260,
+        max_font_size=205,
+        min_font_size=7,
+        margin=1,
+        prefer_horizontal=0.92,
+        relative_scaling=0.28,
+        # A limited technical vocabulary should still fill the mascot rather
+        # than leave its ears, paws and tail empty. The separate Top 5 panel
+        # remains the source of truth for rankings.
+        repeat=True,
+        contour_width=0,
+        color_func=brand_color_func,
+        random_state=42,
+    ).generate_from_frequencies(scores)
+    image = cloud.to_image()
+    # Keep responses crisp on high-density displays without sending an unnecessarily large 2048px PNG.
+    image.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG", optimize=True)
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
+
+
+def pre_render_wordclouds(cache: dict[str, Any]) -> dict[str, str]:
+    return {
+        group: render_wordcloud_image(cache[group]["scores"])
+        for group in REQUIRED_GROUPS
+        if cache.get(group, {}).get("scores")
+    }
+
+
 def refresh_cache() -> bool:
-    global CACHE_SOURCE, LAST_REFRESH_AT, LAST_REFRESH_ERROR, WORDCLOUD_CACHE
+    global CACHE_SOURCE, LAST_REFRESH_AT, LAST_REFRESH_ERROR, WORDCLOUD_CACHE, WORDCLOUD_IMAGE_CACHE
     try:
         cache = build_cache_from_database()
+        images = pre_render_wordclouds(cache)
+        cache["_images"] = images
         write_runtime_cache(cache)
         with CACHE_LOCK:
             WORDCLOUD_CACHE = cache
+            WORDCLOUD_IMAGE_CACHE = images
             CACHE_SOURCE = "database"
             LAST_REFRESH_AT = cache["_meta"]["generated_at"]
             LAST_REFRESH_ERROR = None
@@ -245,7 +378,7 @@ def refresh_cache() -> bool:
 def refresh_loop(stop_event: Event) -> None:
     if os.getenv("WORDCLOUD_CACHE_REFRESH_ON_START", "true").lower() == "true":
         refresh_cache()
-    interval = max(15, int(os.getenv("WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES", "360")))
+    interval = max(15, int(os.getenv("WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES", "180")))
     while not stop_event.wait(interval * 60):
         refresh_cache()
 
@@ -284,6 +417,7 @@ def health() -> dict[str, Any]:
         return {
             "status": "ok" if WORDCLOUD_CACHE else "degraded",
             "cached_groups": sorted(REQUIRED_GROUPS.intersection(WORDCLOUD_CACHE)),
+            "rendered_groups": sorted(REQUIRED_GROUPS.intersection(WORDCLOUD_IMAGE_CACHE)),
             "cache_source": CACHE_SOURCE,
             "last_refresh_at": LAST_REFRESH_AT,
             "last_refresh_error": LAST_REFRESH_ERROR,
@@ -292,37 +426,24 @@ def health() -> dict[str, Any]:
 
 @app.get("/api/wordcloud")
 def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|preferred)$")) -> dict[str, Any]:
-    # 1. 미리 계산되어 메모리에 있는 점수 데이터를 즉시 가져옴
+    # Requests normally return a pre-rendered PNG. A cold cache renders once as a safe fallback.
     with CACHE_LOCK:
         scores = WORDCLOUD_CACHE.get(importance, {}).get("scores", {})
         total_records = WORDCLOUD_CACHE.get(importance, {}).get("total_records", 0)
+        rankings = WORDCLOUD_CACHE.get(importance, {}).get("top_keywords", [])
+        image_data = WORDCLOUD_IMAGE_CACHE.get(importance)
 
     if not scores:
         raise HTTPException(status_code=503, detail="워드클라우드 캐시 준비 중입니다.")
-
-    mask = load_cat_mask()
-
-    # 2. 캐시된 점수로 고양이 형태 워드클라우드 즉시 생성
-    wc = WordCloud(
-        font_path=FONT_PATH,
-        background_color="white",
-        mask=mask,
-        # colormap="Blues",
-        max_words=120,
-        max_font_size=200,
-        min_font_size=5,
-        prefer_horizontal=0.85,
-        relative_scaling=0.2,
-        contour_width=1.5 if mask is not None else 0,
-        contour_color="#93c5fd" if mask is not None else None,
-    ).generate_from_frequencies(scores)
-
-    buf = io.BytesIO()
-    wc.to_image().save(buf, format="PNG")
+    if image_data is None:
+        image_data = render_wordcloud_image(scores)
+        with CACHE_LOCK:
+            WORDCLOUD_IMAGE_CACHE[importance] = image_data
     return {
         "importance": importance,
         "total_records": total_records,
-        "image_data": f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}",
+        "top_keywords": rankings,
+        "image_data": image_data,
     }
 
 

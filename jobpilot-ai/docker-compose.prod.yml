@@ -74,18 +74,20 @@ services:
       - ${ENV_FILE:?Set ENV_FILE to the absolute path of the server environment file}
     environment:
       FACE_REFERENCE_DIR: /app/admin_photos
-      WORDCLOUD_MASK_IMAGE: /assets/mascot_nukki.png
+      WORDCLOUD_MASK_IMAGE: /assets/mascot-fullbody-wordcloud.png
       WORDCLOUD_CACHE_REFRESH_ENABLED: ${WORDCLOUD_CACHE_REFRESH_ENABLED:-true}
       WORDCLOUD_CACHE_REFRESH_ON_START: ${WORDCLOUD_CACHE_REFRESH_ON_START:-true}
-      WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-360}
+      WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-180}
     expose:
       - "8000"
     volumes:
       # Keep biometric reference images outside the image and Git. Set the
       # absolute host directory in the production environment file.
       - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos:ro
+      # Keep computed TF-IDF scores and the three pre-rendered PNGs across container restarts.
+      - ${WORDCLOUD_CACHE_DIR:-/srv/jobpilot/wordcloud-cache}:/app/runtime-cache
       # The cat-shaped word-cloud mask is an application asset, not generated data.
-      - ./frontend/public/mascot/mascot_nukki.png:/assets/mascot_nukki.png:ro
+      - ./frontend/public/mascot/mascot-fullbody-wordcloud.png:/assets/mascot-fullbody-wordcloud.png:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s

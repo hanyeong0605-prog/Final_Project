@@ -21,6 +21,9 @@ import com.jobpilot.api.domain.member.repository.MemberSpecificationRepository;
 import com.jobpilot.api.domain.member.repository.SkillRepository;
 import com.jobpilot.api.domain.member.repository.SkillAliasRepository;
 import com.jobpilot.api.domain.member.entity.SkillAlias;
+import com.jobpilot.api.domain.resume.entity.ResumeEntry;
+import com.jobpilot.api.domain.resume.entity.ResumeEntryType;
+import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -52,18 +55,20 @@ public class JobMatchGenerationService {
     private final CertificateRepository certificates;
     private final SkillAliasRepository skillAliases;
     private final JobMatchLearningClient learningClient;
+    private final ResumeEntryRepository resumeEntries;
 
     public JobMatchGenerationService(JobMatchRepository matches, JobMatchEvidenceRepository evidences,
             JobPostingRepository postings, JobRequirementRepository requirements,
             MemberSkillRepository memberSkills, SkillRepository skills,
             MemberProfileRepository profiles, MemberSpecificationRepository specifications,
             CertificateRepository certificates, SkillAliasRepository skillAliases,
-            JobMatchLearningClient learningClient) {
+            JobMatchLearningClient learningClient, ResumeEntryRepository resumeEntries) {
         this.matches = matches; this.evidences = evidences; this.postings = postings; this.requirements = requirements;
         this.memberSkills = memberSkills; this.skills = skills; this.profiles = profiles; this.specifications = specifications;
         this.certificates = certificates;
         this.skillAliases = skillAliases;
         this.learningClient = learningClient;
+        this.resumeEntries = resumeEntries;
     }
 
     public int regenerateForMember(Long memberId) {
@@ -82,11 +87,12 @@ public class JobMatchGenerationService {
         MemberProfile profile = profiles.findById(memberId).orElse(null);
         MemberSpecification specification = specifications.findById(memberId).orElse(null);
         List<Certificate> memberCertificates = certificates.findByMemberId(memberId);
+        List<ResumeEntry> memberResumeEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId);
 
         List<SavedMatch> generatedMatches = new ArrayList<>();
         for (JobPosting posting : postings.findActiveWithRequirements()) {
             List<JobRequirement> postingRequirements = requirements.findByJobPostingId(posting.getId());
-            MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, memberCertificates, profile, specification);
+            MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, memberCertificates, profile, specification, memberResumeEntries);
             JobMatch saved = matches.save(new JobMatch(memberId, posting.getId(), draft.level(), draft.score(),
                     draft.summary(), draft.missingRequired()));
             evidences.saveAll(draft.evidences(saved.getId()));
@@ -120,7 +126,8 @@ public class JobMatchGenerationService {
                 .collect(java.util.stream.Collectors.toMap(Skill::getId, Function.identity()));
         List<Skill> memberSkillCatalog = savedSkills.stream().map(item -> catalog.get(item.getSkillId()))
                 .filter(java.util.Objects::nonNull).toList();
-        MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, certificates.findByMemberId(memberId), profile, specification);
+        List<ResumeEntry> memberResumeEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId);
+        MatchDraft draft = evaluate(posting, postingRequirements, memberSkillCatalog, certificates.findByMemberId(memberId), profile, specification, memberResumeEntries);
         JobMatch saved = matches.save(new JobMatch(memberId, posting.getId(), draft.level(), draft.score(),
                 draft.summary(), draft.missingRequired()));
         evidences.saveAll(draft.evidences(saved.getId()));
@@ -128,7 +135,8 @@ public class JobMatchGenerationService {
     }
 
     private MatchDraft evaluate(JobPosting posting, List<JobRequirement> postingRequirements, List<Skill> memberSkills,
-                                List<Certificate> memberCertificates, MemberProfile profile, MemberSpecification specification) {
+                                List<Certificate> memberCertificates, MemberProfile profile, MemberSpecification specification,
+                                List<ResumeEntry> memberResumeEntries) {
         int required = 0, covered = 0, missing = 0, verificationNeeded = 0;
         Map<String, Integer> requiredByType = new java.util.HashMap<>();
         for (JobRequirement requirement : postingRequirements) {
@@ -163,6 +171,11 @@ public class JobMatchGenerationService {
                 }
                 String evidenceType = matchedSkill != null ? "MEMBER_SKILL" : matchedCertificate != null ? "CERTIFICATE" : "PROFILE";
                 Long evidenceId = matchedSkill != null ? matchedSkill.getId() : matchedCertificate != null ? matchedCertificate.getId() : null;
+                ResumeEntry resumeEvidence = findResumeEvidence(content, matchedSkill, memberResumeEntries);
+                if (resumeEvidence != null) {
+                    evidenceType = "RESUME_ENTRY";
+                    evidenceId = resumeEvidence.getId();
+                }
                 result.add(new EvidenceDraft(requirement, evidenceId, evidenceType, "DIRECT", "내 스펙에서 확인되었습니다.", null));
             } else {
                 if (requiredItem) {
@@ -209,6 +222,36 @@ public class JobMatchGenerationService {
         String expected = normalize(requirement);
         String actual = normalize(certificate.getName());
         return actual.length() >= 2 && (expected.contains(actual) || actual.contains(expected));
+    }
+
+    /** Links a direct match to the member's own project/career wording when possible. */
+    private ResumeEntry findResumeEvidence(String requirement, Skill matchedSkill, List<ResumeEntry> entries) {
+        if (entries == null || entries.isEmpty()) return null;
+        Set<String> terms = new HashSet<>();
+        if (matchedSkill != null) {
+            terms.add(normalize(matchedSkill.getName()));
+            terms.add(normalize(matchedSkill.getNormalizedName()));
+        }
+        Matcher english = Pattern.compile("[A-Za-z][A-Za-z0-9+#.\\-]{1,}").matcher(requirement);
+        while (english.find()) terms.add(normalize(english.group()));
+        Matcher korean = Pattern.compile("[가-힣]{3,}").matcher(requirement);
+        while (korean.find()) {
+            String term = normalize(korean.group());
+            if (!Set.of("경험", "기반", "구현", "설계", "문서", "추출", "검증", "결과", "프로젝트", "요구사항").contains(term)) terms.add(term);
+        }
+        return entries.stream()
+                .filter(entry -> Set.of(ResumeEntryType.CAREER, ResumeEntryType.ACTIVITY, ResumeEntryType.TRAINING, ResumeEntryType.PORTFOLIO).contains(entry.getEntryType()))
+                .map(entry -> new java.util.AbstractMap.SimpleEntry<>(entry, resumeEvidenceScore(entry, terms)))
+                .filter(scored -> scored.getValue() > 0)
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    private int resumeEvidenceScore(ResumeEntry entry, Set<String> terms) {
+        String title = normalize(entry.getTitle());
+        String body = normalize(entry.getContent() == null ? "" : entry.getContent().toString());
+        return terms.stream().mapToInt(term -> term.length() < 2 ? 0 : (title.contains(term) ? 3 : 0) + (body.contains(term) ? 1 : 0)).sum();
     }
 
     private boolean profileMatches(String type, String requirement, MemberProfile profile, MemberSpecification specification) {

@@ -7,6 +7,7 @@ public record JobMatchEvidenceResponse(
         String sourceExcerpt,
         String memberEvidenceType,
         Long memberEvidenceId,
+        String memberEvidence,
         String status,
         String comment,
         String gapAction
