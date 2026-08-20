@@ -142,17 +142,7 @@ export const WordCloudSection: React.FC<{ showHeader?: boolean; compact?: boolea
       )}
 
       
-      <WordCloudViewer imageData={data?.image_data || null} loading={loading} compact={compact} />
-      {(data?.top_keywords?.length ?? 0) > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', margin: compact ? '4px 8px 0' : '12px 16px 0' }}>
-          <aside aria-label="상위 5개 기술 키워드" style={{ width: compact ? 210 : 240, border: '1px solid #dfe4ff', borderRadius: 12, background: 'rgba(255,255,255,.96)', boxShadow: '0 10px 24px rgba(56, 72, 150, .10)', padding: '10px 12px', textAlign: 'left' }}>
-            <strong style={{ display: 'block', color: '#4f46e5', fontSize: 10, letterSpacing: '.08em', marginBottom: 7 }}>TOP 5 기술 키워드</strong>
-            <ol style={{ display: 'grid', gap: 5, margin: 0, padding: 0, listStyle: 'none' }}>
-              {data?.top_keywords.map((item) => <li key={item.keyword} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', alignItems: 'center', gap: 5, color: '#43506a', fontSize: 11 }}><b style={{ color: '#6979de' }}>{item.rank}</b><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{item.keyword}</span><small style={{ color: '#8a96ad', fontSize: 10 }}>{item.mention_count}건</small></li>)}
-            </ol>
-          </aside>
-        </div>
-      )}
+      <WordCloudViewer imageData={data?.image_data || null} loading={loading} compact={compact} topKeywords={data?.top_keywords ?? []} />
     </div>
   );
 };
