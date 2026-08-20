@@ -29,6 +29,7 @@ import { CameraPairPage } from "../pages/CameraPairPage";
 import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 import { HomePage } from "../pages/HomePage";
 import { AdminPage } from "../pages/AdminPage";
+import { AdminFacePairPage } from "../pages/AdminFacePairPage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
   { path: "/oauth/callback", element: <OAuthCallbackPage /> },
   { path: "/oauth/complete", element: <OAuthCompletePage /> },
   { path: "/camera-pair", element: <CameraPairPage /> },
+  { path: "/admin-face-pair", element: <AdminFacePairPage /> },
 
   {
     path: "/",

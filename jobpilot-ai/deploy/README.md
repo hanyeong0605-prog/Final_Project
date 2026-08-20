@@ -18,6 +18,19 @@
    curl http://localhost/api/v1/health
    ```
 
+## Administrator phone face verification
+
+The administrator screen shows a short-lived QR code instead of requiring a PC
+webcam. Before deploying, create the private directory configured by
+`ADMIN_FACE_PHOTOS_DIR` in `/etc/jobpilot/jobpilot.env` and place one reference
+photo per administrator in it. The file name must be the member's `loginId`, for
+example `admin01.jpg` or `admin01.png`.
+
+The directory is mounted read-only into the internal face service; it is not
+included in the Docker image, Git repository, or Nginx public paths. Keep
+`INTERNAL_API_KEY` set: the backend uses it when calling the internal face
+endpoint. The public site must use HTTPS for phone camera permission to work.
+
 ## GitHub Actions CI/CD
 
 `main` branch pushes run frontend and backend checks, then deploy only services whose

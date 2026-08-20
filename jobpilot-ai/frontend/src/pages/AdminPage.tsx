@@ -34,20 +34,6 @@ function toDateTimeInput(value: string | null) {
 export function AdminPage() {
   const navigate = useNavigate();
 
-  // 로그인 스토리지에서 관리자 식별자 추출 (미인증/더미 시 local-dev 대체)
-  const currentAdminId = (() => {
-    try {
-      const stored = localStorage.getItem("user") || sessionStorage.getItem("user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return parsed.loginId || parsed.username || parsed.id || "local-dev";
-      }
-    } catch {
-      // JSON 파싱 실패 무시
-    }
-    return "local-dev";
-  })();
-
   // 2차 인증 상태 (페이지 진입 시마다 재인증 강제)
   const [isVerified, setIsVerified] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
@@ -241,7 +227,6 @@ export function AdminPage() {
       {!isVerified && (
         <AdminFaceAuthModal
           isOpen={isAuthModalOpen}
-          adminId={String(currentAdminId)}
           onClose={() => {
             setIsAuthModalOpen(false);
             navigate("/");

@@ -6,3 +6,6 @@ python-dotenv==1.2.2
 kiwipiepy==0.23.2
 kiwipiepy-model==0.23.0
 scikit-learn==1.5.2
+deepface==0.0.100
+opencv-python-headless==4.10.0.84
+tf-keras==2.21.0

@@ -1,58 +1,44 @@
-import React, { useRef, useState } from "react";
-import Webcam from "react-webcam";
-import axios from "axios";
+import React, { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { LoaderCircle, Smartphone } from "lucide-react";
+import { createAdminFacePairing, getAdminFacePairingResult, type AdminFacePairing } from "../api/adminFacePairingApi";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  adminId?: string;
 }
 
 export const AdminFaceAuthModal: React.FC<Props> = ({
   isOpen,
   onClose,
   onSuccess,
-  adminId = "local-dev",
 }) => {
-  const webcamRef = useRef<Webcam>(null);
-  const [loading, setLoading] = useState(false);
+  const [pairing, setPairing] = useState<AdminFacePairing | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let disposed = false;
+    createAdminFacePairing().then((created) => { if (!disposed) setPairing(created); })
+      .catch((reason) => { if (!disposed) setError(reason instanceof Error ? reason.message : "QR을 생성하지 못했습니다."); });
+    return () => { disposed = true; };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!pairing || !isOpen) return;
+    const timer = window.setInterval(() => {
+      getAdminFacePairingResult(pairing.sessionId).then((result) => {
+        if (result.status === "VERIFIED") { window.clearInterval(timer); onSuccess?.(); }
+        if (result.status === "REJECTED") setError(result.message ?? "얼굴 인증에 실패했습니다. 휴대폰에서 다시 시도해 주세요.");
+      }).catch((reason) => { window.clearInterval(timer); setError(reason instanceof Error ? reason.message : "인증 상태를 확인하지 못했습니다."); });
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [pairing, isOpen, onSuccess]);
 
   if (!isOpen) return null;
 
-  const handleVerify = async () => {
-    if (!webcamRef.current) return;
-
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) {
-      alert("카메라 화면을 불러올 수 없습니다.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const aiBaseUrl = import.meta.env.VITE_AI_API_BASE_URL || "http://localhost:8000";
-      const response = await axios.post(`${aiBaseUrl}/api/admin/face/verify`, {
-        admin_id: String(adminId || "local-dev"),
-        image_base64: imageSrc,
-      });
-
-      if (response.data.verified) {
-        onSuccess?.();
-        alert(`인증 성공 (일치율: ${response.data.similarity}%)`);
-      } else {
-        alert(`인증 실패: ${response.data.message}`);
-      }
-    } catch (error: any) {
-      console.error("화상 인증 실패:", error);
-      const detail = error.response?.data?.detail;
-      const message =
-        typeof detail === "object" ? JSON.stringify(detail) : detail || error.message || "오류가 발생했습니다.";
-      alert(`오류: ${message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const pairUrl = pairing ? `${window.location.origin}/admin-face-pair?session=${encodeURIComponent(pairing.sessionId)}&token=${encodeURIComponent(pairing.token)}` : "";
 
   return (
     <div style={{
@@ -60,23 +46,13 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
     }}>
       <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", textAlign: "center", width: "440px" }}>
-        <h3 style={{ marginBottom: "16px", fontSize: "1.25rem", fontWeight: "bold" }}>관리자 화상 보안 인증</h3>
-        
-        <div style={{ borderRadius: "8px", overflow: "hidden", backgroundColor: "#000", marginBottom: "16px" }}>
-          <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" width={400} height={300} />
-        </div>
+        <h3 style={{ marginBottom: "8px", fontSize: "1.25rem", fontWeight: "bold" }}>관리자 휴대폰 얼굴 인증</h3>
+        <p style={{ color: "#667085", fontSize: 14 }}>휴대폰으로 QR을 스캔한 뒤 같은 관리자 계정으로 촬영해 주세요.</p>
+        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>{error}</p>}
+        {!pairing && !error && <LoaderCircle className="spin" size={28} style={{ margin: "28px auto" }} />}
+        {pairing && <div style={{ display: "grid", justifyItems: "center", gap: 10, margin: "20px 0" }}><QRCodeSVG value={pairUrl} size={220} level="M" includeMargin /><small><Smartphone size={13} /> QR은 2분 동안 한 번만 사용할 수 있습니다.</small></div>}
 
         <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-          <button
-            onClick={handleVerify}
-            disabled={loading}
-            style={{
-              padding: "10px 20px", backgroundColor: "#2563eb", color: "#fff",
-              border: "none", borderRadius: "6px", cursor: loading ? "not-allowed" : "pointer"
-            }}
-          >
-            {loading ? "얼굴 분석 중..." : "인증하기"}
-          </button>
           <button
             onClick={onClose}
             style={{
