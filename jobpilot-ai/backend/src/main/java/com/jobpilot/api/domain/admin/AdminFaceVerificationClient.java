@@ -6,6 +6,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class AdminFaceVerificationClient {
@@ -30,6 +31,14 @@ public class AdminFaceVerificationClient {
                     .retrieve().body(Verification.class);
             if (response == null) throw new AdminFacePairingException("얼굴 인증 서버가 빈 응답을 반환했습니다.");
             return response;
+        } catch (RestClientResponseException error) {
+            if (error.getStatusCode().value() == 404) {
+                throw new AdminFacePairingException("등록되지 않은 관리자입니다. 관리자 기준 사진을 등록해 주세요.");
+            }
+            if (error.getStatusCode().value() == 401) {
+                throw new AdminFacePairingException("얼굴 인증 서비스 권한 설정이 올바르지 않습니다.");
+            }
+            throw new AdminFacePairingException("얼굴 인증 서버 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
         } catch (RestClientException error) {
             throw new AdminFacePairingException("얼굴 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         }
