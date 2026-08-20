@@ -9,6 +9,7 @@ import {
   changeAdminJobPostingStatuses,
   changeAdminMemberRole,
   changeAdminMemberRoles,
+  deleteAdminMember,
   deleteAdminJobPosting,
   getAdminEmployers,
   getAdminJobPostings,
@@ -124,6 +125,16 @@ export function AdminPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "권한 변경 실패");
     }
+  };
+
+  const removeMember = async (member: AdminMember) => {
+    if (!window.confirm(`${member.nickname} (${member.loginId}) 회원을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+    setError(""); setNotice("");
+    try {
+      await deleteAdminMember(member.id);
+      setNotice(`${member.nickname} 회원을 삭제했습니다.`);
+      await loadOverviewAndMembers();
+    } catch (e) { setError(e instanceof Error ? e.message : "회원 삭제 실패"); }
   };
 
   const applyMemberBulkRole = async () => {
@@ -332,7 +343,7 @@ export function AdminPage() {
                       <td>{member.email}</td>
                       <td>{member.onboardingCompleted ? "완료" : "미완료"}</td>
                       <td><span className={`admin-role-badge ${member.role === "ADMIN" ? "admin" : ""}`}>{member.role === "ADMIN" ? "관리자" : "회원"}</span></td>
-                      <td><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button></td>
+                      <td><div style={{ display: "flex", gap: 6 }}><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button><button className="outline-button" onClick={() => void removeMember(member)}>회원 삭제</button></div></td>
                     </tr>
                   ))}
                 </tbody>

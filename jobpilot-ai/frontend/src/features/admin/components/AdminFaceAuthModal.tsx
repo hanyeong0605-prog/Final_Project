@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { LoaderCircle, Smartphone } from "lucide-react";
 import { createAdminFacePairing, getAdminFacePairingResult, type AdminFacePairing } from "../api/adminFacePairingApi";
@@ -53,6 +54,7 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
         {pairing && <div style={{ display: "grid", justifyItems: "center", gap: 10, margin: "20px 0" }}><QRCodeSVG value={pairUrl} size={220} level="M" includeMargin /><small><Smartphone size={13} /> QR은 2분 동안 한 번만 사용할 수 있습니다.</small></div>}
 
         <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+          <Link to="/admin/face-references" onClick={onClose} className="outline-button">기준 사진 등록</Link>
           <button
             onClick={onClose}
             style={{

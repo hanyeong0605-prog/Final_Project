@@ -30,6 +30,7 @@ import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 import { HomePage } from "../pages/HomePage";
 import { AdminPage } from "../pages/AdminPage";
 import { AdminFacePairPage } from "../pages/AdminFacePairPage";
+import { AdminFaceReferencePage } from "../pages/AdminFaceReferencePage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
       { path: "subscription/success", element: <SubscriptionResultPage /> },
       { path: "subscription/fail", element: <SubscriptionResultPage /> },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
+      { path: "admin/face-references", element: <RequireAdmin><AdminFaceReferencePage /></RequireAdmin> },
     ],
   },
 ]);
