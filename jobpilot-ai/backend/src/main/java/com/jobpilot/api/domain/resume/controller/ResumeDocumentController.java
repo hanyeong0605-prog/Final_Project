@@ -57,7 +57,7 @@ public class ResumeDocumentController {
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             JsonNode data = document.getStructuredContent() == null ? null : document.getStructuredContent().path("templateData");
             if ("ACADEMY".equals(templateKey) && data != null && !data.isMissingNode()) populateAcademy(docx, data);
-            else if (resource == null) appendDraft(docx, document.getGeneratedContent() == null ? document.getExtractedText() : document.getGeneratedContent(), templateKey);
+            else { if (resource != null) docx.createParagraph().createRun().addBreak(org.apache.poi.xwpf.usermodel.BreakType.PAGE); appendDraft(docx, document.getGeneratedContent() == null ? document.getExtractedText() : document.getGeneratedContent(), templateKey); }
             docx.write(output);
             return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=resume-" + id + ".docx")
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).body(output.toByteArray());
