@@ -9,9 +9,11 @@ import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -63,6 +65,8 @@ public class AdminFaceReferenceController {
                 if (!ImageIO.write(image, "jpg", temporary.toFile())) throw new IOException("JPEG 인코더를 찾을 수 없습니다.");
                 try { Files.move(temporary, targetPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
                 catch (AtomicMoveNotSupportedException ignored) { Files.move(temporary, targetPath, StandardCopyOption.REPLACE_EXISTING); }
+                try { Files.setPosixFilePermissions(targetPath, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)); }
+                catch (UnsupportedOperationException ignored) { /* Production uses Linux; keep local development portable. */ }
             } finally { Files.deleteIfExists(temporary); }
         } catch (IOException error) { throw new IllegalArgumentException("기준 얼굴 사진을 저장하지 못했습니다."); }
         return new AdminReferenceResponse(target.getLoginId(), target.getNickname(), true);
