@@ -118,6 +118,7 @@ public class ResumeDocumentService {
     }
     public ResumeDocumentResponse generate(Long memberId, ResumeDraftRequest request, MultipartFile templateFile) {
         aiConsent.requireAgreed(memberId);
+        Member member=members.findById(memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "회원을 찾을 수 없습니다."));
         MemberProfile profile=profiles.findById(memberId).orElse(null); MemberSpecification spec=specs.findById(memberId).orElse(null);
         String skillList=memberSkills.findByMemberId(memberId).stream()
                 .map(v -> skillCatalog.findById(v.getSkillId()).map(Skill::getName).orElse(v.getNote()))
@@ -144,6 +145,21 @@ public class ResumeDocumentService {
         ObjectNode metadata = json.createObjectNode();
         metadata.put("templateReference", !blank(templateSource));
         metadata.put("templateFilename", templateFile == null || templateFile.isEmpty() ? "" : empty(templateFile.getOriginalFilename()));
+        ObjectNode templateData = metadata.putObject("templateData");
+        JsonNode personal = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).map(ResumeEntry::getContent).findFirst().orElse(json.createObjectNode());
+        templateData.put("name", personal.path("name").asText(member.getNickname()));
+        templateData.put("email", personal.path("email").asText(member.getEmail()));
+        templateData.put("phone", personal.path("phone").asText("")); templateData.put("address", personal.path("address").asText(""));
+        templateData.put("targetRole", profile == null ? "" : empty(profile.getTargetRole()));
+        templateData.put("careerMonths", spec == null ? 0 : spec.getTotalCareerMonths());
+        templateData.put("schoolName", spec == null ? "" : empty(spec.getSchoolName())); templateData.put("major", spec == null ? "" : empty(spec.getMajor()));
+        templateData.put("educationLevel", spec == null ? "" : empty(spec.getEducationLevel())); templateData.put("graduationStatus", spec == null ? "" : empty(spec.getGraduationStatus()));
+        templateData.put("technicalSummary", spec == null ? "" : empty(spec.getTechnicalSummary()));
+        templateData.put("skills", enabledSections.contains("skills") ? skillList : ""); templateData.put("certificates", enabledSections.contains("certificates") ? certList : "");
+        templateData.set("entries", json.valueToTree(detailedEntries));
+        templateData.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of("title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()), "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()), "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
+        templateData.put("draft", content);
         ResumeDocument document=documents.save(new ResumeDocument(memberId, ResumeDocumentType.GENERATED, title,
                 templateFile == null || templateFile.isEmpty() ? null : templateFile.getOriginalFilename(), null, content, metadata, selectedTemplate));
         return ResumeDocumentResponse.from(document);

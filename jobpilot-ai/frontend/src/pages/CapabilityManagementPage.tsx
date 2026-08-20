@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FilePenLine, FileUp, Sparkles, Target } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import {
   ResumeProfileAnalysisSection,
   ResumeWritingAssistantSection,
@@ -17,7 +18,11 @@ import type { ResumeEntryType } from "../features/resume/model/resumeEntry.types
 type CapabilityTool = "profile" | "manage" | "analysis" | "writer" | null;
 
 export function CapabilityManagementPage() {
-  const [openTool, setOpenTool] = useState<CapabilityTool>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTool = searchParams.get("tool") === "profile" ? "profile" : null;
+  const [openTool, setOpenTool] = useState<CapabilityTool>(requestedTool);
+  useEffect(() => { if (requestedTool) setOpenTool(requestedTool); }, [requestedTool]);
+  const closeTool = () => { setOpenTool(null); setSearchParams({}); };
 
   const heading = openTool === "analysis"
     ? ["이력서 분석 · 스펙 자동 채우기", "기존 이력서에서 발견한 정보만 제안합니다. 질문이나 양식 선택 없이, 확인 후 원하는 항목만 프로필에 반영하세요."]
@@ -54,10 +59,10 @@ export function CapabilityManagementPage() {
       </article>
     </section>
 
-    {openTool === "profile" && <section className="panel capability-open-panel"><ToolHeader title="나의 스펙 정보 입력" body="이력서를 첨부해 자동으로 채우거나, 필요한 항목을 직접 입력해 저장할 수 있습니다." action={() => setOpenTool("analysis")} close={() => setOpenTool(null)} /><ProfilePage /></section>}
-    {openTool === "manage" && <section className="panel capability-open-panel"><ToolHeader title="저장된 스펙정보" body="저장된 이력 항목과 자기소개서, 보유 스펙을 한눈에 확인하고 필요한 항목을 수정할 수 있습니다." close={() => setOpenTool(null)} /><SavedCapabilityList onEdit={() => setOpenTool("profile")} /></section>}
-    {openTool === "analysis" && <section className="panel capability-open-panel"><ToolHeader title="이력서 첨부하고 자동 채우기" body="PDF/DOCX 이력서에서 발견한 정보만 스펙 제안으로 보여드립니다. 발견되지 않은 항목은 직접 기재해 주세요." close={() => setOpenTool(null)} /><ResumeProfileAnalysisSection /></section>}
-    {openTool === "writer" && <section className="panel capability-open-panel"><ToolHeader title="이력서 작성 도우미" body="역량 불러오기 → 양식 선택 → 질문 답변 → AI 초안 생성 순서로 진행합니다." close={() => setOpenTool(null)} /><ResumeWritingAssistantSection /></section>}
+    {openTool === "profile" && <section className="panel capability-open-panel"><ToolHeader title="나의 스펙 정보 입력" body="이력서를 첨부해 자동으로 채우거나, 필요한 항목을 직접 입력해 저장할 수 있습니다." action={() => setOpenTool("analysis")} close={closeTool} /><ProfilePage /></section>}
+    {openTool === "manage" && <section className="panel capability-open-panel"><ToolHeader title="저장된 스펙정보" body="저장된 이력 항목과 자기소개서, 보유 스펙을 한눈에 확인하고 필요한 항목을 수정할 수 있습니다." close={closeTool} /><SavedCapabilityList onEdit={() => setOpenTool("profile")} /></section>}
+    {openTool === "analysis" && <section className="panel capability-open-panel"><ToolHeader title="이력서 첨부하고 자동 채우기" body="PDF/DOCX 이력서에서 발견한 정보만 스펙 제안으로 보여드립니다. 발견되지 않은 항목은 직접 기재해 주세요." close={closeTool} /><ResumeProfileAnalysisSection /></section>}
+    {openTool === "writer" && <section className="panel capability-open-panel"><ToolHeader title="이력서 작성 도우미" body="역량 불러오기 → 양식 선택 → 질문 답변 → AI 초안 생성 순서로 진행합니다." close={closeTool} /><ResumeWritingAssistantSection /></section>}
     {!openTool && <section className="capability-guide panel"><Sparkles size={20} /><div><strong>기존 이력서가 있다면 먼저 분석해 보세요.</strong><p>추출 결과는 자동 저장되지 않습니다. 확인 후 프로필 반영을 누른 항목만 내 스펙과 채용공고 추천에 사용됩니다.</p></div></section>}
   </>;
 }
