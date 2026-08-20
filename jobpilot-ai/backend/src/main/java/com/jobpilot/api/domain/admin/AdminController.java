@@ -104,6 +104,17 @@ public class AdminController {
         return new BulkUpdateResponse(targets.size());
     }
 
+    @DeleteMapping("/members/{memberId}")
+    public MemberResponse deleteMember(Authentication authentication, @PathVariable Long memberId) {
+        Member actor = adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        Member target = members.findById(memberId).orElseThrow(() -> new ResourceNotFoundException("회원을 찾을 수 없습니다."));
+        if (actor.getId().equals(target.getId())) throw new IllegalArgumentException("현재 로그인한 관리자 계정은 삭제할 수 없습니다.");
+        MemberResponse response = MemberResponse.from(target);
+        members.delete(target);
+        members.flush();
+        return response;
+    }
+
     @GetMapping("/job-postings")
     public PageResponse<JobPostingSummary> jobPostings(
             Authentication authentication,

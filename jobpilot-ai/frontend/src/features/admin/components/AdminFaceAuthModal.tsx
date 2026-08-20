@@ -29,7 +29,13 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
     if (!pairing || !isOpen) return;
     const timer = window.setInterval(() => {
       getAdminFacePairingResult(pairing.sessionId).then((result) => {
-        if (result.status === "VERIFIED") { window.clearInterval(timer); onSuccess?.(); }
+        if (result.status === "VERIFIED") {
+          window.clearInterval(timer);
+          // This opaque ID is checked by the server for every sensitive admin API.
+          sessionStorage.setItem("admin_face_session_id", pairing.sessionId);
+          sessionStorage.setItem("admin_face_verified_at", String(Date.now()));
+          onSuccess?.();
+        }
         if (result.status === "REJECTED") setError(result.message ?? "얼굴 인증에 실패했습니다. 휴대폰에서 다시 시도해 주세요.");
       }).catch((reason) => { window.clearInterval(timer); setError(reason instanceof Error ? reason.message : "인증 상태를 확인하지 못했습니다."); });
     }, 1500);

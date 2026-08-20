@@ -36,6 +36,9 @@ services:
       AI_SERVER_BASE_URL: http://ai-server:8001
       FACE_VERIFICATION_BASE_URL: http://wordcloud-server:8000
       GEMINI_API_KEY: ${GEMINI_API_KEY_BACKEND:-}
+      ADMIN_FACE_REFERENCE_DIR: /app/admin_photos
+    volumes:
+      - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos
     expose:
       - "9000"
     healthcheck:

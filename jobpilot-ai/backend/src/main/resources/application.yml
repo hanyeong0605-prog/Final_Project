@@ -99,6 +99,9 @@ app:
   face-verification:
     # Internal only: the browser never calls this service directly.
     base-url: ${FACE_VERIFICATION_BASE_URL:http://localhost:8000}
+  face-reference:
+    # Backend writes this private volume; the face service mounts it read-only.
+    directory: ${ADMIN_FACE_REFERENCE_DIR:/app/admin_photos}
   # 기업회원이 등록한 채용공고의 sourceUrl(내부 상세페이지 링크)을 만들 때 쓰는 공개 도메인.
   # EmployerJobPostingService 참고.
   public-base-url: ${PUBLIC_BASE_URL:https://job-a-dream.site}

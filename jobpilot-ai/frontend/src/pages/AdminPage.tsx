@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Briefcase, BriefcaseBusiness, CheckSquare, CircleCheckBig, Pencil, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { PageHeading } from "../shared/components/PageHeading";
 import { AdminFaceAuthModal } from "../features/admin/components/AdminFaceAuthModal";
+import { AdminFaceReferenceModal } from "../features/admin/components/AdminFaceReferenceModal";
 import {
   approveAdminEmployer,
   changeAdminJobPostingStatus,
   changeAdminJobPostingStatuses,
   changeAdminMemberRole,
   changeAdminMemberRoles,
+  deleteAdminMember,
   deleteAdminJobPosting,
   getAdminEmployers,
   getAdminJobPostings,
@@ -26,6 +28,14 @@ import {
 } from "../features/admin/api/adminApi";
 
 const PAGE_SIZE = 20;
+const FACE_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
+function hasActiveFaceSession() {
+  const verifiedAt = Number(sessionStorage.getItem("admin_face_verified_at"));
+  return Boolean(sessionStorage.getItem("admin_face_session_id"))
+    && Number.isFinite(verifiedAt)
+    && Date.now() - verifiedAt < FACE_SESSION_MAX_AGE_MS;
+}
 
 function toDateTimeInput(value: string | null) {
   return value ? value.slice(0, 16) : "";
@@ -35,8 +45,9 @@ export function AdminPage() {
   const navigate = useNavigate();
 
   // 2차 인증 상태 (페이지 진입 시마다 재인증 강제)
-  const [isVerified, setIsVerified] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
+  const [isVerified, setIsVerified] = useState(hasActiveFaceSession);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => !hasActiveFaceSession());
+  const [faceReferenceLoginId, setFaceReferenceLoginId] = useState<string | null>(null);
 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [members, setMembers] = useState<AdminMember[]>([]);
@@ -93,7 +104,15 @@ export function AdminPage() {
     try {
       await Promise.all([loadOverviewAndMembers(), loadPostings(0), loadEmployers(0)]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "관리자 정보를 불러오지 못했습니다.");
+      const message = e instanceof Error ? e.message : "관리자 정보를 불러오지 못했습니다.";
+      // The backend may restart and forget its in-memory proof. Ask for QR again instead of
+      // leaving a page that looks authenticated but cannot call sensitive APIs.
+      if (message.includes("휴대폰 얼굴 인증")) {
+        sessionStorage.removeItem("admin_face_verified_at");
+        sessionStorage.removeItem("admin_face_session_id");
+        setIsVerified(false);
+        setIsAuthModalOpen(true);
+      } else setError(message);
     }
   };
 
@@ -103,13 +122,6 @@ export function AdminPage() {
       void loadAllData();
     }
   }, [isVerified]);
-
-  // 페이지 이탈 시 세션 토큰 초기화
-  useEffect(() => {
-    return () => {
-      sessionStorage.removeItem("admin_face_verified");
-    };
-  }, []);
 
   const toggleSelect = (id: number, list: number[], setList: (ids: number[]) => void) => {
     setList(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
@@ -124,6 +136,16 @@ export function AdminPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "권한 변경 실패");
     }
+  };
+
+  const removeMember = async (member: AdminMember) => {
+    if (!window.confirm(`${member.nickname} (${member.loginId}) 회원을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+    setError(""); setNotice("");
+    try {
+      await deleteAdminMember(member.id);
+      setNotice(`${member.nickname} 회원을 삭제했습니다.`);
+      await loadOverviewAndMembers();
+    } catch (e) { setError(e instanceof Error ? e.message : "회원 삭제 실패"); }
   };
 
   const applyMemberBulkRole = async () => {
@@ -332,7 +354,7 @@ export function AdminPage() {
                       <td>{member.email}</td>
                       <td>{member.onboardingCompleted ? "완료" : "미완료"}</td>
                       <td><span className={`admin-role-badge ${member.role === "ADMIN" ? "admin" : ""}`}>{member.role === "ADMIN" ? "관리자" : "회원"}</span></td>
-                      <td><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button></td>
+                      <td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button>{member.role === "ADMIN" && <button className="outline-button" onClick={() => setFaceReferenceLoginId(member.loginId)}>얼굴 사진 등록</button>}<button className="outline-button" onClick={() => void removeMember(member)}>회원 삭제</button></div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -418,6 +440,7 @@ export function AdminPage() {
           </section>
         </>
       )}
+      {isVerified && faceReferenceLoginId && <AdminFaceReferenceModal loginId={faceReferenceLoginId} onClose={() => setFaceReferenceLoginId(null)} />}
     </>
   );
 }

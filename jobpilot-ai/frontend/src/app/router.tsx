@@ -19,6 +19,7 @@ import { EmployerSignupPage } from "../pages/EmployerSignupPage";
 import { EmployerMyPage } from "../pages/EmployerMyPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { RequireAdmin } from "../features/auth/components/RequireAdmin";
+import { RequireAdminFaceVerified } from "../features/auth/components/RequireAdminFaceVerified";
 import { RequireEmployer } from "../features/employer/components/RequireEmployer";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import { StatisticsDashboard } from "../pages/StatisticsDashboard";
@@ -30,6 +31,7 @@ import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
 import { HomePage } from "../pages/HomePage";
 import { AdminPage } from "../pages/AdminPage";
 import { AdminFacePairPage } from "../pages/AdminFacePairPage";
+import { AdminFaceReferencePage } from "../pages/AdminFaceReferencePage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
@@ -71,6 +73,7 @@ export const router = createBrowserRouter([
       { path: "subscription/success", element: <SubscriptionResultPage /> },
       { path: "subscription/fail", element: <SubscriptionResultPage /> },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
+      { path: "admin/face-references", element: <RequireAdmin><RequireAdminFaceVerified><AdminFaceReferencePage /></RequireAdminFaceVerified></RequireAdmin> },
     ],
   },
 ]);

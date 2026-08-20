@@ -28,6 +28,7 @@ export const getAdminMembers = (query = "") => getJson<AdminPage<AdminMember>>(`
 export const changeAdminMemberRole = (memberId: number, role: MemberRole) => patchJson<AdminMember>(`${BASE}/members/${memberId}/role`, { role });
 export const changeAdminMemberRoles = (memberIds: number[], role: MemberRole) =>
   patchJson<{ updatedCount: number }>(`${BASE}/members/bulk-role`, { memberIds, role });
+export const deleteAdminMember = (memberId: number) => deleteJsonReturning<AdminMember>(`${BASE}/members/${memberId}`);
 export const getAdminJobPostings = (query = "", page = 0, size = 20, status = "ALL", sort = "deadline_asc") =>
   getJson<AdminPage<AdminJobPosting>>(`${BASE}/job-postings?size=${size}&page=${page}&query=${encodeURIComponent(query)}&status=${status}&sort=${sort}`);
 export const changeAdminJobPostingStatus = (jobPostingId: number, status: AdminJobPosting["status"]) => patchJson<AdminJobPosting>(`${BASE}/job-postings/${jobPostingId}/status`, { status });

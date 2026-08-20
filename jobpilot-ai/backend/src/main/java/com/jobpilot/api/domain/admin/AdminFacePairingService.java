@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class AdminFacePairingService {
     private static final Duration LIFETIME = Duration.ofMinutes(2);
+    /** A face-verified browser session stays valid until logout, browser close, or this safety limit. */
+    private static final Duration VERIFIED_LIFETIME = Duration.ofHours(8);
     private static final int TOKEN_BYTES = 32;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
@@ -40,13 +42,29 @@ public class AdminFacePairingService {
     public void complete(long memberId, String id, boolean verified, double similarity, String message) {
         Session session = active(id);
         if (session.memberId() != memberId) throw new AdminFacePairingException("인증 세션의 소유자가 아닙니다.");
-        sessions.put(id, new Session(memberId, session.token(), session.expiresAt(), verified ? Status.VERIFIED : Status.REJECTED, similarity, message));
+        Instant expiresAt = verified ? clock.instant().plus(VERIFIED_LIFETIME) : session.expiresAt();
+        sessions.put(id, new Session(memberId, session.token(), expiresAt, verified ? Status.VERIFIED : Status.REJECTED, similarity, message));
     }
 
     public Result result(long memberId, String id) {
         Session session = active(id);
         if (session.memberId() != memberId) throw new AdminFacePairingException("인증 세션의 소유자가 아닙니다.");
         return new Result(session.status(), session.similarity(), session.message(), session.expiresAt());
+    }
+
+    /**
+     * Checks the proof sent by the desktop after the phone has completed face verification.
+     * The proof is tied to the authenticated member, short-lived, and cannot be created by
+     * merely possessing an administrator JWT.
+     */
+    public boolean isVerified(long memberId, String id) {
+        if (id == null || id.isBlank()) return false;
+        cleanup();
+        Session session = sessions.get(id);
+        return session != null
+                && session.memberId() == memberId
+                && session.status() == Status.VERIFIED
+                && !session.expiresAt().isBefore(clock.instant());
     }
 
     private Session active(String id) {
