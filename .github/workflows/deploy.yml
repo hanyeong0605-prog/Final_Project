@@ -79,6 +79,13 @@ jobs:
               $COMPOSE up -d --build
             fi
 
+            # This branch is intentionally deployed as a complete production
+            # candidate without merging into main. Rebuild all containers so a
+            # failed earlier run cannot leave an old frontend image behind.
+            if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
+              $COMPOSE up -d --build
+            fi
+
             $COMPOSE ps
             # Check the backend container's own Compose health check. Going
             # through host Nginx here is not reliable: the host proxy may be
