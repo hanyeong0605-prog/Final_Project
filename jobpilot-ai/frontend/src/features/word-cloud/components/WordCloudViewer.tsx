@@ -24,7 +24,7 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
         justifyContent: 'center',
         position: 'relative',
         padding: compact ? '0' : '8px',
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       {loading ? (
@@ -57,7 +57,7 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           />
           {topKeywords.length > 0 && (
-            <aside aria-label="상위 5개 기술 키워드" style={{ position: 'absolute', top: compact ? 30 : 50, right: compact ? 2 : 10, width: compact ? 142 : 172, border: '1px solid #dfe4ff', borderRadius: 10, background: 'rgba(255,255,255,.94)', boxShadow: '0 8px 20px rgba(56, 72, 150, .10)', padding: '8px 9px', textAlign: 'left', backdropFilter: 'blur(8px)' }}>
+            <aside aria-label="상위 5개 기술 키워드" style={{ position: 'absolute', top: compact ? 30 : 50, right: compact ? -8 : 0, width: compact ? 142 : 172, border: '1px solid #dfe4ff', borderRadius: 10, background: 'rgba(255,255,255,.94)', boxShadow: '0 8px 20px rgba(56, 72, 150, .10)', padding: '8px 9px', textAlign: 'left', backdropFilter: 'blur(8px)' }}>
               <strong style={{ display: 'block', color: '#4f46e5', fontSize: 9, letterSpacing: '.07em', marginBottom: 5 }}>TOP 5 기술 키워드</strong>
               <ol style={{ display: 'grid', gap: 3, margin: 0, padding: 0, listStyle: 'none' }}>
                 {topKeywords.map((item) => <li key={item.keyword} style={{ display: 'grid', gridTemplateColumns: '14px minmax(0, 1fr) auto', alignItems: 'center', gap: 3, color: '#43506a', fontSize: 9 }}><b style={{ color: '#6979de' }}>{item.rank}</b><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{item.keyword}</span><small style={{ color: '#8a96ad', fontSize: 8 }}>{item.mention_count}건</small></li>)}
