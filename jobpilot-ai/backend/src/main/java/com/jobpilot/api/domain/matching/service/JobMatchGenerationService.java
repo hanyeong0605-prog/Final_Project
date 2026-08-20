@@ -164,14 +164,17 @@ public class JobMatchGenerationService {
             Certificate matchedCertificate = type.equals("CERTIFICATION") ? memberCertificates.stream()
                     .filter(certificate -> containsCertificate(content, certificate)).findFirst().orElse(null) : null;
             boolean profileMatch = !type.equals("SKILL") && profileMatches(type, content, profile, specification);
-            if (matchedSkill != null || matchedCertificate != null || profileMatch) {
+            ResumeEntry resumeEvidence = findResumeEvidence(content, matchedSkill, memberResumeEntries);
+            // A broad experience requirement (for example, "prompt engineering experience")
+            // needs a matching member-written record. Career duration alone must not become
+            // false proof for every detailed experience requirement in the posting.
+            if (matchedSkill != null || matchedCertificate != null || profileMatch || resumeEvidence != null) {
                 if (requiredItem) {
                     covered++;
                     fulfilledWeight += weightFor(type) / requiredByType.get(type);
                 }
                 String evidenceType = matchedSkill != null ? "MEMBER_SKILL" : matchedCertificate != null ? "CERTIFICATE" : "PROFILE";
                 Long evidenceId = matchedSkill != null ? matchedSkill.getId() : matchedCertificate != null ? matchedCertificate.getId() : null;
-                ResumeEntry resumeEvidence = findResumeEvidence(content, matchedSkill, memberResumeEntries);
                 if (resumeEvidence != null) {
                     evidenceType = "RESUME_ENTRY";
                     evidenceId = resumeEvidence.getId();
@@ -240,7 +243,7 @@ public class JobMatchGenerationService {
             if (!Set.of("경험", "기반", "구현", "설계", "문서", "추출", "검증", "결과", "프로젝트", "요구사항").contains(term)) terms.add(term);
         }
         return entries.stream()
-                .filter(entry -> Set.of(ResumeEntryType.CAREER, ResumeEntryType.ACTIVITY, ResumeEntryType.TRAINING, ResumeEntryType.PORTFOLIO).contains(entry.getEntryType()))
+                .filter(entry -> Set.of(ResumeEntryType.CAREER, ResumeEntryType.ACTIVITY, ResumeEntryType.TRAINING, ResumeEntryType.PORTFOLIO, ResumeEntryType.EDUCATION).contains(entry.getEntryType()))
                 .map(entry -> new java.util.AbstractMap.SimpleEntry<>(entry, resumeEvidenceScore(entry, terms)))
                 .filter(scored -> scored.getValue() > 0)
                 .max(Map.Entry.comparingByValue())
@@ -256,7 +259,8 @@ public class JobMatchGenerationService {
 
     private boolean profileMatches(String type, String requirement, MemberProfile profile, MemberSpecification specification) {
         if (type.equals("EXPERIENCE")) {
-            return specification != null && specification.getTotalCareerMonths() >= requiredCareerMonths(requirement);
+            int requiredMonths = requiredCareerMonths(requirement);
+            return requiredMonths > 0 && specification != null && specification.getTotalCareerMonths() >= requiredMonths;
         }
         if (type.equals("EDUCATION")) {
             return specification != null && educationRank(specification.getEducationLevel()) >= requiredEducationRank(requirement);

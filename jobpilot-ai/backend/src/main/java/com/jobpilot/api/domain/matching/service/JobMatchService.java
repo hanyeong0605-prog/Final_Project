@@ -116,6 +116,7 @@ public class JobMatchService {
 
     private String memberEvidence(Long memberId, JobMatchEvidence evidence) {
         Long evidenceId = evidence.getMemberEvidenceId();
+        if ("PROFILE".equals(evidence.getMemberEvidenceType())) return "등록 기본 스펙 · 경력 또는 학력 정보";
         if (evidenceId == null) return null;
         return switch (evidence.getMemberEvidenceType()) {
             case "RESUME_ENTRY" -> resumeEntries.findByIdAndMemberId(evidenceId, memberId).map(this::resumeExcerpt).orElse(null);

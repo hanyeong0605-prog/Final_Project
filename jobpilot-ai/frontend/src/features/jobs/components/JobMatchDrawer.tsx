@@ -113,7 +113,7 @@ export function JobMatchDrawer({ job, interested, onInterest, onClose }: JobMatc
                 </div>
                 <div className="member-evidence">
                   <span>내 이력 근거</span>
-                  {item.memberEvidence ? <strong>{item.memberEvidence}</strong> : <p>{item.status === "DIRECT" ? "연결된 이력 항목을 찾는 중입니다. 매칭 결과를 새로고침해 주세요." : "연결 가능한 이력 근거가 없습니다."}</p>}
+                  {item.memberEvidence ? <strong>{item.memberEvidence}</strong> : <p>{item.status === "DIRECT" ? "직접 증명 항목이지만, 저장된 이력 문장과 연결되지 않았습니다." : "연결 가능한 이력 근거가 없습니다."}</p>}
                 </div>
               </button>;
             })}
