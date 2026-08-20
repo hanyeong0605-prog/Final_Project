@@ -77,13 +77,15 @@ services:
       WORDCLOUD_MASK_IMAGE: /assets/mascot_nukki.png
       WORDCLOUD_CACHE_REFRESH_ENABLED: ${WORDCLOUD_CACHE_REFRESH_ENABLED:-true}
       WORDCLOUD_CACHE_REFRESH_ON_START: ${WORDCLOUD_CACHE_REFRESH_ON_START:-true}
-      WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-360}
+      WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES: ${WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES:-180}
     expose:
       - "8000"
     volumes:
       # Keep biometric reference images outside the image and Git. Set the
       # absolute host directory in the production environment file.
       - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos:ro
+      # Keep computed TF-IDF scores and the three pre-rendered PNGs across container restarts.
+      - ${WORDCLOUD_CACHE_DIR:-/srv/jobpilot/wordcloud-cache}:/app/runtime-cache
       # The cat-shaped word-cloud mask is an application asset, not generated data.
       - ./frontend/public/mascot/mascot_nukki.png:/assets/mascot_nukki.png:ro
     healthcheck:

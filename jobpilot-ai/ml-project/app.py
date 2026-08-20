@@ -61,6 +61,7 @@ STOPWORDS = {
 LOGGER = logging.getLogger("jobpilot.ai")
 CACHE_LOCK = RLock()
 WORDCLOUD_CACHE: dict[str, Any] = {}
+WORDCLOUD_IMAGE_CACHE: dict[str, str] = {}
 CAT_MASK_CACHE: Optional[np.ndarray] = None
 CACHE_SOURCE = "uninitialized"
 LAST_REFRESH_AT: str | None = None
@@ -101,8 +102,15 @@ def load_cat_mask() -> np.ndarray | None:
         outline = np_img < 90
         filled = binary_fill_holes(outline)
 
-        # 형태 손상 없는 고해상도 마스크 생성 (0: 글자 채움, 255: 배경)
-        CAT_MASK_CACHE = np.where(filled, 0, 255).astype(np.uint8)
+        # 빈 캔버스를 제거해 단어가 정사각형 전체가 아니라 고양이 실루엣을 꽉 채우게 한다.
+        y, x = np.where(filled)
+        if not len(y) or not len(x):
+            raise ValueError("고양이 마스크에서 실루엣을 찾지 못했습니다.")
+        padding = 28
+        y0, y1 = max(0, y.min() - padding), min(filled.shape[0], y.max() + padding + 1)
+        x0, x1 = max(0, x.min() - padding), min(filled.shape[1], x.max() + padding + 1)
+        # 0: 글자 채움, 255: 배경
+        CAT_MASK_CACHE = np.where(filled[y0:y1, x0:x1], 0, 255).astype(np.uint8)
         return CAT_MASK_CACHE
     except Exception as e:
         LOGGER.error("마스크 로드 에러: %s", str(e))
@@ -132,12 +140,16 @@ def load_existing_cache() -> tuple[dict[str, Any], str] | None:
 
 
 def initialize_cache() -> None:
-    global CACHE_SOURCE, WORDCLOUD_CACHE
+    global CACHE_SOURCE, WORDCLOUD_CACHE, WORDCLOUD_IMAGE_CACHE
     loaded = load_existing_cache()
     if loaded:
         cache, source = loaded
         with CACHE_LOCK:
             WORDCLOUD_CACHE = cache
+            WORDCLOUD_IMAGE_CACHE = {
+                group: image for group, image in cache.get("_images", {}).items()
+                if group in REQUIRED_GROUPS and isinstance(image, str)
+            }
             CACHE_SOURCE = source
 
 
@@ -225,13 +237,56 @@ def write_runtime_cache(cache: dict[str, Any]) -> None:
     temp.replace(RUNTIME_CACHE_FILE)
 
 
+# Fixed brand palette keeps the visualization legible and visually consistent with Job-A-Dream.
+BRAND_WORD_COLORS = ("#4338ca", "#4f46e5", "#6366f1", "#6d5ce7", "#7c6ee6", "#3b82f6", "#2563eb")
+
+
+def brand_color_func(word: str, **_: Any) -> str:
+    return BRAND_WORD_COLORS[sum(ord(char) for char in word) % len(BRAND_WORD_COLORS)]
+
+
+def render_wordcloud_image(scores: dict[str, float]) -> str:
+    mask = load_cat_mask()
+    cloud = WordCloud(
+        font_path=FONT_PATH,
+        background_color="white",
+        mask=mask,
+        max_words=230,
+        max_font_size=230,
+        min_font_size=8,
+        margin=1,
+        prefer_horizontal=0.95,
+        relative_scaling=0.35,
+        contour_width=0,
+        color_func=brand_color_func,
+        random_state=42,
+    ).generate_from_frequencies(scores)
+    image = cloud.to_image()
+    # Keep responses crisp on high-density displays without sending an unnecessarily large 2048px PNG.
+    image.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG", optimize=True)
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
+
+
+def pre_render_wordclouds(cache: dict[str, Any]) -> dict[str, str]:
+    return {
+        group: render_wordcloud_image(cache[group]["scores"])
+        for group in REQUIRED_GROUPS
+        if cache.get(group, {}).get("scores")
+    }
+
+
 def refresh_cache() -> bool:
-    global CACHE_SOURCE, LAST_REFRESH_AT, LAST_REFRESH_ERROR, WORDCLOUD_CACHE
+    global CACHE_SOURCE, LAST_REFRESH_AT, LAST_REFRESH_ERROR, WORDCLOUD_CACHE, WORDCLOUD_IMAGE_CACHE
     try:
         cache = build_cache_from_database()
+        images = pre_render_wordclouds(cache)
+        cache["_images"] = images
         write_runtime_cache(cache)
         with CACHE_LOCK:
             WORDCLOUD_CACHE = cache
+            WORDCLOUD_IMAGE_CACHE = images
             CACHE_SOURCE = "database"
             LAST_REFRESH_AT = cache["_meta"]["generated_at"]
             LAST_REFRESH_ERROR = None
@@ -245,7 +300,7 @@ def refresh_cache() -> bool:
 def refresh_loop(stop_event: Event) -> None:
     if os.getenv("WORDCLOUD_CACHE_REFRESH_ON_START", "true").lower() == "true":
         refresh_cache()
-    interval = max(15, int(os.getenv("WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES", "360")))
+    interval = max(15, int(os.getenv("WORDCLOUD_CACHE_REFRESH_INTERVAL_MINUTES", "180")))
     while not stop_event.wait(interval * 60):
         refresh_cache()
 
@@ -284,6 +339,7 @@ def health() -> dict[str, Any]:
         return {
             "status": "ok" if WORDCLOUD_CACHE else "degraded",
             "cached_groups": sorted(REQUIRED_GROUPS.intersection(WORDCLOUD_CACHE)),
+            "rendered_groups": sorted(REQUIRED_GROUPS.intersection(WORDCLOUD_IMAGE_CACHE)),
             "cache_source": CACHE_SOURCE,
             "last_refresh_at": LAST_REFRESH_AT,
             "last_refresh_error": LAST_REFRESH_ERROR,
@@ -292,37 +348,22 @@ def health() -> dict[str, Any]:
 
 @app.get("/api/wordcloud")
 def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|preferred)$")) -> dict[str, Any]:
-    # 1. 미리 계산되어 메모리에 있는 점수 데이터를 즉시 가져옴
+    # Requests normally return a pre-rendered PNG. A cold cache renders once as a safe fallback.
     with CACHE_LOCK:
         scores = WORDCLOUD_CACHE.get(importance, {}).get("scores", {})
         total_records = WORDCLOUD_CACHE.get(importance, {}).get("total_records", 0)
+        image_data = WORDCLOUD_IMAGE_CACHE.get(importance)
 
     if not scores:
         raise HTTPException(status_code=503, detail="워드클라우드 캐시 준비 중입니다.")
-
-    mask = load_cat_mask()
-
-    # 2. 캐시된 점수로 고양이 형태 워드클라우드 즉시 생성
-    wc = WordCloud(
-        font_path=FONT_PATH,
-        background_color="white",
-        mask=mask,
-        # colormap="Blues",
-        max_words=120,
-        max_font_size=200,
-        min_font_size=5,
-        prefer_horizontal=0.85,
-        relative_scaling=0.2,
-        contour_width=1.5 if mask is not None else 0,
-        contour_color="#93c5fd" if mask is not None else None,
-    ).generate_from_frequencies(scores)
-
-    buf = io.BytesIO()
-    wc.to_image().save(buf, format="PNG")
+    if image_data is None:
+        image_data = render_wordcloud_image(scores)
+        with CACHE_LOCK:
+            WORDCLOUD_IMAGE_CACHE[importance] = image_data
     return {
         "importance": importance,
         "total_records": total_records,
-        "image_data": f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}",
+        "image_data": image_data,
     }
 
 

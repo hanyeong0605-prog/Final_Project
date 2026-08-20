@@ -11,8 +11,8 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
   return (
     <div
       style={{
-        width: compact ? 'min(100%, 380px)' : '600px',
-        height: compact ? 'min(100vw - 40px, 380px)' : '600px',
+        width: compact ? 'min(100%, 520px)' : 'min(100%, 680px)',
+        height: compact ? 'min(100vw - 40px, 520px)' : 'min(100vw - 40px, 680px)',
         margin: '0 auto',
         borderRadius: '20px', // ⭐ '50%'(동그라미) 대신 부드러운 카드형 모서리로 변경
         backgroundColor: 'transparent',
@@ -22,7 +22,7 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        padding: '16px', // ⭐ 고양이 외곽선 여백 확보
+        padding: compact ? '0' : '8px',
         overflow: 'hidden',
       }}
     >
