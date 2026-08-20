@@ -2,7 +2,9 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [main]
+    # 김한영브뤤취학원은 운영 확인용 브랜치다. 이 브랜치에 푸시하면
+    # main 병합 없이 해당 커밋을 그대로 EC2에서 빌드한다.
+    branches: [main, "김한영브뤤취학원"]
     paths:
       - 'jobpilot-ai/**'
       - '.github/workflows/deploy.yml'
@@ -34,11 +36,17 @@ jobs:
             set -eu
 
             cd /opt/jobpilot
+            DEPLOY_BRANCH='${{ github.ref_name }}'
             CURRENT_COMMIT="$(git rev-parse HEAD)"
             AUTH_HEADER="$(printf 'x-access-token:%s' "$REPO_READ_TOKEN" | base64 -w 0)"
-            GIT_TERMINAL_PROMPT=0 git -c http.extraheader="AUTHORIZATION: basic $AUTH_HEADER" fetch origin main
-            CHANGED_FILES="$(git diff --name-only "$CURRENT_COMMIT" origin/main)"
-            git merge --ff-only origin/main
+            GIT_TERMINAL_PROMPT=0 git -c http.extraheader="AUTHORIZATION: basic $AUTH_HEADER" fetch origin "$DEPLOY_BRANCH"
+            TARGET_REF="origin/$DEPLOY_BRANCH"
+            CHANGED_FILES="$(git diff --name-only "$CURRENT_COMMIT" "$TARGET_REF")"
+            # Do not merge a feature branch into main on the server. The
+            # currently pushed commit is checked out detached and is the exact
+            # source Docker builds below, while the repository's main branch
+            # remains untouched.
+            git checkout --detach "$TARGET_REF"
 
             cd /opt/jobpilot/jobpilot-ai
             export ENV_FILE=/etc/jobpilot/jobpilot.env
