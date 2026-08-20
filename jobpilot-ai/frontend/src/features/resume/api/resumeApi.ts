@@ -16,7 +16,9 @@ export const updateProject = (id: number, input: ProjectInput) => putJson<Projec
 export const deleteProject = (id: number) => deleteJson(`${BASE}/projects/${id}`);
 
 export interface ResumeDocument { id: number; type: "UPLOADED" | "GENERATED"; title: string; originalFilename: string | null; templateKey: "STANDARD" | "PROJECT" | "COMPACT" | null; extractedText: string | null; generatedContent: string | null; extractedProfile: Record<string, unknown> | null; createdAt: string; }
+export interface ResumeDraftContext { profile: string[]; skills: string[]; certificates: string[]; education: string[]; projects: string[]; }
 export const listResumeDocuments = () => getJson<ResumeDocument[]>(`${BASE}/resume-documents`);
+export const getResumeDraftContext = () => getJson<ResumeDraftContext>(`${BASE}/resume-documents/draft-context`);
 export const extractResumeDocument = (file: File) => { const data = new FormData(); data.append("file", file); return postForm<ResumeDocument>(`${BASE}/resume-documents/extract`, data); };
 export const applyResumeExtraction = (id: number) => postJson<ResumeDocument>(`${BASE}/resume-documents/${id}/apply-profile`, undefined);
 export const deleteResumeDocument = (id: number) => deleteJson(`${BASE}/resume-documents/${id}`);
