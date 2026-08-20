@@ -4,6 +4,7 @@ import { Briefcase, BriefcaseBusiness, CheckSquare, CircleCheckBig, Pencil, Sear
 import { PageHeading } from "../shared/components/PageHeading";
 import { AdminFaceAuthModal } from "../features/admin/components/AdminFaceAuthModal";
 import { AdminFaceReferenceModal } from "../features/admin/components/AdminFaceReferenceModal";
+import { getAdminFaceReferences } from "../features/admin/api/adminFaceReferenceApi";
 import {
   approveAdminEmployer,
   changeAdminJobPostingStatus,
@@ -29,6 +30,7 @@ import {
 
 const PAGE_SIZE = 20;
 const FACE_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+type MemberWithFacePhoto = AdminMember & { facePhotoRegistered?: boolean };
 
 function hasActiveFaceSession() {
   const verifiedAt = Number(sessionStorage.getItem("admin_face_verified_at"));
@@ -50,7 +52,7 @@ export function AdminPage() {
   const [faceReferenceLoginId, setFaceReferenceLoginId] = useState<string | null>(null);
 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [members, setMembers] = useState<AdminMember[]>([]);
+  const [members, setMembers] = useState<MemberWithFacePhoto[]>([]);
   const [postingPage, setPostingPage] = useState<AdminPageData<AdminJobPosting>>({
     content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0,
   });
@@ -82,9 +84,10 @@ export function AdminPage() {
   );
 
   const loadOverviewAndMembers = async () => {
-    const [summary, memberData] = await Promise.all([getAdminOverview(), getAdminMembers(memberQuery)]);
+    const [summary, memberData, faceReferences] = await Promise.all([getAdminOverview(), getAdminMembers(memberQuery), getAdminFaceReferences()]);
+    const registeredLoginIds = new Set(faceReferences.filter((reference) => reference.registered).map((reference) => reference.loginId));
     setOverview(summary);
-    setMembers(memberData.content);
+    setMembers(memberData.content.map((member) => ({ ...member, facePhotoRegistered: registeredLoginIds.has(member.loginId) })));
     setSelectedMemberIds([]);
   };
 
@@ -353,7 +356,7 @@ export function AdminPage() {
                       <td><strong>{member.nickname}</strong><small>{member.loginId}</small></td>
                       <td>{member.email}</td>
                       <td>{member.onboardingCompleted ? "완료" : "미완료"}</td>
-                      <td><span className={`admin-role-badge ${member.role === "ADMIN" ? "admin" : ""}`}>{member.role === "ADMIN" ? "관리자" : "회원"}</span></td>
+                      <td><span className={`admin-role-badge ${member.role === "ADMIN" ? "admin" : ""}`}>{member.role === "ADMIN" ? "관리자" : "회원"}</span>{member.role === "ADMIN" && <small style={{ display: "block", marginTop: 5, color: member.facePhotoRegistered ? "#16803c" : "#b54708" }}>{member.facePhotoRegistered ? "사진 등록 완료" : "사진 미등록"}</small>}</td>
                       <td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button>{member.role === "ADMIN" && <button className="outline-button" onClick={() => setFaceReferenceLoginId(member.loginId)}>얼굴 사진 등록</button>}<button className="outline-button" onClick={() => void removeMember(member)}>회원 삭제</button></div></td>
                     </tr>
                   ))}
@@ -440,7 +443,7 @@ export function AdminPage() {
           </section>
         </>
       )}
-      {isVerified && faceReferenceLoginId && <AdminFaceReferenceModal loginId={faceReferenceLoginId} onClose={() => setFaceReferenceLoginId(null)} />}
+      {isVerified && faceReferenceLoginId && <AdminFaceReferenceModal loginId={faceReferenceLoginId} onClose={() => setFaceReferenceLoginId(null)} onSaved={() => void loadOverviewAndMembers()} />}
     </>
   );
 }

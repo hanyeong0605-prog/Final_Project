@@ -39,7 +39,13 @@ RUNTIME_CACHE_FILE = Path(
 )
 ADMIN_PHOTOS_DIR = Path(os.getenv("FACE_REFERENCE_DIR", str(BASE_DIR / "admin_photos"))).resolve()
 ADMIN_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
-MASK_IMAGE_PATH = BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot_nukki.png"
+# The production container receives this tracked asset through a read-only bind mount.
+# Keep the source-tree location as the default for local execution.
+MASK_IMAGE_PATH = Path(os.getenv(
+    "WORDCLOUD_MASK_IMAGE",
+    "/assets/mascot_nukki.png" if Path("/assets/mascot_nukki.png").exists()
+    else str(BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot_nukki.png"),
+))
 
 DEFAULT_LINUX_FONT = Path("/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
 WINDOWS_FONT_CANDIDATES = (

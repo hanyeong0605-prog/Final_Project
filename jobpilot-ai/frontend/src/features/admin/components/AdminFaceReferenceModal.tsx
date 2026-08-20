@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Camera, CheckCircle2, Upload, X } from "lucide-react";
 import { getAdminFaceReferences, uploadAdminFaceReference, type AdminFaceReference } from "../api/adminFaceReferenceApi";
 
-type Props = { loginId: string; onClose: () => void };
+type Props = { loginId: string; onClose: () => void; onSaved?: () => void };
 
 /** Face reference enrollment happens in-context, only after the operator passed face verification. */
-export function AdminFaceReferenceModal({ loginId, onClose }: Props) {
+export function AdminFaceReferenceModal({ loginId, onClose, onSaved }: Props) {
   const [admins, setAdmins] = useState<AdminFaceReference[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [message, setMessage] = useState("");
@@ -26,6 +26,7 @@ export function AdminFaceReferenceModal({ loginId, onClose }: Props) {
       setAdmins((items) => items.map((item) => item.loginId === result.loginId ? result : item));
       setMessage(`${result.nickname} 관리자 기준 사진을 등록했습니다.`);
       setPhoto(null);
+      onSaved?.();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "기준 사진 등록에 실패했습니다."); }
     finally { setSaving(false); }
   };
