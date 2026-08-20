@@ -5,9 +5,22 @@ Gemini Embedding API(client.models.embed_content)는 evaluation.py/question_gene
 격리해서 테스트끼리 서로 영향을 주지 않게 한다.
 """
 
+import json
 from unittest.mock import patch
 
+import pytest
+
 from app.domain.interview import question_corpus, question_similarity
+
+
+@pytest.fixture(autouse=True)
+def _reset_cooldown():
+    """2026-08-20 쿨다운 도입 후 추가: _cooldown_until은 모듈 전역 상태라 한 테스트에서
+    예외 경로(fail-open)를 타면 다음 테스트까지 쿨다운이 새어나간다(monotonic 시계라
+    테스트 사이에도 유지됨). 각 테스트 전후로 리셋해서 테스트 간 격리를 보장한다."""
+    question_similarity._cooldown_until = 0.0
+    yield
+    question_similarity._cooldown_until = 0.0
 
 
 class _FakeEmbedding:
@@ -120,3 +133,71 @@ def test_pool_embeddings_are_cached_to_disk(tmp_path, monkeypatch):
 
     assert pool1 == pool2 == ["JPA N+1 문제를 설명해 주세요."]
     assert emb1 == emb2 == [[1.0, 0.0]]
+
+
+def test_partial_pool_progress_is_saved_and_resumed_after_failure(tmp_path, monkeypatch):
+    """2026-08-20 수정 검증: 풀 임베딩 도중 실패해도 그때까지의 배치는 캐시에 남아야 하고,
+    다음 호출은 처음부터가 아니라 그 지점부터 이어서 임베딩해야 한다 - 8/13 할당량 소진의
+    직접 원인이었던 '중간 실패 시 전체 진행분 소실'을 재발 방지한다."""
+    monkeypatch.setattr(question_similarity, "_EMBED_BATCH_SIZE", 2)
+    pool = [f"질문{i}" for i in range(5)]
+    _setup_pool(tmp_path, monkeypatch, pool)
+
+    # _embed_texts가 배치(chunk)마다 genai.Client(...)를 새로 만들기 때문에, 호출 횟수는
+    # 클라이언트 인스턴스가 아니라 이 바깥 딕셔너리에 누적해야 한다.
+    calls = {"count": 0}
+
+    class FlakyModels:
+        def embed_content(self, model, contents):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                return _FakeEmbedResult([_FakeEmbedding([1.0, 0.0]) for _ in contents])
+            raise RuntimeError("rate limited")
+
+    class FlakyClient:
+        def __init__(self, api_key=None):
+            self.models = FlakyModels()
+
+    with patch("google.genai.Client", FlakyClient):
+        with pytest.raises(RuntimeError):
+            question_similarity._get_pool_embeddings("기술_직무역량", "백엔드")
+
+    cache = json.loads((tmp_path / "cache.json").read_text(encoding="utf-8"))
+    saved = cache["기술_직무역량|백엔드"]["embeddings"]
+    assert len(saved) == 2  # 첫 배치(2개)까지는 저장되고 두번째 배치에서 실패
+
+    class ResumeModels:
+        def embed_content(self, model, contents):
+            return _FakeEmbedResult([_FakeEmbedding([0.0, 1.0]) for _ in contents])
+
+    class ResumeClient:
+        def __init__(self, api_key=None):
+            self.models = ResumeModels()
+
+    with patch("google.genai.Client", ResumeClient):
+        pool2, emb2 = question_similarity._get_pool_embeddings("기술_직무역량", "백엔드")
+
+    assert pool2 == pool
+    assert len(emb2) == 5
+    assert emb2[:2] == [[1.0, 0.0], [1.0, 0.0]]  # 이전에 저장된 진행분은 재요청되지 않음
+    assert emb2[2:] == [[0.0, 1.0]] * 3  # 나머지만 이어서 임베딩됨
+
+
+def test_failure_starts_cooldown_and_skips_subsequent_validation(monkeypatch):
+    """예외 발생 시 쿨다운이 걸리고, 쿨다운 중에는 embed_content를 아예 호출하지 않고
+    fail-open으로 즉시 통과시켜야 한다 - 여러 요청이 동시에 재시도를 폭주시키는 것을 막는다."""
+    monkeypatch.setattr(question_similarity.settings, "gemini_api_key", "fake-key")
+    monkeypatch.setattr(question_similarity, "_cooldown_until", 0.0)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("rate limited")
+
+    monkeypatch.setattr(question_similarity, "similarity_score", _boom)
+    assert question_similarity.is_topically_relevant("질문", "기술_직무역량", "백엔드") is True
+    assert question_similarity._cooldown_until > 0.0
+
+    def _should_not_be_called(*args, **kwargs):
+        raise AssertionError("쿨다운 중에는 similarity_score가 호출되면 안 된다")
+
+    monkeypatch.setattr(question_similarity, "similarity_score", _should_not_be_called)
+    assert question_similarity.is_topically_relevant("질문", "기술_직무역량", "백엔드") is True

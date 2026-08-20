@@ -21,6 +21,7 @@
 import hashlib
 import json
 import math
+import time
 from pathlib import Path
 
 from app.core.config import settings
@@ -40,6 +41,13 @@ _EMBED_BATCH_SIZE = 100
 # 반대로 너무 올리면 같은 분야의 정상 질문까지 코퍼스로 대체되는 오탐이 늘 수 있으니,
 # 아래 print 로그(score)로 실제 값을 보면서 재조정해야 한다.
 SIMILARITY_THRESHOLD = 0.6
+
+# 2026-08-20: Gemini Embedding 무료 티어 할당량(분당/일일)을 8/13에 실제로 소진시킨 원인 수정.
+# 캐시가 비어있는 채로 여러 요청이 몰리면 같은 풀을 계속 재시도하며 할당량을 반복 소모하므로,
+# 임베딩 호출이 한 번 실패하면 이 시간 동안은 검증 자체를 건너뛰고 fail-open으로 바로 통과시킨다
+# (여러 요청이 동시에 재시도를 폭주시키는 것을 막는 쿨다운).
+_COOLDOWN_SECONDS = 300
+_cooldown_until = 0.0
 
 
 def _pool_cache_key(category: str, job: str) -> str:
@@ -80,7 +88,14 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
 
 def _get_pool_embeddings(category: str, job: str) -> tuple[list[str], list[list[float]]]:
     """category/job에 해당하는 코퍼스 풀과, 그 풀 각 질문의 임베딩 벡터를 돌려준다.
-    캐시에 없거나 코퍼스 내용이 바뀌었으면(해시 불일치) 새로 임베딩해서 캐시에 저장한다."""
+    캐시에 없거나 코퍼스 내용이 바뀌었으면(해시 불일치) 새로 임베딩해서 캐시에 저장한다.
+
+    2026-08-20: 기존에는 풀 전체(최대 500개, 5회 호출) 임베딩이 전부 끝나야만 캐시에
+    저장됐다 - 중간에 rate limit으로 실패하면 아무것도 저장되지 않아, 다음 요청이 또
+    처음부터 500개를 재시도하며 할당량을 반복 소모하는 문제가 있었다(8/13 할당량 소진
+    사고의 원인). 이제는 이미 캐시된 부분이 있으면 그 뒤부터 이어서 임베딩하고, 배치가
+    끝날 때마다(전체가 안 끝나도) 그때까지의 진행분을 캐시에 저장한다 - 여러 요청에 걸쳐
+    조금씩이라도 반드시 앞으로 나아가고, 완성된 뒤로는 다시 API를 호출하지 않는다."""
     pool = question_corpus.get_pool(category, job)
     if not pool:
         return [], []
@@ -89,12 +104,28 @@ def _get_pool_embeddings(category: str, job: str) -> tuple[list[str], list[list[
     pool_hash = _pool_hash(pool)
     cache = _load_cache()
     cached_entry = cache.get(key)
-    if cached_entry and cached_entry.get("hash") == pool_hash:
-        return pool, cached_entry["embeddings"]
 
-    embeddings = _embed_texts(pool)
-    cache[key] = {"hash": pool_hash, "embeddings": embeddings}
-    _save_cache(cache)
+    already: list[list[float]] = []
+    if cached_entry and cached_entry.get("hash") == pool_hash:
+        already = cached_entry["embeddings"]
+        if len(already) >= len(pool):
+            return pool, already
+
+    remaining = pool[len(already):]
+    embeddings = list(already)
+    try:
+        for start in range(0, len(remaining), _EMBED_BATCH_SIZE):
+            chunk = remaining[start : start + _EMBED_BATCH_SIZE]
+            embeddings.extend(_embed_texts(chunk))
+            # 배치 하나가 끝날 때마다 즉시 저장 - 다음 배치에서 실패해도 이 진행분은 남는다.
+            cache[key] = {"hash": pool_hash, "embeddings": embeddings}
+            _save_cache(cache)
+    except Exception:
+        if len(embeddings) > len(already):
+            cache[key] = {"hash": pool_hash, "embeddings": embeddings}
+            _save_cache(cache)
+        raise
+
     return pool, embeddings
 
 
@@ -128,12 +159,22 @@ def is_topically_relevant(question: str, category: str, job: str) -> bool:
     if not settings.gemini_api_key:
         print("[유사도검증] gemini_api_key가 비어있어서 검증을 건너뜀")
         return True
+
+    global _cooldown_until
+    now = time.monotonic()
+    if now < _cooldown_until:
+        # 최근에 임베딩 API가 실패해서(주로 rate limit) 쿨다운 중 - 재시도로 할당량을
+        # 더 태우지 않고 바로 fail-open으로 넘어간다.
+        return True
+
     try:
         score = similarity_score(question, category, job)
     except Exception as exc:
+        _cooldown_until = now + _COOLDOWN_SECONDS
         # 2026-08-12: 튜닝 중 - fail-open으로 조용히 넘어가던 예외를 눈에 보이게 임시로 출력.
         # 튜닝 끝나면 이 print는 지우거나 logger.warning으로 낮춰도 된다.
-        print(f"[유사도검증] 예외로 fail-open 처리됨: {type(exc).__name__}: {exc}")
+        print(f"[유사도검증] 예외로 fail-open 처리됨 (다음 {_COOLDOWN_SECONDS}초간 검증 건너뜀): "
+              f"{type(exc).__name__}: {exc}")
         return True
     if score is None:
         return True
