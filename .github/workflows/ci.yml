@@ -6,7 +6,7 @@ on:
       - 'jobpilot-ai/**'
       - '.github/workflows/ci.yml'
   push:
-    branches: [main]
+    branches: [main, "김한영브뤤취학원"]
     paths:
       - 'jobpilot-ai/**'
       - '.github/workflows/ci.yml'

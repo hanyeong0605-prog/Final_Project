@@ -44,8 +44,12 @@ def analyze_profile(text: str) -> ResumeProfileAnalysis:
         "- major: 전공명만, 없으면 빈 문자열\n"
         "- totalCareerMonths: 명시된 경력 기간의 합산 개월 수, 계산 불가하면 0\n"
         "- technicalSummary: 원문에 있는 사실만 2문장 이내로 요약, 없으면 빈 문자열\n"
+        "- educations/careers/trainings/awards/portfolios/certificateDetails/selfIntroductions: 표나 본문에 명시된 항목을 행 단위 배열로 추출\n"
+        "- certificateDetails 항목은 rawName,name,issuer,acquiredMonth,status를 포함하고 합격과 취득을 구분\n"
+        "- militaryService는 serviceType,serviceCategory,branch,rank,specialty,startedAt,endedAt을 포함\n"
+        "- 날짜가 불명확하면 만들지 말고 빈 문자열로 유지\n"
         "아래 JSON 객체 하나만 반환하세요.\n"
-        '{"targetRole":"","suggestedSkills":[],"suggestedCertificates":[],"educationLevel":"","major":"","totalCareerMonths":0,"technicalSummary":""}'
+        '{"targetRole":"","suggestedSkills":[],"suggestedCertificates":[],"educationLevel":"","schoolName":"","major":"","graduationStatus":"","totalCareerMonths":0,"technicalSummary":"","educations":[],"careers":[],"trainings":[],"awards":[],"portfolios":[],"certificateDetails":[],"selfIntroductions":[],"militaryService":{}}'
     )
     try:
         from google import genai
@@ -67,6 +71,16 @@ def analyze_profile(text: str) -> ResumeProfileAnalysis:
             "major": str(data.get("major") or "").strip(),
             "totalCareerMonths": max(0, int(data.get("totalCareerMonths") or 0)),
             "technicalSummary": str(data.get("technicalSummary") or "").strip(),
+            "schoolName": str(data.get("schoolName") or "").strip(),
+            "graduationStatus": str(data.get("graduationStatus") or "").strip(),
+            "educations": data.get("educations") if isinstance(data.get("educations"), list) else [],
+            "careers": data.get("careers") if isinstance(data.get("careers"), list) else [],
+            "trainings": data.get("trainings") if isinstance(data.get("trainings"), list) else [],
+            "awards": data.get("awards") if isinstance(data.get("awards"), list) else [],
+            "portfolios": data.get("portfolios") if isinstance(data.get("portfolios"), list) else [],
+            "certificateDetails": data.get("certificateDetails") if isinstance(data.get("certificateDetails"), list) else [],
+            "selfIntroductions": data.get("selfIntroductions") if isinstance(data.get("selfIntroductions"), list) else [],
+            "militaryService": data.get("militaryService") if isinstance(data.get("militaryService"), dict) else {},
         }
         return ResumeProfileAnalysis(ok=True, profile=profile)
     except Exception as error:

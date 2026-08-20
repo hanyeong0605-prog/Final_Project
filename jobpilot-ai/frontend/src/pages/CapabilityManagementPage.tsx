@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FilePenLine, FileUp, Sparkles, Target } from "lucide-react";
 import {
   ResumeProfileAnalysisSection,
@@ -6,8 +6,15 @@ import {
 } from "../features/resume/components/ResumeDocumentSection";
 import { ProfilePage } from "./ProfilePage";
 import { PageHeading } from "../shared/components/PageHeading";
+import { getCareerProfile } from "../features/profile/api/careerProfileApi";
+import { getMemberSkills } from "../features/profile/api/memberSkillsApi";
+import { getMemberCertificates } from "../features/profile/api/memberCertificatesApi";
+import { listResumeEntries } from "../features/resume/api/resumeEntriesApi";
+import { listSelfIntroductions } from "../features/resume/api/resumeApi";
+import { getResumeSaveState, type ResumeSaveState } from "../features/resume/api/resumeSaveStateApi";
+import type { ResumeEntryType } from "../features/resume/model/resumeEntry.types";
 
-type CapabilityTool = "profile" | "analysis" | "writer" | null;
+type CapabilityTool = "profile" | "manage" | "analysis" | "writer" | null;
 
 export function CapabilityManagementPage() {
   const [openTool, setOpenTool] = useState<CapabilityTool>(null);
@@ -31,7 +38,7 @@ export function CapabilityManagementPage() {
         </div>
         <div className="capability-tool-actions">
           <button className="primary-button" onClick={() => setOpenTool("profile")}>스펙정보 입력하기</button>
-          <button className="outline-button" onClick={() => setOpenTool("profile")}>스펙정보 관리</button>
+          <button className="outline-button" onClick={() => setOpenTool("manage")}>스펙정보 관리</button>
         </div>
       </article>
       <article className={`capability-tool-card ${openTool === "writer" ? "selected" : ""}`}>
@@ -48,10 +55,38 @@ export function CapabilityManagementPage() {
     </section>
 
     {openTool === "profile" && <section className="panel capability-open-panel"><ToolHeader title="나의 스펙 정보 입력" body="이력서를 첨부해 자동으로 채우거나, 필요한 항목을 직접 입력해 저장할 수 있습니다." action={() => setOpenTool("analysis")} close={() => setOpenTool(null)} /><ProfilePage /></section>}
+    {openTool === "manage" && <section className="panel capability-open-panel"><ToolHeader title="저장된 스펙정보" body="저장된 이력 항목과 자기소개서, 보유 스펙을 한눈에 확인하고 필요한 항목을 수정할 수 있습니다." close={() => setOpenTool(null)} /><SavedCapabilityList onEdit={() => setOpenTool("profile")} /></section>}
     {openTool === "analysis" && <section className="panel capability-open-panel"><ToolHeader title="이력서 첨부하고 자동 채우기" body="PDF/DOCX 이력서에서 발견한 정보만 스펙 제안으로 보여드립니다. 발견되지 않은 항목은 직접 기재해 주세요." close={() => setOpenTool(null)} /><ResumeProfileAnalysisSection /></section>}
     {openTool === "writer" && <section className="panel capability-open-panel"><ToolHeader title="이력서 작성 도우미" body="역량 불러오기 → 양식 선택 → 질문 답변 → AI 초안 생성 순서로 진행합니다." close={() => setOpenTool(null)} /><ResumeWritingAssistantSection /></section>}
     {!openTool && <section className="capability-guide panel"><Sparkles size={20} /><div><strong>기존 이력서가 있다면 먼저 분석해 보세요.</strong><p>추출 결과는 자동 저장되지 않습니다. 확인 후 프로필 반영을 누른 항목만 내 스펙과 채용공고 추천에 사용됩니다.</p></div></section>}
   </>;
+}
+
+function SavedCapabilityList({ onEdit }: { onEdit: () => void }) {
+  const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [items, setItems] = useState<{ label: string; count: number; updatedAt?: string }[]>([]); const [saveState, setSaveState] = useState<ResumeSaveState>({ status: "NOT_SAVED", updatedAt: null });
+  useEffect(() => {
+    void Promise.all([getCareerProfile(), getMemberSkills(), getMemberCertificates(), listResumeEntries(), listSelfIntroductions(), getResumeSaveState()])
+      .then(([profile, skills, certificates, entries, introductions, state]) => {
+        setSaveState(state);
+        const entryLabels: Partial<Record<ResumeEntryType, string>> = { EDUCATION: "학력", CAREER: "경력", ACTIVITY: "인턴 · 대외활동", TRAINING: "교육이수", AWARD: "수상", LANGUAGE: "어학", PORTFOLIO: "포트폴리오", PREFERENCE: "병역사항" };
+        const entryItems = Object.entries(entryLabels).flatMap(([entryType, label]) => { const matching = entries.filter((entry) => entry.entryType === entryType); return matching.length ? [{ label, count: matching.length, updatedAt: matching.map((entry) => entry.updatedAt).sort().at(-1) }] : []; });
+        const baseSaved = Boolean(profile?.targetRole || profile?.schoolName || profile?.major || profile?.preferredLocations?.length || profile?.technicalSummary || profile?.portfolioUrl);
+        setItems([
+          ...(baseSaved ? [{ label: "기본 스펙정보", count: 1 }] : []),
+          ...(skills.length ? [{ label: "보유 기술 스택", count: skills.length }] : []),
+          ...(certificates.length ? [{ label: "자격증", count: certificates.length }] : []),
+          ...entryItems,
+          ...(introductions.length ? [{ label: "자기소개서", count: introductions.length, updatedAt: introductions.map((entry) => entry.updatedAt).sort().at(-1) }] : []),
+        ]);
+      })
+      .catch(() => setMessage("저장된 스펙정보를 불러오지 못했습니다."))
+      .finally(() => setLoading(false));
+  }, []);
+  if (loading) return <p className="resume-document-message">저장된 스펙정보를 불러오는 중입니다.</p>;
+  if (message) return <p className="resume-document-message">{message}</p>;
+  const stateLabel = saveState.status === "SAVED" ? "저장 완료" : saveState.status === "DRAFT" ? "임시저장" : "저장 전";
+  const stateDate = saveState.updatedAt ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(saveState.updatedAt)) : "";
+  return <div className="saved-capability-list"><div className="saved-capability-list-head"><div><h3>내 스펙정보 목록</h3><p><b className={`save-state-badge ${saveState.status.toLowerCase()}`}>{stateLabel}</b>{stateDate && ` · ${stateDate}`}</p></div><button type="button" className="primary-button" onClick={onEdit}>스펙정보 수정</button></div>{items.length ? items.map((item) => <article key={item.label}><div><strong>{item.label}</strong><span>{item.count}건 저장됨</span></div><small>{item.updatedAt ? `최근 수정 ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}` : "저장 이력 없음"}</small></article>) : <p className="empty-state">아직 저장된 스펙정보가 없습니다.</p>}</div>;
 }
 
 function ToolHeader({ title, body, close, action }: { title: string; body: string; close: () => void; action?: () => void }) {

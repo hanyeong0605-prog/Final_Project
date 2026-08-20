@@ -47,4 +47,30 @@ public class ResumeDocumentTextExtractor {
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "현재는 PDF와 DOCX 이력서만 지원합니다.");
     }
+
+    /**
+     * Keeps DOCX table rows intact for resume import.  The plain-text extractor is
+     * still used for PDFs and AI context, but joining every cell with a pipe loses
+     * the row boundaries needed to import repeated education/career entries.
+     */
+    public List<List<String>> extractTableRows(MultipartFile file) {
+        if (file == null || file.isEmpty()) return List.of();
+        String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+        if (!name.endsWith(".docx")) return List.of();
+        try (var docx = new XWPFDocument(new ByteArrayInputStream(file.getBytes()))) {
+            List<List<String>> rows = new ArrayList<>();
+            docx.getTables().forEach(table -> table.getRows().forEach(row -> {
+                List<String> values = new ArrayList<>();
+                for (var cell : row.getTableCells()) {
+                    String value = cell.getText().replaceAll("\\s+", " ").trim();
+                    // Merged Word cells are exposed repeatedly by Apache POI.
+                    if (!value.isBlank() && (values.isEmpty() || !values.get(values.size() - 1).equals(value))) values.add(value);
+                }
+                if (!values.isEmpty()) rows.add(values);
+            }));
+            return rows;
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DOCX 표 내용을 읽지 못했습니다.");
+        }
+    }
 }
