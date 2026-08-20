@@ -15,7 +15,7 @@ from uuid import uuid4
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_fill_holes
+from scipy.ndimage import binary_fill_holes, label
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,8 +44,8 @@ ADMIN_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 # Keep the source-tree location as the default for local execution.
 MASK_IMAGE_PATH = Path(os.getenv(
     "WORDCLOUD_MASK_IMAGE",
-    "/assets/mascot_nukki.png" if Path("/assets/mascot_nukki.png").exists()
-    else str(BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot_nukki.png"),
+    "/assets/mascot-fullbody-wordcloud.png" if Path("/assets/mascot-fullbody-wordcloud.png").exists()
+    else str(BASE_DIR.parent / "frontend" / "public" / "mascot" / "mascot-fullbody-wordcloud.png"),
 ))
 
 DEFAULT_LINUX_FONT = Path("/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
@@ -102,18 +102,26 @@ def load_cat_mask() -> np.ndarray | None:
         return None
 
     try:
-        img = Image.open(MASK_IMAGE_PATH).convert("L")
-        np_img = np.array(img)
+        # The mascot PNG has a transparent background.  Its alpha matte is a
+        # much more accurate silhouette than trying to infer a shape from its
+        # white body or black outlines.
+        alpha = np.array(Image.open(MASK_IMAGE_PATH).convert("RGBA").getchannel("A"))
+        silhouette = alpha > 32
 
-        # 검은 선(외곽선) 추출 후 구멍 채우기
-        outline = np_img < 90
-        filled = binary_fill_holes(outline)
+        # Ignore tiny detached anti-aliasing artifacts, while preserving the
+        # connected ears, body, paws and tail of the actual mascot.
+        components, component_count = label(silhouette)
+        if component_count:
+            component_sizes = np.bincount(components.ravel())
+            component_sizes[0] = 0
+            silhouette = components == component_sizes.argmax()
+        filled = binary_fill_holes(silhouette)
 
         # 빈 캔버스를 제거해 단어가 정사각형 전체가 아니라 고양이 실루엣을 꽉 채우게 한다.
         y, x = np.where(filled)
         if not len(y) or not len(x):
             raise ValueError("고양이 마스크에서 실루엣을 찾지 못했습니다.")
-        padding = 28
+        padding = 14
         y0, y1 = max(0, y.min() - padding), min(filled.shape[0], y.max() + padding + 1)
         x0, x1 = max(0, x.min() - padding), min(filled.shape[1], x.max() + padding + 1)
         # 0: 글자 채움, 255: 배경
@@ -317,12 +325,16 @@ def render_wordcloud_image(scores: dict[str, float]) -> str:
         font_path=FONT_PATH,
         background_color="white",
         mask=mask,
-        max_words=230,
-        max_font_size=230,
-        min_font_size=8,
+        max_words=260,
+        max_font_size=205,
+        min_font_size=7,
         margin=1,
-        prefer_horizontal=0.95,
-        relative_scaling=0.35,
+        prefer_horizontal=0.92,
+        relative_scaling=0.28,
+        # A limited technical vocabulary should still fill the mascot rather
+        # than leave its ears, paws and tail empty. The separate Top 5 panel
+        # remains the source of truth for rankings.
+        repeat=True,
         contour_width=0,
         color_func=brand_color_func,
         random_state=42,
