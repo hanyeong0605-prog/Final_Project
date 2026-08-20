@@ -105,13 +105,6 @@ export function AdminPage() {
     }
   }, [isVerified]);
 
-  // 페이지 이탈 시 세션 토큰 초기화
-  useEffect(() => {
-    return () => {
-      sessionStorage.removeItem("admin_face_verified");
-    };
-  }, []);
-
   const toggleSelect = (id: number, list: number[], setList: (ids: number[]) => void) => {
     setList(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
   };
@@ -343,7 +336,7 @@ export function AdminPage() {
                       <td>{member.email}</td>
                       <td>{member.onboardingCompleted ? "완료" : "미완료"}</td>
                       <td><span className={`admin-role-badge ${member.role === "ADMIN" ? "admin" : ""}`}>{member.role === "ADMIN" ? "관리자" : "회원"}</span></td>
-                      <td><div style={{ display: "flex", gap: 6 }}><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button><button className="outline-button" onClick={() => void removeMember(member)}>회원 삭제</button></div></td>
+                      <td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button className="outline-button" onClick={() => void updateRole(member)}>{member.role === "ADMIN" ? "관리자 해제" : "관리자 지정"}</button>{member.role === "ADMIN" && <button className="outline-button" onClick={() => navigate(`/admin/face-references?loginId=${encodeURIComponent(member.loginId)}`)}>얼굴 사진 등록</button>}<button className="outline-button" onClick={() => void removeMember(member)}>회원 삭제</button></div></td>
                     </tr>
                   ))}
                 </tbody>

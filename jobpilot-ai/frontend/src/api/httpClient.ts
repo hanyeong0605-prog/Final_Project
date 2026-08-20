@@ -2,6 +2,15 @@
 // An explicit VITE_API_BASE_URL remains available for environments that need it.
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const tokenKey = "jobpilot.accessToken";
+const adminFaceSessionKey = "admin_face_session_id";
+
+function addAdminFaceSession(path: string, headers: Headers) {
+  // Pairing endpoints must remain reachable before face verification completes.
+  if (path.startsWith("/api/v1/admin/") && !path.startsWith("/api/v1/admin/face-pairings")) {
+    const sessionId = sessionStorage.getItem(adminFaceSessionKey);
+    if (sessionId) headers.set("X-Admin-Face-Session", sessionId);
+  }
+}
 
 export function getAccessToken() { return localStorage.getItem(tokenKey); }
 export function setAccessToken(token: string) { localStorage.setItem(tokenKey, token); }
@@ -13,6 +22,7 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   headers.set("Accept", "application/json");
   if (init.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  addAdminFaceSession(path, headers);
 
   const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
   if (!response.ok) {
@@ -40,6 +50,7 @@ export async function postForm<T>(path: string, body: FormData): Promise<T> {
   const token = getAccessToken();
   const headers = new Headers({ Accept: "application/json" });
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  addAdminFaceSession(path, headers);
   const response = await fetch(`${apiBaseUrl}${path}`, { method: "POST", body, headers });
   if (!response.ok) {
     if (response.status === 401) clearAccessToken();

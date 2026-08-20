@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Camera, CheckCircle2, Upload } from "lucide-react";
 import { getAdminFaceReferences, uploadAdminFaceReference, type AdminFaceReference } from "../features/admin/api/adminFaceReferenceApi";
 
 export function AdminFaceReferencePage() {
+  const [searchParams] = useSearchParams();
   const [admins, setAdmins] = useState<AdminFaceReference[]>([]);
   const [selectedLoginId, setSelectedLoginId] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -13,9 +15,10 @@ export function AdminFaceReferencePage() {
   useEffect(() => {
     getAdminFaceReferences().then((items) => {
       setAdmins(items);
-      setSelectedLoginId(items[0]?.loginId ?? "");
+      const requestedLoginId = searchParams.get("loginId");
+      setSelectedLoginId(items.some((item) => item.loginId === requestedLoginId) ? requestedLoginId! : items[0]?.loginId ?? "");
     }).catch((reason) => setError(reason instanceof Error ? reason.message : "관리자 목록을 불러오지 못했습니다."));
-  }, []);
+  }, [searchParams]);
 
   const save = async () => {
     if (!selectedLoginId || !photo || saving) return;

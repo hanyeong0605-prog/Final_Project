@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { LoaderCircle, Smartphone } from "lucide-react";
 import { createAdminFacePairing, getAdminFacePairingResult, type AdminFacePairing } from "../api/adminFacePairingApi";
@@ -30,7 +29,13 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
     if (!pairing || !isOpen) return;
     const timer = window.setInterval(() => {
       getAdminFacePairingResult(pairing.sessionId).then((result) => {
-        if (result.status === "VERIFIED") { window.clearInterval(timer); onSuccess?.(); }
+        if (result.status === "VERIFIED") {
+          window.clearInterval(timer);
+          // This opaque ID is checked by the server for every sensitive admin API.
+          sessionStorage.setItem("admin_face_session_id", pairing.sessionId);
+          sessionStorage.setItem("admin_face_verified_at", String(Date.now()));
+          onSuccess?.();
+        }
         if (result.status === "REJECTED") setError(result.message ?? "얼굴 인증에 실패했습니다. 휴대폰에서 다시 시도해 주세요.");
       }).catch((reason) => { window.clearInterval(timer); setError(reason instanceof Error ? reason.message : "인증 상태를 확인하지 못했습니다."); });
     }, 1500);
@@ -54,7 +59,6 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
         {pairing && <div style={{ display: "grid", justifyItems: "center", gap: 10, margin: "20px 0" }}><QRCodeSVG value={pairUrl} size={220} level="M" includeMargin /><small><Smartphone size={13} /> QR은 2분 동안 한 번만 사용할 수 있습니다.</small></div>}
 
         <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-          <Link to="/admin/face-references" onClick={onClose} className="outline-button">기준 사진 등록</Link>
           <button
             onClick={onClose}
             style={{
