@@ -5,9 +5,10 @@ interface WordCloudViewerProps {
   imageData: string | null;
   loading: boolean;
   compact?: boolean;
+  topKeywords?: Array<{ rank: number; keyword: string; mention_count: number }>;
 }
 
-export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loading, compact = false }) => {
+export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loading, compact = false, topKeywords = [] }) => {
   return (
     <div
       style={{
@@ -45,23 +46,23 @@ export const WordCloudViewer: React.FC<WordCloudViewerProps> = ({ imageData, loa
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       ) : imageData ? (
-        <img
-          src={imageData}
-          alt="Mascot Skill Trend WordCloud"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain', // ⭐ 'cover' 대신 'contain'으로 고양이 비율 유지
-            transition: 'transform 0.25s ease-out',
-            cursor: 'default',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.02)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-        />
+        <>
+          <img
+            src={imageData}
+            alt="Mascot Skill Trend WordCloud"
+            style={{
+              width: '100%', height: '100%', objectFit: 'contain', transition: 'transform 0.25s ease-out', cursor: 'default',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          />
+          {topKeywords.length > 0 && <aside aria-label="상위 5개 기술 키워드" style={{ position: 'absolute', right: compact ? 4 : 16, bottom: compact ? 4 : 16, width: compact ? 158 : 190, border: '1px solid #dfe4ff', borderRadius: 12, background: 'rgba(255,255,255,.94)', boxShadow: '0 10px 24px rgba(56, 72, 150, .13)', padding: '10px 11px', textAlign: 'left', backdropFilter: 'blur(8px)' }}>
+            <strong style={{ display: 'block', color: '#4f46e5', fontSize: 10, letterSpacing: '.08em', marginBottom: 6 }}>TOP 5 기술 키워드</strong>
+            <ol style={{ display: 'grid', gap: 4, margin: 0, padding: 0, listStyle: 'none' }}>
+              {topKeywords.map((item) => <li key={item.keyword} style={{ display: 'grid', gridTemplateColumns: '17px minmax(0, 1fr) auto', alignItems: 'center', gap: 4, color: '#43506a', fontSize: 10 }}><b style={{ color: '#6979de' }}>{item.rank}</b><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>{item.keyword}</span><small style={{ color: '#8a96ad', fontSize: 9 }}>{item.mention_count}건</small></li>)}
+            </ol>
+          </aside>}
+        </>
       ) : (
         <span style={{ fontSize: '12px', color: '#94a3b8' }}>
           데이터를 불러올 수 없습니다.

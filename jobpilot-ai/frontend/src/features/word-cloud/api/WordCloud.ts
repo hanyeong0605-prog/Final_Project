@@ -1,6 +1,7 @@
 export interface WordCloudResponse {
   importance: 'all' | 'required' | 'preferred';
   total_records: number;
+  top_keywords: Array<{ rank: number; keyword: string; score: number; mention_count: number }>;
   image_data: string;
 }
 

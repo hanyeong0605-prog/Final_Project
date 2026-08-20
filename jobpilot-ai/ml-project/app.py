@@ -3,6 +3,8 @@ import io
 import json
 import logging
 import os
+import re
+from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +19,6 @@ from scipy.ndimage import binary_fill_holes
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from kiwipiepy import Kiwi
 from pydantic import BaseModel
 import pymysql
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -57,6 +58,12 @@ STOPWORDS = {
     "채용", "우대", "경력", "신입", "가능자", "관련", "업무", "자격", "요건",
     "성남시", "분당구", "서울특별시", "강남구", "구로구", "판교", "위치",
 }
+FALLBACK_TECH_SKILLS = (
+    "Java", "Kotlin", "Python", "JavaScript", "TypeScript", "React", "Vue", "Angular",
+    "Next.js", "Node.js", "Spring", "Spring Boot", "JPA", "MySQL", "PostgreSQL", "MongoDB",
+    "Redis", "AWS", "Docker", "Kubernetes", "Git", "GitHub", "Linux", "Figma", "Flutter",
+    "Android", "iOS", "TensorFlow", "PyTorch", "OpenAI", "FastAPI", "Django",
+)
 
 LOGGER = logging.getLogger("jobpilot.ai")
 CACHE_LOCK = RLock()
@@ -193,21 +200,76 @@ def fetch_job_requirements() -> list[tuple[str, str]]:
     ]
 
 
-def extract_keywords(kiwi: Kiwi, text: str) -> str:
-    return " ".join(
-        t.form for t in kiwi.tokenize(text)
-        if (t.tag.startswith("N") or t.tag in {"SL", "SH"}) and t.form not in STOPWORDS and len(t.form) > 1
-    )
+def normalize_technical_term(value: str) -> str:
+    return re.sub(r"[\s._\-/]", "", value.lower())
 
 
-def score_documents(kiwi: Kiwi, documents: list[str]) -> dict[str, float]:
-    processed = [extract_keywords(kiwi, doc) for doc in documents if doc]
+def fetch_technical_catalog() -> dict[str, str]:
+    """Maps catalog aliases to a display-safe canonical technical skill name."""
+    catalog = {normalize_technical_term(skill): skill for skill in FALLBACK_TECH_SKILLS}
+    try:
+        conn = pymysql.connect(**mysql_connection_settings())
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT s.name, s.normalized_name, a.alias, a.normalized_alias
+                    FROM skills s
+                    LEFT JOIN skill_aliases a ON a.skill_id = s.id
+                    WHERE s.catalog_status = 'CANONICAL'
+                """)
+                rows = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception as error:
+        # The fixed fallback keeps the dashboard usable while an older database schema is upgraded.
+        LOGGER.warning("기술 카탈로그를 읽지 못해 기본 기술 사전을 사용합니다: %s", error)
+        return catalog
+
+    for name, normalized_name, alias, normalized_alias in rows:
+        canonical = str(name).strip()
+        for candidate in (name, normalized_name, alias, normalized_alias):
+            if candidate:
+                normalized = normalize_technical_term(str(candidate))
+                if normalized:
+                    catalog[normalized] = canonical
+    return catalog
+
+
+def extract_technical_skills(text: str, catalog: dict[str, str]) -> list[str]:
+    """Select known technologies only; generic recruiting nouns never enter the trend ranking."""
+    normalized_text = normalize_technical_term(text)
+    matches: set[str] = set()
+    matched_aliases: list[str] = []
+    # Long aliases first keeps Spring Boot / React Native from being reduced to a shorter skill.
+    for alias, canonical in sorted(catalog.items(), key=lambda item: len(item[0]), reverse=True):
+        # Two-character English strings (for example 'go') cause too many false positives.
+        if len(alias) < 3 and alias not in {"c++"}:
+            continue
+        # If "springboot" already matched, do not add its less-specific "spring" fragment too.
+        if alias in normalized_text and not any(alias in matched for matched in matched_aliases):
+            matches.add(canonical)
+            matched_aliases.append(alias)
+    return sorted(matches)
+
+
+def score_documents(documents: list[str], catalog: dict[str, str]) -> tuple[dict[str, float], Counter[str]]:
+    extracted = [extract_technical_skills(doc, catalog) for doc in documents if doc]
+    processed = [" ".join(skills) for skills in extracted if skills]
     if not processed:
-        return {}
+        return {}, Counter()
     vectorizer = TfidfVectorizer(max_features=150, lowercase=False)
     matrix = vectorizer.fit_transform(processed)
     scores = matrix.sum(axis=0).A1
-    return dict(zip(vectorizer.get_feature_names_out(), (float(s) for s in scores)))
+    mentions = Counter(skill for skills in extracted for skill in set(skills))
+    return dict(zip(vectorizer.get_feature_names_out(), (float(s) for s in scores))), mentions
+
+
+def top_keywords(scores: dict[str, float], mentions: Counter[str], limit: int = 5) -> list[dict[str, Any]]:
+    ranked = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    return [
+        {"rank": rank, "keyword": keyword, "score": round(score, 3), "mention_count": mentions.get(keyword, 0)}
+        for rank, (keyword, score) in enumerate(ranked, start=1)
+    ]
 
 
 def build_cache_from_database() -> dict[str, Any]:
@@ -215,16 +277,20 @@ def build_cache_from_database() -> dict[str, Any]:
     if not requirements:
         raise RuntimeError("job_requirements에 분석할 데이터가 없습니다.")
 
-    kiwi = Kiwi()
+    catalog = fetch_technical_catalog()
     docs_by_group = {
         "all": [text for text, _ in requirements],
         "required": [text for text, imp in requirements if imp == "required"],
         "preferred": [text for text, imp in requirements if imp == "preferred"],
     }
-    cache = {
-        group: {"scores": score_documents(kiwi, docs), "total_records": len(docs)}
-        for group, docs in docs_by_group.items()
-    }
+    cache: dict[str, Any] = {}
+    for group, docs in docs_by_group.items():
+        scores, mentions = score_documents(docs, catalog)
+        cache[group] = {
+            "scores": scores,
+            "total_records": len(docs),
+            "top_keywords": top_keywords(scores, mentions),
+        }
     cache["_meta"] = {"generated_at": datetime.now(timezone.utc).isoformat(), "source": "job_requirements"}
     return cache
 
@@ -352,6 +418,7 @@ def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|pr
     with CACHE_LOCK:
         scores = WORDCLOUD_CACHE.get(importance, {}).get("scores", {})
         total_records = WORDCLOUD_CACHE.get(importance, {}).get("total_records", 0)
+        rankings = WORDCLOUD_CACHE.get(importance, {}).get("top_keywords", [])
         image_data = WORDCLOUD_IMAGE_CACHE.get(importance)
 
     if not scores:
@@ -363,6 +430,7 @@ def generate_wordcloud(importance: str = Query("all", pattern="^(all|required|pr
     return {
         "importance": importance,
         "total_records": total_records,
+        "top_keywords": rankings,
         "image_data": image_data,
     }
 
