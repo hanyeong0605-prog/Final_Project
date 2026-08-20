@@ -50,6 +50,11 @@ jobs:
 
             cd /opt/jobpilot/jobpilot-ai
             export ENV_FILE=/etc/jobpilot/jobpilot.env
+            # A direct feature-branch deploy must not validate or mutate the
+            # shared production schema. Flyway stays enabled for main only.
+            if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
+              export SPRING_FLYWAY_ENABLED=false
+            fi
             COMPOSE="sudo -E docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml"
 
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
