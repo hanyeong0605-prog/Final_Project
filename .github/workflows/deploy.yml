@@ -73,7 +73,10 @@ jobs:
             fi
 
             if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
-              $COMPOSE up -d
+              # Compose configuration changes can affect any service. Build
+              # before starting so a previously failed deploy never reuses an
+              # old image with the new configuration.
+              $COMPOSE up -d --build
             fi
 
             $COMPOSE ps
