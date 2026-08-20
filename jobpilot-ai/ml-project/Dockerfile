@@ -4,7 +4,11 @@ WORKDIR /app
 
 # NanumGothic renders Korean keywords inside the generated PNG.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-nanum \
+    && apt-get install -y --no-install-recommends \
+        fonts-nanum \
+        libgl1 \
+        libglib2.0-0 \
+        libxcb1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.prod.txt .
