@@ -31,6 +31,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           port: 22
+          # CPU-only AI images can take several minutes on the small EC2 host.
+          # The default drone-ssh command limit interrupts a healthy build.
+          command_timeout: 30m
           envs: REPO_READ_TOKEN
           script: |
             set -eu
