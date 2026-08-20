@@ -63,17 +63,33 @@ jobs:
             COMPOSE="sudo -E docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml"
 
             if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
-              # Free only unused build layers and dangling images. Running
-              # containers/images are retained. Build sequentially so this
-              # small EC2 volume never needs space for every AI image at once.
-              sudo docker builder prune --all --force
-              sudo docker image prune --force
-              $COMPOSE build frontend
-              $COMPOSE up -d --no-deps frontend
-              $COMPOSE build backend
-              $COMPOSE up -d --no-deps backend
-              $COMPOSE build wordcloud-server
-              $COMPOSE up -d --no-deps wordcloud-server
+              # Keep BuildKit's dependency layers: TensorFlow/DeepFace must
+              # not be downloaded again when only the frontend/backend changed.
+              # Prune only under real disk pressure, not on every deployment.
+              AVAILABLE_KB="$(df -Pk /var/lib/docker | awk 'END { print $4 }')"
+              if [ "$AVAILABLE_KB" -lt 8388608 ]; then
+                sudo docker builder prune --all --force
+                sudo docker image prune --force
+              fi
+
+              if printf '%s\n' "$CHANGED_FILES" | grep -qE '^jobpilot-ai/(frontend/|docker-compose.prod.yml)'; then
+                $COMPOSE build frontend
+                $COMPOSE up -d --no-deps frontend
+              fi
+
+              if printf '%s\n' "$CHANGED_FILES" | grep -qE '^jobpilot-ai/(backend/|docker-compose.prod.yml)'; then
+                $COMPOSE build backend
+                $COMPOSE up -d --no-deps backend
+              fi
+
+              if printf '%s\n' "$CHANGED_FILES" | grep -qE '^jobpilot-ai/(ml-project/|docker-compose.prod.yml)'; then
+                $COMPOSE build wordcloud-server
+                $COMPOSE up -d --no-deps wordcloud-server
+              fi
+
+              if printf '%s\n' "$CHANGED_FILES" | grep -qE '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
+                $COMPOSE up -d
+              fi
             else
               if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
                 $COMPOSE build frontend
