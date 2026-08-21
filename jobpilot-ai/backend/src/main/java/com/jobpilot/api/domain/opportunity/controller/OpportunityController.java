@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,12 +36,14 @@ public class OpportunityController {
         return interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(AuthenticatedMember.id(auth), "OPPORTUNITY").stream()
                 .map(item -> repository.findById(item.getTargetId()).orElse(null)).filter(java.util.Objects::nonNull).map(this::toResponse).toList();
     }
+    @GetMapping("/{id}")
+    public OpportunityResponse detail(@PathVariable Long id) { return toResponse(repository.findById(id).orElseThrow(() -> new com.jobpilot.api.global.exception.ResourceNotFoundException("훈련과정을 찾을 수 없습니다."))); }
 
     private OpportunityResponse toResponse(Opportunity value) {
         return new OpportunityResponse(
                 value.getId(), value.getType(), value.getTitle(), value.getOrganization(),
                 period(value.getEventStartAt(), value.getEventEndAt()),
-                format(value.getDeadlineAt()), reason(value), tags(value)
+                format(value.getDeadlineAt()), reason(value), tags(value), value.getSourceUrl(), value.getType().equals("교육") && value.getEventEndAt() != null && value.getEventEndAt().isBefore(LocalDateTime.now()) ? "EXPIRED" : value.getStatus()
         );
     }
 

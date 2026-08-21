@@ -9,6 +9,7 @@ import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.planner.entity.PlannerEvent;
 import com.jobpilot.api.domain.planner.repository.PlannerEventRepository;
+import com.jobpilot.api.domain.opportunity.repository.OpportunityRepository;
 import com.jobpilot.api.domain.matching.service.MemberJobEventService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
@@ -24,10 +25,11 @@ public class InterestService {
     private final JobPostingRepository jobs;
     private final PlannerEventRepository events;
     private final MemberJobEventService memberJobEvents;
+    private final OpportunityRepository opportunities;
 
     public InterestService(UserInterestRepository interests, JobPostingRepository jobs, PlannerEventRepository events,
-                           MemberJobEventService memberJobEvents) {
-        this.interests = interests; this.jobs = jobs; this.events = events; this.memberJobEvents = memberJobEvents;
+                           MemberJobEventService memberJobEvents, OpportunityRepository opportunities) {
+        this.interests = interests; this.jobs = jobs; this.events = events; this.memberJobEvents = memberJobEvents; this.opportunities=opportunities;
     }
 
     public List<Long> ids(Long memberId, String type) {
@@ -48,10 +50,12 @@ public class InterestService {
                 addJobEvent(memberId, request.targetId());
                 memberJobEvents.record(memberId, request.targetId(), "BOOKMARK");
             }
+            if ("OPPORTUNITY".equals(request.targetType())) opportunities.findById(request.targetId()).ifPresent(item -> { if (item.getEventStartAt()!=null) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId,"OPPORTUNITY",item.getId(),"TRAINING_PERIOD").orElseGet(() -> events.save(PlannerEvent.fromOpportunity(memberId,item.getId(),item.getTitle(),item.getEventStartAt(),item.getEventEndAt()))); });
         } else if (!request.interested()) {
             existing.ifPresent(interests::delete);
             if (JOB.equals(request.targetType())) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(
-                    memberId, JOB, request.targetId(), "APPLICATION_PERIOD").ifPresent(events::delete);
+                        memberId, JOB, request.targetId(), "APPLICATION_PERIOD").ifPresent(events::delete);
+            if ("OPPORTUNITY".equals(request.targetType())) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId,"OPPORTUNITY",request.targetId(),"TRAINING_PERIOD").ifPresent(events::delete);
         }
         return new InterestToggleResponse(request.targetId(), request.interested());
     }

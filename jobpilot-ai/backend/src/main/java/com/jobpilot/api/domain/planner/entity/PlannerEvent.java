@@ -51,6 +51,9 @@ public class PlannerEvent {
         event.createdAt = LocalDateTime.now();
         return event;
     }
+    public static PlannerEvent fromOpportunity(Long memberId, Long opportunityId, String title, LocalDateTime startsAt, LocalDateTime endsAt) {
+        PlannerEvent event = new PlannerEvent(); event.memberId=memberId; event.sourceType="OPPORTUNITY"; event.sourceId=opportunityId; event.eventType="TRAINING_PERIOD"; event.title="훈련 · "+title; event.startsAt=startsAt; event.endsAt=endsAt; event.allDay=true; event.createdAt=LocalDateTime.now(); return event;
+    }
 
     public Long getId() { return id; }
     public Long getMemberId() { return memberId; }

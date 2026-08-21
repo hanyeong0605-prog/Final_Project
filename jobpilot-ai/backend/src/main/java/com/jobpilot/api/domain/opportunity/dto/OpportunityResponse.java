@@ -10,5 +10,7 @@ public record OpportunityResponse(
         String period,
         String deadline,
         String reason,
-        List<String> tags
+        List<String> tags,
+        String sourceUrl,
+        String status
 ) {}

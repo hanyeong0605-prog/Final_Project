@@ -3,6 +3,7 @@ import { AppShell } from "../layouts/AppShell";
 import { DashboardPage } from "../pages/DashboardPage";
 import { JobMatchesPage } from "../pages/JobMatchesPage";
 import { OpportunitiesPage } from "../pages/OpportunitiesPage";
+import { OpportunityDetailPage } from "../pages/OpportunityDetailPage";
 import { PlannerPage } from "../pages/PlannerPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { ResumePage } from "../pages/ResumePage";
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       { path: "job-postings/:id", element: <JobPostingDetailPage /> },
       { path: "locationjobs", element: <LocationJobsPage /> },
       { path: "opportunities", element: <OpportunitiesPage /> },
+      { path: "opportunities/:id", element: <OpportunityDetailPage /> },
       { path: "planner", element: <PlannerPage /> },
       { path: "capability", element: <CapabilityManagementPage /> },
       { path: "profile", element: <ProfilePage /> },

@@ -9,4 +9,6 @@ export interface Opportunity {
   deadline: string;
   reason: string;
   tags: string[];
+  sourceUrl: string;
+  status: string;
 }

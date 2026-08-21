@@ -34,8 +34,9 @@ public class Opportunity {
     public String getOrganization() { return organization; }
     public String getDescription() { return description; }
     public String getSourceUrl() { return sourceUrl; }
-    public LocalDateTime getApplicationStartAt() { return applicationStartAt; }
-    public LocalDateTime getDeadlineAt() { return deadlineAt; }
     public LocalDateTime getEventStartAt() { return eventStartAt; }
     public LocalDateTime getEventEndAt() { return eventEndAt; }
+    public String getStatus() { return status; }
+    public LocalDateTime getApplicationStartAt() { return applicationStartAt; }
+    public LocalDateTime getDeadlineAt() { return deadlineAt; }
 }
