@@ -128,6 +128,55 @@ public class ResumeDocumentService {
         profiles.save(profile); specs.save(spec); member.completeOnboarding(); refreshScheduler.enqueueForMember(memberId);
         return ResumeDocumentResponse.from(document);
     }
+    /**
+     * The importer may understand any layout, but only this small canonical profile is
+     * editable before it reaches the member profile.  Keeping review data on the uploaded
+     * document makes every built-in Word template consume the same confirmed facts.
+     */
+    public ResumeDocumentResponse reviewExtraction(Long memberId, Long documentId, JsonNode review) {
+        ResumeDocument document = owned(memberId, documentId);
+        if (document.getDocumentType() != ResumeDocumentType.UPLOADED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "업로드한 이력서만 검토할 수 있습니다.");
+        }
+        ObjectNode extracted = document.getStructuredContent() instanceof ObjectNode value
+                ? value.deepCopy() : json.createObjectNode();
+        if (review != null && review.isObject()) {
+            ObjectNode personal = extracted.path("personalInfo") instanceof ObjectNode value
+                    ? value : extracted.putObject("personalInfo");
+            JsonNode incomingPersonal = review.path("personalInfo");
+            for (String key : List.of("name", "hanjaName", "birthDate", "email", "phone", "address")) {
+                String value = incomingPersonal.path(key).asText("").trim();
+                if (!value.isBlank()) personal.put(key, value);
+            }
+            for (String key : List.of("targetRole", "schoolName", "major", "educationLevel", "graduationStatus")) {
+                String value = review.path(key).asText("").trim();
+                if (!value.isBlank()) extracted.put(key, value);
+            }
+            String skillText = review.path("skills").asText("");
+            if (!skillText.isBlank()) {
+                ArrayNode skills = extracted.putArray("suggestedSkills");
+                Set<String> unique = new java.util.LinkedHashSet<>();
+                for (String skill : skillText.split("[,\\n]")) if (!blank(skill)) unique.add(skill.trim());
+                unique.stream().limit(MAX_PROFILE_SKILLS).forEach(skills::add);
+            }
+            JsonNode project = review.path("project");
+            if (project.isObject() && !blank(project.path("title").asText())) {
+                ArrayNode portfolios = extracted.withArray("portfolios");
+                ObjectNode first = portfolios.isEmpty() ? portfolios.addObject() : (ObjectNode) portfolios.get(0);
+                for (String key : List.of("title", "startedAt", "endedAt", "description")) {
+                    String value = project.path(key).asText("").trim(); if (!value.isBlank()) first.put(key, value);
+                }
+                String role = project.path("role").asText("").trim(); String skills = project.path("skills").asText("").trim();
+                if (!role.isBlank() || !skills.isBlank()) first.put("description", java.util.stream.Stream.of(
+                        !role.isBlank() ? "역할: " + role : "", !skills.isBlank() ? "기술: " + skills : "", first.path("description").asText(""))
+                        .filter(value -> !blank(value)).collect(Collectors.joining("\n")));
+            }
+        }
+        normalizeStructuredProfile(extracted);
+        annotateSkillImport(memberId, extracted, document.getExtractedText());
+        document.updateStructuredContent(extracted);
+        return ResumeDocumentResponse.from(document);
+    }
     public ResumeDocumentResponse generate(Long memberId, ResumeDraftRequest request, MultipartFile templateFile) {
         aiConsent.requireAgreed(memberId);
         Member member=members.findById(memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "회원을 찾을 수 없습니다."));

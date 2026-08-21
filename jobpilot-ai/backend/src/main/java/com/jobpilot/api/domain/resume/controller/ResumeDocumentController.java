@@ -36,6 +36,10 @@ public class ResumeDocumentController {
     public ResumeDocumentResponse extract(Authentication auth, @RequestPart("file") MultipartFile file) { return service.extract(AuthenticatedMember.id(auth), file); }
     @PostMapping("/{id}/apply-profile")
     public ResumeDocumentResponse apply(Authentication auth, @PathVariable Long id) { return service.applyProfile(AuthenticatedMember.id(auth), id); }
+    @PatchMapping("/{id}/extraction-review")
+    public ResumeDocumentResponse reviewExtraction(Authentication auth, @PathVariable Long id, @RequestBody JsonNode review) {
+        return service.reviewExtraction(AuthenticatedMember.id(auth), id, review);
+    }
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(Authentication auth, @PathVariable Long id) {
         service.delete(AuthenticatedMember.id(auth), id);

@@ -1,4 +1,4 @@
-import { deleteJson, getAccessToken, getJson, postForm, postJson, putJson } from "../../../api/httpClient";
+import { deleteJson, getAccessToken, getJson, patchJson, postForm, postJson, putJson } from "../../../api/httpClient";
 import type { Project, ProjectInput, SelfIntroduction, SelfIntroductionInput } from "../model/resume.types";
 
 const BASE = "/api/v1/members/me";
@@ -22,6 +22,7 @@ export const listResumeDocuments = () => getJson<ResumeDocument[]>(`${BASE}/resu
 export const getResumeDraftContext = () => getJson<ResumeDraftContext>(`${BASE}/resume-documents/draft-context`);
 export const extractResumeDocument = (file: File) => { const data = new FormData(); data.append("file", file); return postForm<ResumeDocument>(`${BASE}/resume-documents/extract`, data); };
 export const applyResumeExtraction = (id: number) => postJson<ResumeDocument>(`${BASE}/resume-documents/${id}/apply-profile`, undefined);
+export const reviewResumeExtraction = (id: number, review: Record<string, unknown>) => patchJson<ResumeDocument>(`${BASE}/resume-documents/${id}/extraction-review`, review);
 export const deleteResumeDocument = (id: number) => deleteJson(`${BASE}/resume-documents/${id}`);
 export const renameResumeDocument = (id: number, title: string) => putJson<ResumeDocument>(`${BASE}/resume-documents/${id}/title`, { title });
 export const generateResumeDocument = (input: { title: string; additionalRequest: string; templateKey: string; answers?: string[]; enabledSections?: string[] }, templateFile?: File | null) => {

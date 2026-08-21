@@ -36,4 +36,5 @@ public class ResumeDocument {
     public String getGeneratedContent() { return generatedContent; } public JsonNode getStructuredContent() { return structuredContent; }
     public LocalDateTime getCreatedAt() { return createdAt; } public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void rename(String value) { this.title = value; this.updatedAt = LocalDateTime.now(); }
+    public void updateStructuredContent(JsonNode value) { this.structuredContent = value; this.updatedAt = LocalDateTime.now(); }
 }
