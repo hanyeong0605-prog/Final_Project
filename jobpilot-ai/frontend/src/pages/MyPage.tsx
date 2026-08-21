@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { changeNickname, changePassword, withdraw } from "../features/auth/api/accountApi";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getBookmarkedJobs } from "../features/interests/api/interestsApi";
+import { getBookmarkedOpportunities } from "../features/opportunities/api/opportunityInterestsApi";
+import { OpportunityCard } from "../features/opportunities/components/OpportunityCard";
+import type { Opportunity } from "../features/opportunities/model/opportunity.types";
 import { useInterests } from "../features/interests/model/InterestContext";
 import { JobPostingCard } from "../features/job-postings/components/JobPostingCard";
 import type { JobPosting } from "../features/job-postings/model/jobPosting.types";
@@ -24,8 +27,9 @@ export function MyPage() {
   const { member, updateMember, logout } = useAuth(); const { interestCount } = useInterests(); const navigate = useNavigate();
   const [action, setAction] = useState<Action>(null); const [nickname, setNickname] = useState(member?.nickname ?? "");
   const [passwords, setPasswords] = useState({ current: "", next: "" }); const [withdrawPassword, setWithdrawPassword] = useState("");
-  const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [jobs, setJobs] = useState<JobPosting[]>([]); const [profile, setProfile] = useState<CareerProfile>(); const [memberSkills, setMemberSkills] = useState<MemberSkill[]>([]); const [memberCertificates, setMemberCertificates] = useState<MemberCertificate[]>([]);
+  const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]); const [profile, setProfile] = useState<CareerProfile>(); const [memberSkills, setMemberSkills] = useState<MemberSkill[]>([]); const [memberCertificates, setMemberCertificates] = useState<MemberCertificate[]>([]);
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
+  useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
   useEffect(() => { void Promise.all([getCareerProfile(), getMemberSkills(), getMemberCertificates()]).then(([savedProfile, savedSkills, savedCertificates]) => { setProfile(savedProfile); setMemberSkills(savedSkills); setMemberCertificates(savedCertificates); }).catch(() => { setProfile(undefined); setMemberSkills([]); setMemberCertificates([]); }); }, []);
   const run = async (fn: () => Promise<void>, success: string) => { setError(""); setMessage(""); try { await fn(); setMessage(success); setAction(null); } catch (e) { setError(e instanceof Error ? e.message : "요청에 실패했습니다."); } };
   const nicknameSubmit = (e: FormEvent) => { e.preventDefault(); void run(async () => updateMember(await changeNickname(nickname)), "닉네임을 변경했습니다."); };
@@ -48,5 +52,7 @@ export function MyPage() {
     {profile && action !== "spec" && <section className="panel spec-summary"><div><span>목표 직무</span><strong>{profile.targetRole}</strong></div><div><span>희망 지역</span><strong>{profile.preferredLocations.join(", ") || "미입력"}</strong></div><div><span>경력</span><strong>{profile.totalCareerMonths}개월</strong></div><div><span>기술 요약</span><strong>{profile.technicalSummary || "미입력"}</strong></div></section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.length}개</span></div>
     {jobs.length === 0 ? <section className="panel saved-empty">찜한 채용공고가 없습니다.</section> : <section className="posting-grid">{jobs.map((job) => <JobPostingCard key={job.id} posting={job} />)}</section>}
+    <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 성장 기회</h2></div><span>{opportunities.length}개</span></div>
+    {opportunities.length === 0 ? <section className="panel saved-empty">찜한 훈련과정·성장 기회가 없습니다.</section> : <section className="opportunity-grid">{opportunities.map((item) => <OpportunityCard key={item.id} item={item} interested onInterest={() => {}} />)}</section>}
   </>;
 }

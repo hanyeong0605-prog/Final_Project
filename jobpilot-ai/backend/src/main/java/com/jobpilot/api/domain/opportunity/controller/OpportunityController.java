@@ -3,6 +3,9 @@ package com.jobpilot.api.domain.opportunity.controller;
 import com.jobpilot.api.domain.opportunity.dto.OpportunityResponse;
 import com.jobpilot.api.domain.opportunity.entity.Opportunity;
 import com.jobpilot.api.domain.opportunity.repository.OpportunityRepository;
+import com.jobpilot.api.domain.interest.repository.UserInterestRepository;
+import com.jobpilot.api.global.security.AuthenticatedMember;
+import org.springframework.security.core.Authentication;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -15,9 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class OpportunityController {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd");
     private final OpportunityRepository repository;
+    private final UserInterestRepository interests;
 
-    public OpportunityController(OpportunityRepository repository) {
-        this.repository = repository;
+    public OpportunityController(OpportunityRepository repository, UserInterestRepository interests) {
+        this.repository = repository; this.interests = interests;
     }
 
     @GetMapping("/recommended")
@@ -25,6 +29,11 @@ public class OpportunityController {
         return repository.findByStatusOrderByDeadlineAtAsc("ACTIVE").stream()
                 .map(this::toResponse)
                 .toList();
+    }
+    @GetMapping("/bookmarked")
+    public List<OpportunityResponse> bookmarked(Authentication auth) {
+        return interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(AuthenticatedMember.id(auth), "OPPORTUNITY").stream()
+                .map(item -> repository.findById(item.getTargetId()).orElse(null)).filter(java.util.Objects::nonNull).map(this::toResponse).toList();
     }
 
     private OpportunityResponse toResponse(Opportunity value) {

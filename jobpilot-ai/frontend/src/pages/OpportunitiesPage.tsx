@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInterests } from "../features/interests/model/InterestContext";
 import { getRecommendedOpportunities } from "../features/opportunities/api/opportunitiesApi";
+import { getOpportunityInterestIds, toggleOpportunityInterest } from "../features/opportunities/api/opportunityInterestsApi";
 import { CertificateOpportunitySection } from "../features/opportunities/components/CertificateOpportunitySection";
 import { OpportunityCard } from "../features/opportunities/components/OpportunityCard";
 import type { Opportunity } from "../features/opportunities/model/opportunity.types";
@@ -13,12 +14,12 @@ export function OpportunitiesPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [category, setCategory] = useState<"ALL" | "CERTIFICATE" | "TRAINING" | "OTHER">("ALL");
   const [searchParams] = useSearchParams();
-  const { isInterested, toggleInterest } = useInterests();
+  const { } = useInterests(); const [interestIds, setInterestIds] = useState<number[]>([]);
 
   useEffect(() => {
     void getRecommendedOpportunities()
       .then((data) => { setOpportunities(data); setStatus("ready"); })
-      .catch(() => { setOpportunities([]); setStatus("error"); });
+      .catch(() => { setOpportunities([]); setStatus("error"); }); void getOpportunityInterestIds().then(setInterestIds).catch(() => setInterestIds([]));
   }, []);
 
   return <>
@@ -30,6 +31,6 @@ export function OpportunitiesPage() {
     {status === "loading" && <DataStatePanel state="loading" />}
     {status === "error" && <DataStatePanel state="error" />}
     {status === "ready" && opportunities.length === 0 && <DataStatePanel state="empty" emptyTitle="추천할 기회 정보가 없습니다" emptyBody="회원의 부족 역량과 연결된 실제 기회 데이터가 생기면 표시됩니다." />}
-    {status === "ready" && opportunities.length > 0 && <section className="opportunity-grid">{opportunities.filter((item) => category !== "TRAINING" || item.type === "교육").filter((item) => category !== "OTHER" || item.type !== "자격증").map((item) => <OpportunityCard key={item.id} item={item} interested={isInterested(item.id)} onInterest={() => toggleInterest(item.id)} />)}</section>}</>}
+    {status === "ready" && opportunities.length > 0 && <section className="opportunity-grid">{opportunities.filter((item) => category !== "TRAINING" || item.type === "교육").filter((item) => category !== "OTHER" || item.type !== "자격증").map((item) => <OpportunityCard key={item.id} item={item} interested={interestIds.includes(item.id)} onInterest={() => { const next=!interestIds.includes(item.id); setInterestIds(next ? [...interestIds,item.id] : interestIds.filter((id) => id !== item.id)); void toggleOpportunityInterest(item.id,next).catch(() => setInterestIds(interestIds)); }} />)}</section>}</>}
   </>;
 }
