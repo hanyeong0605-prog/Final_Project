@@ -98,11 +98,12 @@ public class ResumeDocumentController {
     private static void populateJobKorea(XWPFDocument docx, JsonNode data) {
         var tables = docx.getTables(); if (tables.size() < 13) return;
         XWPFTable personal = tables.get(0);
-        insertPhoto(docx, personal, 0, 0, data.path("profilePhotoDataUrl").asText());
+        // In the JobKorea form, cell 0 is a thin left border; cell 1 is the actual vertically merged photo slot.
+        insertPhoto(docx, personal, 0, 1, data.path("profilePhotoDataUrl").asText());
         put(personal, 0, 4, data.path("name").asText());
         put(personal, 0, 8, age(data.path("birthDate").asText()));
-        put(personal, 1, 4, data.path("targetRole").asText()); put(personal, 1, 8, data.path("careerMonths").asInt(0) > 0 ? data.path("careerMonths").asInt() + "개월" : "신입");
-        put(personal, 2, 4, data.path("phone").asText()); put(personal, 2, 8, data.path("portfolioUrl").asText());
+        put(personal, 1, 4, data.path("targetRole").asText()); put(personal, 1, 6, data.path("careerMonths").asInt(0) > 0 ? data.path("careerMonths").asInt() + "개월" : "신입");
+        put(personal, 2, 4, data.path("phone").asText()); put(personal, 2, 6, data.path("portfolioUrl").asText());
         put(personal, 3, 4, data.path("email").asText()); put(personal, 4, 4, data.path("address").asText());
 
         XWPFTable education = tables.get(1); clearRows(education, 1);
@@ -117,6 +118,7 @@ public class ResumeDocumentController {
         XWPFTable certificates = tables.get(7); clearRows(certificates, 1); fillJobKoreaCertificates(certificates, data);
         fillJobKoreaMilitary(tables.get(8), firstEntry(data, "PREFERENCE"));
         fillJobKoreaSkills(tables.get(9), data.path("skills").asText());
+        clearJobKoreaProjectExamples(tables.get(10)); clearJobKoreaProjectExamples(tables.get(11));
         fillJobKoreaProject(tables.get(10), projectAt(data, 0), 0); fillJobKoreaProject(tables.get(10), projectAt(data, 1), 3);
         fillJobKoreaProject(tables.get(11), projectAt(data, 2), 0); fillJobKoreaProject(tables.get(11), projectAt(data, 3), 3);
         fillJobKoreaIntroduction(tables.get(12), data.path("answers"), data.path("selfIntroductions"));
@@ -124,6 +126,7 @@ public class ResumeDocumentController {
     private static void fillJobKoreaCertificates(XWPFTable table, JsonNode data) { JsonNode details = data.path("certificateDetails"); if (details.isArray()) { ensureRows(table, details.size() + 1); for (int index = 0; index < details.size(); index++) { JsonNode certificate = details.get(index); put(table, index + 1, 0, first(certificate.path("acquiredAt").asText(), certificate.path("acquiredMonth").asText())); put(table, index + 1, 1, certificate.path("name").asText()); put(table, index + 1, 2, certificate.path("grade").asText()); put(table, index + 1, 3, certificate.path("issuer").asText()); put(table, index + 1, 4, certificate.path("remark").asText()); } return; } String[] values = data.path("certificates").asText().split(",\\s*"); ensureRows(table, values.length + 1); for (int index = 0; index < values.length; index++) put(table, index + 1, 1, values[index]); }
     private static void fillJobKoreaMilitary(XWPFTable table, JsonNode entry) { if (entry == null || entry.isMissingNode()) return; JsonNode content = entry.path("content"); String period = first(join(content.path("startedAt").asText(), content.path("endedAt").asText()), join(content.path("startDate").asText(), content.path("endDate").asText()), join(content.path("enlistmentDate").asText(), content.path("dischargeDate").asText()), content.path("servicePeriod").asText(), content.path("period").asText()); put(table, 1, 0, period); put(table, 1, 1, join(content.path("branch").asText(), content.path("rank").asText(), content.path("specialty").asText())); put(table, 1, 2, first(content.path("serviceType").asText(), content.path("veteranStatus").asText())); }
     private static void fillJobKoreaSkills(XWPFTable table, String skills) { java.util.List<String> values = java.util.Arrays.stream(skills.split(",\\s*")).map(String::trim).filter(value -> !value.isBlank()).toList(); ensureRows(table, values.size() + 1); for (int row = 1; row <= values.size(); row++) { put(table, row, 0, values.get(row - 1)); put(table, row, 1, "활용 가능"); put(table, row, 2, "프로젝트/학습 경험"); } }
+    private static void clearJobKoreaProjectExamples(XWPFTable table) { for (int row : new int[] {0, 1, 2, 3, 4, 5, 6}) { if (row >= table.getNumberOfRows()) continue; for (int cell : new int[] {1, 3, 5}) put(table, row, cell, ""); } }
     private static void fillJobKoreaProject(XWPFTable table, JsonNode project, int offset) { if (project == null || project.isMissingNode()) return; put(table, offset + 1, 1, project.path("title").asText()); put(table, offset + 1, 5, projectPeriod(project)); put(table, offset + 2, 1, first(project.path("role").asText(), project.path("description").asText())); put(table, offset + 3, 1, first(project.path("result").asText(), project.path("description").asText())); }
     private static void fillJobKoreaIntroduction(XWPFTable table, JsonNode answers, JsonNode savedIntroductions) { for (int row : new int[] {1, 3, 5, 7}) { int index = (row - 1) / 2; String answer = answers.isArray() && answers.size() > index ? answers.get(index).asText() : ""; put(table, row, 0, first(answer, introductionFor(savedIntroductions, index))); } }
     private static String age(String birthDate) { try { return String.valueOf(java.time.Period.between(java.time.LocalDate.parse(birthDate), java.time.LocalDate.now()).getYears()); } catch (Exception ignored) { return ""; } }

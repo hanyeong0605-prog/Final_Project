@@ -287,8 +287,10 @@ public class ResumeDocumentService {
         Map<String, String> item = new java.util.LinkedHashMap<>();
         item.put("title", entry.path("title").asText("")); item.put("role", lineValue(description, "역할")); item.put("skills", lineValue(description, "기술"));
         item.put("description", description); item.put("problem", ""); item.put("solution", ""); item.put("result", ""); item.put("githubUrl", content.path("url").asText("")); item.put("deploymentUrl", "");
-        item.put("startedAt", content.path("startedAt").asText("")); item.put("endedAt", content.path("endedAt").asText("")); return item;
+        item.put("startedAt", firstJson(content, "startedAt", "startDate", "projectStartedAt", "from"));
+        item.put("endedAt", firstJson(content, "endedAt", "endDate", "projectEndedAt", "to")); return item;
     }
+    private String firstJson(JsonNode content, String... keys) { for (String key : keys) { String value = content.path(key).asText("").trim(); if (!value.isBlank()) return value; } return ""; }
     private String lineValue(String text, String label) { if (blank(text)) return ""; Matcher matcher = Pattern.compile("(?m)(?:^|\\n)\\s*" + Pattern.quote(label) + "\\s*[:：]\\s*([^\\n]+)").matcher(text); return matcher.find() ? matcher.group(1).trim() : ""; }
     /**
      * Extract the fields that can be reflected in a member profile without relying
