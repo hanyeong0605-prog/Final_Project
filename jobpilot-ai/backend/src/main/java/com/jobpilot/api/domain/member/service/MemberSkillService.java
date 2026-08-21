@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Transactional
 public class MemberSkillService {
-    private static final int MAX_SKILLS = 30;
+    private static final int MAX_SKILLS = 40;
     private static final Set<String> LEVELS = Set.of("LEARNING", "PROJECT", "INTERNSHIP", "PROFESSIONAL");
 
     private final MemberSkillRepository memberSkills;
@@ -43,7 +43,7 @@ public class MemberSkillService {
 
     public List<MemberSkillResponse> replace(Long memberId, List<MemberSkillRequest> requested) {
         List<MemberSkillRequest> input = requested == null ? List.of() : requested;
-        if (input.size() > MAX_SKILLS) throw new IllegalArgumentException("보유 기술은 최대 30개까지 저장할 수 있습니다.");
+        if (input.size() > MAX_SKILLS) throw new IllegalArgumentException("보유 기술은 최대 40개까지 저장할 수 있습니다.");
 
         Set<Long> ids = new HashSet<>();
         for (MemberSkillRequest item : input) {

@@ -31,7 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Transactional
 public class ResumeDocumentService {
-    private static final int MAX_PROFILE_SKILLS = 30;
+    private static final int MAX_PROFILE_SKILLS = 40;
     private final ResumeDocumentRepository documents; private final ResumeDocumentTextExtractor extractor;
     private final MemberRepository members; private final MemberProfileRepository profiles; private final MemberSpecificationRepository specs;
     private final MemberSkillRepository memberSkills; private final SkillRepository skillCatalog; private final CertificateRepository certificates; private final ProjectRepository projects;

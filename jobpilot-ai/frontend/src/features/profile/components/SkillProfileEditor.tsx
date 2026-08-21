@@ -14,7 +14,7 @@ const categoryLabels: Record<string, string> = {
   LANGUAGE: "언어", BACKEND: "백엔드", FRONTEND: "프론트엔드", DATABASE: "데이터베이스",
   CLOUD_DEVOPS: "클라우드·DevOps", AI_DATA: "AI·데이터", MOBILE: "모바일", TEST: "테스트", TOOL: "도구",
 };
-const MAX_SKILLS = 30;
+const MAX_SKILLS = 40;
 
 export function SkillProfileEditor({ value, onChange }: { value: MemberSkill[]; onChange: (value: MemberSkill[]) => void }) {
   const [query, setQuery] = useState("");
@@ -60,7 +60,7 @@ export function SkillProfileEditor({ value, onChange }: { value: MemberSkill[]; 
     {value.length > MAX_SKILLS && <div className="skill-limit-alert" role="alert"><strong>기술스택이 {value.length - MAX_SKILLS}개 초과되어 저장할 수 없습니다.</strong><span>아래 목록에서 우선순위가 낮은 기술 {value.length - MAX_SKILLS}개를 삭제한 뒤 저장해 주세요.</span></div>}
     <div className="skill-search-wrap">
       <Search size={16} aria-hidden="true" />
-      <input value={query} onChange={(e) => setQuery(e.target.value)} maxLength={80} disabled={value.length >= MAX_SKILLS} placeholder={value.length >= MAX_SKILLS ? "최대 30개까지 저장할 수 있습니다" : "예: Spring, React, AWS, Python"} aria-label="보유 기술 검색" />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} maxLength={80} disabled={value.length >= MAX_SKILLS} placeholder={value.length >= MAX_SKILLS ? "최대 40개까지 저장할 수 있습니다" : "예: Spring, React, AWS, Python"} aria-label="보유 기술 검색" />
       {searching && <small>검색 중</small>}
       {results.length > 0 && <div className="skill-search-results" role="listbox">
         {results.map((item) => <button type="button" key={item.id} onClick={() => add(item)}>
