@@ -143,7 +143,9 @@ public class ResumeDocumentService {
         String selectedTemplate = templateKey(request.templateKey());
         String title=blank(request.title()) ? templateTitle(selectedTemplate) : request.title().trim();
         String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
-        String aiTemplateHint = blank(templateSource) ? builtInTemplateHint(selectedTemplate) : templateSource;
+        // A blank example inside an uploaded form is layout guidance, never resume evidence.
+        // Built-in forms use a fixed field map, so no sample wording is sent to the model.
+        String aiTemplateHint = blank(templateSource) ? builtInTemplateHint(selectedTemplate) : "업로드 양식의 항목 순서만 참고한다. 양식 안의 예시 인명·회사·문장·수치는 절대 사용하지 않는다.";
         Set<String> enabledSections = request.enabledSections() == null || request.enabledSections().isEmpty()
                 ? Set.of("profile", "skills", "certificates", "education", "projects") : Set.copyOf(request.enabledSections());
         String fallback = buildDraft(title, enabledSections.contains("profile") && profile != null ? profile.getTargetRole() : "",
@@ -171,6 +173,10 @@ public class ResumeDocumentService {
         templateData.put("profilePhotoDataUrl", spec == null ? "" : photoDataUrl(spec));
         templateData.put("skills", enabledSections.contains("skills") ? skillList : ""); templateData.put("certificates", enabledSections.contains("certificates") ? certList : "");
         templateData.set("entries", json.valueToTree(detailedEntries));
+        templateData.set("answers", json.valueToTree(request.answers() == null ? List.of() : request.answers()));
+        templateData.set("certificateDetails", json.valueToTree(certificates.findByMemberId(memberId).stream().map(certificate -> Map.of(
+                "name", empty(certificate.getName()), "issuer", empty(certificate.getIssuer()),
+                "acquiredAt", certificate.getAcquiredAt() == null ? "" : certificate.getAcquiredAt().toString())).toList()));
         templateData.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of("title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()), "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()), "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
         templateData.put("draft", content);
         ResumeDocument document=documents.save(new ResumeDocument(memberId, ResumeDocumentType.GENERATED, title,
@@ -544,7 +550,7 @@ public class ResumeDocumentService {
     private String templateTitle(String template) { return switch (template) { case "ACADEMY" -> "개발교육원형 이력서 초안"; case "SARAMIN" -> "사람인형 이력서 초안"; case "JOBKOREA" -> "잡코리아형 이력서 초안"; default -> "Job-A-Dream 이력서 초안"; }; }
     private String builtInTemplateHint(String template) {
         return switch (template) {
-            case "ACADEMY" -> "개발교육원형: 인적사항, 학력사항, 교육사항, 수행 프로젝트(기간·역할·기술·내용), 핵심 기술역량, 경력사항, 자격 및 교육, 자기소개 순서";
+            case "ACADEMY" -> "개발교육원형: 인적사항(사진 포함), 학력사항, 교육사항, 프로젝트 요약 2건, 기술 환경, 경력사항, 자격·면허, 활동, 자기소개, 프로젝트 상세 2건 순서. 각 칸에는 저장된 사실만 넣고 빈칸은 비워 둔다.";
             case "SARAMIN" -> "사람인형: 기본사항, 학력사항, 경력사항, 인턴·사회봉사, OA·외국어 등 기능사항 순서. 저장 사실이 없는 칸은 비워 둔다.";
             case "JOBKOREA" -> "잡코리아형: 인적사항, 학력사항, 경력사항, 어학, 교육·연수, 기타활동 순서. 프로젝트는 기타활동 또는 경력의 실제 문장으로 간결히 정리한다.";
             default -> "지원 직무, 핵심 역량, 학력 및 경력, 프로젝트 및 경험, 자기소개 순서";
