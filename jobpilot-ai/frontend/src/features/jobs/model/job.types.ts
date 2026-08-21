@@ -30,4 +30,4 @@ export interface JobMatch {
   requirements: RequirementEvidence[];
 }
 
-export interface GrowthAction { requirementId: number | null; requirement: string; category: string; title: string; description: string; nextStep: string; href: string; }
+export interface GrowthAction { requirementId: number | null; requirement: string; category: string; title: string; description: string; nextStep: string; href: string; relatedRequirementIds?: number[]; }
