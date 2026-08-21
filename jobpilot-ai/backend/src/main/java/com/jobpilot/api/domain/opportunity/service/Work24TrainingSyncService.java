@@ -31,16 +31,25 @@ public class Work24TrainingSyncService {
     @EventListener(ApplicationReadyEvent.class)
     public void initialSync() { if (enabled && !apiKey.isBlank()) sync(); }
     public int sync() {
+        jdbc.update("INSERT INTO work24_training_sync_runs(status) VALUES ('RUNNING')");
+        Long runId=jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
         try {
-            LocalDate today=LocalDate.now(); String body=client.get().uri(uri -> uri.scheme("https").host("www.work24.go.kr").path("/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do")
-                    .queryParam("authKey", apiKey).queryParam("returnType", "JSON").queryParam("outType", "1").queryParam("pageNum", 1).queryParam("pageSize", 100)
-                    .queryParam("srchTraStDt", today.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)).queryParam("srchTraEndDt", today.plusMonths(6).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE))
-                    .queryParam("srchNcs1", "20").queryParam("sort", "ASC").queryParam("sortCol", "2").build()).retrieve().body(String.class);
-            JsonNode courses=json.readTree(body).path("srchList"); int saved=0; if (!courses.isArray()) return 0;
-            for (JsonNode course : courses) if (isDevelopmentCourse(course)) { upsert(course, tags(course)); saved++; }
+            LocalDate today=LocalDate.now(); int saved=0; int total=1;
+            for (int page=1; page<=10 && (page-1)*100<total; page++) {
+                JsonNode response=json.readTree(fetch(today.minusMonths(3), today.plusMonths(6), page)); JsonNode courses=response.path("srchList"); total=response.path("scn_cnt").asInt(0);
+                if (!courses.isArray()) break;
+                for (JsonNode course : courses) if (isDevelopmentCourse(course)) { upsert(course, tags(course)); saved++; }
+            }
+            jdbc.update("UPDATE opportunities SET status='EXPIRED' WHERE source_name='WORK24' AND event_end_at < NOW() AND status='ACTIVE'");
+            jdbc.update("UPDATE work24_training_sync_runs SET finished_at=NOW(), imported_count=?, status='SUCCESS' WHERE id=?", saved, runId);
+            log.info("고용24 IT·개발 훈련과정 동기화 완료: {}건", saved);
             return saved;
-        } catch (Exception error) { log.warn("고용24 훈련과정 동기화에 실패했습니다.", error); return 0; }
+        } catch (Exception error) { jdbc.update("UPDATE work24_training_sync_runs SET finished_at=NOW(), status='FAILED', error_message=? WHERE id=?", error.getMessage(), runId); log.warn("고용24 훈련과정 동기화에 실패했습니다.", error); return 0; }
     }
+    private String fetch(LocalDate from, LocalDate to, int page) { return client.get().uri(uri -> uri.scheme("https").host("www.work24.go.kr").path("/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do")
+            .queryParam("authKey", apiKey).queryParam("returnType", "JSON").queryParam("outType", "1").queryParam("pageNum", page).queryParam("pageSize", 100)
+            .queryParam("srchTraStDt", from.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)).queryParam("srchTraEndDt", to.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE))
+            .queryParam("srchNcs1", "20").queryParam("sort", "ASC").queryParam("sortCol", "2").build()).retrieve().body(String.class); }
     private boolean isDevelopmentCourse(JsonNode course) { String ncs=course.path("ncsCd").asText(); String title=course.path("title").asText("").toLowerCase(Locale.ROOT); return ncs.startsWith("20") && IT_WORDS.stream().anyMatch(title::contains); }
     private List<String> tags(JsonNode course) { String text=(course.path("title").asText()+" "+course.path("contents").asText()).toLowerCase(Locale.ROOT); List<String> found=new ArrayList<>(); for (String word:IT_WORDS) if(text.contains(word)) found.add(word); return found; }
     private void upsert(JsonNode c, List<String> tags) {
