@@ -149,7 +149,7 @@ qnet:
     key: ${QNET_API_KEY:}
 
 work24:
-  enabled: ${WORK24_SYNC_ENABLED:false}
+  enabled: ${WORK24_SYNC_ENABLED:true}
   naeil-learning-api-key: ${WORK24_NAEIL_LEARNING_API_KEY:}
   sync-cron: "${WORK24_SYNC_CRON:0 15 5 * * *}"
 

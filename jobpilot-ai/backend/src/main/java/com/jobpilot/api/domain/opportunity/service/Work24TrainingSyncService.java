@@ -14,10 +14,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Imports only information-communication training courses; it never stores the full Work24 catalogue. */
 @Service
 public class Work24TrainingSyncService {
+    private static final Logger log = LoggerFactory.getLogger(Work24TrainingSyncService.class);
     private static final String ENDPOINT = "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do";
     private static final List<String> IT_WORDS = List.of("개발", "프로그래밍", "코딩", "소프트웨어", "웹", "앱", "java", "spring", "python", "react", "데이터", "database", "db", "ai", "인공지능", "클라우드", "aws", "docker", "보안", "네트워크", "linux", "빅데이터");
     private final JdbcTemplate jdbc; private final ObjectMapper json; private final RestClient client = RestClient.create();
@@ -36,7 +39,7 @@ public class Work24TrainingSyncService {
             JsonNode courses=json.readTree(body).path("srchList"); int saved=0; if (!courses.isArray()) return 0;
             for (JsonNode course : courses) if (isDevelopmentCourse(course)) { upsert(course, tags(course)); saved++; }
             return saved;
-        } catch (Exception ignored) { return 0; }
+        } catch (Exception error) { log.warn("고용24 훈련과정 동기화에 실패했습니다.", error); return 0; }
     }
     private boolean isDevelopmentCourse(JsonNode course) { String ncs=course.path("ncsCd").asText(); String title=course.path("title").asText("").toLowerCase(Locale.ROOT); return ncs.startsWith("20") && IT_WORDS.stream().anyMatch(title::contains); }
     private List<String> tags(JsonNode course) { String text=(course.path("title").asText()+" "+course.path("contents").asText()).toLowerCase(Locale.ROOT); List<String> found=new ArrayList<>(); for (String word:IT_WORDS) if(text.contains(word)) found.add(word); return found; }
