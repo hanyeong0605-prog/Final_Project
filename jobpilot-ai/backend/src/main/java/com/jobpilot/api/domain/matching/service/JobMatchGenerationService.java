@@ -164,7 +164,8 @@ public class JobMatchGenerationService {
             Certificate matchedCertificate = type.equals("CERTIFICATION") ? memberCertificates.stream()
                     .filter(certificate -> containsCertificate(content, certificate)).findFirst().orElse(null) : null;
             boolean profileMatch = !type.equals("SKILL") && profileMatches(type, content, profile, specification);
-            ResumeEntry resumeEvidence = findResumeEvidence(type, content, matchedSkill, memberResumeEntries);
+            boolean employmentEvidenceAllowed = !type.equals("EXPERIENCE") || isExperienced(profile);
+            ResumeEntry resumeEvidence = employmentEvidenceAllowed ? findResumeEvidence(type, content, matchedSkill, memberResumeEntries) : null;
             // A broad experience requirement (for example, "prompt engineering experience")
             // needs a matching member-written record. Career duration alone must not become
             // false proof for every detailed experience requirement in the posting.
@@ -281,13 +282,17 @@ public class JobMatchGenerationService {
     private boolean profileMatches(String type, String requirement, MemberProfile profile, MemberSpecification specification) {
         if (type.equals("EXPERIENCE")) {
             int requiredMonths = requiredCareerMonths(requirement);
-            return requiredMonths > 0 && specification != null && specification.getTotalCareerMonths() >= requiredMonths;
+            return isExperienced(profile) && requiredMonths > 0 && specification != null && specification.getTotalCareerMonths() >= requiredMonths;
         }
         if (type.equals("EDUCATION")) {
             return specification != null && educationRank(specification.getEducationLevel()) >= requiredEducationRank(requirement);
         }
         if (type.equals("CERTIFICATION")) return false;
         return false;
+    }
+
+    private boolean isExperienced(MemberProfile profile) {
+        return profile != null && "EXPERIENCED".equalsIgnoreCase(safe(profile.getExperienceType()));
     }
 
     private boolean roleMatches(JobPosting posting, MemberProfile profile) {
