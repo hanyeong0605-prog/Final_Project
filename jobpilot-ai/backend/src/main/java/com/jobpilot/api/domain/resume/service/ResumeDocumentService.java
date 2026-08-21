@@ -262,10 +262,11 @@ public class ResumeDocumentService {
         if (!projectItems.isEmpty()) data.set("projects", json.valueToTree(projectItems));
         else if (!existingProjects.isArray()) data.putArray("projects");
         if (data.path("answers").isArray() && data.path("answers").size() == 1 && data.path("answers").get(0).asText().startsWith("저장된 이력·프로젝트")) data.putArray("answers");
-        if (!data.path("selfIntroductions").isArray() || data.path("selfIntroductions").isEmpty()) data.set("selfIntroductions", json.valueToTree(introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream()
+        if (!hasUsableIntroduction(data.path("selfIntroductions"))) data.set("selfIntroductions", json.valueToTree(introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream()
                 .map(item -> Map.of("title", empty(item.getTitle()), "content", empty(item.getContent()))).toList()));
         return data;
     }
+    private boolean hasUsableIntroduction(JsonNode values) { if (!values.isArray()) return false; for (JsonNode value : values) if (!blank(value.path("content").asText())) return true; return false; }
     private List<Map<String, String>> projectTemplateItems(Long memberId, JsonNode entries) {
         List<Project> savedProjects = projects.findByMemberId(memberId);
         if (!savedProjects.isEmpty()) return savedProjects.stream().map(this::projectTemplateItem).toList();
