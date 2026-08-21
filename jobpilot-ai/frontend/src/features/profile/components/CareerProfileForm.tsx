@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { jobFamilies } from "../data/profileCatalog";
 import { emptyCareerProfile, type CareerProfile } from "../model/careerProfile.types";
 import type { MemberSkill } from "../model/memberSkill.types";
@@ -20,7 +20,6 @@ type Props = {
 
 export function CareerProfileForm({ initial, initialSkills, initialCertificates, onCertificatesChange, onSave, educationSection }: Props) {
   const [form, setForm] = useState<CareerProfile>(initial ?? emptyCareerProfile());
-  const formRef = useRef<HTMLFormElement>(null);
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
   const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
   const [saving, setSaving] = useState(false);
@@ -49,19 +48,19 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     if (blankCertificate >= 0) { notify("error", `자격증 ${blankCertificate + 1}의 자격증명은 필수입니다.`); focusSection("resume-certificates"); return false; }
     return true;
   };
-  useEffect(() => { const submitProfile = (event: Event) => { if (!validate()) { event.preventDefault(); return; } formRef.current?.requestSubmit(); }; window.addEventListener("resume-profile:save", submitProfile); return () => window.removeEventListener("resume-profile:save", submitProfile); }, [form, certificates]);
-
   const set = <K extends keyof CareerProfile>(key: K, value: CareerProfile[K]) => setForm((current) => ({ ...current, [key]: value }));
   const knownFamily = Object.hasOwn(jobFamilies, form.targetJobFamily);
   const roles = knownFamily ? jobFamilies[form.targetJobFamily] : [];
   const knownRole = roles.includes(form.targetRole);
-  const submit = async (event: FormEvent) => {
-    event.preventDefault(); if (!validate()) return; setSaving(true);
+  const saveProfile = async (showSuccess: boolean) => {
+    if (!validate()) return false;
+    setSaving(true);
     try {
       const validCertificates = certificates.filter((certificate) => certificate.name.trim());
-      if (validCertificates.length !== certificates.length) return;
+      if (validCertificates.length !== certificates.length) return false;
       await onSave(form, skills, validCertificates);
-      notify("success", "스펙정보와 보유 기술을 저장했습니다.");
+      if (showSuccess) notify("success", "스펙정보와 보유 기술을 저장했습니다.");
+      return true;
     }
     catch (error) {
       const message = errorMessage(error, "서버와 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -69,16 +68,18 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       else if (message.includes("자격증")) focusSection("resume-certificates");
       else if (message.includes("직무")) focusSection("resume-desired-role");
       notify("error", `저장하지 못했습니다: ${message}`);
+      return false;
     }
     finally { setSaving(false); }
   };
+  useEffect(() => { const submitProfile = (event: Event) => { event.preventDefault(); const detail = (event as CustomEvent<{ save?: Promise<boolean> }>).detail; const task = saveProfile(false); if (detail) detail.save = task; else void task; }; window.addEventListener("resume-profile:save", submitProfile); return () => window.removeEventListener("resume-profile:save", submitProfile); });
   const changePhoto = (file: File | undefined) => {
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) { notify("error", "사진은 JPG, PNG, WEBP 형식의 2MB 이하 파일만 첨부할 수 있습니다."); return; }
     const reader = new FileReader(); reader.onload = () => set("profilePhotoDataUrl", typeof reader.result === "string" ? reader.result : null); reader.readAsDataURL(file);
   };
 
-  return <form ref={formRef} className="career-profile-form" noValidate onSubmit={submit}>
+  return <form className="career-profile-form" noValidate onSubmit={(event) => { event.preventDefault(); void saveProfile(true); }}>
     <div className="form-section" id="resume-profile-photo"><h3>프로필 사진 <span className="optional-label">선택</span></h3><p className="form-hint">사진 없이도 저장·지원할 수 있습니다. JPG·PNG·WEBP, 최대 2MB.</p><div className="profile-photo-control">{form.profilePhotoDataUrl ? <img src={form.profilePhotoDataUrl} alt="첨부한 프로필 사진 미리보기" /> : <span>사진 없음</span>}<div><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => changePhoto(event.target.files?.[0])} /><button type="button" className="outline-button" disabled={!form.profilePhotoDataUrl} onClick={() => set("profilePhotoDataUrl", null)}>사진 삭제</button></div></div></div>
     <div className="form-section" id="resume-desired-role"><h3>희망 직무</h3><div className="form-fields">
       <label>직무 분야*<select required value={knownFamily ? form.targetJobFamily : "OTHER"} onChange={(event) => { const next = event.target.value; set("targetJobFamily", next === "OTHER" ? "" : next); set("targetRole", ""); }}><option value="" disabled>직무 분야를 선택하세요</option>{Object.keys(jobFamilies).map((family) => <option key={family} value={family}>{family}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>

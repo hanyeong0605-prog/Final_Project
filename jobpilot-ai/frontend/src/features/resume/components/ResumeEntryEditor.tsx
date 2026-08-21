@@ -52,14 +52,16 @@ export function ResumeEntryEditor({ profileEditor, selfIntroduction, certificate
   const remove = async (entry: ResumeEntry) => { if (!confirmDiscard(entry)) return; setBusy(true); try { await deleteResumeEntry(entry.id); setEntries((current) => current.filter((value) => value.id !== entry.id)); notify("success", "항목을 삭제했습니다."); } catch { notify("error", "항목을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요."); } finally { setBusy(false); } };
   const removeLatest = (section: Section) => { const latest = [...(byType.get(section.type) ?? [])].at(-1); if (latest) void remove(latest); };
   const saveAll = async (finalSave: boolean) => {
-    if (!window.dispatchEvent(new CustomEvent("resume-profile:save", { cancelable: true }))) return;
-    const pending = Object.values(drafts).flat(); if (pending.length === 0) { try { await onSaveState?.(finalSave ? "SAVED" : "DRAFT"); if (!profileEditor) notify("success", finalSave ? "저장되었습니다." : "임시 저장되었습니다."); } catch { notify("error", "저장 상태를 기록하지 못했습니다."); } return; }
+    const pending = Object.values(drafts).flat();
     const invalid = pending.find((draft) => (!fixedTitleTypes.has(draft.value.entryType) && !draft.value.title.trim()) || (draft.value.entryType === "PERSONAL" && !String(draft.value.content.name ?? "").trim())); if (invalid) { const section = sections.find((item) => item.type === invalid.value.entryType); const message = invalid.value.entryType === "PERSONAL" ? "성명(한글)은 필수입니다." : `${section?.title ?? "이력서"}명은 필수입니다.`; notify("error", message); if (section) focusSection(section); return; }
     const normalized = pending.map((draft) => { const section = sections.find((item) => item.type === draft.value.entryType); return { ...draft, value: fixedTitleTypes.has(draft.value.entryType) && section ? { ...draft.value, title: section.title } : { ...draft.value, title: draft.value.title.trim() } }; });
     setBusy(true); try {
+      const profileSave = new CustomEvent<{ save?: Promise<boolean> }>("resume-profile:save", { cancelable: true, detail: {} });
+      window.dispatchEvent(profileSave);
+      if (profileSave.detail.save && !(await profileSave.detail.save)) return;
       const saved = await Promise.all(normalized.map((draft) => draft.editingId ? updateResumeEntry(draft.editingId, draft.value) : createResumeEntry(draft.value)));
-      setEntries((current) => [...current.filter((entry) => !saved.some((value) => value.id === entry.id)), ...saved].sort((a, b) => a.entryType.localeCompare(b.entryType) || a.displayOrder - b.displayOrder || a.id - b.id));
-      await onSaveState?.(finalSave ? "SAVED" : "DRAFT"); setDrafts({}); if (!profileEditor) notify("success", finalSave ? "저장되었습니다." : "임시 저장되었습니다.");
+      if (saved.length) setEntries((current) => [...current.filter((entry) => !saved.some((value) => value.id === entry.id)), ...saved].sort((a, b) => a.entryType.localeCompare(b.entryType) || a.displayOrder - b.displayOrder || a.id - b.id));
+      await onSaveState?.(finalSave ? "SAVED" : "DRAFT"); if (saved.length) setDrafts({}); notify("success", finalSave ? "정보를 저장했습니다." : "임시 저장했습니다.");
     } catch (error) { const message = error instanceof Error && error.message.trim() ? error.message.trim() : "서버와 통신하지 못했습니다. 잠시 후 다시 시도해 주세요."; notify("error", `저장하지 못했습니다: ${message}`); } finally { setBusy(false); }
   };
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
