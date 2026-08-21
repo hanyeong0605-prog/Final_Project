@@ -182,7 +182,7 @@ public class ResumeDocumentService {
         templateData.set("certificateDetails", json.valueToTree(certificates.findByMemberId(memberId).stream().map(certificate -> Map.of(
                 "name", empty(certificate.getName()), "issuer", empty(certificate.getIssuer()),
                 "acquiredAt", certificate.getAcquiredAt() == null ? "" : certificate.getAcquiredAt().toString())).toList()));
-        templateData.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of("title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()), "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()), "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
+        templateData.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of("title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()), "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()), "githubUrl", empty(project.getGithubUrl()), "deploymentUrl", empty(project.getDeploymentUrl()), "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
         templateData.put("draft", content);
         ResumeDocument document=documents.save(new ResumeDocument(memberId, ResumeDocumentType.GENERATED, title,
                 templateFile == null || templateFile.isEmpty() ? null : templateFile.getOriginalFilename(), null, content, metadata, selectedTemplate));
@@ -199,6 +199,11 @@ public class ResumeDocumentService {
                 .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).map(ResumeEntry::getContent).findFirst().orElse(json.createObjectNode());
         if (blank(data.path("hanjaName").asText())) data.put("hanjaName", personal.path("hanjaName").asText(""));
         if (blank(data.path("birthDate").asText())) data.put("birthDate", personal.path("birthDate").asText(""));
+        data.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of(
+                "title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()),
+                "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()),
+                "githubUrl", empty(project.getGithubUrl()), "deploymentUrl", empty(project.getDeploymentUrl()),
+                "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
         if (!data.path("selfIntroductions").isArray()) data.set("selfIntroductions", json.valueToTree(introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream()
                 .map(item -> Map.of("title", empty(item.getTitle()), "content", empty(item.getContent()))).toList()));
         return data;
