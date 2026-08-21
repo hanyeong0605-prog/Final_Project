@@ -140,8 +140,8 @@ public class ResumeDocumentService {
         List<Map<String, Object>> detailedEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
                 .map(entry -> Map.<String, Object>of("type", entry.getEntryType().name(), "title", entry.getTitle(), "content", json.convertValue(entry.getContent(), Map.class))).toList();
         String intro=introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().map(SelfIntroduction::getContent).findFirst().orElse("");
-        String title=blank(request.title()) ? "Job-A-Dream 이력서 초안" : request.title().trim();
         String selectedTemplate = templateKey(request.templateKey());
+        String title=blank(request.title()) ? templateTitle(selectedTemplate) : request.title().trim();
         String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
         String aiTemplateHint = blank(templateSource) ? builtInTemplateHint(selectedTemplate) : templateSource;
         Set<String> enabledSections = request.enabledSections() == null || request.enabledSections().isEmpty()
@@ -168,6 +168,7 @@ public class ResumeDocumentService {
         templateData.put("schoolName", spec == null ? "" : empty(spec.getSchoolName())); templateData.put("major", spec == null ? "" : empty(spec.getMajor()));
         templateData.put("educationLevel", spec == null ? "" : empty(spec.getEducationLevel())); templateData.put("graduationStatus", spec == null ? "" : empty(spec.getGraduationStatus()));
         templateData.put("technicalSummary", spec == null ? "" : empty(spec.getTechnicalSummary()));
+        templateData.put("profilePhotoDataUrl", spec == null ? "" : photoDataUrl(spec));
         templateData.put("skills", enabledSections.contains("skills") ? skillList : ""); templateData.put("certificates", enabledSections.contains("certificates") ? certList : "");
         templateData.set("entries", json.valueToTree(detailedEntries));
         templateData.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of("title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()), "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()), "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
@@ -177,6 +178,7 @@ public class ResumeDocumentService {
         return ResumeDocumentResponse.from(document);
     }
     public ResumeDocument owned(Long memberId, Long id) { return documents.findByIdAndMemberId(id, memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이력서 문서를 찾을 수 없습니다.")); }
+    public ResumeDocumentResponse rename(Long memberId, Long id, String title) { if (blank(title)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이력서 이름을 입력해 주세요."); ResumeDocument document = owned(memberId, id); document.rename(title.trim()); return ResumeDocumentResponse.from(document); }
     /**
      * Extract the fields that can be reflected in a member profile without relying
      * on an LLM. This is deliberately a conservative fallback: it only emits a
@@ -539,6 +541,7 @@ public class ResumeDocumentService {
         if ("COMPACT".equalsIgnoreCase(value)) return "COMPACT";
         return "STANDARD";
     }
+    private String templateTitle(String template) { return switch (template) { case "ACADEMY" -> "개발교육원형 이력서 초안"; case "SARAMIN" -> "사람인형 이력서 초안"; case "JOBKOREA" -> "잡코리아형 이력서 초안"; default -> "Job-A-Dream 이력서 초안"; }; }
     private String builtInTemplateHint(String template) {
         return switch (template) {
             case "ACADEMY" -> "개발교육원형: 인적사항, 학력사항, 교육사항, 수행 프로젝트(기간·역할·기술·내용), 핵심 기술역량, 경력사항, 자격 및 교육, 자기소개 순서";
@@ -685,5 +688,6 @@ public class ResumeDocumentService {
     private String nonBlankSuffix(String value) { return blank(value) ? "" : " · " + shorten(value, 120); }
     private String entrySummary(JsonNode value) { if (value == null || value.isMissingNode()) return ""; String detail = String.join(" · ", List.of(value.path("company").asText(), value.path("school").asText(), value.path("major").asText(), value.path("description").asText()).stream().filter(item -> !blank(item)).toList()); return blank(detail) ? "" : " · " + shorten(detail, 120); }
     private String merge(String current,String extracted){ return blank(current)?extracted:(blank(extracted)?current:current+"\n"+extracted); }
+    private String photoDataUrl(MemberSpecification specification) { return specification.getProfilePhoto() == null || blank(specification.getProfilePhotoContentType()) ? "" : "data:" + specification.getProfilePhotoContentType() + ";base64," + Base64.getEncoder().encodeToString(specification.getProfilePhoto()); }
     private String empty(String v){return v==null?"":v;} private boolean blank(String v){return v==null||v.isBlank();} private String value(String v,String fallback){return blank(v)?fallback:v;} private String joinNonBlank(String a,String b){return (empty(a)+" "+empty(b)).trim();}
 }
