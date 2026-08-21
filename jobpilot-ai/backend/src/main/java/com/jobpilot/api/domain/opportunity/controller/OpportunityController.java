@@ -43,7 +43,7 @@ public class OpportunityController {
         return new OpportunityResponse(
                 value.getId(), value.getType(), value.getTitle(), value.getOrganization(),
                 period(value.getEventStartAt(), value.getEventEndAt()),
-                format(value.getDeadlineAt()), reason(value), tags(value), value.getSourceUrl(), value.getType().equals("교육") && value.getEventEndAt() != null && value.getEventEndAt().isBefore(LocalDateTime.now()) ? "EXPIRED" : value.getStatus()
+                format(value.getDeadlineAt()), reason(value), tags(value), value.getSourceUrl(), value.getType().equals("교육") && value.getEventEndAt() != null && value.getEventEndAt().isBefore(LocalDateTime.now()) ? "EXPIRED" : value.getStatus(), value.getTrainingAddress(), value.getTrainingPhone(), value.getTrainingTarget(), value.getCapacity(), value.getEnrolledCount(), value.getCourseFee(), value.getSelfPayFee(), value.getSatisfactionScore(), value.getDetailUrl(), value.getInstitutionUrl()
         );
     }
 

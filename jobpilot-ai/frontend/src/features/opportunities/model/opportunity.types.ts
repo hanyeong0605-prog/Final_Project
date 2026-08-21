@@ -11,4 +11,5 @@ export interface Opportunity {
   tags: string[];
   sourceUrl: string;
   status: string;
+  address: string; phone: string; trainingTarget: string; capacity: number | null; enrolledCount: number | null; courseFee: number | null; selfPayFee: number | null; satisfactionScore: number | null; detailUrl: string; institutionUrl: string;
 }
