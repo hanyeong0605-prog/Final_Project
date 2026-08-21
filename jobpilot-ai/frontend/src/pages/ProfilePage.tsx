@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCareerProfile, saveCareerProfile } from "../features/profile/api/careerProfileApi";
+import { getCareerProfile, resetCareerProfile, saveCareerProfile } from "../features/profile/api/careerProfileApi";
 import { getMemberSkills, saveMemberSkills } from "../features/profile/api/memberSkillsApi";
 import { getMemberCertificates, saveMemberCertificates } from "../features/profile/api/memberCertificatesApi";
 import { CareerProfileForm } from "../features/profile/components/CareerProfileForm";
@@ -26,7 +26,7 @@ export function ProfilePage() {
   const saveError = (area: string, error: unknown): never => { const reason = error instanceof Error && error.message ? error.message : "알 수 없는 오류"; throw new Error(`${area}: ${reason}`); };
   return <>
     <PageHeading eyebrow="EVIDENCE-BASED PROFILE" title="나의 스펙정보" body="입력한 목표·경력·기술 경험을 채용공고의 필수·우대 조건과 비교하는 추천 근거로 사용합니다." />
-    <ResumeEntryEditor certificateCount={certificateCount} onSaveState={saveResumeSaveState} onCertificateAction={(action) => window.dispatchEvent(new Event(`resume-certificates:${action}`))} profileEditor={(educationSection) => <section className="panel profile-form-panel">
+    <ResumeEntryEditor certificateCount={certificateCount} onSaveState={saveResumeSaveState} onResetAll={async () => { await resetCareerProfile(); setProfile(undefined); setSkills([]); setCertificates([]); setCertificateCount(0); }} onCertificateAction={(action) => window.dispatchEvent(new Event(`resume-certificates:${action}`))} profileEditor={(educationSection) => <section className="panel profile-form-panel">
       <CareerProfileForm educationSection={educationSection} initial={profile} initialSkills={skills} initialCertificates={certificates} onCertificatesChange={(items) => setCertificateCount(items.length)} onSave={async (value, memberSkills, memberCertificates) => {
         const savedProfile = await saveCareerProfile(value).catch((error: unknown) => saveError("스펙정보", error));
         const savedSkills = await saveMemberSkills(memberSkills.map(({ skillId, selfReportedLevel, note }) => ({ skillId, selfReportedLevel, note }))).catch((error: unknown) => saveError("보유 기술", error));

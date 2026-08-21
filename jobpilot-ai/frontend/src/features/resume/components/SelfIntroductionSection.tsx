@@ -11,6 +11,7 @@ export function SelfIntroductionSection() {
   const [entries, setEntries] = useState<SelfIntroduction[]>([]); const [drafts, setDrafts] = useState<Draft[]>([]); const [busy, setBusy] = useState(false);
   const notify = (type: "success" | "error", text: string) => window.dispatchEvent(new CustomEvent("resume:toast", { detail: { type, text } }));
   useEffect(() => { void listSelfIntroductions().then(setEntries).catch(() => notify("error", "자기소개서를 불러오지 못했습니다.")); }, []);
+  useEffect(() => { const resetSelfIntroductions = () => { setEntries([]); setDrafts([]); }; window.addEventListener("resume-profile:reset", resetSelfIntroductions); return () => window.removeEventListener("resume-profile:reset", resetSelfIntroductions); }, []);
   const add = () => setDrafts((current) => [...current, emptyDraft()]);
   const edit = (entry: SelfIntroduction) => setDrafts((current) => current.some((draft) => draft.id === entry.id) ? current : [...current, { id: entry.id, category: categories.find((category) => entry.title.startsWith(`[${category}]`)) ?? "직접 입력", title: entry.title.replace(/^\[[^\]]+\]\s*/, ""), content: entry.content }]);
   const updateDraft = (index: number, draft: Draft) => setDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? draft : item));

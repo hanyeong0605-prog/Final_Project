@@ -9,4 +9,5 @@ public interface ResumeEntryRepository extends JpaRepository<ResumeEntry, Long> 
     List<ResumeEntry> findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(Long memberId);
     Optional<ResumeEntry> findByIdAndMemberId(Long id, Long memberId);
     long deleteByIdAndMemberId(Long id, Long memberId);
+    void deleteByMemberId(Long memberId);
 }

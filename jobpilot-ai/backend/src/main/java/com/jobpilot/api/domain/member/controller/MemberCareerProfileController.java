@@ -24,6 +24,8 @@ public class MemberCareerProfileController {
     public MemberCareerProfileResponse save(Authentication auth, @Valid @RequestBody MemberCareerProfileRequest request) {
         return service.save(AuthenticatedMember.id(auth), request);
     }
+    @DeleteMapping
+    public ResponseEntity<Void> reset(Authentication auth) { service.reset(AuthenticatedMember.id(auth)); return ResponseEntity.noContent().build(); }
     @PostMapping("/skip")
     public MemberResponse skip(Authentication auth) { return service.skip(AuthenticatedMember.id(auth)); }
 }

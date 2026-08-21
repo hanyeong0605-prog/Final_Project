@@ -9,6 +9,7 @@ import com.jobpilot.api.domain.member.entity.*;
 import com.jobpilot.api.domain.member.repository.*;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import com.jobpilot.api.domain.matching.service.JobMatchRefreshScheduler;
+import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Base64;
@@ -24,9 +25,14 @@ public class MemberCareerProfileService {
     private final MemberRepository members; private final MemberProfileRepository profiles;
     private final MemberSpecificationRepository specifications; private final ObjectMapper objectMapper;
     private final JobMatchRefreshScheduler matchRefreshScheduler;
+    private final MemberSkillRepository memberSkills; private final CertificateRepository certificates;
+    private final ResumeEntryRepository resumeEntries; private final SelfIntroductionRepository selfIntroductions;
     public MemberCareerProfileService(MemberRepository members, MemberProfileRepository profiles,
-            MemberSpecificationRepository specifications, ObjectMapper objectMapper, JobMatchRefreshScheduler matchRefreshScheduler) {
+            MemberSpecificationRepository specifications, ObjectMapper objectMapper, JobMatchRefreshScheduler matchRefreshScheduler,
+            MemberSkillRepository memberSkills, CertificateRepository certificates, ResumeEntryRepository resumeEntries,
+            SelfIntroductionRepository selfIntroductions) {
         this.members = members; this.profiles = profiles; this.specifications = specifications; this.objectMapper = objectMapper; this.matchRefreshScheduler = matchRefreshScheduler;
+        this.memberSkills = memberSkills; this.certificates = certificates; this.resumeEntries = resumeEntries; this.selfIntroductions = selfIntroductions;
     }
     public MemberCareerProfileResponse get(Long memberId) {
         MemberProfile profile = profiles.findById(memberId).orElse(null);
@@ -50,6 +56,14 @@ public class MemberCareerProfileService {
         return response(profile, spec);
     }
     public MemberResponse skip(Long memberId) { Member member = member(memberId); member.completeOnboarding(); return MemberResponse.from(member); }
+    public void reset(Long memberId) {
+        member(memberId);
+        memberSkills.deleteByMemberId(memberId); certificates.deleteByMemberId(memberId);
+        resumeEntries.deleteByMemberId(memberId); selfIntroductions.deleteByMemberId(memberId);
+        profiles.findById(memberId).ifPresent(profiles::delete);
+        specifications.findById(memberId).ifPresent(specifications::delete);
+        matchRefreshScheduler.enqueueForMember(memberId);
+    }
     private Member member(Long id) { return members.findById(id).orElseThrow(() -> new ResourceNotFoundException("회원을 찾을 수 없습니다.")); }
     private String clean(String value) { return value == null || value.isBlank() ? null : value.trim(); }
     private MemberCareerProfileResponse response(MemberProfile p, MemberSpecification s) {

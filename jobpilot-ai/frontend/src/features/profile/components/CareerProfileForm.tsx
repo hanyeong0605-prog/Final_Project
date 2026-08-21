@@ -27,6 +27,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   useEffect(() => { if (initialSkills) setSkills(initialSkills); }, [initialSkills]);
   useEffect(() => { if (initialCertificates) setCertificates(initialCertificates); }, [initialCertificates]);
   useEffect(() => { onCertificatesChange?.(certificates); }, [certificates, onCertificatesChange]);
+  useEffect(() => { const resetProfile = () => { setForm(emptyCareerProfile()); setSkills([]); setCertificates([]); }; window.addEventListener("resume-profile:reset", resetProfile); return () => window.removeEventListener("resume-profile:reset", resetProfile); }, []);
   useEffect(() => {
     const addCertificate = () => setCertificates((current) => current.length >= 20 ? current : [...current, emptyMemberCertificate()]);
     const removeCertificate = () => setCertificates((current) => {

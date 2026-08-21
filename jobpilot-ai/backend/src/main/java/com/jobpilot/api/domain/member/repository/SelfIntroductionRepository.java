@@ -9,4 +9,5 @@ public interface SelfIntroductionRepository extends JpaRepository<SelfIntroducti
     // 경로에서는 항상 memberId까지 같이 조건에 걸어서 조회한다(PlannerEventRepository의
     // findByIdAndMemberId와 같은 패턴).
     Optional<SelfIntroduction> findByIdAndMemberId(Long id, Long memberId);
+    void deleteByMemberId(Long memberId);
 }
