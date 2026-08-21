@@ -6,7 +6,6 @@ import { getResumeAiConsent, saveResumeAiConsent } from "../api/resumeConsentApi
 
 const templates = [
   { key: "ACADEMY", name: "개발교육원형", description: "교육·수행 프로젝트·기술 역량을 자세히 보여줍니다.", preview: "/resume-templates/academy.png" },
-  { key: "SARAMIN", name: "사람인형", description: "기본사항과 학력·경력 중심으로 정리합니다.", preview: "/resume-templates/saramin.png" },
   { key: "JOBKOREA", name: "잡코리아형", description: "핵심 이력을 간결한 표 형식으로 정리합니다.", preview: "/resume-templates/jobkorea.png" },
 ] as const;
 
@@ -148,7 +147,8 @@ export function ResumeWritingAssistantSection() {
     catch (error) { setMessage(error instanceof Error ? error.message : "이력서 초안 생성에 실패했습니다."); }
     finally { setLoading(false); }
   };
-  const generated = documents.filter((document) => document.type === "GENERATED");
+  // 사람인형은 더 이상 새 초안으로 제공하지 않는다. 기존 DB 레코드는 보존하되 목록에서도 숨긴다.
+  const generated = documents.filter((document) => document.type === "GENERATED" && document.templateKey !== "SARAMIN");
   const removeGenerated = async (ids: number[]) => {
     if (!ids.length || !confirm(`선택한 이력서 초안 ${ids.length}개를 삭제할까요? 삭제 후 복구할 수 없습니다.`)) return;
     setLoading(true); setMessage("");

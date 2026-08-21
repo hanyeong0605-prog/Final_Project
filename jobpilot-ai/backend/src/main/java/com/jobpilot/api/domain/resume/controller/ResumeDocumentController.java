@@ -56,23 +56,29 @@ public class ResumeDocumentController {
     public ResponseEntity<byte[]> download(Authentication auth, @PathVariable Long id) throws Exception {
         ResumeDocument document = service.owned(AuthenticatedMember.id(auth), id);
         String templateKey = document.getTemplateKey() == null ? "STANDARD" : document.getTemplateKey();
-        String resource = switch (templateKey) {
-            case "ACADEMY" -> "resume-templates/academy.docx";
-            case "SARAMIN" -> "resume-templates/saramin.docx";
-            case "JOBKOREA" -> "resume-templates/jobkorea.docx";
-            default -> null;
-        };
+        byte[] payload;
+        try { payload = renderTemplate(AuthenticatedMember.id(auth), document, templateKey); }
+        catch (Exception ignored) { payload = renderFallback(document, templateKey); }
+        String filename = URLEncoder.encode(document.getTitle() + ".docx", StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).body(payload);
+    }
+
+    /** A malformed legacy template must not prevent the user from receiving their own draft. */
+    private byte[] renderTemplate(Long memberId, ResumeDocument document, String templateKey) throws Exception {
+        String resource = switch (templateKey) { case "ACADEMY" -> "resume-templates/academy.docx"; case "SARAMIN" -> "resume-templates/saramin.docx"; case "JOBKOREA" -> "resume-templates/jobkorea.docx"; default -> null; };
         ClassPathResource template = resource == null ? null : new ClassPathResource(resource);
-        try (InputStream input = template == null || !template.exists() ? null : template.getInputStream();
-             XWPFDocument docx = input == null ? new XWPFDocument() : new XWPFDocument(input);
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            JsonNode data = service.templateDataForDownload(AuthenticatedMember.id(auth), document);
+        try (InputStream input = template == null || !template.exists() ? null : template.getInputStream(); XWPFDocument docx = input == null ? new XWPFDocument() : new XWPFDocument(input); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            JsonNode data = service.templateDataForDownload(memberId, document);
             if (data != null && !data.isMissingNode()) populateTemplate(docx, data, templateKey);
             else appendDraft(docx, document.getGeneratedContent() == null ? document.getExtractedText() : document.getGeneratedContent(), templateKey);
-            docx.write(output);
-            String filename = URLEncoder.encode(document.getTitle() + ".docx", StandardCharsets.UTF_8).replace("+", "%20");
-            return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
-                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).body(output.toByteArray());
+            docx.write(output); return output.toByteArray();
+        }
+    }
+    private byte[] renderFallback(ResumeDocument document, String templateKey) throws Exception {
+        try (XWPFDocument docx = new XWPFDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            appendDraft(docx, document.getGeneratedContent() == null ? document.getExtractedText() : document.getGeneratedContent(), templateKey);
+            docx.write(output); return output.toByteArray();
         }
     }
 
