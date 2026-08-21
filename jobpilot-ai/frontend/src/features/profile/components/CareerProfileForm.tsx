@@ -17,13 +17,14 @@ type Props = {
   saveLabel?: string;
   educationSection?: ReactNode;
 };
+const normalizeExperienceType = (value: string | null | undefined) => ({ "신입": "ENTRY", "경력": "EXPERIENCED", "무관": "ANY" }[value ?? ""] ?? (value === "EXPERIENCED" || value === "ANY" ? value : "ENTRY"));
 
 export function CareerProfileForm({ initial, initialSkills, initialCertificates, onCertificatesChange, onSave, educationSection }: Props) {
   const [form, setForm] = useState<CareerProfile>(initial ?? emptyCareerProfile());
   const [skills, setSkills] = useState<MemberSkill[]>(initialSkills ?? []);
   const [certificates, setCertificates] = useState<MemberCertificate[]>(initialCertificates ?? []);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (initial) setForm(initial); }, [initial]);
+  useEffect(() => { if (initial) setForm({ ...initial, experienceType: normalizeExperienceType(initial.experienceType) }); }, [initial]);
   useEffect(() => { if (initialSkills) setSkills(initialSkills); }, [initialSkills]);
   useEffect(() => { if (initialCertificates) setCertificates(initialCertificates); }, [initialCertificates]);
   useEffect(() => { onCertificatesChange?.(certificates); }, [certificates, onCertificatesChange]);
@@ -41,7 +42,10 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   }, []);
   const notify = (type: "success" | "error", text: string) => window.dispatchEvent(new CustomEvent("resume:toast", { detail: { type, text } }));
   const focusSection = (id: string) => window.setTimeout(() => { const section = document.getElementById(id); section?.scrollIntoView({ behavior: "smooth", block: "center" }); (section?.querySelector("input, select, textarea") as HTMLElement | null)?.focus({ preventScroll: true }); }, 0);
-  const errorMessage = (error: unknown, fallback: string) => error instanceof Error && error.message.trim() ? error.message.trim() : fallback;
+  const errorMessage = (error: unknown, fallback: string) => {
+    const message = error instanceof Error && error.message.trim() ? error.message.trim() : fallback;
+    return message.match(/default message \[([^\]]+)]/)?.[1] ?? message;
+  };
   const validate = () => {
     if (!form.targetJobFamily.trim()) { notify("error", "직무 분야는 필수입니다."); focusSection("resume-desired-role"); return false; }
     if (!form.targetRole.trim()) { notify("error", "목표 직무는 필수입니다."); focusSection("resume-desired-role"); return false; }
@@ -59,7 +63,7 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     try {
       const validCertificates = certificates.filter((certificate) => certificate.name.trim());
       if (validCertificates.length !== certificates.length) return false;
-      await onSave(form, skills, validCertificates);
+      await onSave({ ...form, experienceType: normalizeExperienceType(form.experienceType) }, skills, validCertificates);
       if (showSuccess) notify("success", "스펙정보와 보유 기술을 저장했습니다.");
       return true;
     }
@@ -92,8 +96,8 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     <div className="form-section" id="resume-conditions"><h3>지원 조건</h3><div className="form-fields">
       <label>희망 지역<RegionSelectionModal value={form.preferredLocations} onChange={(next) => set("preferredLocations", next)} /></label>
       <label>입사 가능일<input type="date" value={form.availableFrom ?? ""} onChange={(event) => set("availableFrom", event.target.value || null)} /></label>
-      <label>경력 구분<select value={form.experienceType} onChange={(event) => { const experienceType = event.target.value; set("experienceType", experienceType); if (experienceType === "ENTRY") set("totalCareerMonths", 0); }}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
-      <label className={form.experienceType === "ENTRY" ? "is-disabled" : ""}>관련 경력 기간(개월)<input type="number" min={0} disabled={form.experienceType === "ENTRY"} value={form.experienceType === "ENTRY" ? 0 : form.totalCareerMonths} onChange={(event) => set("totalCareerMonths", Number(event.target.value))} /></label>
+      <label>경력 구분<select value={normalizeExperienceType(form.experienceType)} onChange={(event) => { const experienceType = event.target.value; set("experienceType", experienceType); if (experienceType === "ENTRY") set("totalCareerMonths", 0); }}><option value="ENTRY">신입</option><option value="EXPERIENCED">경력</option><option value="ANY">무관</option></select></label>
+      <label className={normalizeExperienceType(form.experienceType) === "ENTRY" ? "is-disabled" : ""}>관련 경력 기간(개월)<input type="number" min={0} disabled={normalizeExperienceType(form.experienceType) === "ENTRY"} value={normalizeExperienceType(form.experienceType) === "ENTRY" ? 0 : form.totalCareerMonths} onChange={(event) => set("totalCareerMonths", Number(event.target.value))} /></label>
     </div></div>{educationSection}
 
     <div className="form-section" id="resume-skills"><SkillProfileEditor value={skills} onChange={setSkills} /></div>
