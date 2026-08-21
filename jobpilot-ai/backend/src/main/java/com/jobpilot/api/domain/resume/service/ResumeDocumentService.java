@@ -136,9 +136,11 @@ public class ResumeDocumentService {
                 .map(v -> skillCatalog.findById(v.getSkillId()).map(Skill::getName).orElse(v.getNote()))
                 .filter(v -> !blank(v)).collect(Collectors.joining(", "));
         String certList=certificates.findByMemberId(memberId).stream().map(Certificate::getName).collect(Collectors.joining(", "));
-        String projectList=projects.findByMemberId(memberId).stream().map(Project::getTitle).collect(Collectors.joining(", "));
         List<Map<String, Object>> detailedEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
                 .map(entry -> Map.<String, Object>of("type", entry.getEntryType().name(), "title", entry.getTitle(), "content", json.convertValue(entry.getContent(), Map.class))).toList();
+        JsonNode detailedEntryData = json.valueToTree(detailedEntries);
+        List<Map<String, String>> projectItems = projectTemplateItems(memberId, detailedEntryData);
+        String projectList=projectItems.stream().map(item -> item.getOrDefault("title", "")).filter(value -> !blank(value)).collect(Collectors.joining(", "));
         List<SelfIntroduction> selfIntroductionList = introductions.findByMemberIdOrderByUpdatedAtDesc(memberId);
         String intro=selfIntroductionList.stream().map(SelfIntroduction::getContent).findFirst().orElse("");
         String selectedTemplate = templateKey(request.templateKey());
@@ -175,14 +177,14 @@ public class ResumeDocumentService {
         templateData.put("technicalSummary", spec == null ? "" : empty(spec.getTechnicalSummary()));
         templateData.put("profilePhotoDataUrl", spec == null ? "" : photoDataUrl(spec));
         templateData.put("skills", enabledSections.contains("skills") ? skillList : ""); templateData.put("certificates", enabledSections.contains("certificates") ? certList : "");
-        templateData.set("entries", json.valueToTree(detailedEntries));
+        templateData.set("entries", detailedEntryData);
         templateData.set("answers", json.valueToTree(request.answers() == null ? List.of() : request.answers()));
         templateData.set("selfIntroductions", json.valueToTree(selfIntroductionList.stream().map(item -> Map.of(
                 "title", empty(item.getTitle()), "content", empty(item.getContent()))).toList()));
         templateData.set("certificateDetails", json.valueToTree(certificates.findByMemberId(memberId).stream().map(certificate -> Map.of(
                 "name", empty(certificate.getName()), "issuer", empty(certificate.getIssuer()),
                 "acquiredAt", certificate.getAcquiredAt() == null ? "" : certificate.getAcquiredAt().toString())).toList()));
-        templateData.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of("title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()), "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()), "githubUrl", empty(project.getGithubUrl()), "deploymentUrl", empty(project.getDeploymentUrl()), "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
+        templateData.set("projects", json.valueToTree(projectItems));
         templateData.put("draft", content);
         ResumeDocument document=documents.save(new ResumeDocument(memberId, ResumeDocumentType.GENERATED, title,
                 templateFile == null || templateFile.isEmpty() ? null : templateFile.getOriginalFilename(), null, content, metadata, selectedTemplate));
@@ -199,15 +201,39 @@ public class ResumeDocumentService {
                 .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).map(ResumeEntry::getContent).findFirst().orElse(json.createObjectNode());
         if (blank(data.path("hanjaName").asText())) data.put("hanjaName", personal.path("hanjaName").asText(""));
         if (blank(data.path("birthDate").asText())) data.put("birthDate", personal.path("birthDate").asText(""));
-        data.set("projects", json.valueToTree(projects.findByMemberId(memberId).stream().map(project -> Map.of(
-                "title", project.getTitle(), "role", empty(project.getRoleDescription()), "problem", empty(project.getProblemDescription()),
-                "solution", empty(project.getSolutionDescription()), "result", empty(project.getResultDescription()),
-                "githubUrl", empty(project.getGithubUrl()), "deploymentUrl", empty(project.getDeploymentUrl()),
-                "startedAt", String.valueOf(project.getStartedAt() == null ? "" : project.getStartedAt()), "endedAt", String.valueOf(project.getEndedAt() == null ? "" : project.getEndedAt()))).toList()));
+        JsonNode existingProjects = data.path("projects");
+        List<Map<String, String>> projectItems = projectTemplateItems(memberId, data.path("entries"));
+        if (!projectItems.isEmpty()) data.set("projects", json.valueToTree(projectItems));
+        else if (!existingProjects.isArray()) data.putArray("projects");
+        if (data.path("answers").isArray() && data.path("answers").size() == 1 && data.path("answers").get(0).asText().startsWith("저장된 이력·프로젝트")) data.putArray("answers");
         if (!data.path("selfIntroductions").isArray()) data.set("selfIntroductions", json.valueToTree(introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream()
                 .map(item -> Map.of("title", empty(item.getTitle()), "content", empty(item.getContent()))).toList()));
         return data;
     }
+    private List<Map<String, String>> projectTemplateItems(Long memberId, JsonNode entries) {
+        List<Project> savedProjects = projects.findByMemberId(memberId);
+        if (!savedProjects.isEmpty()) return savedProjects.stream().map(this::projectTemplateItem).toList();
+        List<Map<String, String>> inferred = new java.util.ArrayList<>(); JsonNode source = entries != null && entries.isArray() ? entries : entries == null ? json.createArrayNode() : entries.path("entries");
+        if (source.isArray()) for (JsonNode entry : source) if ("PORTFOLIO".equals(entry.path("type").asText())) inferred.add(portfolioProjectItem(entry));
+        return inferred;
+    }
+    private Map<String, String> projectTemplateItem(Project project) {
+        Map<String, String> item = new java.util.LinkedHashMap<>();
+        item.put("title", empty(project.getTitle())); item.put("role", empty(project.getRoleDescription()));
+        item.put("problem", empty(project.getProblemDescription())); item.put("solution", empty(project.getSolutionDescription())); item.put("result", empty(project.getResultDescription()));
+        item.put("description", joinNonBlank(project.getProblemDescription(), project.getSolutionDescription())); item.put("skills", "");
+        item.put("githubUrl", empty(project.getGithubUrl())); item.put("deploymentUrl", empty(project.getDeploymentUrl()));
+        item.put("startedAt", project.getStartedAt() == null ? "" : project.getStartedAt().toString()); item.put("endedAt", project.getEndedAt() == null ? "" : project.getEndedAt().toString());
+        return item;
+    }
+    private Map<String, String> portfolioProjectItem(JsonNode entry) {
+        JsonNode content = entry.path("content"); String description = content.path("description").asText("");
+        Map<String, String> item = new java.util.LinkedHashMap<>();
+        item.put("title", entry.path("title").asText("")); item.put("role", lineValue(description, "역할")); item.put("skills", lineValue(description, "기술"));
+        item.put("description", description); item.put("problem", ""); item.put("solution", ""); item.put("result", ""); item.put("githubUrl", content.path("url").asText("")); item.put("deploymentUrl", "");
+        item.put("startedAt", content.path("startedAt").asText("")); item.put("endedAt", content.path("endedAt").asText("")); return item;
+    }
+    private String lineValue(String text, String label) { if (blank(text)) return ""; Matcher matcher = Pattern.compile("(?m)(?:^|\\n)\\s*" + Pattern.quote(label) + "\\s*[:：]\\s*([^\\n]+)").matcher(text); return matcher.find() ? matcher.group(1).trim() : ""; }
     /**
      * Extract the fields that can be reflected in a member profile without relying
      * on an LLM. This is deliberately a conservative fallback: it only emits a

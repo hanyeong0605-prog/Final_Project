@@ -133,7 +133,7 @@ export function ResumeWritingAssistantSection() {
   const generate = async () => {
     if (!aiConsent) return setMessage("AI 초안 생성 전 이력서 정보의 AI 처리 동의가 필요합니다.");
     setLoading(true); setMessage("");
-    try { const enabledSections = Object.entries(enabled).filter(([, active]) => active).map(([key]) => key); const saved = await generateResumeDocument({ title: "", additionalRequest: "", templateKey, answers: ["저장된 이력·프로젝트 문장에 있는 사실만 사용하고, 비어 있는 정보는 추측하지 마세요."], enabledSections }); setDocuments((current) => [saved, ...current]); setStep(3); setMessage("수정 가능한 Word 이력서 초안을 만들었습니다. 양식 원본과 AI 초안 모두 Word에서 바로 수정할 수 있습니다."); }
+    try { const enabledSections = Object.entries(enabled).filter(([, active]) => active).map(([key]) => key); const saved = await generateResumeDocument({ title: "", additionalRequest: "", templateKey, answers: [], enabledSections }); setDocuments((current) => [saved, ...current]); setStep(3); setMessage("수정 가능한 Word 이력서 초안을 만들었습니다. 양식 원본과 AI 초안 모두 Word에서 바로 수정할 수 있습니다."); }
     catch (error) { setMessage(error instanceof Error ? error.message : "이력서 초안 생성에 실패했습니다."); }
     finally { setLoading(false); }
   };
