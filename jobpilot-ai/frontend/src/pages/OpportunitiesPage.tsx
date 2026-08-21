@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useInterests } from "../features/interests/model/InterestContext";
 import { getRecommendedOpportunities } from "../features/opportunities/api/opportunitiesApi";
 import { CertificateOpportunitySection } from "../features/opportunities/components/CertificateOpportunitySection";
@@ -10,6 +11,8 @@ import { PageHeading } from "../shared/components/PageHeading";
 export function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [category, setCategory] = useState<"ALL" | "CERTIFICATE" | "TRAINING" | "OTHER">("ALL");
+  const [searchParams] = useSearchParams();
   const { isInterested, toggleInterest } = useInterests();
 
   useEffect(() => {
@@ -19,12 +22,14 @@ export function OpportunitiesPage() {
   }, []);
 
   return <>
-    <PageHeading eyebrow="GROWTH OPPORTUNITIES" title="부족한 근거를 채울 기회" body="매칭 분석에서 발견한 보완 항목을 기준으로 교육·자격증·공모전·청년지원을 연결합니다." />
-    <CertificateOpportunitySection />
-    <h2 className="opportunity-section-title">교육·공모전·청년지원</h2>
+    <PageHeading eyebrow="GROWTH OPPORTUNITIES" title="부족한 근거를 채울 기회" body="매칭 분석의 부족 요건을 기준으로 자격증·고용24 훈련과정·프로젝트 기회를 연결합니다." />
+    {searchParams.get("requirementId") && <div className="opportunity-context">선택한 공고의 부족 요건에 맞춘 성장 기회를 보고 있습니다.</div>}
+    <nav className="opportunity-category-tabs" aria-label="성장 기회 카테고리"><button className={category === "ALL" ? "active" : ""} onClick={() => setCategory("ALL")}>전체</button><button className={category === "CERTIFICATE" ? "active" : ""} onClick={() => setCategory("CERTIFICATE")}>자격증 정보</button><button className={category === "TRAINING" ? "active" : ""} onClick={() => setCategory("TRAINING")}>고용24 훈련과정</button><button className={category === "OTHER" ? "active" : ""} onClick={() => setCategory("OTHER")}>기타 기회</button></nav>
+    {(category === "ALL" || category === "CERTIFICATE") && <CertificateOpportunitySection />}
+    {(category === "ALL" || category === "TRAINING" || category === "OTHER") && <><h2 className="opportunity-section-title">{category === "TRAINING" ? "고용24 훈련과정" : "교육·공모전·청년지원"}</h2>
     {status === "loading" && <DataStatePanel state="loading" />}
     {status === "error" && <DataStatePanel state="error" />}
     {status === "ready" && opportunities.length === 0 && <DataStatePanel state="empty" emptyTitle="추천할 기회 정보가 없습니다" emptyBody="회원의 부족 역량과 연결된 실제 기회 데이터가 생기면 표시됩니다." />}
-    {status === "ready" && opportunities.length > 0 && <section className="opportunity-grid">{opportunities.map((item) => <OpportunityCard key={item.id} item={item} interested={isInterested(item.id)} onInterest={() => toggleInterest(item.id)} />)}</section>}
+    {status === "ready" && opportunities.length > 0 && <section className="opportunity-grid">{opportunities.filter((item) => category !== "TRAINING" || item.type === "교육").filter((item) => category !== "OTHER" || item.type !== "자격증").map((item) => <OpportunityCard key={item.id} item={item} interested={isInterested(item.id)} onInterest={() => toggleInterest(item.id)} />)}</section>}</>}
   </>;
 }

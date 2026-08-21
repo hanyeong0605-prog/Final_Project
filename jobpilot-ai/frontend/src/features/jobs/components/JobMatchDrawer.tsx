@@ -36,6 +36,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
   const meta = gradeMeta[job.recommendationLevel];
   const [activeEvidence, setActiveEvidence] = useState<number | null>(null);
   const [growthActions, setGrowthActions] = useState<GrowthAction[]>([]);
+  const [planOpen, setPlanOpen] = useState(true);
   const sourceParagraphRefs = useRef<Map<number, HTMLParagraphElement>>(new Map());
   const paragraphs = useMemo(
     () => job.postingDescription.split(/\n+/).map((item) => item.trim()).filter(Boolean),
@@ -68,7 +69,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
       </section>
 
       <div className="match-evidence-layout">
-        <section className="original-posting-pane">
+        <section className="original-posting-pane evidence-pane">
           <div className="original-pane-heading">
             <div><span className="eyebrow">ORIGINAL POSTING</span><h3>공고 원문</h3></div>
             <a href={job.sourceUrl} target="_blank" rel="noreferrer">원문 열기 <ExternalLink size={14} /></a>
@@ -95,7 +96,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
           </article>
         </section>
 
-        <section className="matrix-section">
+        <section className="matrix-section evidence-pane">
           <div className="matrix-title">
             <div><span className="eyebrow">WHY THIS RESULT</span><h3>요구사항 · 내 근거 매트릭스</h3></div>
             <p>각 항목을 누르면 왼쪽 원문에서 연결된 근거를 강조합니다.</p>
@@ -122,21 +123,15 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
               </button>;
             })}
           </div>}
-          {growthActions.length > 0 && <section className="match-growth-panel">
-            <span className="eyebrow">NEXT ACTIONS</span><h3>부족 요건 보강 플랜</h3><p>확인되지 않은 요건을 실제 행동으로 바꿔보세요.</p>
-            <div className="match-growth-list">{growthActions.map((action) => <Link key={`${action.requirementId}-${action.title}`} to={action.href} className="match-growth-card">
-              <span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p><small>{action.nextStep}</small><ChevronRight size={16} />
-            </Link>)}</div>
-          </section>}
+        </section>
+        <section className={`growth-plan-pane evidence-pane${planOpen ? "" : " is-collapsed"}`}>
+          <div className="growth-plan-heading"><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>카드를 누르면 공고 원문과 부족 근거를 강조합니다.</p></div><button type="button" className="pane-toggle" onClick={() => setPlanOpen((value) => !value)}>{planOpen ? "접기" : "펼치기"}</button></div>
+          {planOpen && (growthActions.length === 0 ? <div className="growth-plan-empty">현재 확인된 부족 요건이 없습니다.</div> : <div className="growth-plan-list">{growthActions.map((action) => {
+            const requirement = job.requirements.find((item) => item.requirementId === action.requirementId);
+            return <article className="growth-plan-card" key={`${action.requirementId}-${action.title}`}><button type="button" onClick={() => requirement && focusEvidence(requirement.sourceNumber)}><span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p>{requirement && <small>공고 근거 #{requirement.sourceNumber} · {requirement.requirement}</small>}</button><Link to={`/opportunities?jobPostingId=${job.id}&requirementId=${action.requirementId ?? ""}`} className="growth-detail-link">자세히 보기 <ChevronRight size={14} /></Link></article>;
+          })}</div>)}
         </section>
       </div>
-
-      {false && growthActions.length > 0 && <section className="match-growth-panel">
-        <span className="eyebrow">NEXT ACTIONS</span><h3>부족 요건 보강 플랜</h3><p>확인되지 않은 요건을 실제 행동으로 바꿔보세요.</p>
-        <div className="match-growth-list">{growthActions.map((action) => <Link key={`${action.requirementId}-${action.title}`} to={action.href} className="match-growth-card">
-          <span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p><small>{action.nextStep}</small><ChevronRight size={16} />
-        </Link>)}</div>
-      </section>}
 
       <footer>
         <button className="outline-button" onClick={onInterest}><Bookmark size={17} fill={interested ? "currentColor" : "none"} />{interested ? "관심 목록에 저장됨" : "관심 목록에 저장"}</button>
