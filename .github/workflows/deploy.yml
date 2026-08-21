@@ -55,11 +55,10 @@ jobs:
 
             cd /opt/jobpilot/jobpilot-ai
             export ENV_FILE=/etc/jobpilot/jobpilot.env
-            # A direct feature-branch deploy must not validate or mutate the
-            # shared production schema. Flyway stays enabled for main only.
-            if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
-              export SPRING_FLYWAY_ENABLED=false
-            fi
+            # This branch is the production deployment branch.  Keep Flyway
+            # enabled so a backend release and its versioned DB migration are
+            # always applied together before Hibernate validates the schema.
+            export SPRING_FLYWAY_ENABLED=true
             COMPOSE="sudo -E docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml"
 
             if [ "$DEPLOY_BRANCH" = "김한영브뤤취학원" ]; then
@@ -77,7 +76,7 @@ jobs:
                 $COMPOSE up -d --no-deps frontend
               fi
 
-              if printf '%s\n' "$CHANGED_FILES" | grep -qE '^jobpilot-ai/(backend/|docker-compose.prod.yml)'; then
+              if printf '%s\n' "$CHANGED_FILES" | grep -qE '^jobpilot-ai/(backend/|docker-compose.prod.yml)|^\.github/workflows/deploy\.yml$'; then
                 $COMPOSE build backend
                 $COMPOSE up -d --no-deps backend
               fi
