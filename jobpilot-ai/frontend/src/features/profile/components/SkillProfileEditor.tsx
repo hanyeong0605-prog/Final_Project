@@ -1,14 +1,7 @@
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { searchSkillCatalog } from "../api/memberSkillsApi";
-import type { MemberSkill, SkillCatalogItem, SkillLevel } from "../model/memberSkill.types";
-
-const levelLabels: Record<SkillLevel, string> = {
-  LEARNING: "학습 중",
-  PROJECT: "프로젝트 경험",
-  INTERNSHIP: "인턴·실무 체험",
-  PROFESSIONAL: "실무 경력",
-};
+import type { MemberSkill, SkillCatalogItem } from "../model/memberSkill.types";
 
 const categoryLabels: Record<string, string> = {
   LANGUAGE: "언어", BACKEND: "백엔드", FRONTEND: "프론트엔드", DATABASE: "데이터베이스",
@@ -22,7 +15,6 @@ export function SkillProfileEditor({ value, onChange }: { value: MemberSkill[]; 
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [bulkLevel, setBulkLevel] = useState<SkillLevel>("LEARNING");
 
   useEffect(() => {
     const keyword = query.trim();
@@ -45,15 +37,11 @@ export function SkillProfileEditor({ value, onChange }: { value: MemberSkill[]; 
     setResults([]);
   };
 
-  const update = (skillId: number, patch: Partial<MemberSkill>) => {
-    onChange(value.map((skill) => skill.skillId === skillId ? { ...skill, ...patch } : skill));
-  };
-
   const setSelected = (id: number) => setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-  const applyBulkLevel = () => onChange(value.map((skill) => selectedIds.includes(skill.skillId) ? { ...skill, selfReportedLevel: bulkLevel } : skill));
+  const removeSelected = () => { onChange(value.filter((skill) => !selectedIds.includes(skill.skillId))); setSelectedIds([]); };
   return <section className="skill-profile-editor">
     <div className="skill-editor-intro">
-      <div><h3>보유 기술스택</h3><p>기술명을 검색해 추가하고, 실제 경험 수준을 선택해 주세요.</p></div>
+      <div><h3>보유 기술스택</h3><p>할 수 있는 기술만 검색해 추가해 주세요.</p></div>
       <div><span className={value.length > MAX_SKILLS ? "skill-count-over-limit" : ""}>{value.length}/{MAX_SKILLS}</span><button type="button" className="outline-button" onClick={() => setOpen((current) => !current)}>{open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}{open ? "접기" : "펼치기"}</button></div>
     </div>
     {open && <>
@@ -69,15 +57,12 @@ export function SkillProfileEditor({ value, onChange }: { value: MemberSkill[]; 
       </div>}
     </div>
     {query.trim().length === 1 && <p className="skill-search-guide">두 글자 이상 입력하면 표준 기술 목록을 검색합니다.</p>}
-    {value.length > 0 && <div className="skill-bulk-controls"><label><input type="checkbox" checked={value.length > 0 && selectedIds.length === value.length} onChange={(event) => setSelectedIds(event.target.checked ? value.map((skill) => skill.skillId) : [])} /> 전체 선택</label><select value={bulkLevel} onChange={(event) => setBulkLevel(event.target.value as SkillLevel)}>{(Object.keys(levelLabels) as SkillLevel[]).map((level) => <option key={level} value={level}>{levelLabels[level]}</option>)}</select><button type="button" className="outline-button" disabled={selectedIds.length === 0} onClick={applyBulkLevel}>선택 항목에 적용</button></div>}
+    {value.length > 0 && <div className="skill-bulk-controls"><label><input type="checkbox" checked={value.length > 0 && selectedIds.length === value.length} onChange={(event) => setSelectedIds(event.target.checked ? value.map((skill) => skill.skillId) : [])} /> 전체 선택</label><span>{selectedIds.length ? `${selectedIds.length}개 선택됨` : ""}</span><button type="button" className="outline-button skill-bulk-remove" disabled={selectedIds.length === 0} onClick={removeSelected}>선택 삭제</button></div>}
     {value.length === 0 ? <div className="skill-empty">아직 선택한 기술이 없습니다. 위 검색창에서 추가해 주세요.</div> :
-      <div className="selected-skill-list">
-        {value.map((skill) => <article className="selected-skill" key={skill.skillId}>
-          <label><input type="checkbox" checked={selectedIds.includes(skill.skillId)} onChange={() => setSelected(skill.skillId)} aria-label={`${skill.skillName} 선택`} /></label><div className="selected-skill-name"><strong>{skill.skillName}</strong><span>{categoryLabels[skill.category] ?? skill.category}</span></div>
-          <label>경험 수준<select value={skill.selfReportedLevel} onChange={(e) => update(skill.skillId, { selfReportedLevel: e.target.value as SkillLevel })}>
-            {(Object.keys(levelLabels) as SkillLevel[]).map((level) => <option key={level} value={level}>{levelLabels[level]}</option>)}
-          </select></label>
-          <button type="button" className="remove-skill" onClick={() => onChange(value.filter((item) => item.skillId !== skill.skillId))} aria-label={`${skill.skillName} 삭제`}><X size={16} /></button>
+      <div className="selected-skill-list skill-chip-list">
+        {value.map((skill) => <article className="selected-skill skill-chip" key={skill.skillId}>
+          <label><input type="checkbox" checked={selectedIds.includes(skill.skillId)} onChange={() => setSelected(skill.skillId)} aria-label={`${skill.skillName} 선택`} /><span>{skill.skillName}</span></label>
+          <button type="button" className="remove-skill" onClick={() => onChange(value.filter((item) => item.skillId !== skill.skillId))} aria-label={`${skill.skillName} 삭제`}><X size={14} /></button>
         </article>)}
       </div>}</>}
   </section>;

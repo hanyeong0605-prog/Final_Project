@@ -150,8 +150,7 @@ public class JobMatchService {
     }
 
     private String skillEvidence(Skill skill, MemberSkill memberSkill) {
-        String level = memberSkill.getSelfReportedLevel();
-        return "보유 기술 · " + skill.getName() + (level == null || level.isBlank() ? "" : " (" + level + ")");
+        return "보유 기술 · " + skill.getName();
     }
 
     private String resumeExcerpt(ResumeEntry entry) {

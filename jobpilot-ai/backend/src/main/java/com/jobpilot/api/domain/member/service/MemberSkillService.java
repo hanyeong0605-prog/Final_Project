@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 @Transactional
 public class MemberSkillService {
     private static final int MAX_SKILLS = 40;
-    private static final Set<String> LEVELS = Set.of("LEARNING", "PROJECT", "INTERNSHIP", "PROFESSIONAL");
 
     private final MemberSkillRepository memberSkills;
     private final SkillRepository skills;
@@ -48,8 +47,6 @@ public class MemberSkillService {
         Set<Long> ids = new HashSet<>();
         for (MemberSkillRequest item : input) {
             if (!ids.add(item.skillId())) throw new IllegalArgumentException("같은 기술을 중복해서 선택할 수 없습니다.");
-            String level = level(item.selfReportedLevel());
-            if (!LEVELS.contains(level)) throw new IllegalArgumentException("올바르지 않은 기술 숙련도입니다.");
         }
 
         Map<Long, Skill> catalog = skills.findAllById(ids).stream()
@@ -61,7 +58,7 @@ public class MemberSkillService {
         memberSkills.deleteByMemberId(memberId);
         memberSkills.flush();
         List<MemberSkill> saved = memberSkills.saveAll(input.stream()
-                .map(item -> new MemberSkill(memberId, item.skillId(), level(item.selfReportedLevel()), clean(item.note())))
+                .map(item -> new MemberSkill(memberId, item.skillId(), "LEARNING", clean(item.note())))
                 .toList());
         matchRefreshScheduler.enqueueForMember(memberId);
         return saved.stream().map(memberSkill -> toResponse(memberSkill, catalog.get(memberSkill.getSkillId()))).toList();
@@ -70,10 +67,6 @@ public class MemberSkillService {
     private MemberSkillResponse toResponse(MemberSkill memberSkill, Skill skill) {
         if (skill == null || !skill.isCanonical()) return null;
         return new MemberSkillResponse(skill.getId(), skill.getName(), skill.getCategory(), memberSkill.getSelfReportedLevel(), memberSkill.getNote());
-    }
-
-    private String level(String value) {
-        return value == null || value.isBlank() ? "LEARNING" : value.trim().toUpperCase();
     }
 
     private String clean(String value) {
