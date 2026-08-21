@@ -19,5 +19,6 @@ public record MemberCareerProfileRequest(
         @Size(max = 30) String graduationStatus,
         @Min(0) int totalCareerMonths,
         @Size(max = 10000) String technicalSummary,
-        @Size(max = 1000) String portfolioUrl
+        @Size(max = 1000) String portfolioUrl,
+        String profilePhotoDataUrl
 ) {}

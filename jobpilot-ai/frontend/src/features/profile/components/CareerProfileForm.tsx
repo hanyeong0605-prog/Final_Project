@@ -63,8 +63,14 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
     catch { notify("error", "스펙정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."); }
     finally { setSaving(false); }
   };
+  const changePhoto = (file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) { notify("error", "사진은 JPG, PNG, WEBP 형식의 2MB 이하 파일만 첨부할 수 있습니다."); return; }
+    const reader = new FileReader(); reader.onload = () => set("profilePhotoDataUrl", typeof reader.result === "string" ? reader.result : null); reader.readAsDataURL(file);
+  };
 
   return <form ref={formRef} className="career-profile-form" noValidate onSubmit={submit}>
+    <div className="form-section" id="resume-profile-photo"><h3>프로필 사진 <span className="optional-label">선택</span></h3><p className="form-hint">사진 없이도 저장·지원할 수 있습니다. JPG·PNG·WEBP, 최대 2MB.</p><div className="profile-photo-control">{form.profilePhotoDataUrl ? <img src={form.profilePhotoDataUrl} alt="첨부한 프로필 사진 미리보기" /> : <span>사진 없음</span>}<div><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => changePhoto(event.target.files?.[0])} /><button type="button" className="outline-button" disabled={!form.profilePhotoDataUrl} onClick={() => set("profilePhotoDataUrl", null)}>사진 삭제</button></div></div></div>
     <div className="form-section" id="resume-desired-role"><h3>희망 직무</h3><div className="form-fields">
       <label>직무 분야*<select required value={knownFamily ? form.targetJobFamily : "OTHER"} onChange={(event) => { const next = event.target.value; set("targetJobFamily", next === "OTHER" ? "" : next); set("targetRole", ""); }}><option value="" disabled>직무 분야를 선택하세요</option>{Object.keys(jobFamilies).map((family) => <option key={family} value={family}>{family}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>
       {!knownFamily ? <label>직접 입력 직무 분야*<input required maxLength={80} value={form.targetJobFamily} onChange={(event) => set("targetJobFamily", event.target.value)} placeholder="예: 건설·환경" /></label> : <label>목표 직무*<select required value={knownRole ? form.targetRole : "OTHER"} onChange={(event) => set("targetRole", event.target.value === "OTHER" ? "" : event.target.value)}><option value="" disabled>목표 직무를 선택하세요</option>{roles.map((role) => <option key={role} value={role}>{role}</option>)}<option value="OTHER">기타(직접 입력)</option></select></label>}

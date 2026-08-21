@@ -2,6 +2,7 @@ package com.jobpilot.api.domain.member.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 @Entity
 @Table(name = "member_specifications")
@@ -14,6 +15,8 @@ public class MemberSpecification {
     @Column(name = "total_career_months", nullable = false) private int totalCareerMonths;
     @Lob @Column(name = "technical_summary", columnDefinition = "TEXT") private String technicalSummary;
     @Column(name = "portfolio_url", length = 1000) private String portfolioUrl;
+    @Lob @Column(name = "profile_photo", columnDefinition = "LONGBLOB") private byte[] profilePhoto;
+    @Column(name = "profile_photo_content_type", length = 40) private String profilePhotoContentType;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
     protected MemberSpecification() {}
     public MemberSpecification(Long memberId) { this.memberId = memberId; }
@@ -31,6 +34,11 @@ public class MemberSpecification {
         this.technicalSummary = technicalSummary;
         this.updatedAt = LocalDateTime.now();
     }
+    public void updateProfilePhoto(byte[] bytes, String contentType) {
+        this.profilePhoto = bytes == null ? null : Arrays.copyOf(bytes, bytes.length);
+        this.profilePhotoContentType = bytes == null ? null : contentType;
+        this.updatedAt = LocalDateTime.now();
+    }
     public Long getMemberId() { return memberId; }
     public int getTotalCareerMonths() { return totalCareerMonths; }
     public String getTechnicalSummary() { return technicalSummary; }
@@ -39,4 +47,6 @@ public class MemberSpecification {
     public String getMajor() { return major; }
     public String getGraduationStatus() { return graduationStatus; }
     public String getPortfolioUrl() { return portfolioUrl; }
+    public byte[] getProfilePhoto() { return profilePhoto == null ? null : Arrays.copyOf(profilePhoto, profilePhoto.length); }
+    public String getProfilePhotoContentType() { return profilePhotoContentType; }
 }

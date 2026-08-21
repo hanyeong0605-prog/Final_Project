@@ -14,6 +14,7 @@ import com.jobpilot.api.domain.resume.repository.ResumeDocumentRepository;
 import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -74,6 +75,8 @@ public class ResumeDocumentService {
     public ResumeDocumentResponse extract(Long memberId, MultipartFile file) {
         String text = extractor.extract(file);
         ObjectNode extracted = inferStructured(text, extractor.extractTableRows(file));
+        ResumeDocumentTextExtractor.PhotoCandidate photo = extractor.extractPhoto(file);
+        if (photo != null) extracted.put("profilePhotoDataUrl", "data:" + photo.contentType() + ";base64," + Base64.getEncoder().encodeToString(photo.bytes()));
         // Uploading a resume is useful even without AI consent: local extraction still finds
         // obvious values. Only the explicit AI analysis sends text to the external model.
         if (aiConsent.hasAgreed(memberId)) enrichWithAi(extracted, text);
@@ -109,6 +112,8 @@ public class ResumeDocumentService {
         ArrayNode locations = profile.getPreferredLocations() instanceof ArrayNode array ? array : json.createArrayNode();
         profile.update(empty(role), empty(profile.getTargetJobFamily()), locations, profile.getAvailableFrom(), empty(profile.getExperienceType()), empty(profile.getGithubUsername()));
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
+        String photoDataUrl = data.path("profilePhotoDataUrl").asText("");
+        applyExtractedPhoto(spec, photoDataUrl);
         applyExtractedSkills(memberId, data.path("suggestedSkills"));
         applyExtractedCertificates(memberId, data.path("certificateDetails"), data.path("suggestedCertificates"));
         applyPersonalEntry(memberId, data.path("personalInfo"));
@@ -283,6 +288,15 @@ public class ResumeDocumentService {
             }
         }
         certificates.forEach(item -> node.withArray("suggestedCertificates").add(item.path("name").asText()));
+    }
+    private void applyExtractedPhoto(MemberSpecification spec, String dataUrl) {
+        if (dataUrl == null || dataUrl.isBlank() || !dataUrl.startsWith("data:image/")) return;
+        int comma = dataUrl.indexOf(','); if (comma < 0) return;
+        try {
+            byte[] bytes = Base64.getDecoder().decode(dataUrl.substring(comma + 1));
+            String contentType = dataUrl.substring(5, dataUrl.indexOf(';'));
+            if (bytes.length <= 2 * 1024 * 1024 && ("image/jpeg".equals(contentType) || "image/png".equals(contentType))) spec.updateProfilePhoto(bytes, contentType);
+        } catch (IllegalArgumentException ignored) { }
     }
 
     private boolean hasPeriod(String value) { return value != null && value.matches(".*\\d{2,4}\\s*\\.\\s*\\d{1,2}.*"); }

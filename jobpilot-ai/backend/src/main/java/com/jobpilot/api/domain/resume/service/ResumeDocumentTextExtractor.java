@@ -73,4 +73,22 @@ public class ResumeDocumentTextExtractor {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DOCX 표 내용을 읽지 못했습니다.");
         }
     }
+
+    /** Returns the first embedded photo-sized image from a DOCX resume.  We keep
+     * this deliberately conservative: logos and tiny icons are ignored, and the
+     * candidate is only saved when the user applies the extracted profile. */
+    public PhotoCandidate extractPhoto(MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getOriginalFilename() == null || !file.getOriginalFilename().toLowerCase().endsWith(".docx")) return null;
+        try (var docx = new XWPFDocument(new ByteArrayInputStream(file.getBytes()))) {
+            for (var picture : docx.getAllPictures()) {
+                byte[] data = picture.getData();
+                String contentType = picture.getPictureType() == org.apache.poi.xwpf.usermodel.Document.PICTURE_TYPE_JPEG ? "image/jpeg"
+                        : picture.getPictureType() == org.apache.poi.xwpf.usermodel.Document.PICTURE_TYPE_PNG ? "image/png" : null;
+                if (contentType != null && data.length >= 8_000 && data.length <= 2 * 1024 * 1024) return new PhotoCandidate(data, contentType);
+            }
+            return null;
+        } catch (IOException exception) { return null; }
+    }
+
+    public record PhotoCandidate(byte[] bytes, String contentType) {}
 }
