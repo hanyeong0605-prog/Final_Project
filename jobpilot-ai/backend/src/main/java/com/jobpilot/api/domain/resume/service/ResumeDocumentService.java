@@ -250,6 +250,13 @@ public class ResumeDocumentService {
                 .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).map(ResumeEntry::getContent).findFirst().orElse(json.createObjectNode());
         if (blank(data.path("hanjaName").asText())) data.put("hanjaName", personal.path("hanjaName").asText(""));
         if (blank(data.path("birthDate").asText())) data.put("birthDate", personal.path("birthDate").asText(""));
+        MemberSpecification currentSpecification = specs.findById(memberId).orElse(null);
+        if (currentSpecification != null) {
+            // Drafts created before a user attached a photo must still use the latest selected profile photo.
+            data.put("profilePhotoDataUrl", photoDataUrl(currentSpecification));
+            data.put("portfolioUrl", empty(currentSpecification.getPortfolioUrl()));
+            data.put("careerMonths", currentSpecification.getTotalCareerMonths());
+        }
         JsonNode existingProjects = data.path("projects");
         List<Map<String, String>> projectItems = projectTemplateItems(memberId, data.path("entries"));
         if (!projectItems.isEmpty()) data.set("projects", json.valueToTree(projectItems));
