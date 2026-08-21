@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ public class Work24TrainingSyncService {
     public Work24TrainingSyncService(JdbcTemplate jdbc, ObjectMapper json, @Value("${work24.enabled:false}") boolean enabled, @Value("${work24.nae-il-learning-api-key:}") String apiKey) { this.jdbc=jdbc; this.json=json; this.enabled=enabled; this.apiKey=apiKey; }
     @Scheduled(cron = "${work24.sync-cron:0 15 5 * * *}", zone = "Asia/Seoul")
     public void scheduledSync() { if (enabled && !apiKey.isBlank()) sync(); }
+    @EventListener(ApplicationReadyEvent.class)
+    public void initialSync() { if (enabled && !apiKey.isBlank()) sync(); }
     public int sync() {
         try {
             LocalDate today=LocalDate.now(); String body=client.get().uri(uri -> uri.scheme("https").host("www.work24.go.kr").path("/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do")
