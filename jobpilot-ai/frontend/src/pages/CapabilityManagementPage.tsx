@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FilePenLine, FileUp, Sparkles, Target } from "lucide-react";
+import { ChevronDown, ChevronUp, FilePenLine, FileUp, Sparkles, Target } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   ResumeProfileAnalysisSection,
@@ -67,21 +67,25 @@ export function CapabilityManagementPage() {
   </>;
 }
 
+type SavedCapabilityItem = { label: string; count: number; updatedAt?: string; details: string[] };
+const displayValue = (value: unknown) => value === null || value === undefined || value === "" ? null : String(value);
+const entrySummary = (entry: { title: string; content: Record<string, unknown> }) => [entry.title, ...Object.values(entry.content).map(displayValue).filter((value): value is string => Boolean(value))].join(" · ");
+
 function SavedCapabilityList({ onEdit }: { onEdit: () => void }) {
-  const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [items, setItems] = useState<{ label: string; count: number; updatedAt?: string }[]>([]); const [saveState, setSaveState] = useState<ResumeSaveState>({ status: "NOT_SAVED", updatedAt: null });
+  const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [items, setItems] = useState<SavedCapabilityItem[]>([]); const [expanded, setExpanded] = useState<string | null>(null); const [saveState, setSaveState] = useState<ResumeSaveState>({ status: "NOT_SAVED", updatedAt: null });
   useEffect(() => {
     void Promise.all([getCareerProfile(), getMemberSkills(), getMemberCertificates(), listResumeEntries(), listSelfIntroductions(), getResumeSaveState()])
       .then(([profile, skills, certificates, entries, introductions, state]) => {
         setSaveState(state);
         const entryLabels: Partial<Record<ResumeEntryType, string>> = { EDUCATION: "학력", CAREER: "경력", ACTIVITY: "인턴 · 대외활동", TRAINING: "교육이수", AWARD: "수상", LANGUAGE: "어학", PORTFOLIO: "포트폴리오", PREFERENCE: "병역사항" };
-        const entryItems = Object.entries(entryLabels).flatMap(([entryType, label]) => { const matching = entries.filter((entry) => entry.entryType === entryType); return matching.length ? [{ label, count: matching.length, updatedAt: matching.map((entry) => entry.updatedAt).sort().at(-1) }] : []; });
+        const entryItems = Object.entries(entryLabels).flatMap(([entryType, label]) => { const matching = entries.filter((entry) => entry.entryType === entryType); return matching.length ? [{ label, count: matching.length, updatedAt: matching.map((entry) => entry.updatedAt).sort().at(-1), details: matching.map(entrySummary) }] : []; });
         const baseSaved = Boolean(profile?.targetRole || profile?.schoolName || profile?.major || profile?.preferredLocations?.length || profile?.technicalSummary || profile?.portfolioUrl);
         setItems([
-          ...(baseSaved ? [{ label: "기본 스펙정보", count: 1 }] : []),
-          ...(skills.length ? [{ label: "보유 기술 스택", count: skills.length }] : []),
-          ...(certificates.length ? [{ label: "자격증", count: certificates.length }] : []),
+          ...(baseSaved ? [{ label: "기본 스펙정보", count: 1, details: [[profile?.targetJobFamily, profile?.targetRole].filter(Boolean).join(" · "), profile?.preferredLocations?.length ? `희망 지역: ${profile.preferredLocations.join(", ")}` : null, profile?.availableFrom ? `입사 가능일: ${profile.availableFrom}` : null, profile?.experienceType ? `경력 구분: ${{ ENTRY: "신입", EXPERIENCED: "경력", ANY: "무관" }[profile.experienceType] ?? profile.experienceType}` : null, profile?.technicalSummary ? `기술 요약: ${profile.technicalSummary}` : null, profile?.portfolioUrl ? `포트폴리오: ${profile.portfolioUrl}` : null].filter((value): value is string => Boolean(value)) }] : []),
+          ...(skills.length ? [{ label: "보유 기술 스택", count: skills.length, details: skills.map((skill) => `${skill.skillName} · ${{ LEARNING: "학습 중", PROJECT: "프로젝트 경험", INTERNSHIP: "인턴·실무 체험", PROFESSIONAL: "실무 경력" }[skill.selfReportedLevel] ?? skill.selfReportedLevel}`) }] : []),
+          ...(certificates.length ? [{ label: "자격증", count: certificates.length, details: certificates.map((certificate) => [certificate.name, certificate.issuer, certificate.acquiredAt].filter(Boolean).join(" · ")) }] : []),
           ...entryItems,
-          ...(introductions.length ? [{ label: "자기소개서", count: introductions.length, updatedAt: introductions.map((entry) => entry.updatedAt).sort().at(-1) }] : []),
+          ...(introductions.length ? [{ label: "자기소개서", count: introductions.length, updatedAt: introductions.map((entry) => entry.updatedAt).sort().at(-1), details: introductions.map((entry) => `${entry.title} · ${entry.content.length > 180 ? `${entry.content.slice(0, 180)}…` : entry.content}`) }] : []),
         ]);
       })
       .catch(() => setMessage("저장된 스펙정보를 불러오지 못했습니다."))
@@ -91,7 +95,7 @@ function SavedCapabilityList({ onEdit }: { onEdit: () => void }) {
   if (message) return <p className="resume-document-message">{message}</p>;
   const stateLabel = saveState.status === "SAVED" ? "저장 완료" : saveState.status === "DRAFT" ? "임시저장" : "저장 전";
   const stateDate = saveState.updatedAt ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(saveState.updatedAt)) : "";
-  return <div className="saved-capability-list"><div className="saved-capability-list-head"><div><h3>내 스펙정보 목록</h3><p><b className={`save-state-badge ${saveState.status.toLowerCase()}`}>{stateLabel}</b>{stateDate && ` · ${stateDate}`}</p></div><button type="button" className="primary-button" onClick={onEdit}>스펙정보 수정</button></div>{items.length ? items.map((item) => <article key={item.label}><div><strong>{item.label}</strong><span>{item.count}건 저장됨</span></div><small>{item.updatedAt ? `최근 수정 ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}` : "저장 이력 없음"}</small></article>) : <p className="empty-state">아직 저장된 스펙정보가 없습니다.</p>}</div>;
+  return <div className="saved-capability-list"><div className="saved-capability-list-head"><div><h3>내 스펙정보 목록</h3><p><b className={`save-state-badge ${saveState.status.toLowerCase()}`}>{stateLabel}</b>{stateDate && ` · ${stateDate}`}</p></div><button type="button" className="primary-button" onClick={onEdit}>스펙정보 수정</button></div>{items.length ? items.map((item) => { const open = expanded === item.label; return <article className={open ? "expanded" : ""} key={item.label}><button type="button" className="saved-capability-summary" onClick={() => setExpanded(open ? null : item.label)} aria-expanded={open}><div><strong>{item.label}</strong><span>{item.count}건 저장됨</span></div><div><small>{item.updatedAt ? `최근 수정 ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}` : "저장 이력 없음"}</small>{open ? <ChevronUp size={17} /> : <ChevronDown size={17} />}</div></button>{open && <div className="saved-capability-detail"><ul>{item.details.map((detail, index) => <li key={`${item.label}-${index}`}>{detail}</li>)}</ul><button type="button" className="outline-button" onClick={onEdit}>{item.label} 수정하기</button></div>}</article>; }) : <p className="empty-state">아직 저장된 스펙정보가 없습니다.</p>}</div>;
 }
 
 function ToolHeader({ title, body, close, action }: { title: string; body: string; close: () => void; action?: () => void }) {
