@@ -139,7 +139,8 @@ public class ResumeDocumentService {
         String projectList=projects.findByMemberId(memberId).stream().map(Project::getTitle).collect(Collectors.joining(", "));
         List<Map<String, Object>> detailedEntries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
                 .map(entry -> Map.<String, Object>of("type", entry.getEntryType().name(), "title", entry.getTitle(), "content", json.convertValue(entry.getContent(), Map.class))).toList();
-        String intro=introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream().map(SelfIntroduction::getContent).findFirst().orElse("");
+        List<SelfIntroduction> selfIntroductionList = introductions.findByMemberIdOrderByUpdatedAtDesc(memberId);
+        String intro=selfIntroductionList.stream().map(SelfIntroduction::getContent).findFirst().orElse("");
         String selectedTemplate = templateKey(request.templateKey());
         String title=blank(request.title()) ? templateTitle(selectedTemplate) : request.title().trim();
         String templateSource = templateFile == null || templateFile.isEmpty() ? "" : extractor.extract(templateFile);
@@ -163,6 +164,8 @@ public class ResumeDocumentService {
         JsonNode personal = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
                 .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).map(ResumeEntry::getContent).findFirst().orElse(json.createObjectNode());
         templateData.put("name", personal.path("name").asText(member.getNickname()));
+        templateData.put("hanjaName", personal.path("hanjaName").asText(""));
+        templateData.put("birthDate", personal.path("birthDate").asText(""));
         templateData.put("email", personal.path("email").asText(member.getEmail()));
         templateData.put("phone", personal.path("phone").asText("")); templateData.put("address", personal.path("address").asText(""));
         templateData.put("targetRole", profile == null ? "" : empty(profile.getTargetRole()));
@@ -174,6 +177,8 @@ public class ResumeDocumentService {
         templateData.put("skills", enabledSections.contains("skills") ? skillList : ""); templateData.put("certificates", enabledSections.contains("certificates") ? certList : "");
         templateData.set("entries", json.valueToTree(detailedEntries));
         templateData.set("answers", json.valueToTree(request.answers() == null ? List.of() : request.answers()));
+        templateData.set("selfIntroductions", json.valueToTree(selfIntroductionList.stream().map(item -> Map.of(
+                "title", empty(item.getTitle()), "content", empty(item.getContent()))).toList()));
         templateData.set("certificateDetails", json.valueToTree(certificates.findByMemberId(memberId).stream().map(certificate -> Map.of(
                 "name", empty(certificate.getName()), "issuer", empty(certificate.getIssuer()),
                 "acquiredAt", certificate.getAcquiredAt() == null ? "" : certificate.getAcquiredAt().toString())).toList()));
@@ -185,6 +190,19 @@ public class ResumeDocumentService {
     }
     public ResumeDocument owned(Long memberId, Long id) { return documents.findByIdAndMemberId(id, memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이력서 문서를 찾을 수 없습니다.")); }
     public ResumeDocumentResponse rename(Long memberId, Long id, String title) { if (blank(title)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이력서 이름을 입력해 주세요."); ResumeDocument document = owned(memberId, id); document.rename(title.trim()); return ResumeDocumentResponse.from(document); }
+    /** New template fields must also work when a member downloads a draft made before the field was added. */
+    public JsonNode templateDataForDownload(Long memberId, ResumeDocument document) {
+        JsonNode stored = document.getStructuredContent() == null ? null : document.getStructuredContent().path("templateData");
+        if (stored == null || stored.isMissingNode()) return stored;
+        ObjectNode data = stored.deepCopy();
+        JsonNode personal = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(memberId).stream()
+                .filter(entry -> entry.getEntryType() == ResumeEntryType.PERSONAL).map(ResumeEntry::getContent).findFirst().orElse(json.createObjectNode());
+        if (blank(data.path("hanjaName").asText())) data.put("hanjaName", personal.path("hanjaName").asText(""));
+        if (blank(data.path("birthDate").asText())) data.put("birthDate", personal.path("birthDate").asText(""));
+        if (!data.path("selfIntroductions").isArray()) data.set("selfIntroductions", json.valueToTree(introductions.findByMemberIdOrderByUpdatedAtDesc(memberId).stream()
+                .map(item -> Map.of("title", empty(item.getTitle()), "content", empty(item.getContent()))).toList()));
+        return data;
+    }
     /**
      * Extract the fields that can be reflected in a member profile without relying
      * on an LLM. This is deliberately a conservative fallback: it only emits a

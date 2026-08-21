@@ -62,7 +62,7 @@ public class ResumeDocumentController {
         try (InputStream input = template == null || !template.exists() ? null : template.getInputStream();
              XWPFDocument docx = input == null ? new XWPFDocument() : new XWPFDocument(input);
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            JsonNode data = document.getStructuredContent() == null ? null : document.getStructuredContent().path("templateData");
+            JsonNode data = service.templateDataForDownload(AuthenticatedMember.id(auth), document);
             if (data != null && !data.isMissingNode()) populateTemplate(docx, data, templateKey);
             else appendDraft(docx, document.getGeneratedContent() == null ? document.getExtractedText() : document.getGeneratedContent(), templateKey);
             docx.write(output);
@@ -89,6 +89,8 @@ public class ResumeDocumentController {
         XWPFTable personal = tables.get(0);
         insertPhoto(docx, personal, 0, 0, data.path("profilePhotoDataUrl").asText());
         put(personal, 0, 3, data.path("name").asText()); put(personal, 2, 2, data.path("email").asText());
+        put(personal, 0, 5, data.path("hanjaName").asText());
+        put(personal, 1, 2, koreanDate(data.path("birthDate").asText()));
         put(personal, 3, 2, data.path("phone").asText()); put(personal, 4, 2, data.path("address").asText());
         XWPFTable education = tables.get(1); clearRows(education, 1);
         JsonNode educationEntry = firstEntry(data, "EDUCATION");
@@ -107,8 +109,7 @@ public class ResumeDocumentController {
         fillProjectSummary(project, projectAt(data, 1), 5, data.path("skills").asText());
 
         XWPFTable skills = tables.get(4);
-        // The supplied form's first environment field is the free-form programming/tool field.
-        put(skills, 1, 1, data.path("skills").asText());
+        fillSkillEnvironment(skills, data.path("skills").asText());
 
         XWPFTable career = tables.get(5); clearRows(career, 1);
         fillEntries(career, data, "CAREER", 1, (table, row, entry) -> {
@@ -121,9 +122,8 @@ public class ResumeDocumentController {
         fillCertificates(certificates, data);
         if (tables.size() < 11) return;
 
-        XWPFTable activities = tables.get(7); clearRows(activities, 1);
-        fillActivityRows(activities, data, 1);
-        fillIntroduction(tables.get(8), data.path("answers"), data.path("draft").asText());
+        fillMilitary(tables.get(7), firstEntry(data, "PREFERENCE"));
+        fillIntroduction(tables.get(8), data.path("answers"), data.path("selfIntroductions"));
         fillProjectDetail(tables.get(9), projectAt(data, 0), data.path("skills").asText());
         fillProjectDetail(tables.get(10), projectAt(data, 1), data.path("skills").asText());
     }
@@ -133,17 +133,34 @@ public class ResumeDocumentController {
     private static void fillEntries(XWPFTable table, JsonNode data, String type, int fromRow, EntryWriter writer) { int row = fromRow; for (JsonNode entry : entries(data, type)) { if (row >= table.getNumberOfRows()) break; writer.write(table, row++, entry); } }
     private static java.util.List<JsonNode> entries(JsonNode data, String type) { java.util.List<JsonNode> result = new java.util.ArrayList<>(); if (data != null && data.path("entries").isArray()) for (JsonNode entry : data.path("entries")) if (type.equals(entry.path("type").asText())) result.add(entry); return result; }
     private static JsonNode projectAt(JsonNode data, int index) { return data.path("projects").isArray() && data.path("projects").size() > index ? data.path("projects").get(index) : com.fasterxml.jackson.databind.node.MissingNode.getInstance(); }
-    private static void fillProjectSummary(XWPFTable table, JsonNode project, int row, String skills) { if (project == null || project.isMissingNode()) return; put(table, row, 0, period(project)); put(table, row, 1, project.path("title").asText()); put(table, row, 2, project.path("role").asText()); put(table, row, 3, skills); put(table, row + 1, 3, join(project.path("problem").asText(), project.path("solution").asText(), project.path("result").asText())); }
+    private static void fillProjectSummary(XWPFTable table, JsonNode project, int row, String skills) { if (project == null || project.isMissingNode()) return; put(table, row, 0, projectPeriod(project)); put(table, row, 1, project.path("title").asText()); put(table, row, 2, project.path("role").asText()); put(table, row, 3, skills); put(table, row + 2, 2, join(project.path("problem").asText(), project.path("solution").asText(), project.path("result").asText())); }
     private static void fillCertificates(XWPFTable table, JsonNode data) { JsonNode details = data.path("certificateDetails"); if (details.isArray() && !details.isEmpty()) { for (int index = 0; index < details.size() && index + 1 < table.getNumberOfRows(); index++) { JsonNode certificate = details.get(index); put(table, index + 1, 0, certificate.path("acquiredAt").asText()); put(table, index + 1, 1, certificate.path("name").asText()); put(table, index + 1, 2, certificate.path("issuer").asText()); } return; } String[] certificateList = data.path("certificates").asText().split(",\\s*"); for (int index = 0; index < certificateList.length && index + 1 < table.getNumberOfRows(); index++) put(table, index + 1, 1, certificateList[index]); }
-    private static void fillActivityRows(XWPFTable table, JsonNode data, int fromRow) { int row = fromRow; for (String type : java.util.List.of("ACTIVITY", "AWARD", "LANGUAGE", "PORTFOLIO")) for (JsonNode entry : entries(data, type)) { if (row >= table.getNumberOfRows()) return; put(table, row, 0, period(entry)); put(table, row, 1, entry.path("title").asText()); put(table, row, 2, entry.path("content").path("description").asText()); row++; } }
-    private static void fillIntroduction(XWPFTable table, JsonNode answers, String draft) { for (int row = 0; row < 4 && row < table.getNumberOfRows(); row++) if (answers.isArray() && answers.size() > row && !answers.get(row).asText().isBlank()) put(table, row, 1, answers.get(row).asText()); if (answers.isArray() && !answers.isEmpty()) return; if (draft != null && !draft.isBlank()) put(table, 0, 1, draft.replaceAll("(?m)^#.*$", "").trim()); }
-    private static void fillProjectDetail(XWPFTable table, JsonNode project, String skills) { if (project == null || project.isMissingNode()) return; put(table, 1, 1, project.path("title").asText()); put(table, 2, 1, period(project)); put(table, 3, 1, skills); put(table, 4, 1, join(project.path("role").asText(), project.path("problem").asText(), project.path("solution").asText())); put(table, 5, 1, project.path("result").asText()); }
+    private static void fillMilitary(XWPFTable table, JsonNode entry) { if (entry == null || entry.isMissingNode()) return; JsonNode content = entry.path("content"); put(table, 1, 0, period(entry)); put(table, 1, 1, join(content.path("branch").asText(), content.path("rank").asText(), content.path("serviceCategory").asText(), content.path("specialty").asText())); put(table, 1, 2, content.path("serviceType").asText()); put(table, 1, 3, content.path("veteranStatus").asText()); }
+    private static void fillIntroduction(XWPFTable table, JsonNode answers, JsonNode savedIntroductions) { for (int row = 0; row < 4 && row < table.getNumberOfRows(); row++) { String answer = answers.isArray() && answers.size() > row ? answers.get(row).asText() : ""; String saved = introductionFor(savedIntroductions, row); put(table, row, 1, first(answer, saved)); } }
+    private static void fillProjectDetail(XWPFTable table, JsonNode project, String skills) { if (project == null || project.isMissingNode()) return; put(table, 1, 1, project.path("title").asText()); put(table, 2, 1, projectPeriod(project)); put(table, 3, 1, skills); put(table, 4, 1, join(project.path("role").asText(), project.path("problem").asText(), project.path("solution").asText())); put(table, 5, 1, project.path("result").asText()); }
     private static void appendDraft(XWPFDocument docx, String content, String templateKey) { for (String line : (content == null ? "" : content).split("\\n")) { var paragraph = docx.createParagraph(); var run = paragraph.createRun(); run.setText(line.replaceFirst("^#+\\s*", "")); if (line.startsWith("#")) { run.setBold(true); run.setFontSize("COMPACT".equals(templateKey) ? 12 : 15); } } }
     private static JsonNode firstEntry(JsonNode data, String type) { if (data == null || !data.path("entries").isArray()) return com.fasterxml.jackson.databind.node.MissingNode.getInstance(); for (JsonNode entry : data.path("entries")) if (type.equals(entry.path("type").asText())) return entry; return com.fasterxml.jackson.databind.node.MissingNode.getInstance(); }
     private static String period(JsonNode entry) { if (entry == null || entry.isMissingNode()) return ""; JsonNode value = entry.path("content"); return join(value.path("startedAt").asText(), value.path("endedAt").asText()); }
+    private static String projectPeriod(JsonNode project) { return join(project.path("startedAt").asText(), project.path("endedAt").asText()); }
+    private static String koreanDate(String value) { if (value == null || value.isBlank()) return ""; String[] date = value.split("-"); return date.length == 3 ? date[0] + "년 " + date[1] + "월 " + date[2] + "일" : value; }
+    private static String introductionFor(JsonNode introductions, int index) { if (!introductions.isArray()) return ""; String[] terms = {"성장", "잘할", "습득", "회사"}; for (JsonNode item : introductions) if (item.path("title").asText().replaceAll("\\s+", "").contains(terms[index])) return item.path("content").asText(); return introductions.size() > index ? introductions.get(index).path("content").asText() : ""; }
+    private static void fillSkillEnvironment(XWPFTable table, String skills) {
+        java.util.List<String> values = java.util.Arrays.stream(skills.split(",\\s*")).map(String::trim).filter(value -> !value.isBlank()).toList();
+        put(table, 1, 1, selectSkills(values, "java", "python", "javascript", "typescript", "sql", "html", "css", "c++", "c#", "go", "kotlin"));
+        put(table, 1, 3, selectSkills(values, "linux", "ubuntu", "windows", "macos"));
+        put(table, 2, 3, selectSkills(values, "spring", "react", "vue", "fastapi", "django", "node", "jpa", "hibernate", "mybatis"));
+        put(table, 3, 3, selectSkills(values, "nginx", "tomcat", "apache", "iis"));
+        put(table, 4, 3, selectSkills(values, "aws", "azure", "gcp", "ec2", "docker", "kubernetes", "compose"));
+        put(table, 5, 1, selectSkills(values, "figma", "erd", "cloud", "notion"));
+        put(table, 5, 3, selectSkills(values, "mysql", "oracle", "postgres", "mariadb", "mongodb", "redis", "sqlite"));
+        put(table, 7, 1, selectSkills(values, "intellij", "vscode", "eclipse", "postman", "git", "github", "jenkins", "github actions", "ci/cd"));
+        put(table, 8, 1, selectSkills(values, "git", "github", "svn"));
+        java.util.Set<String> categorized = new java.util.HashSet<>(); for (String term : java.util.List.of("java", "python", "javascript", "typescript", "sql", "html", "css", "c++", "c#", "go", "kotlin", "linux", "ubuntu", "windows", "macos", "spring", "react", "vue", "fastapi", "django", "node", "jpa", "hibernate", "mybatis", "nginx", "tomcat", "apache", "iis", "aws", "azure", "gcp", "ec2", "docker", "kubernetes", "compose", "figma", "erd", "cloud", "notion", "mysql", "oracle", "postgres", "mariadb", "mongodb", "redis", "sqlite", "intellij", "vscode", "eclipse", "postman", "git", "github", "jenkins", "github actions", "ci/cd", "svn")) for (String value : values) if (value.toLowerCase(java.util.Locale.ROOT).contains(term)) categorized.add(value); put(table, 9, 1, values.stream().filter(value -> !categorized.contains(value)).collect(java.util.stream.Collectors.joining(", ")));
+    }
+    private static String selectSkills(java.util.List<String> values, String... terms) { return values.stream().filter(value -> { String lower = value.toLowerCase(java.util.Locale.ROOT); return java.util.Arrays.stream(terms).anyMatch(lower::contains); }).collect(java.util.stream.Collectors.joining(", ")); }
     private static void clearRows(XWPFTable table, int fromRow) { for (int row = fromRow; row < table.getNumberOfRows(); row++) for (var cell : table.getRow(row).getTableCells()) cell.setText(""); }
     private static void put(XWPFTable table, int row, int cell, String value) { if (row < table.getNumberOfRows() && cell < table.getRow(row).getTableCells().size()) table.getRow(row).getCell(cell).setText(value == null ? "" : value); }
-    private static void insertPhoto(XWPFDocument docx, XWPFTable table, int row, int cell, String dataUrl) { try { if (dataUrl == null || !dataUrl.startsWith("data:image/")) return; int comma = dataUrl.indexOf(','); if (comma < 0) return; byte[] bytes = java.util.Base64.getDecoder().decode(dataUrl.substring(comma + 1)); var target = table.getRow(row).getCell(cell); target.removeParagraph(0); var run = target.addParagraph().createRun(); int type = dataUrl.startsWith("data:image/png") ? XWPFDocument.PICTURE_TYPE_PNG : dataUrl.startsWith("data:image/webp") ? XWPFDocument.PICTURE_TYPE_JPEG : XWPFDocument.PICTURE_TYPE_JPEG; run.addPicture(new ByteArrayInputStream(bytes), type, "profile-photo", Units.toEMU(70), Units.toEMU(90)); } catch (Exception ignored) { } }
+    private static void insertPhoto(XWPFDocument docx, XWPFTable table, int row, int cell, String dataUrl) { try { if (dataUrl == null || !dataUrl.startsWith("data:image/")) return; int comma = dataUrl.indexOf(','); if (comma < 0) return; byte[] bytes = java.util.Base64.getDecoder().decode(dataUrl.substring(comma + 1)); var target = table.getRow(row).getCell(cell); target.removeParagraph(0); var run = target.addParagraph().createRun(); int type = dataUrl.startsWith("data:image/png") ? XWPFDocument.PICTURE_TYPE_PNG : dataUrl.startsWith("data:image/webp") ? XWPFDocument.PICTURE_TYPE_JPEG : XWPFDocument.PICTURE_TYPE_JPEG; run.addPicture(new ByteArrayInputStream(bytes), type, "profile-photo", Units.toEMU(96), Units.toEMU(126)); } catch (Exception ignored) { } }
     private static String first(String... values) { for (String value : values) if (value != null && !value.isBlank()) return value; return ""; }
     private static String join(String... values) { return java.util.Arrays.stream(values).filter(value -> value != null && !value.isBlank()).collect(java.util.stream.Collectors.joining(" · ")); }
 }
