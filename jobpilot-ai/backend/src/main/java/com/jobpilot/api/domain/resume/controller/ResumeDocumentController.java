@@ -84,6 +84,7 @@ public class ResumeDocumentController {
 
     private static void populateTemplate(XWPFDocument docx, JsonNode data, String templateKey) {
         if ("ACADEMY".equals(templateKey)) { populateAcademy(docx, data); return; }
+        if ("JOBKOREA".equals(templateKey)) { populateJobKorea(docx, data); return; }
         List<String> values = List.of(data.path("name").asText(), data.path("email").asText(), data.path("phone").asText(), data.path("address").asText(), data.path("targetRole").asText(), data.path("schoolName").asText(), data.path("major").asText(), data.path("skills").asText(), data.path("certificates").asText(), data.path("technicalSummary").asText());
         int index = 0;
         for (XWPFTable table : docx.getTables()) for (var row : table.getRows()) for (var cell : row.getTableCells()) {
@@ -92,6 +93,36 @@ public class ResumeDocumentController {
         }
         if (!docx.getTables().isEmpty()) insertPhoto(docx, docx.getTables().get(0), 0, 0, data.path("profilePhotoDataUrl").asText());
     }
+
+    /** Table slots in the supplied JobKorea form, kept separate from the academy form's layout. */
+    private static void populateJobKorea(XWPFDocument docx, JsonNode data) {
+        var tables = docx.getTables(); if (tables.size() < 13) return;
+        XWPFTable personal = tables.get(0);
+        insertPhoto(docx, personal, 0, 0, data.path("profilePhotoDataUrl").asText());
+        put(personal, 0, 4, data.path("name").asText());
+        put(personal, 0, 8, age(data.path("birthDate").asText()));
+        put(personal, 1, 4, data.path("targetRole").asText()); put(personal, 1, 8, data.path("careerMonths").asInt(0) > 0 ? data.path("careerMonths").asInt() + "개월" : "신입");
+        put(personal, 2, 4, data.path("phone").asText()); put(personal, 2, 8, data.path("portfolioUrl").asText());
+        put(personal, 3, 4, data.path("email").asText()); put(personal, 4, 4, data.path("address").asText());
+
+        XWPFTable education = tables.get(1); clearRows(education, 1);
+        JsonNode educationEntry = firstEntry(data, "EDUCATION");
+        put(education, 1, 0, period(educationEntry)); put(education, 1, 1, join(data.path("schoolName").asText(), data.path("major").asText()));
+        XWPFTable career = tables.get(2); clearRows(career, 1);
+        fillEntries(career, data, "CAREER", 1, (table, row, entry) -> { put(table, row, 0, period(entry)); put(table, row, 1, entry.path("title").asText()); put(table, row, 2, entry.path("content").path("department").asText()); put(table, row, 3, entry.path("content").path("position").asText()); put(table, row, 4, first(entry.path("content").path("description").asText(), entry.path("content").path("duties").asText())); });
+        XWPFTable training = tables.get(4); clearRows(training, 1);
+        fillEntries(training, data, "TRAINING", 1, (table, row, entry) -> { put(table, row, 0, period(entry)); put(table, row, 1, entry.path("title").asText()); put(table, row, 2, first(entry.path("content").path("provider").asText(), entry.path("content").path("institution").asText())); });
+        XWPFTable certificates = tables.get(7); clearRows(certificates, 1); fillCertificates(certificates, data);
+        fillMilitary(tables.get(8), firstEntry(data, "PREFERENCE"));
+        fillJobKoreaSkills(tables.get(9), data.path("skills").asText());
+        fillJobKoreaProject(tables.get(10), projectAt(data, 0), 0); fillJobKoreaProject(tables.get(10), projectAt(data, 1), 3);
+        fillJobKoreaProject(tables.get(11), projectAt(data, 2), 0); fillJobKoreaProject(tables.get(11), projectAt(data, 3), 3);
+        fillJobKoreaIntroduction(tables.get(12), data.path("answers"), data.path("selfIntroductions"));
+    }
+    private static void fillJobKoreaSkills(XWPFTable table, String skills) { java.util.List<String> values = java.util.Arrays.stream(skills.split(",\\s*")).filter(value -> !value.isBlank()).toList(); for (int row = 1; row < table.getNumberOfRows() && row <= values.size(); row++) { put(table, row, 0, values.get(row - 1)); put(table, row, 1, "활용 가능"); put(table, row, 2, "프로젝트/학습 경험"); } }
+    private static void fillJobKoreaProject(XWPFTable table, JsonNode project, int offset) { if (project == null || project.isMissingNode()) return; put(table, offset + 1, 1, project.path("title").asText()); put(table, offset + 1, 5, projectPeriod(project)); put(table, offset + 2, 1, first(project.path("role").asText(), project.path("description").asText())); put(table, offset + 3, 1, first(project.path("result").asText(), project.path("description").asText())); }
+    private static void fillJobKoreaIntroduction(XWPFTable table, JsonNode answers, JsonNode savedIntroductions) { for (int row : new int[] {1, 3, 5, 7}) { int index = (row - 1) / 2; String answer = answers.isArray() && answers.size() > index ? answers.get(index).asText() : ""; put(table, row, 0, first(answer, introductionFor(savedIntroductions, index))); } }
+    private static String age(String birthDate) { try { return String.valueOf(java.time.Period.between(java.time.LocalDate.parse(birthDate), java.time.LocalDate.now()).getYears()); } catch (Exception ignored) { return ""; } }
 
     /** The academy form has stable table slots, so populate those slots rather than appending loose text. */
     private static void populateAcademy(XWPFDocument docx, JsonNode data) {
