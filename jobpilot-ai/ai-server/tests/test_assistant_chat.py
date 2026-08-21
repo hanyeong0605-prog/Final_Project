@@ -156,3 +156,56 @@ def test_api_failure_is_fail_open(monkeypatch):
 
     assert result.ok is False
     assert result.reply is None
+
+
+def test_site_knowledge_included_when_relevant(monkeypatch):
+    """2026-08-20 RAG 추가: 사이트 고유 정책과 관련 있는 질문이면 knowledge.py가 찾아준
+    지식 조각이 프롬프트에 들어가야 한다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    captured = {}
+
+    class FakeResponse:
+        text = '{"reply": "월 9,900원이에요.", "navigate_to": null}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        chat(message="구독 요금이 얼마야")
+
+    # 작성 규칙 4번에도 "[사이트 지식 참고자료]"라는 문구가 고정으로 들어가므로, 실제
+    # 주입된 섹션(그 뒤에 " - 사용자 질문과..." 설명이 붙는 헤더)인지로 구분해서 확인한다.
+    assert "[사이트 지식 참고자료 - 사용자 질문과" in captured["prompt"]
+    assert "9,900원" in captured["prompt"]
+
+
+def test_site_knowledge_section_omitted_when_no_match(monkeypatch):
+    """관련 지식이 없는 일반 잡담이면 [사이트 지식 참고자료] 섹션 자체가 프롬프트에
+    안 들어가야 한다 - 억지로 무관한 내용을 근거인 척 끼워넣으면 안 된다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    captured = {}
+
+    class FakeResponse:
+        text = '{"reply": "저도 잘 모르겠어요!", "navigate_to": null}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        chat(message="오늘 점심 뭐 먹지")
+
+    assert "[사이트 지식 참고자료 - 사용자 질문과" not in captured["prompt"]
