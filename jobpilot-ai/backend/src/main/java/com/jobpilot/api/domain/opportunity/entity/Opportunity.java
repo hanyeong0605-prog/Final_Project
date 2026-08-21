@@ -33,6 +33,7 @@ public class Opportunity {
     public String getTitle() { return title; }
     public String getOrganization() { return organization; }
     public String getDescription() { return description; }
+    public String getSourceUrl() { return sourceUrl; }
     public LocalDateTime getApplicationStartAt() { return applicationStartAt; }
     public LocalDateTime getDeadlineAt() { return deadlineAt; }
     public LocalDateTime getEventStartAt() { return eventStartAt; }

@@ -31,7 +31,7 @@ public class OpportunityController {
         return new OpportunityResponse(
                 value.getId(), value.getType(), value.getTitle(), value.getOrganization(),
                 period(value.getEventStartAt(), value.getEventEndAt()),
-                format(value.getDeadlineAt()), value.getDescription(), List.of()
+                format(value.getDeadlineAt()), reason(value), tags(value)
         );
     }
 
@@ -44,5 +44,11 @@ public class OpportunityController {
 
     private String format(LocalDateTime value) {
         return value == null ? "" : DATE.format(value);
+    }
+    private String reason(Opportunity value) { return value.getDescription() == null ? "" : value.getDescription().replaceFirst("WORK24_IT_TAGS=.*?; ", ""); }
+    private List<String> tags(Opportunity value) {
+        String description=value.getDescription(); if (description == null || !description.startsWith("WORK24_IT_TAGS=")) return List.of();
+        int end=description.indexOf(';'); if (end < 0) return List.of(); String raw=description.substring("WORK24_IT_TAGS=".length(), end);
+        return raw.isBlank() ? List.of() : List.of(raw.split(","));
     }
 }
