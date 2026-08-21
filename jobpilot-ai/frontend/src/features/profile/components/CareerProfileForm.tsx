@@ -41,9 +41,12 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
   }, []);
   const notify = (type: "success" | "error", text: string) => window.dispatchEvent(new CustomEvent("resume:toast", { detail: { type, text } }));
   const focusSection = (id: string) => window.setTimeout(() => { const section = document.getElementById(id); section?.scrollIntoView({ behavior: "smooth", block: "center" }); (section?.querySelector("input, select, textarea") as HTMLElement | null)?.focus({ preventScroll: true }); }, 0);
+  const errorMessage = (error: unknown, fallback: string) => error instanceof Error && error.message.trim() ? error.message.trim() : fallback;
   const validate = () => {
-    if (!form.targetJobFamily.trim() || !form.targetRole.trim()) { notify("error", "공백인 항목이 있습니다. 희망 직무로 이동합니다."); focusSection("resume-desired-role"); return false; }
-    if (certificates.some((certificate) => !certificate.name.trim())) { notify("error", "공백인 항목이 있습니다. 자격증으로 이동합니다."); focusSection("resume-certificates"); return false; }
+    if (!form.targetJobFamily.trim()) { notify("error", "직무 분야는 필수입니다."); focusSection("resume-desired-role"); return false; }
+    if (!form.targetRole.trim()) { notify("error", "목표 직무는 필수입니다."); focusSection("resume-desired-role"); return false; }
+    const blankCertificate = certificates.findIndex((certificate) => !certificate.name.trim());
+    if (blankCertificate >= 0) { notify("error", `자격증 ${blankCertificate + 1}의 자격증명은 필수입니다.`); focusSection("resume-certificates"); return false; }
     return true;
   };
   useEffect(() => { const submitProfile = (event: Event) => { if (!validate()) { event.preventDefault(); return; } formRef.current?.requestSubmit(); }; window.addEventListener("resume-profile:save", submitProfile); return () => window.removeEventListener("resume-profile:save", submitProfile); }, [form, certificates]);
@@ -60,7 +63,13 @@ export function CareerProfileForm({ initial, initialSkills, initialCertificates,
       await onSave(form, skills, validCertificates);
       notify("success", "스펙정보와 보유 기술을 저장했습니다.");
     }
-    catch { notify("error", "스펙정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."); }
+    catch (error) {
+      const message = errorMessage(error, "서버와 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      if (message.includes("기술") || message.includes("skill")) focusSection("resume-skills");
+      else if (message.includes("자격증")) focusSection("resume-certificates");
+      else if (message.includes("직무")) focusSection("resume-desired-role");
+      notify("error", `저장하지 못했습니다: ${message}`);
+    }
     finally { setSaving(false); }
   };
   const changePhoto = (file: File | undefined) => {
