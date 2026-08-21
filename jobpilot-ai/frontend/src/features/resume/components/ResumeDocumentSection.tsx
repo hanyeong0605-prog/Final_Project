@@ -38,6 +38,7 @@ const detailedProfileFields: Array<{ label: string; value: (profile: Profile) =>
   { label: "자기소개서", value: (profile) => itemNames(profile.selfIntroductions, "title") },
 ];
 const detectedPhoto = (profile: Profile) => typeof profile.profilePhotoDataUrl === "string" ? profile.profilePhotoDataUrl : null;
+const stringList = (profile: Profile, key: string) => Array.isArray(profile[key]) ? profile[key].filter((value): value is string => typeof value === "string" && Boolean(value.trim())) : [];
 const itemNames = (value: unknown, key: string) => Array.isArray(value) ? value.map((item) => item && typeof item === "object" ? String((item as Record<string, unknown>)[key] ?? "") : "").filter(Boolean).join(" · ") : "";
 const relevantCareerNames = (value: unknown) => Array.isArray(value) ? value.filter((item) => item && typeof item === "object" && (item as Record<string, unknown>).relevantCareer === true).map((item) => String((item as Record<string, unknown>).company ?? "")).filter(Boolean).join(" · ") : "";
 const militaryText = (value: unknown) => value && typeof value === "object" ? ["serviceType", "branch", "rank"].map((key) => String((value as Record<string, unknown>)[key] ?? "")).filter(Boolean).join(" · ") : "";
@@ -57,6 +58,7 @@ export function ResumeProfileAnalysisSection() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
+  const navigate = useNavigate();
   const { documents, setDocuments, message, setMessage } = useDocuments();
   useEffect(() => { void getResumeAiConsent().then((value) => setAiConsent(value.agreed)).catch(() => undefined); }, []);
 
@@ -91,11 +93,14 @@ export function ResumeProfileAnalysisSection() {
   };
   const uploaded = documents.filter((document) => document.type === "UPLOADED");
   const extracted = (selected?.extractedProfile ?? {}) as Profile;
+  const autoSelectedSkills = stringList(extracted, "autoSelectedSkills");
+  const additionalSkillCandidates = stringList(extracted, "additionalSkillCandidates");
   const setConsent = async (agreed: boolean) => { try { const saved = await saveResumeAiConsent(agreed); setAiConsent(saved.agreed); } catch (error) { setMessage(error instanceof Error ? error.message : "동의 상태를 저장하지 못했습니다."); } };
   return <div className="resume-document-section">
     <section className="resume-analysis-hero"><div><span className="eyebrow">RESUME ANALYSIS</span><h2>이력서를 읽고, 내 스펙 제안만 받아보세요.</h2><p>질문이나 이력서 양식 선택은 하지 않습니다. 업로드한 이력서 안에서 실제로 발견한 정보만 보여드립니다.</p></div><FileText size={36} /></section>
     <section className="resume-document-card resume-upload-card"><h3><Upload size={18} /> 이력서 첨부</h3><p>PDF 또는 DOCX, 최대 5MB. DOCX 표는 행 단위로 읽어 학력·경력·교육이수·수상·프로젝트·자격증·병역·자기소개서 항목을 제안합니다.</p><label className="resume-consent"><input type="checkbox" checked={aiConsent} onChange={(event) => void setConsent(event.target.checked)} /> 이력서의 민감 정보를 AI 분석에 전송하여 구조화·초안 생성에 사용하는 것에 동의합니다. 동의하지 않아도 로컬 텍스트 추출은 가능합니다.</label><input ref={fileRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><button className="primary-button" disabled={loading || !file} onClick={analyze}>{loading ? "분석 중…" : "이력서 분석"}</button></section>
     {selected && <section className="resume-extracted-result"><div className="resume-result-heading"><div><span className="eyebrow">EXTRACTED PROFILE</span><h3>이력서에서 찾은 스펙 정보</h3></div><button className="primary-button" disabled={loading} onClick={() => apply(selected.id)}>프로필에 반영</button></div>{detectedPhoto(extracted) && <div className="resume-detected-photo"><img src={detectedPhoto(extracted) ?? ""} alt="이력서에서 발견한 사진 후보" /><div><strong>이력서에서 사진 후보를 찾았습니다</strong><p>선택 첨부 상태입니다. ‘프로필에 반영’을 누르면 내 스펙정보의 프로필 사진으로 저장됩니다.</p></div></div>}<div className="resume-profile-suggestions">{[...profileFields, ...detailedProfileFields.map((field) => ({ key: field.label, label: field.label, format: () => field.value(extracted) }))].map((field) => { const raw = extracted[field.key]; const value = field.format ? field.format(raw) : String(raw ?? ""); const found = Boolean(value && value !== "0"); return <article key={field.key} className={found ? "found" : "missing"}><strong>{field.label}</strong>{found ? <p>{value}</p> : <p>이력서에서 발견되지 않았습니다. 직접 입력해 주세요.</p>}</article>; })}</div></section>}
+    {selected && (autoSelectedSkills.length > 0 || additionalSkillCandidates.length > 0) && <section className="resume-skill-import"><div><span className="eyebrow">SKILL REVIEW</span><h3>기술 스택 반영 계획</h3><p>이력서에서 많이 확인된 기술부터 프로필의 남은 자리만큼 자동 반영합니다.</p></div>{autoSelectedSkills.length > 0 && <div><strong>자동 반영 · {autoSelectedSkills.length}개</strong><div className="resume-skill-chips">{autoSelectedSkills.map((skill) => <span key={skill}>{skill}</span>)}</div></div>}{additionalSkillCandidates.length > 0 && <div><strong>추가 후보 · {additionalSkillCandidates.length}개</strong><p>프로필 30개 제한 때문에 저장하지 않습니다. 기존 기술을 정리한 뒤 필요할 때 추가하세요.</p><div className="resume-skill-chips muted">{additionalSkillCandidates.map((skill) => <span key={skill}>{skill}</span>)}</div><button type="button" className="outline-button" onClick={() => navigate("/capability?tool=profile")}>스킬 관리로 이동</button></div>}</section>}
     {message && <p className="resume-document-message">{message}</p>}
     <section className="resume-document-list"><div className="resume-result-heading"><h3>내 이력서 자료</h3>{selectedIds.length > 0 && <button className="outline-button" disabled={loading} onClick={() => void remove(selectedIds)}>선택 삭제 ({selectedIds.length})</button>}</div>{uploaded.length === 0 ? <p className="empty-state">아직 분석한 이력서 자료가 없습니다.</p> : uploaded.map((document) => <article key={document.id} className="resume-document-item"><input aria-label={`${document.title} 선택`} type="checkbox" checked={selectedIds.includes(document.id)} onChange={() => setSelectedIds((current) => current.includes(document.id) ? current.filter((id) => id !== document.id) : [...current, document.id])} /><div><span>업로드 분석</span><strong>{document.title}</strong><small>{new Intl.DateTimeFormat("ko-KR").format(new Date(document.createdAt))}</small></div><div className="form-actions"><button className="outline-button" onClick={() => setSelected(document)}>분석 결과 보기</button><button className="outline-button" disabled={loading} onClick={() => apply(document.id)}>프로필 반영</button><button className="outline-button" disabled={loading} onClick={() => void remove([document.id])}>삭제</button></div></article>)}</section>
   </div>;
@@ -111,8 +116,8 @@ export function ResumeWritingAssistantSection() {
   const [selectedGeneratedIds, setSelectedGeneratedIds] = useState<number[]>([]);
   const [context, setContext] = useState<ResumeDraftContext | null>(null);
   const [aiConsent, setAiConsent] = useState(false);
-  const { documents, setDocuments, message, setMessage } = useDocuments();
   const navigate = useNavigate();
+  const { documents, setDocuments, message, setMessage } = useDocuments();
   useEffect(() => { void getResumeAiConsent().then((value) => setAiConsent(value.agreed)).catch(() => undefined); }, []);
   const loadCapabilities = async () => {
     setLoadingCapabilities(true); setMessage("");

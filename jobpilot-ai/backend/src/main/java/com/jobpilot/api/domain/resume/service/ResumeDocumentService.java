@@ -31,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Transactional
 public class ResumeDocumentService {
+    private static final int MAX_PROFILE_SKILLS = 30;
     private final ResumeDocumentRepository documents; private final ResumeDocumentTextExtractor extractor;
     private final MemberRepository members; private final MemberProfileRepository profiles; private final MemberSpecificationRepository specs;
     private final MemberSkillRepository memberSkills; private final SkillRepository skillCatalog; private final CertificateRepository certificates; private final ProjectRepository projects;
@@ -88,6 +89,7 @@ public class ResumeDocumentService {
         classifyCareerRelevance(extracted, targetContext);
         normalizeCertificateSuggestions(extracted);
         normalizeStructuredProfile(extracted);
+        annotateSkillImport(memberId, extracted, text);
         String filename = file.getOriginalFilename();
         ResumeDocument document = documents.save(new ResumeDocument(memberId, ResumeDocumentType.UPLOADED,
                 filename == null || filename.isBlank() ? "업로드 이력서" : filename, filename, text, null, extracted));
@@ -114,7 +116,12 @@ public class ResumeDocumentService {
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
         String photoDataUrl = data.path("profilePhotoDataUrl").asText("");
         applyExtractedPhoto(spec, photoDataUrl);
-        applyExtractedSkills(memberId, data.path("suggestedSkills"));
+        // 이전에 분석되어 저장된 이력서는 autoSelectedSkills 필드가 없으므로,
+        // 그 경우에는 기존 suggestedSkills를 사용한다. 두 경우 모두 저장 한도는 적용된다.
+        JsonNode skillsToApply = data.has("autoSelectedSkills")
+                ? data.path("autoSelectedSkills")
+                : data.path("suggestedSkills");
+        applyExtractedSkills(memberId, skillsToApply);
         applyExtractedCertificates(memberId, data.path("certificateDetails"), data.path("suggestedCertificates"));
         applyPersonalEntry(memberId, data.path("personalInfo"));
         applyStructuredEntries(memberId, data);
@@ -545,12 +552,26 @@ public class ResumeDocumentService {
         Set<Long> owned = memberSkills.findByMemberId(memberId).stream().map(MemberSkill::getSkillId).collect(Collectors.toSet());
         List<MemberSkill> additions = new java.util.ArrayList<>();
         for (JsonNode candidate : candidates) {
+            if (owned.size() >= MAX_PROFILE_SKILLS) break;
             String name = candidate.asText("").trim();
             skillCatalog.findByName(name).filter(Skill::isCanonical).filter(skill -> !owned.contains(skill.getId()))
                     .ifPresent(skill -> { additions.add(new MemberSkill(memberId, skill.getId(), "LEARNING", "이력서에서 추출")); owned.add(skill.getId()); });
         }
         if (!additions.isEmpty()) memberSkills.saveAll(additions);
     }
+    private void annotateSkillImport(Long memberId, ObjectNode extracted, String sourceText) {
+        Set<Long> owned = memberSkills.findByMemberId(memberId).stream().map(MemberSkill::getSkillId).collect(Collectors.toSet());
+        int available = Math.max(0, MAX_PROFILE_SKILLS - owned.size());
+        List<Skill> candidates = new java.util.ArrayList<>(); Set<Long> seen = new HashSet<>();
+        for (JsonNode item : extracted.path("suggestedSkills")) skillCatalog.findByName(item.asText("").trim())
+                .filter(Skill::isCanonical).filter(skill -> !owned.contains(skill.getId()) && seen.add(skill.getId())).ifPresent(candidates::add);
+        String lower = sourceText == null ? "" : sourceText.toLowerCase(Locale.ROOT);
+        candidates.sort(java.util.Comparator.comparingInt((Skill skill) -> occurrences(lower, skill.getName().toLowerCase(Locale.ROOT))).reversed().thenComparing(Skill::getName));
+        ArrayNode selected = extracted.putArray("autoSelectedSkills"); ArrayNode remaining = extracted.putArray("additionalSkillCandidates");
+        for (int index = 0; index < candidates.size(); index++) (index < available ? selected : remaining).add(candidates.get(index).getName());
+        extracted.put("skillProfileLimit", MAX_PROFILE_SKILLS); extracted.put("currentProfileSkillCount", owned.size());
+    }
+    private int occurrences(String text, String term) { int count = 0; for (int index = text.indexOf(term); index >= 0; index = text.indexOf(term, index + term.length())) count++; return count; }
     private void applyExtractedCertificates(Long memberId, JsonNode details, JsonNode candidates) {
         normalizeExistingDriverLicense(memberId, details);
         Set<String> owned = certificates.findByMemberId(memberId).stream().map(Certificate::getName).map(this::normalize).collect(Collectors.toSet());
