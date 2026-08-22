@@ -63,17 +63,22 @@ public class QnetQualificationService {
     // "분야별로 버튼 나눠줄 수 있냐"는 요청으로 임의의 field(NCS 직무분야명, 예:
     // "정보통신"/"건설"/"경영·회계·사무") 하나를 골라 걸러내는 범용 파라미터로 바꿨다.
     // null/빈 문자열이면 필터 없이 전체를 준다.
-    public QnetQualificationPageResponse list(int page, int size, String field) {
+    public QnetQualificationPageResponse list(int page, int size, String field, String query, String sort) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size <= 0 ? DEFAULT_PAGE_SIZE : size, 1), MAX_PAGE_SIZE);
         String trimmedField = field == null ? "" : field.trim();
+        String normalizedQuery = normalize(query);
+        Comparator<QnetQualificationResponse> comparator = "field".equalsIgnoreCase(sort)
+                ? Comparator.comparing(QnetQualificationResponse::field).thenComparing(QnetQualificationResponse::name)
+                : Comparator.comparing(QnetQualificationResponse::name);
         List<QnetQualificationResponse> all = catalog().stream()
                 .filter(item -> trimmedField.isEmpty() || trimmedField.equals(item.field()))
-                .sorted(Comparator.comparing(QnetQualificationResponse::name))
+                .filter(item -> normalizedQuery.isEmpty() || normalize(item.name()).contains(normalizedQuery))
+                .sorted(comparator)
                 .toList();
         int from = Math.min(safePage * safeSize, all.size());
         int to = Math.min(from + safeSize, all.size());
-        return new QnetQualificationPageResponse(all.subList(from, to), to < all.size());
+        return new QnetQualificationPageResponse(all.subList(from, to), to < all.size(), all.size());
     }
 
     // 2026-08-11: "전체 자격증 목록" 위에 분야별 필터 버튼을 뿌리기 위한 목록 - 카탈로그에

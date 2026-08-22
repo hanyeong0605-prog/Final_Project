@@ -69,9 +69,12 @@ export function getRecommendedCertificates(): Promise<QnetQualification[]> {
 // 2026-08-11: "성장 기회 추천" 페이지 - 검색 없이 전체 자격증 목록을 이름순으로 훑어보기.
 // field를 넘기면 백엔드가 NCS 직무분야(예: "정보통신")가 정확히 일치하는 종목만 걸러서
 // 내려준다(비우면 전체).
-export type QnetQualificationPage = { items: QnetQualification[]; hasMore: boolean };
-export function listQnetQualifications(page: number, size = 24, field = ""): Promise<QnetQualificationPage> {
-  return getJson<QnetQualificationPage>(`/api/v1/certifications/catalog/list?page=${page}&size=${size}${field ? `&field=${encodeURIComponent(field)}` : ""}`);
+export type QnetQualificationPage = { items: QnetQualification[]; hasMore: boolean; total: number };
+export function listQnetQualifications(page: number, size = 30, field = "", query = "", sort = "name"): Promise<QnetQualificationPage> {
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort });
+  if (field) params.set("field", field);
+  if (query) params.set("query", query);
+  return getJson<QnetQualificationPage>(`/api/v1/certifications/catalog/list?${params.toString()}`);
 }
 
 // 2026-08-11: "전체 자격증 목록" 위 분야별 필터 버튼용 - 카탈로그에 실제 존재하는

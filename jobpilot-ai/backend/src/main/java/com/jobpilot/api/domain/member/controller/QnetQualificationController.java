@@ -46,8 +46,9 @@ public class QnetQualificationController {
     // 단일 IT 체크박스(itOnly)에서 임의 분야 하나를 고르는 방식으로 바꿨다.
     @GetMapping("/catalog/list")
     public QnetQualificationPageResponse list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "24") int size,
-            @RequestParam(required = false) String field) {
-        return service.list(page, size, field);
+            @RequestParam(required = false) String field, @RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "name") String sort) {
+        return service.list(page, size, field, query, sort);
     }
 
     // 2026-08-11: "전체 자격증 목록" 위 분야별 필터 버튼용 - 카탈로그에 실제 존재하는
