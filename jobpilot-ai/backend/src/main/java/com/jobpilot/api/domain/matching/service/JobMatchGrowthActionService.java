@@ -19,13 +19,15 @@ public class JobMatchGrowthActionService {
         JobMatchDetailResponse detail = matches.findDetail(memberId, jobPostingId);
         LinkedHashMap<String, ActionGroup> groups = new LinkedHashMap<>();
         for (JobMatchEvidenceResponse evidence : detail.evidences()) {
-            if ("DIRECT".equals(evidence.status())) continue;
+            if (!"MISSING".equals(evidence.status())) continue;
             String requirement = value(evidence.requirement()); String type = value(evidence.requirementType()).toUpperCase(Locale.ROOT);
+            if (!(type.equals("SKILL") || type.equals("EXPERIENCE") || type.equals("CERTIFICATION"))) continue;
+            if (!type.equals("CERTIFICATION") && learningKeyword(requirement).isBlank()) continue;
             ActionTemplate template = templateFor(type, requirement);
-            groups.computeIfAbsent(template.category() + "|" + template.title() + "|" + learningKeyword(requirement), ignored -> new ActionGroup(template))
+            groups.computeIfAbsent(template.category() + "|" + template.title() + "|" + learningKeyword(requirement), ignored -> new ActionGroup(template, type))
                     .add(evidence.requirementId(), requirement);
         }
-        return groups.values().stream().map(group -> group.toResponse(learningResources)).toList();
+        return groups.values().stream().map(group -> group.toResponse(learningResources)).filter(java.util.Objects::nonNull).toList();
     }
     private ActionTemplate templateFor(String type, String requirement) {
         if (type.contains("CERT")) return new ActionTemplate("자격증", certificate(requirement), "요구 요건과 연결되는 국가·민간 자격 종목을 찾아 취득 계획을 세워보세요.", "자격증 검색에서 종목을 확인하고 취득 예정일을 역량 프로필에 기록하세요.", "/profile");
@@ -39,7 +41,8 @@ public class JobMatchGrowthActionService {
         private final ActionTemplate template;
         private final List<Long> requirementIds = new ArrayList<>();
         private final List<String> requirements = new ArrayList<>();
-        private ActionGroup(ActionTemplate template) { this.template = template; }
+        private final String requirementType;
+        private ActionGroup(ActionTemplate template, String requirementType) { this.template = template; this.requirementType = requirementType; }
         private void add(Long requirementId, String requirement) {
             if (requirementId != null && !requirementIds.contains(requirementId)) requirementIds.add(requirementId);
             if (!requirement.isBlank() && !requirements.contains(requirement)) requirements.add(requirement);
@@ -48,7 +51,8 @@ public class JobMatchGrowthActionService {
             Long primaryId = requirementIds.isEmpty() ? null : requirementIds.get(0);
             String summary = String.join(" · ", requirements.stream().limit(3).toList());
             if (requirements.size() > 3) summary += " 외 " + (requirements.size() - 3) + "건";
-            List<GrowthResourceRecommendationResponse> resources = learningResources.recommend(summary, primaryId);
+            List<GrowthResourceRecommendationResponse> resources = learningResources.recommend(summary, requirementType, primaryId);
+            if (resources.isEmpty()) return null;
             return new GrowthActionResponse(primaryId, summary, template.category(), template.title(), template.description(), template.nextStep(), template.href(), List.copyOf(requirementIds), resources);
         }
     }
@@ -61,9 +65,11 @@ public class JobMatchGrowthActionService {
         if (lower.contains("react")) return "React";
         if (lower.contains("aws") || lower.contains("cloud") || lower.contains("docker") || lower.contains("컨테이너")) return "AWS Docker";
         if (lower.contains("sql") || lower.contains("데이터") || lower.contains("db")) return "SQL 데이터";
+        if (lower.contains("prompt") || lower.contains("프롬프트") || lower.contains("structured output")) return "LLM 프롬프트";
+        if (lower.contains("api") || lower.contains("연동")) return "API 연동";
         if (lower.contains("ai") || lower.contains("llm") || lower.contains("rag")) return "AI LLM";
         if (lower.contains("보안") || lower.contains("네트워크")) return "정보보안 네트워크";
-        return "IT 개발";
+        return "";
     }
     private String value(String v) { return v == null ? "" : v; }
 }
