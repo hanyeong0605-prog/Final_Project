@@ -78,6 +78,8 @@ export function CertificateOpportunitySection() {
   };
 
   const pageCount = Math.max(1, Math.ceil(total / 30));
+  const pageStart = Math.max(0, Math.min(page - 3, pageCount - 7));
+  const pageNumbers = Array.from({ length: Math.min(7, pageCount) }, (_, index) => pageStart + index);
   const searchCatalogue = (event: FormEvent) => { event.preventDefault(); setPage(0); setQuery(queryDraft.trim()); };
 
   // IT(기본 선택 분야)를 항상 맨 앞에 두고, 나머지는 백엔드가 이미 건수 내림차순으로 준 순서를 유지한다.
@@ -114,17 +116,7 @@ export function CertificateOpportunitySection() {
     {status === "error" && <DataStatePanel state="error" />}
 
     {status === "ready" && <>
-      <h3 className="certificate-opportunity-subtitle"><Sparkles size={16} /> 목표 직무 맞춤 추천</h3>
-      {recommended.length === 0
-        ? <p className="skill-empty">스펙정보의 목표 직무분야를 설정하면 맞춤 자격증을 추천해 드려요.</p>
-        : <div className="certificate-opportunity-grid">{recommended.map((item) => renderCard(item, true))}</div>}
-
-      <h3 className="certificate-opportunity-subtitle"><Bookmark size={16} /> 찜한 자격증</h3>
-      {bookmarks.length === 0
-        ? <p className="skill-empty">아직 찜한 자격증이 없습니다. 위 "자격증 종목 찾아보기"에서 추가해 보세요.</p>
-        : <div className="certificate-opportunity-grid">{bookmarks.map((item) => renderCard(item))}</div>}
-
-      <h3 className="certificate-opportunity-subtitle"><List size={16} /> 전체 자격증 목록</h3>
+      <h3 className="certificate-opportunity-subtitle"><List size={16} /> 자격증 검색·필터</h3>
       <form className="opportunity-catalog-controls" onSubmit={searchCatalogue}>
         <input value={queryDraft} onChange={(event) => setQueryDraft(event.target.value)} placeholder="자격증명 검색" aria-label="자격증명 검색" />
         <button type="submit" className="outline-button">검색</button>
@@ -136,11 +128,22 @@ export function CertificateOpportunitySection() {
           {f.field} <span>{f.count}</span>
         </button>)}
       </div>
+      <h3 className="certificate-opportunity-subtitle"><Sparkles size={16} /> 목표 직무 맞춤 추천</h3>
+      {recommended.length === 0
+        ? <p className="skill-empty">스펙정보의 목표 직무분야를 설정하면 맞춤 자격증을 추천해 드려요.</p>
+        : <div className="certificate-opportunity-grid">{recommended.map((item) => renderCard(item, true))}</div>}
+
+      <h3 className="certificate-opportunity-subtitle"><Bookmark size={16} /> 찜한 자격증</h3>
+      {bookmarks.length === 0
+        ? <p className="skill-empty">아직 찜한 자격증이 없습니다. 위 "자격증 종목 찾아보기"에서 추가해 보세요.</p>
+        : <div className="certificate-opportunity-grid">{bookmarks.map((item) => renderCard(item))}</div>}
+
+      <h3 className="certificate-opportunity-subtitle"><List size={16} /> 전체 자격증 목록</h3>
       {allItems.length === 0 && !loadingCatalogue
         ? <p className="skill-empty">해당 조건의 자격증이 없습니다.</p>
         : <div className="certificate-opportunity-grid">{allItems.map((item) => renderCard(item))}</div>}
       {loadingCatalogue && <p className="skill-empty">자격증 목록을 불러오는 중입니다.</p>}
-      {total > 30 && <div className="opportunity-pagination" aria-label="자격증 목록 페이지"><button type="button" disabled={page === 0 || loadingCatalogue} onClick={() => setPage((value) => value - 1)}>이전</button><span>{page + 1} / {pageCount}</span><button type="button" disabled={page + 1 >= pageCount || loadingCatalogue} onClick={() => setPage((value) => value + 1)}>다음</button></div>}
+      {total > 30 && <div className="opportunity-pagination" aria-label="자격증 목록 페이지"><button type="button" aria-label="이전 페이지" disabled={page === 0 || loadingCatalogue} onClick={() => setPage(page - 1)}>‹</button>{pageNumbers.map((number) => <button type="button" key={number} className={number === page ? "active" : ""} onClick={() => setPage(number)}>{number + 1}</button>)}<button type="button" aria-label="다음 페이지" disabled={page + 1 >= pageCount || loadingCatalogue} onClick={() => setPage(page + 1)}>›</button></div>}
     </>}
 
     {detailItem && <CertificateDetailModal item={detailItem} onClose={() => setDetailItem(null)} />}
