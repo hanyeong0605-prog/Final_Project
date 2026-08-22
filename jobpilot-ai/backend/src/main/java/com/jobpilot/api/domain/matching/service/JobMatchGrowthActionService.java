@@ -3,6 +3,7 @@ package com.jobpilot.api.domain.matching.service;
 import com.jobpilot.api.domain.matching.dto.GrowthActionResponse;
 import com.jobpilot.api.domain.matching.dto.JobMatchDetailResponse;
 import com.jobpilot.api.domain.matching.dto.JobMatchEvidenceResponse;
+import com.jobpilot.api.domain.matching.dto.GrowthResourceRecommendationResponse;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,9 +47,28 @@ public class JobMatchGrowthActionService {
             Long primaryId = requirementIds.isEmpty() ? null : requirementIds.get(0);
             String summary = String.join(" · ", requirements.stream().limit(3).toList());
             if (requirements.size() > 3) summary += " 외 " + (requirements.size() - 3) + "건";
-            return new GrowthActionResponse(primaryId, summary, template.category(), template.title(), template.description(), template.nextStep(), template.href(), List.copyOf(requirementIds));
+            String keyword = learningKeyword(summary);
+            String encoded = java.net.URLEncoder.encode(keyword, java.nio.charset.StandardCharsets.UTF_8);
+            List<GrowthResourceRecommendationResponse> resources = List.of(
+                    new GrowthResourceRecommendationResponse("CERTIFICATE", "자격증", keyword + " 관련 자격증", "부족 요건과 연결되는 자격 종목을 찾아보세요.", "/opportunities?category=CERTIFICATE&resourceQuery=" + encoded),
+                    new GrowthResourceRecommendationResponse("TRAINING", "고용24", keyword + " 훈련과정", "고용24에서 현재 신청 가능한 관련 교육을 확인하세요.", "/opportunities?category=TRAINING&resourceQuery=" + encoded),
+                    new GrowthResourceRecommendationResponse("BOOK", "도서", keyword + " 학습 도서", "알라딘 도서에서 기술 개념과 실습을 보강하세요.", "/opportunities?category=BOOK&resourceQuery=" + encoded + "&requirementId=" + (primaryId == null ? "" : primaryId))
+            );
+            return new GrowthActionResponse(primaryId, summary, template.category(), template.title(), template.description(), template.nextStep(), template.href(), List.copyOf(requirementIds), resources);
         }
     }
     private String certificate(String r) { String v=r.toLowerCase(Locale.ROOT); if(v.contains("sql"))return "SQLD 자격증으로 데이터 역량 보강"; if(v.contains("정보처리"))return "정보처리기사 취득 계획"; if(v.contains("aws")||v.contains("cloud"))return "AWS Cloud Practitioner 학습 계획"; return "요구 분야 자격증 탐색"; }
+    private static String learningKeyword(String text) {
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.contains("spring")) return "Spring";
+        if (lower.contains("java")) return "Java";
+        if (lower.contains("python")) return "Python";
+        if (lower.contains("react")) return "React";
+        if (lower.contains("aws") || lower.contains("cloud") || lower.contains("docker") || lower.contains("컨테이너")) return "AWS Docker";
+        if (lower.contains("sql") || lower.contains("데이터") || lower.contains("db")) return "SQL 데이터";
+        if (lower.contains("ai") || lower.contains("llm") || lower.contains("rag")) return "AI LLM";
+        if (lower.contains("보안") || lower.contains("네트워크")) return "정보보안 네트워크";
+        return "IT 개발";
+    }
     private String value(String v) { return v == null ? "" : v; }
 }

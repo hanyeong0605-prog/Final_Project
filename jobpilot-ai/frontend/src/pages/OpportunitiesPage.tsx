@@ -11,15 +11,18 @@ import { DataStatePanel } from "../shared/components/DataStatePanel";
 import { PageHeading } from "../shared/components/PageHeading";
 
 export function OpportunitiesPage() {
+  const [searchParams] = useSearchParams();
+  const requestedCategory = searchParams.get("category");
+  const initialCategory = requestedCategory === "CERTIFICATE" || requestedCategory === "TRAINING" || requestedCategory === "BOOK" || requestedCategory === "OTHER" ? requestedCategory : "ALL";
+  const resourceQuery = searchParams.get("resourceQuery") ?? "";
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [category, setCategory] = useState<"ALL" | "CERTIFICATE" | "TRAINING" | "BOOK" | "OTHER">("ALL");
+  const [category, setCategory] = useState<"ALL" | "CERTIFICATE" | "TRAINING" | "BOOK" | "OTHER">(initialCategory);
   const [trainingView, setTrainingView] = useState<"OPEN" | "CLOSED">("OPEN");
-  const [trainingQuery, setTrainingQuery] = useState("");
+  const [trainingQuery, setTrainingQuery] = useState(resourceQuery);
   const [trainingCategory, setTrainingCategory] = useState("ALL");
   const [trainingSort, setTrainingSort] = useState<"deadline" | "name">("deadline");
   const [trainingPage, setTrainingPage] = useState(0);
-  const [searchParams] = useSearchParams();
   const { } = useInterests(); const [interestIds, setInterestIds] = useState<number[]>([]);
 
   useEffect(() => {
@@ -32,8 +35,8 @@ export function OpportunitiesPage() {
     <PageHeading eyebrow="GROWTH OPPORTUNITIES" title="부족한 근거를 채울 기회" body="매칭 분석의 부족 요건을 기준으로 자격증·고용24 훈련과정·기술 도서를 연결합니다." />
     {searchParams.get("requirementId") && <div className="opportunity-context">선택한 공고의 부족 요건에 맞춘 성장 기회를 보고 있습니다.</div>}
     <nav className="opportunity-category-tabs" aria-label="성장 기회 카테고리"><button className={category === "ALL" ? "active" : ""} onClick={() => setCategory("ALL")}>전체</button><button className={category === "CERTIFICATE" ? "active" : ""} onClick={() => setCategory("CERTIFICATE")}>자격증 정보</button><button className={category === "TRAINING" ? "active" : ""} onClick={() => setCategory("TRAINING")}>고용24 훈련과정</button><button className={category === "BOOK" ? "active" : ""} onClick={() => setCategory("BOOK")}>도서 추천</button><button className={category === "OTHER" ? "active" : ""} onClick={() => setCategory("OTHER")}>기타 기회</button></nav>
-    {(category === "ALL" || category === "CERTIFICATE") && <CertificateOpportunitySection />}
-    {(category === "ALL" || category === "BOOK") && <BookRecommendationSection jobPostingId={searchParams.get("jobPostingId")} requirementId={searchParams.get("requirementId")} />}
+    {(category === "ALL" || category === "CERTIFICATE") && <CertificateOpportunitySection initialQuery={resourceQuery} />}
+    {(category === "ALL" || category === "BOOK") && <BookRecommendationSection jobPostingId={searchParams.get("jobPostingId")} requirementId={searchParams.get("requirementId")} initialQuery={resourceQuery} />}
     {(category === "ALL" || category === "TRAINING" || category === "OTHER") && <><div className="opportunity-section-heading"><h2 className="opportunity-section-title">{category === "TRAINING" ? "고용24 훈련과정" : "교육·공모전·청년지원"}</h2>{(category === "ALL" || category === "TRAINING") && <div className="training-status-tabs" aria-label="훈련과정 상태"><button className={trainingView === "OPEN" ? "active" : ""} onClick={() => { setTrainingView("OPEN"); setTrainingPage(0); }}>모집 예정</button><button className={trainingView === "CLOSED" ? "active" : ""} onClick={() => { setTrainingView("CLOSED"); setTrainingPage(0); }}>진행·종료 과정</button></div>}</div>
     {(category === "ALL" || category === "TRAINING") && <div className="opportunity-catalog-controls"><input value={trainingQuery} onChange={(event) => { setTrainingQuery(event.target.value); setTrainingPage(0); }} placeholder="과정명·기관·기술 검색" aria-label="훈련과정 검색" /><select value={trainingCategory} onChange={(event) => { setTrainingCategory(event.target.value); setTrainingPage(0); }} aria-label="훈련과정 분야"><option value="ALL">전체 분야</option><option value="IT">IT·개발·데이터</option><option value="LANGUAGE">영어·외국어</option><option value="BUSINESS">OA·회계·마케팅·취업</option><option value="DESIGN">디자인</option></select><select value={trainingSort} onChange={(event) => { setTrainingSort(event.target.value as "deadline" | "name"); setTrainingPage(0); }} aria-label="훈련과정 정렬"><option value="deadline">시작 임박순</option><option value="name">가나다순</option></select></div>}
     {status === "loading" && <DataStatePanel state="loading" />}

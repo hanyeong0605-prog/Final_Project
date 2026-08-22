@@ -5,9 +5,9 @@ import { listRecommendedBooks, type RecommendedBook, type RecommendedBookPage } 
 
 const categories = [["ALL", "전체"], ["IT", "IT·개발"], ["DATA_AI", "데이터·AI"], ["CLOUD", "클라우드·DevOps"], ["SECURITY", "보안·네트워크"], ["CAREER", "IT 취업"], ["LANGUAGE", "영어"], ["BUSINESS", "비즈니스"]] as const;
 
-export function BookRecommendationSection({ jobPostingId, requirementId }: { jobPostingId: string | null; requirementId: string | null }) {
+export function BookRecommendationSection({ jobPostingId, requirementId, initialQuery = "" }: { jobPostingId: string | null; requirementId: string | null; initialQuery?: string }) {
   const [result, setResult] = useState<RecommendedBookPage | null>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [queryDraft, setQueryDraft] = useState(""); const [query, setQuery] = useState(""); const [category, setCategory] = useState("ALL"); const [sort, setSort] = useState("relevance"); const [page, setPage] = useState(0);
+  const [queryDraft, setQueryDraft] = useState(initialQuery); const [query, setQuery] = useState(initialQuery); const [category, setCategory] = useState("ALL"); const [sort, setSort] = useState("relevance"); const [page, setPage] = useState(0);
   useEffect(() => { setStatus("loading"); void listRecommendedBooks({ jobPostingId, requirementId, query, category, sort, page }).then((data) => { setResult(data); setStatus("ready"); }).catch(() => { setResult(null); setStatus("error"); }); }, [jobPostingId, requirementId, query, category, sort, page]);
   const total = result?.total ?? 0; const pageCount = Math.max(1, Math.ceil(total / 30)); const safePage = Math.min(page, pageCount - 1); const pageStart = Math.max(0, Math.min(safePage - 3, pageCount - 7)); const pageNumbers = Array.from({ length: Math.min(7, pageCount) }, (_, index) => pageStart + index);
   const submit = (event: FormEvent) => { event.preventDefault(); setPage(0); setQuery(queryDraft.trim()); };

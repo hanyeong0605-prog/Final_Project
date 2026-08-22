@@ -30,4 +30,5 @@ export interface JobMatch {
   requirements: RequirementEvidence[];
 }
 
-export interface GrowthAction { requirementId: number | null; requirement: string; category: string; title: string; description: string; nextStep: string; href: string; relatedRequirementIds?: number[]; }
+export interface GrowthResourceRecommendation { type: "CERTIFICATE" | "TRAINING" | "BOOK"; label: string; title: string; description: string; href: string; }
+export interface GrowthAction { requirementId: number | null; requirement: string; category: string; title: string; description: string; nextStep: string; href: string; relatedRequirementIds?: number[]; recommendations?: GrowthResourceRecommendation[]; }

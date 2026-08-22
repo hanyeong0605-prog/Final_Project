@@ -22,7 +22,7 @@ const IT_DEFAULT_FIELD = "정보통신";
 // 종목 찾아보기")로 검색해서 그 자리에서 바로 찜할 수 있게 한다. 공모전/청년지원 등
 // 다른 기회 유형은 아직 크롤링 데이터가 없어 이 섹션과 별도로 기존 OpportunitiesPage
 // 하단 목록(빈 상태)에 맡겨 둔다.
-export function CertificateOpportunitySection() {
+export function CertificateOpportunitySection({ initialQuery = "" }: { initialQuery?: string }) {
   const [recommended, setRecommended] = useState<QnetQualification[]>([]);
   const [bookmarks, setBookmarks] = useState<QnetQualification[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -33,8 +33,8 @@ export function CertificateOpportunitySection() {
   const [loadingCatalogue, setLoadingCatalogue] = useState(false);
   const [fields, setFields] = useState<QnetFieldCount[]>([]);
   const [selectedField, setSelectedField] = useState(IT_DEFAULT_FIELD);
-  const [queryDraft, setQueryDraft] = useState("");
-  const [query, setQuery] = useState("");
+  const [queryDraft, setQueryDraft] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
   const [sort, setSort] = useState<"name" | "field">("name");
   const [studyPlanItem, setStudyPlanItem] = useState<QnetQualification | null>(null);
   // 2026-08-11: "AI 학습 계획" 생성용 - 목표 직무/보유 기술/보유 자격증을 미리 모아둔다
