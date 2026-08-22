@@ -791,6 +791,22 @@ a { color: inherit; text-decoration: none; }
 .pane-heading-actions { display: flex; align-items: flex-start; justify-content: flex-end; gap: 8px; }
 .matrix-title .pane-heading-actions p { margin: 0; }
 @media (max-width: 960px) { .evidence-drawer .match-evidence-layout { grid-template-columns: 1fr !important; height: auto; overflow: visible; }.evidence-drawer .evidence-pane.is-collapsed { min-height: 48px; }.collapsed-pane-trigger { width: auto; height: 32px; padding: 0 10px; writing-mode: horizontal-tb; }.evidence-drawer .evidence-pane { resize: none; } }
+
+/* Match detail: all three evidence columns stay open, and readiness is readable at a glance. */
+.evidence-drawer .match-evidence-layout { grid-template-columns: minmax(300px,1fr) minmax(360px,1.05fr) minmax(290px,.9fr); transition: none; }
+.match-overview { position: relative; overflow: hidden; align-items: center; min-height: 82px; }
+.match-overview::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; border-radius: 12px 0 0 12px; background: currentColor; }
+.match-overview.ready { border-color: #b9e4cb; background: linear-gradient(105deg, #edf9f1, #f9fefb); color: #20865b; }
+.match-overview.improve { border-color: #ebc891; background: linear-gradient(105deg, #fff5e8, #fffaf4); color: #a85f22; }
+.match-overview.insufficient { border-color: #d6dae1; background: linear-gradient(105deg, #f3f4f6, #fafafa); color: #687180; }
+.match-overview .grade-chip { border: 1px solid currentColor; background: #fff; color: currentColor; padding: 7px 10px; font-size: 10px; }
+.match-overview > div { padding-right: 4px; }
+.match-overview strong, .match-overview strong small, .match-overview > div span { color: currentColor; }
+.match-overview strong { font-size: 34px; letter-spacing: -1.5px; }
+.match-overview strong small { margin-left: 2px; font-size: 13px; }
+.match-overview > div span { opacity: .76; font-size: 10px; font-weight: 800; }
+.match-overview p { color: #596579; }
+.match-overview.ready p { color: #397758; }.match-overview.improve p { color: #865c3d; }.match-overview.insufficient p { color: #687180; }
 @media (max-width: 1100px) { .admin-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-panel-heading { align-items: flex-start; flex-direction: column; }.admin-panel-heading form { width: 100%; }.admin-panel-heading input { flex: 1; width: auto; }.admin-page-link { padding: 8px; font-size: 0; }.admin-page-link svg { margin: 0; } }
 
