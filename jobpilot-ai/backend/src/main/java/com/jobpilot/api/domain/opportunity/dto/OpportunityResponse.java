@@ -12,5 +12,5 @@ public record OpportunityResponse(
         String reason,
         List<String> tags,
         String sourceUrl,
-        String status, String address, String phone, String trainingTarget, Integer capacity, Integer enrolledCount, Integer courseFee, Integer selfPayFee, java.math.BigDecimal satisfactionScore, String detailUrl, String institutionUrl
+        String status, String address, String phone, String trainingTarget, Integer capacity, Integer enrolledCount, Integer courseFee, Integer selfPayFee, java.math.BigDecimal satisfactionScore, String detailUrl, String institutionUrl, String startAt, String ncsCode, String contents, String certificate, String grade, String employmentRate3m, String employmentRate6m, String thumbnailUrl
 ) {}
