@@ -61,6 +61,7 @@ public class SecurityConfig {
                     // 공개 조회 데이터라, 스펙 편집 중 JWT 만료돼도 끊기지 않게 permitAll 처리.
                     // (KCA 진위확인 기능은 커버 종목이 너무 적어 실효성이 없어 제거함 - 2026-08-11)
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/certifications/catalog", "/api/v1/certifications/catalog/list", "/api/v1/certifications/catalog/fields", "/api/v1/certifications/catalog/*/detail").permitAll();
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/books").permitAll();
 
                     authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
                     authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
