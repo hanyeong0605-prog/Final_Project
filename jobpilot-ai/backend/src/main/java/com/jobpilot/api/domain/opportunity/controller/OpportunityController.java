@@ -50,7 +50,8 @@ public class OpportunityController {
     private String trainingStatus(Opportunity value) {
         if (!value.getType().equals("교육")) return value.getStatus();
         LocalDateTime now = LocalDateTime.now();
-        if ((value.getEventEndAt() != null && value.getEventEndAt().isBefore(now)) || (value.getEventStartAt() != null && value.getEventStartAt().isBefore(now))) return "CLOSED";
+        if (value.getEventEndAt() != null && value.getEventEndAt().isBefore(now)) return "EXPIRED";
+        if (value.getEventStartAt() != null && value.getEventStartAt().isBefore(now)) return "IN_PROGRESS";
         return value.getStatus();
     }
 

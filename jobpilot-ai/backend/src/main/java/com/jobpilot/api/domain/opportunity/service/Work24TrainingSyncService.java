@@ -17,12 +17,13 @@ import org.springframework.web.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Imports development-relevant courses from the Work24 catalogue; it never stores the full catalogue. */
+/** Imports career-relevant training courses from the Work24 catalogue. */
 @Service
 public class Work24TrainingSyncService {
     private static final Logger log = LoggerFactory.getLogger(Work24TrainingSyncService.class);
     private static final String ENDPOINT = "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do";
-    private static final List<String> IT_WORDS = List.of("개발", "프로그래밍", "코딩", "소프트웨어", "웹", "앱", "java", "spring", "python", "react", "데이터", "database", "db", "ai", "인공지능", "클라우드", "aws", "docker", "보안", "네트워크", "linux", "빅데이터");
+    private static final List<String> SEARCH_TERMS = List.of("개발", "프로그래밍", "데이터", "인공지능", "보안", "클라우드", "네트워크", "디자인", "영어", "외국어", "엑셀", "회계", "마케팅", "취업");
+    private static final List<String> RELEVANT_WORDS = List.of("개발", "프로그래밍", "코딩", "소프트웨어", "웹", "앱", "java", "spring", "python", "react", "데이터", "database", "db", "ai", "인공지능", "클라우드", "aws", "docker", "보안", "네트워크", "linux", "빅데이터", "디자인", "영어", "english", "toeic", "토익", "외국어", "엑셀", "office", "oa", "회계", "마케팅", "취업");
     private final JdbcTemplate jdbc; private final ObjectMapper json; private final RestClient client = RestClient.create();
     private final boolean enabled; private final String apiKey;
     public Work24TrainingSyncService(JdbcTemplate jdbc, ObjectMapper json, @Value("${work24.enabled:false}") boolean enabled, @Value("${work24.nae-il-learning-api-key:}") String apiKey) { this.jdbc=jdbc; this.json=json; this.enabled=enabled; this.apiKey=apiKey; }
@@ -34,24 +35,27 @@ public class Work24TrainingSyncService {
         jdbc.update("INSERT INTO work24_training_sync_runs(status) VALUES ('RUNNING')");
         Long runId=jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
         try {
-            LocalDate today=LocalDate.now(); int saved=0; int total=1;
-            for (int page=1; page<=10 && (page-1)*100<total; page++) {
-                JsonNode response=json.readTree(fetch(today.minusMonths(3), today.plusMonths(6), page)); JsonNode courses=response.path("srchList"); total=response.path("scn_cnt").asInt(0);
-                if (!courses.isArray()) break;
-                for (JsonNode course : courses) if (isDevelopmentCourse(course)) { upsert(course, tags(course)); saved++; }
+            LocalDate today=LocalDate.now(); int saved=0;
+            for (String term : SEARCH_TERMS) {
+                int total=1;
+                for (int page=1; page<=10 && (page-1)*100<total; page++) {
+                    JsonNode response=json.readTree(fetch(today, today.plusMonths(12), page, term)); JsonNode courses=response.path("srchList"); total=response.path("scn_cnt").asInt(0);
+                    if (!courses.isArray()) break;
+                    for (JsonNode course : courses) if (isRelevantCourse(course)) { upsert(course, tags(course)); saved++; }
+                }
             }
             jdbc.update("UPDATE opportunities SET status='EXPIRED' WHERE source_name='WORK24' AND event_end_at < NOW() AND status='ACTIVE'");
             jdbc.update("UPDATE work24_training_sync_runs SET finished_at=NOW(), imported_count=?, status='SUCCESS' WHERE id=?", saved, runId);
-            log.info("고용24 IT·개발 훈련과정 동기화 완료: {}건", saved);
+            log.info("고용24 직무역량 훈련과정 동기화 완료: {}건", saved);
             return saved;
         } catch (Exception error) { jdbc.update("UPDATE work24_training_sync_runs SET finished_at=NOW(), status='FAILED', error_message=? WHERE id=?", error.getMessage(), runId); log.warn("고용24 훈련과정 동기화에 실패했습니다.", error); return 0; }
     }
-    private String fetch(LocalDate from, LocalDate to, int page) { return client.get().uri(uri -> uri.scheme("https").host("www.work24.go.kr").path("/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do")
+    private String fetch(LocalDate from, LocalDate to, int page, String term) { return client.get().uri(uri -> uri.scheme("https").host("www.work24.go.kr").path("/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do")
             .queryParam("authKey", apiKey).queryParam("returnType", "JSON").queryParam("outType", "1").queryParam("pageNum", page).queryParam("pageSize", 100)
             .queryParam("srchTraStDt", from.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)).queryParam("srchTraEndDt", to.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE))
-            .queryParam("sort", "ASC").queryParam("sortCol", "2").build()).retrieve().body(String.class); }
-    private boolean isDevelopmentCourse(JsonNode course) { String text=(course.path("title").asText()+" "+course.path("contents").asText()).toLowerCase(Locale.ROOT); return IT_WORDS.stream().anyMatch(text::contains); }
-    private List<String> tags(JsonNode course) { String text=(course.path("title").asText()+" "+course.path("contents").asText()).toLowerCase(Locale.ROOT); List<String> found=new ArrayList<>(); for (String word:IT_WORDS) if(text.contains(word)) found.add(word); return found; }
+            .queryParam("srchTraProcessNm", term).queryParam("sort", "ASC").queryParam("sortCol", "2").build()).retrieve().body(String.class); }
+    private boolean isRelevantCourse(JsonNode course) { String text=(course.path("title").asText()+" "+course.path("contents").asText()).toLowerCase(Locale.ROOT); return RELEVANT_WORDS.stream().anyMatch(text::contains); }
+    private List<String> tags(JsonNode course) { String text=(course.path("title").asText()+" "+course.path("contents").asText()).toLowerCase(Locale.ROOT); List<String> found=new ArrayList<>(); for (String word:RELEVANT_WORDS) if(text.contains(word)) found.add(word); return found; }
     private void upsert(JsonNode c, List<String> tags) {
         String id=c.path("trprId").asText(); if(id.isBlank()) return; LocalDateTime start=date(c.path("traStartDate").asText()), end=date(c.path("traEndDate").asText());
         String description="WORK24_IT_TAGS="+String.join(",", tags)+"; NCS="+c.path("ncsCd").asText();

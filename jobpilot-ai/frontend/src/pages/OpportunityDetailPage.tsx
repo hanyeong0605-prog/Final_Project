@@ -17,13 +17,14 @@ export function OpportunityDetailPage() {
 
   const money = (value: number | null) => value === null ? "정보 없음" : `${value.toLocaleString()}원`;
   const courseUrl = item.detailUrl || item.sourceUrl;
-  const closed = item.status === "CLOSED" || item.status === "EXPIRED";
+  const closed = item.status === "IN_PROGRESS" || item.status === "EXPIRED";
+  const statusLabel = item.status === "EXPIRED" ? "훈련 종료" : item.status === "IN_PROGRESS" ? "훈련 진행 중" : "모집 예정";
 
   return <>
     <PageHeading eyebrow="WORK24 TRAINING" title={item.title} body={`${item.organization} · 훈련 기간 ${item.period}`} />
     <section className="panel training-detail">
       {item.thumbnailUrl && <img className="training-thumbnail" src={item.thumbnailUrl} alt="고용24 과정 안내 이미지" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
-      <span className={`type-badge ${closed ? "closed-badge" : "blue"}`}>{closed ? "신청 마감" : "모집 중"}</span>
+      <span className={`type-badge ${closed ? "closed-badge" : "blue"}`}>{statusLabel}</span>
       <h2>{item.title}</h2>
       <div className="skills">{item.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
       <div className="spec-summary">
