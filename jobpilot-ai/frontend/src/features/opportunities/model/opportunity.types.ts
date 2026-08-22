@@ -12,4 +12,5 @@ export interface Opportunity {
   sourceUrl: string;
   status: string;
   address: string; phone: string; trainingTarget: string; capacity: number | null; enrolledCount: number | null; courseFee: number | null; selfPayFee: number | null; satisfactionScore: number | null; detailUrl: string; institutionUrl: string;
+  startAt: string | null; ncsCode: string; contents: string; certificate: string; grade: string; employmentRate3m: string; employmentRate6m: string; thumbnailUrl: string;
 }

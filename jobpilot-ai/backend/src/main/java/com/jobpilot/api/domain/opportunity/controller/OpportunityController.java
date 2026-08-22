@@ -43,8 +43,16 @@ public class OpportunityController {
         return new OpportunityResponse(
                 value.getId(), value.getType(), value.getTitle(), value.getOrganization(),
                 period(value.getEventStartAt(), value.getEventEndAt()),
-                format(value.getDeadlineAt()), reason(value), tags(value), value.getSourceUrl(), value.getType().equals("교육") && value.getEventEndAt() != null && value.getEventEndAt().isBefore(LocalDateTime.now()) ? "EXPIRED" : value.getStatus(), value.getTrainingAddress(), value.getTrainingPhone(), value.getTrainingTarget(), value.getCapacity(), value.getEnrolledCount(), value.getCourseFee(), value.getSelfPayFee(), value.getSatisfactionScore(), value.getDetailUrl(), value.getInstitutionUrl()
+                format(value.getDeadlineAt()), reason(value), tags(value), value.getSourceUrl(), trainingStatus(value), value.getTrainingAddress(), value.getTrainingPhone(), value.getTrainingTarget(), value.getCapacity(), value.getEnrolledCount(), value.getCourseFee(), value.getSelfPayFee(), value.getSatisfactionScore(), value.getDetailUrl(), value.getInstitutionUrl(), value.getEventStartAt() == null ? null : value.getEventStartAt().toLocalDate().toString(), value.getTrainingNcsCode(), value.getTrainingContents(), value.getTrainingCertificate(), value.getTrainingGrade(), value.getEmploymentRate3m(), value.getEmploymentRate6m(), value.getThumbnailUrl()
         );
+    }
+
+    private String trainingStatus(Opportunity value) {
+        if (!value.getType().equals("교육")) return value.getStatus();
+        LocalDateTime now = LocalDateTime.now();
+        if (value.getEventEndAt() != null && value.getEventEndAt().isBefore(now)) return "EXPIRED";
+        if (value.getEventStartAt() != null && value.getEventStartAt().isBefore(now)) return "IN_PROGRESS";
+        return value.getStatus();
     }
 
     private String period(LocalDateTime start, LocalDateTime end) {
