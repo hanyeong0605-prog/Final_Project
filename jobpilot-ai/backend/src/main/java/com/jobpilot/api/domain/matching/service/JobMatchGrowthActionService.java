@@ -13,7 +13,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class JobMatchGrowthActionService {
     private final JobMatchService matches;
-    public JobMatchGrowthActionService(JobMatchService matches) { this.matches = matches; }
+    private final RequirementLearningResourceService learningResources;
+    public JobMatchGrowthActionService(JobMatchService matches, RequirementLearningResourceService learningResources) { this.matches = matches; this.learningResources = learningResources; }
     public List<GrowthActionResponse> forMatch(Long memberId, Long jobPostingId) {
         JobMatchDetailResponse detail = matches.findDetail(memberId, jobPostingId);
         LinkedHashMap<String, ActionGroup> groups = new LinkedHashMap<>();
@@ -21,10 +22,10 @@ public class JobMatchGrowthActionService {
             if ("DIRECT".equals(evidence.status())) continue;
             String requirement = value(evidence.requirement()); String type = value(evidence.requirementType()).toUpperCase(Locale.ROOT);
             ActionTemplate template = templateFor(type, requirement);
-            groups.computeIfAbsent(template.category() + "|" + template.title(), ignored -> new ActionGroup(template))
+            groups.computeIfAbsent(template.category() + "|" + template.title() + "|" + learningKeyword(requirement), ignored -> new ActionGroup(template))
                     .add(evidence.requirementId(), requirement);
         }
-        return groups.values().stream().map(ActionGroup::toResponse).toList();
+        return groups.values().stream().map(group -> group.toResponse(learningResources)).toList();
     }
     private ActionTemplate templateFor(String type, String requirement) {
         if (type.contains("CERT")) return new ActionTemplate("자격증", certificate(requirement), "요구 요건과 연결되는 국가·민간 자격 종목을 찾아 취득 계획을 세워보세요.", "자격증 검색에서 종목을 확인하고 취득 예정일을 역량 프로필에 기록하세요.", "/profile");
@@ -43,17 +44,11 @@ public class JobMatchGrowthActionService {
             if (requirementId != null && !requirementIds.contains(requirementId)) requirementIds.add(requirementId);
             if (!requirement.isBlank() && !requirements.contains(requirement)) requirements.add(requirement);
         }
-        private GrowthActionResponse toResponse() {
+        private GrowthActionResponse toResponse(RequirementLearningResourceService learningResources) {
             Long primaryId = requirementIds.isEmpty() ? null : requirementIds.get(0);
             String summary = String.join(" · ", requirements.stream().limit(3).toList());
             if (requirements.size() > 3) summary += " 외 " + (requirements.size() - 3) + "건";
-            String keyword = learningKeyword(summary);
-            String encoded = java.net.URLEncoder.encode(keyword, java.nio.charset.StandardCharsets.UTF_8);
-            List<GrowthResourceRecommendationResponse> resources = List.of(
-                    new GrowthResourceRecommendationResponse("CERTIFICATE", "자격증", keyword + " 관련 자격증", "부족 요건과 연결되는 자격 종목을 찾아보세요.", "/opportunities?category=CERTIFICATE&resourceQuery=" + encoded),
-                    new GrowthResourceRecommendationResponse("TRAINING", "고용24", keyword + " 훈련과정", "고용24에서 현재 신청 가능한 관련 교육을 확인하세요.", "/opportunities?category=TRAINING&resourceQuery=" + encoded),
-                    new GrowthResourceRecommendationResponse("BOOK", "도서", keyword + " 학습 도서", "알라딘 도서에서 기술 개념과 실습을 보강하세요.", "/opportunities?category=BOOK&resourceQuery=" + encoded + "&requirementId=" + (primaryId == null ? "" : primaryId))
-            );
+            List<GrowthResourceRecommendationResponse> resources = learningResources.recommend(summary, primaryId);
             return new GrowthActionResponse(primaryId, summary, template.category(), template.title(), template.description(), template.nextStep(), template.href(), List.copyOf(requirementIds), resources);
         }
     }
