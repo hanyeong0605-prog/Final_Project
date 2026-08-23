@@ -121,7 +121,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
             <div><span className="eyebrow">WHY THIS RESULT</span><h3>요구사항 · 내 근거 매트릭스</h3></div>
             <p>각 항목을 누르면 왼쪽 원문에서 연결된 근거를 강조합니다.</p>
           </div>
-          {growthActions.length > 0 && <button className="growth-plan-jump" type="button" onClick={scrollToGrowthPlan}><ChevronsDown size={16} /> 부족 요건 보강 플랜 <ChevronsDown size={16} /></button>}
+          <button className="growth-plan-jump" type="button" onClick={scrollToGrowthPlan}><ChevronsDown size={16} /> 부족 요건 보강 플랜 <ChevronsDown size={16} /></button>
           {evidenceLoading ? <div className="match-evidence-loading"><span className="match-evidence-spinner" /><strong>근거 가져오는 중</strong><p>회원님의 프로젝트·경력 이력에서 요구사항별 증거 문장을 찾고 있습니다.</p></div> : <div className="matrix-list">
             {job.requirements.map((item) => {
               const evidence = evidenceMeta[item.status];
@@ -144,15 +144,15 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
               </button>;
             })}
           </div>}
-        </section>
-        <section className="growth-plan-pane evidence-pane">
-          <div className="growth-plan-heading" ref={growthPlanHeadingRef} tabIndex={-1}><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>겹치는 보강 방법은 한 카드로 묶었습니다. 카드를 누르면 관련 근거 전체를 강조합니다.</p></div></div>
-          {growthActions.length === 0 ? <div className="growth-plan-empty">현재 확인된 부족 요건이 없습니다.</div> : <div className="growth-plan-list">{growthActions.map((action) => {
+          <section className="matrix-growth-plan" ref={growthPlanHeadingRef} tabIndex={-1}>
+            <div className="growth-plan-heading"><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>겹치는 보강 방법은 한 카드로 묶었습니다. 카드를 누르면 관련 근거 전체를 강조합니다.</p></div></div>
+            {growthActions.length === 0 ? <div className="growth-plan-empty">현재 확인된 부족 요건이 없습니다.</div> : <div className="growth-plan-list">{growthActions.map((action) => {
             const requirementIds = action.relatedRequirementIds?.length ? action.relatedRequirementIds : typeof action.requirementId === "number" ? [action.requirementId] : [];
             const requirements = job.requirements.filter((item) => typeof item.requirementId === "number" && requirementIds.includes(item.requirementId));
             const sourceNumbers = requirements.map((item) => item.sourceNumber);
             return <article className="growth-plan-card" key={`${action.category}-${action.title}-${action.requirementId ?? "group"}`}><button type="button" onClick={() => sourceNumbers.length > 0 && focusEvidence(sourceNumbers)}><span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p>{requirements.length > 0 && <small>공고 근거 {requirements.map((item) => `#${item.sourceNumber}`).join(" · ")} · {action.requirement}</small>}</button>{action.recommendations?.length ? <div className="growth-resource-list">{action.recommendations.map((resource) => resource.href.startsWith("http") ? <a key={resource.type} href={resource.href} target="_blank" rel="noreferrer" className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></a> : <Link key={resource.type} to={`${resource.href}${resource.href.includes("?") ? "&" : "?"}jobPostingId=${job.id}`} className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></Link>)}</div> : <Link to={`/opportunities?jobPostingId=${job.id}&requirementId=${action.requirementId ?? ""}`} className="growth-detail-link">자세히 보기 <ChevronRight size={14} /></Link>}</article>;
-          })}</div>}
+            })}</div>}
+          </section>
         </section>
       </div>
 
