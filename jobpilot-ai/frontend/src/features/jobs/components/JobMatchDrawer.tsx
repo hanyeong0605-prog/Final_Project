@@ -38,6 +38,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
   const [growthActions, setGrowthActions] = useState<GrowthAction[]>([]);
   const [sourcePaneRatio, setSourcePaneRatio] = useState(33);
   const sourceParagraphRefs = useRef<Map<number, HTMLParagraphElement>>(new Map());
+  const matrixRowRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const evidenceLayoutRef = useRef<HTMLDivElement>(null);
   const growthPlanHeadingRef = useRef<HTMLDivElement>(null);
   const paragraphs = useMemo(
@@ -53,6 +54,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
     const uniqueNumbers = [...new Set(sourceNumbers)];
     setActiveEvidenceNumbers(uniqueNumbers);
     sourceParagraphRefs.current.get(uniqueNumbers[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
+    matrixRowRefs.current.get(uniqueNumbers[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
   const beginPaneResize = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -126,7 +128,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
             {job.requirements.map((item) => {
               const evidence = evidenceMeta[item.status];
               const isActive = activeEvidenceNumbers.includes(item.sourceNumber);
-              return <button type="button" key={item.requirementId ?? `${item.sourceNumber}-${item.requirement}`} className={`matrix-row${isActive ? " source-active" : ""}`} onClick={() => focusEvidence([item.sourceNumber])}>
+              return <button type="button" key={item.requirementId ?? `${item.sourceNumber}-${item.requirement}`} ref={(element) => { if (element) matrixRowRefs.current.set(item.sourceNumber, element); }} className={`matrix-row${isActive ? " source-active" : ""}`} onClick={() => focusEvidence([item.sourceNumber])}>
                 <div className="requirement">
                   <span>{item.requirementType}</span>
                   <strong><em className="matrix-number">#{item.sourceNumber}</em>{item.requirement}</strong>
@@ -150,7 +152,9 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
             const requirementIds = action.relatedRequirementIds?.length ? action.relatedRequirementIds : typeof action.requirementId === "number" ? [action.requirementId] : [];
             const requirements = job.requirements.filter((item) => typeof item.requirementId === "number" && requirementIds.includes(item.requirementId));
             const sourceNumbers = requirements.map((item) => item.sourceNumber);
-            return <article className="growth-plan-card" key={`${action.category}-${action.title}-${action.requirementId ?? "group"}`}><button type="button" onClick={() => sourceNumbers.length > 0 && focusEvidence(sourceNumbers)}><span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p>{requirements.length > 0 && <small>공고 근거 {requirements.map((item) => `#${item.sourceNumber}`).join(" · ")} · {action.requirement}</small>}</button>{action.recommendations?.length ? <div className="growth-resource-list">{action.recommendations.map((resource) => resource.href.startsWith("http") ? <a key={resource.type} href={resource.href} target="_blank" rel="noreferrer" className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></a> : <Link key={resource.type} to={`${resource.href}${resource.href.includes("?") ? "&" : "?"}jobPostingId=${job.id}`} className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></Link>)}</div> : <Link to={`/opportunities?jobPostingId=${job.id}&requirementId=${action.requirementId ?? ""}`} className="growth-detail-link">자세히 보기 <ChevronRight size={14} /></Link>}</article>;
+            const missingEvidence = requirements.filter((item) => !item.memberEvidence);
+            const requirementNumbers = sourceNumbers.map((number) => `#${number}`).join(" · ");
+            return <article className="growth-plan-card" key={`${action.category}-${action.title}-${action.requirementId ?? "group"}`}><button type="button" onClick={() => sourceNumbers.length > 0 && focusEvidence(sourceNumbers)}><span>{action.category} · 보강 진단</span><strong>{action.title}</strong><div className="growth-reason"><b>{requirementNumbers || "요구사항"}</b><em>{requirements.map((item) => item.requirement).join(" · ") || action.requirement}</em><p>{missingEvidence.length > 0 ? `내 이력 근거 없음 — ${missingEvidence.map((item) => `#${item.sourceNumber}`).join(" · ")} 항목을 증명할 프로젝트·기술·자격이 등록되지 않았습니다.` : "관련 이력 근거를 더 직접적으로 증명할 결과물과 학습 기록이 필요합니다."}</p></div><p>{action.description}</p><small>이 요건을 보강하는 학습·경험 경로를 추천합니다. 클릭하면 공고 원문과 매트릭스의 해당 번호로 이동합니다.</small></button>{action.recommendations?.length ? <div className="growth-resource-list">{action.recommendations.map((resource) => resource.href.startsWith("http") ? <a key={resource.type} href={resource.href} target="_blank" rel="noreferrer" className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></a> : <Link key={resource.type} to={`${resource.href}${resource.href.includes("?") ? "&" : "?"}jobPostingId=${job.id}`} className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></Link>)}</div> : <Link to={`/opportunities?jobPostingId=${job.id}&requirementId=${action.requirementId ?? ""}`} className="growth-detail-link">보강 방법 보기 <ChevronRight size={14} /></Link>}</article>;
             })}</div>}
           </section>
         </section>

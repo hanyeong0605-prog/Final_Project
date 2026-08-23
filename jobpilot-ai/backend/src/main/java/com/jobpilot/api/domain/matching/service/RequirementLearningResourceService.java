@@ -29,13 +29,19 @@ public class RequirementLearningResourceService {
         String keyword = keyword(requirement);
         java.util.ArrayList<GrowthResourceRecommendationResponse> result = new java.util.ArrayList<>();
         if ("CERTIFICATION".equals(requirementType)) {
-            certificate(requirement, keyword).ifPresent(result::add);
+            result.add(certificate(requirement, keyword).orElseGet(() -> new GrowthResourceRecommendationResponse("CERTIFICATE", "자격증",
+                    (keyword.isBlank() ? requirement : keyword) + " 관련 자격증 탐색", "등록된 자격증 카탈로그에서 요구 요건과 연결되는 종목을 찾아보세요.",
+                    "/opportunities?category=CERTIFICATE&resourceQuery=" + URLEncoder.encode(keyword.isBlank() ? requirement : keyword, StandardCharsets.UTF_8))));
             return List.copyOf(result);
         }
         if (keyword.isBlank()) return List.of();
         String encoded = URLEncoder.encode(keyword, StandardCharsets.UTF_8);
-        training(keyword, encoded).ifPresent(result::add);
-        book(keyword, encoded, requirementId).ifPresent(result::add);
+        result.add(training(keyword, encoded).orElseGet(() -> new GrowthResourceRecommendationResponse("TRAINING", "고용24",
+                keyword + " 훈련과정 탐색", "현재 등록된 고용24 훈련과정에서 " + keyword + " 키워드로 비교해 보세요.",
+                "/opportunities?category=TRAINING&resourceQuery=" + encoded)));
+        result.add(book(keyword, encoded, requirementId).orElseGet(() -> new GrowthResourceRecommendationResponse("BOOK", "도서",
+                keyword + " 학습 도서 탐색", "관련 도서와 실습 예제를 찾아 학습 계획에 추가해 보세요.",
+                "/opportunities?category=BOOK&resourceQuery=" + encoded)));
         return List.copyOf(result);
     }
 
@@ -96,6 +102,7 @@ public class RequirementLearningResourceService {
     }
     private String keyword(String text) {
         String lower = normalized(text);
+        if (lower.contains("rag") || lower.contains("검색증강")) return "RAG";
         if (lower.contains("prompt") || lower.contains("프롬프트") || lower.contains("structuredoutput") || lower.contains("structured output")) return "LLM 프롬프트";
         if (lower.contains("api") || lower.contains("연동")) return "API 연동";
         if (lower.contains("spring")) return "Spring";
