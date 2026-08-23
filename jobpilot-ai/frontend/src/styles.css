@@ -380,8 +380,8 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
 .brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
-.brand-bobo-stage { position: absolute; z-index: 6; top: -28px; left: -60px; width: 165px; height: 93px; overflow: hidden; pointer-events: none; opacity: 0; clip-path: inset(4px 7px 5px 7px round 3px); transition: opacity .12s ease; }
-.brand-pounce-video { display: block; width: 165px; height: 93px; object-fit: cover; filter: brightness(1.06) contrast(.96); }
+.brand-bobo-stage { position: absolute; z-index: 6; top: 50%; left: 50%; width: 112px; aspect-ratio: 16 / 9; overflow: hidden; pointer-events: none; opacity: 0; transform: translate(-42%, -50%); transition: opacity .12s ease; }
+.brand-pounce-video { display: block; width: 100%; height: 100%; object-fit: contain; filter: brightness(1.03) contrast(.98); }
 .desktop-brand.is-animating .brand-logo-letter, .desktop-brand.is-animating .brand-identity { opacity: 0; }
 .desktop-brand.is-animating .brand-bobo-stage { opacity: 1; }
 .brand-bobo-arrival, .brand-bobo-hold, .brand-bobo-click { position: absolute; width: 70px; height: 70px; object-fit: contain; transform-origin: center; }
@@ -479,10 +479,10 @@ a { color: inherit; text-decoration: none; }
 }
 /* The desktop navigation needs roughly 1,180px once search and action buttons are present. */
 @media (max-width: 1180px) {
-  .desktop-brand, .desktop-navigation, .topbar-account { display: none; }
+  .desktop-navigation, .topbar-account { display: none; }
   .desktop-mega-menu { display: none; }
-  .mobile-brand, .menu-button { display: inline-flex; }
-  .mobile-brand { align-items: center; gap: 10px; }.mobile-brand .brand-mark { width: 37px; height: 37px; border-radius: 11px; font-size: 18px; }
+  .desktop-brand, .menu-button { display: inline-flex; }
+  .brand-bobo-stage { width: 96px; }
   .topbar { height: 64px; gap: 13px; padding: 0 18px; }.menu-button { color: #4f5c6f; padding: 6px 0; }.top-actions { gap: 4px; }.add-job { padding: 8px 10px; font-size: 10px; }.global-search-trigger span { display: none; }.global-search-trigger { padding: 8px; }
   .mobile-menu-backdrop { display: block; position: fixed; z-index: 19; inset: 0; border: 0; background: #12203c70; }
   .sidebar { z-index: 20; display: flex; position: fixed; inset: 0 auto 0 0; width: min(310px, 86vw); flex-direction: column; border-right: 1px solid #e6eaf0; background: #fff; padding: 24px 16px 20px; box-shadow: 12px 0 30px #13254928; transform: translateX(-110%); transition: transform .22s ease; }
@@ -498,6 +498,9 @@ a { color: inherit; text-decoration: none; }
    글자가 눌리고, "성장 기회 추천" 배너가 아이콘/텍스트/버튼 3단 가로 배치라 버튼이
    비좁았다. 640px 아래에서는 이런 가로 배치를 전부 세로로 풀어준다. */
 @media (max-width: 640px) {
+  .brand-bobo-stage { width: 78px; }
+  .desktop-brand .brand-identity { min-width: 92px; }
+  .desktop-brand .brand-name { font-size: 13px; }
   /* 2026-08-19: 히어로 배경 이미지가 세로로 좁은 모바일 박스에서 cover로 채워지다
      보니 이미지 중앙 일러스트 부분만 확대돼 텍스트와 겹쳐 보였다. 모바일에서는 박스를
      세로로 쌓아 텍스트를 먼저 보여주고, 그 아래에 모바일 전용 이미지(빈 여백 없이
