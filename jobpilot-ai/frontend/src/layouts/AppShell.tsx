@@ -68,7 +68,7 @@ function AnimatedBrand() {
           <video
             ref={videoRef}
             className="brand-pounce-video"
-            src="/mascot/animation/job-a-dream-logo-catch.webm"
+            src="/mascot/animation/job-a-dream-logo-catch-final.webm"
             muted
             playsInline
             preload="auto"
