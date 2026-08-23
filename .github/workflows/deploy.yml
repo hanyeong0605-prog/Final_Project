@@ -1,19 +1,24 @@
-name: Build and deploy
+name: Verify and deploy main to EC2
 
 on:
   push:
+    # main에 푸시한 정확한 커밋을 EC2에서 직접 빌드·배포한다.
     branches: [main]
+    paths:
+      - 'jobpilot-ai/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   verify:
+    name: Build and test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,20 +41,94 @@ jobs:
         run: mvn -B test
 
   deploy:
+    name: Update EC2 containers
     needs: verify
     runs-on: ubuntu-latest
+    environment: production
     steps:
-      - name: Deploy on EC2
+      - name: Deploy changed services over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          script_stop: true
+          port: 22
+          # CPU-only AI images can take several minutes on the small EC2 host.
+          # The default drone-ssh command limit interrupts a healthy build.
+          command_timeout: 30m
+          envs: REPO_READ_TOKEN
           script: |
             set -eu
-            cd ~/Final_Project/jobpilot-ai 2>/dev/null || cd ~/Final_Project
-            git fetch https://x-access-token:${{ secrets.REPO_READ_TOKEN }}@github.com/${{ github.repository }}.git main
-            git merge --ff-only FETCH_HEAD
-            sudo ENV_FILE=/etc/jobpilot/jobpilot.env docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml up -d --build
-            curl --fail --retry 12 --retry-delay 5 http://localhost/api/v1/health
+
+            cd /opt/jobpilot
+            DEPLOY_BRANCH='${{ github.ref_name }}'
+            CURRENT_COMMIT="$(git rev-parse HEAD)"
+            AUTH_HEADER="$(printf 'x-access-token:%s' "$REPO_READ_TOKEN" | base64 -w 0)"
+            GIT_TERMINAL_PROMPT=0 git -c http.extraheader="AUTHORIZATION: basic $AUTH_HEADER" fetch origin "$DEPLOY_BRANCH"
+            TARGET_REF="origin/$DEPLOY_BRANCH"
+            CHANGED_FILES="$(git diff --name-only "$CURRENT_COMMIT" "$TARGET_REF")"
+            # Do not merge a feature branch into main on the server. The
+            # currently pushed commit is checked out detached and is the exact
+            # source Docker builds below, while the repository's main branch
+            # remains untouched.
+            git checkout --detach "$TARGET_REF"
+
+            cd /opt/jobpilot/jobpilot-ai
+            export ENV_FILE=/etc/jobpilot/jobpilot.env
+            # This branch is the production deployment branch.  Keep Flyway
+            # enabled so a backend release and its versioned DB migration are
+            # always applied together before Hibernate validates the schema.
+            export SPRING_FLYWAY_ENABLED=true
+            COMPOSE="sudo -E docker compose --env-file /etc/jobpilot/jobpilot.env -f docker-compose.prod.yml"
+
+            # Keep dependency layers; prune only under actual disk pressure.
+            AVAILABLE_KB="$(df -Pk /var/lib/docker | awk 'END { print $4 }')"
+            if [ "$AVAILABLE_KB" -lt 8388608 ]; then
+              sudo docker builder prune --all --force
+              sudo docker image prune --force
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
+                $COMPOSE build frontend
+                $COMPOSE up -d --no-deps frontend
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/backend/'; then
+                $COMPOSE build backend
+                $COMPOSE up -d --no-deps backend
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ai-server/'; then
+                $COMPOSE build ai-server
+                $COMPOSE up -d --no-deps ai-server
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ml-project/'; then
+                $COMPOSE build wordcloud-server
+                $COMPOSE up -d --no-deps wordcloud-server
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
+                $COMPOSE up -d
+            fi
+
+            $COMPOSE ps
+            # Check the backend container's own Compose health check. Going
+            # through host Nginx here is not reliable: the host proxy may be
+            # independently reconfigured for TLS and return a 404 even while
+            # the backend is healthy.
+            for attempt in $(seq 1 24); do
+              BACKEND_CONTAINER="$($COMPOSE ps -q backend)"
+              if [ -n "$BACKEND_CONTAINER" ] && \
+                [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$BACKEND_CONTAINER")" = "healthy" ]; then
+                exit 0
+              fi
+              sleep 5
+            done
+
+            $COMPOSE ps
+            $COMPOSE logs --tail=120 backend
+            echo "Backend did not become healthy within 120 seconds." >&2
+            exit 1

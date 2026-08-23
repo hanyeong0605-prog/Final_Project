@@ -1,8 +1,6 @@
 app:
   dev-auth:
     enabled: true
-  cors:
-    allowed-origins: http://localhost:5173
 
 
 
