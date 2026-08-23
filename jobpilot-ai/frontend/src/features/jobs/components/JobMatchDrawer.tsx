@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, ChevronRight, ExternalLink, MapPin, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { Bookmark, ChevronRight, ChevronsDown, ExternalLink, GripVertical, MapPin, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { evidenceMeta, gradeMeta } from "../model/job.constants";
 import type { JobMatch, RequirementEvidence } from "../model/job.types";
@@ -36,7 +36,10 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
   const meta = gradeMeta[job.recommendationLevel];
   const [activeEvidenceNumbers, setActiveEvidenceNumbers] = useState<number[]>([]);
   const [growthActions, setGrowthActions] = useState<GrowthAction[]>([]);
+  const [sourcePaneRatio, setSourcePaneRatio] = useState(34);
   const sourceParagraphRefs = useRef<Map<number, HTMLParagraphElement>>(new Map());
+  const evidenceLayoutRef = useRef<HTMLDivElement>(null);
+  const growthPlanHeadingRef = useRef<HTMLDivElement>(null);
   const paragraphs = useMemo(
     () => job.postingDescription.split(/\n+/).map((item) => item.trim()).filter(Boolean),
     [job.postingDescription],
@@ -51,6 +54,23 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
     setActiveEvidenceNumbers(uniqueNumbers);
     sourceParagraphRefs.current.get(uniqueNumbers[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
+  const beginPaneResize = (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const layout = evidenceLayoutRef.current;
+    if (!layout) return;
+    const onMove = (moveEvent: globalThis.PointerEvent) => {
+      const bounds = layout.getBoundingClientRect();
+      const ratio = ((moveEvent.clientX - bounds.left) / bounds.width) * 100;
+      setSourcePaneRatio(Math.min(52, Math.max(22, ratio)));
+    };
+    const onEnd = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd, { once: true });
+  };
+  const scrollToGrowthPlan = () => growthPlanHeadingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   return <div className="drawer-layer" role="dialog" aria-modal="true" aria-label="채용공고 매칭 근거">
     <div className="drawer-backdrop" onClick={onClose} />
     <aside className="job-drawer evidence-drawer">
@@ -67,7 +87,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
         <p>{job.comment}</p>
       </section>
 
-      <div className="match-evidence-layout">
+      <div className="match-evidence-layout" ref={evidenceLayoutRef} style={{ "--source-pane-ratio": `${sourcePaneRatio}%` } as CSSProperties}>
         <section className="original-posting-pane evidence-pane">
           <div className="original-pane-heading">
             <div><span className="eyebrow">ORIGINAL POSTING</span><h3>공고 원문</h3></div>
@@ -95,11 +115,13 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
           </article>
         </section>
 
+        <button className="evidence-pane-resizer" type="button" aria-label="공고 원문과 근거 매트릭스 너비 조절" onPointerDown={beginPaneResize}><GripVertical size={16} /></button>
         <section className="matrix-section evidence-pane">
           <div className="matrix-title">
             <div><span className="eyebrow">WHY THIS RESULT</span><h3>요구사항 · 내 근거 매트릭스</h3></div>
             <p>각 항목을 누르면 왼쪽 원문에서 연결된 근거를 강조합니다.</p>
           </div>
+          {growthActions.length > 0 && <button className="growth-plan-jump" type="button" onClick={scrollToGrowthPlan}><ChevronsDown size={16} /> 부족 요건 보강 플랜 <ChevronsDown size={16} /></button>}
           {evidenceLoading ? <div className="match-evidence-loading"><span className="match-evidence-spinner" /><strong>근거 가져오는 중</strong><p>회원님의 프로젝트·경력 이력에서 요구사항별 증거 문장을 찾고 있습니다.</p></div> : <div className="matrix-list">
             {job.requirements.map((item) => {
               const evidence = evidenceMeta[item.status];
@@ -124,7 +146,7 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
           </div>}
         </section>
         <section className="growth-plan-pane evidence-pane">
-          <div className="growth-plan-heading"><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>겹치는 보강 방법은 한 카드로 묶었습니다. 카드를 누르면 관련 근거 전체를 강조합니다.</p></div></div>
+          <div className="growth-plan-heading" ref={growthPlanHeadingRef} tabIndex={-1}><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>겹치는 보강 방법은 한 카드로 묶었습니다. 카드를 누르면 관련 근거 전체를 강조합니다.</p></div></div>
           {growthActions.length === 0 ? <div className="growth-plan-empty">현재 확인된 부족 요건이 없습니다.</div> : <div className="growth-plan-list">{growthActions.map((action) => {
             const requirementIds = action.relatedRequirementIds?.length ? action.relatedRequirementIds : typeof action.requirementId === "number" ? [action.requirementId] : [];
             const requirements = job.requirements.filter((item) => typeof item.requirementId === "number" && requirementIds.includes(item.requirementId));
