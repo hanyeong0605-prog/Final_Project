@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bookmark, ChevronRight, ExternalLink, MapPin, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { evidenceMeta, gradeMeta } from "../model/job.constants";
@@ -36,7 +36,6 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
   const meta = gradeMeta[job.recommendationLevel];
   const [activeEvidenceNumbers, setActiveEvidenceNumbers] = useState<number[]>([]);
   const [growthActions, setGrowthActions] = useState<GrowthAction[]>([]);
-  const [paneOpen, setPaneOpen] = useState({ posting: true, matrix: true, plan: true });
   const sourceParagraphRefs = useRef<Map<number, HTMLParagraphElement>>(new Map());
   const paragraphs = useMemo(
     () => job.postingDescription.split(/\n+/).map((item) => item.trim()).filter(Boolean),
@@ -52,13 +51,6 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
     setActiveEvidenceNumbers(uniqueNumbers);
     sourceParagraphRefs.current.get(uniqueNumbers[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
-  const paneColumns = [
-    paneOpen.posting ? "minmax(300px, 1fr)" : "52px",
-    paneOpen.matrix ? "minmax(360px, 1.05fr)" : "52px",
-    paneOpen.plan ? "minmax(290px, .9fr)" : "52px",
-  ].join(" ");
-  const evidenceLayoutStyle = { "--evidence-columns": paneColumns } as CSSProperties;
-
   return <div className="drawer-layer" role="dialog" aria-modal="true" aria-label="채용공고 매칭 근거">
     <div className="drawer-backdrop" onClick={onClose} />
     <aside className="job-drawer evidence-drawer">
@@ -69,18 +61,17 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
         <p className="job-meta"><MapPin size={15} />{job.location}<i />마감 {job.deadline}</p>
       </header>
 
-      <section className="match-overview">
+      <section className={`match-overview ${meta.tone}`}>
         <span className={`grade-chip ${meta.tone}`}>{meta.label}</span>
         <div><strong>{job.score}<small>점</small></strong><span>지원 준비도</span></div>
         <p>{job.comment}</p>
       </section>
 
-      <div className="match-evidence-layout" style={evidenceLayoutStyle}>
-        <section className={`original-posting-pane evidence-pane${paneOpen.posting ? "" : " is-collapsed"}`}>
-          {!paneOpen.posting ? <button type="button" className="collapsed-pane-trigger" onClick={() => setPaneOpen((value) => ({ ...value, posting: true }))}>공고 원문 펼치기</button> : <>
+      <div className="match-evidence-layout">
+        <section className="original-posting-pane evidence-pane">
           <div className="original-pane-heading">
             <div><span className="eyebrow">ORIGINAL POSTING</span><h3>공고 원문</h3></div>
-            <div className="pane-heading-actions"><a href={job.sourceUrl} target="_blank" rel="noreferrer">원문 열기 <ExternalLink size={14} /></a><button type="button" className="pane-toggle" onClick={() => setPaneOpen((value) => ({ ...value, posting: false }))}>접기</button></div>
+            <a href={job.sourceUrl} target="_blank" rel="noreferrer">원문 열기 <ExternalLink size={14} /></a>
           </div>
           <p className="original-pane-guide">색으로 표시된 문장이 오른쪽 매트릭스의 같은 번호 근거입니다.</p>
           <article className="original-posting-copy">
@@ -102,14 +93,12 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
               </p>;
             }) : <div className="original-posting-empty">저장된 공고 본문이 없습니다. 아래 원문 공고에서 내용을 확인해 주세요.</div>}
           </article>
-          </>}
         </section>
 
-        <section className={`matrix-section evidence-pane${paneOpen.matrix ? "" : " is-collapsed"}`}>
-          {!paneOpen.matrix ? <button type="button" className="collapsed-pane-trigger" onClick={() => setPaneOpen((value) => ({ ...value, matrix: true }))}>근거 매트릭스 펼치기</button> : <>
+        <section className="matrix-section evidence-pane">
           <div className="matrix-title">
             <div><span className="eyebrow">WHY THIS RESULT</span><h3>요구사항 · 내 근거 매트릭스</h3></div>
-            <div className="pane-heading-actions"><p>각 항목을 누르면 왼쪽 원문에서 연결된 근거를 강조합니다.</p><button type="button" className="pane-toggle" onClick={() => setPaneOpen((value) => ({ ...value, matrix: false }))}>접기</button></div>
+            <p>각 항목을 누르면 왼쪽 원문에서 연결된 근거를 강조합니다.</p>
           </div>
           {evidenceLoading ? <div className="match-evidence-loading"><span className="match-evidence-spinner" /><strong>근거 가져오는 중</strong><p>회원님의 프로젝트·경력 이력에서 요구사항별 증거 문장을 찾고 있습니다.</p></div> : <div className="matrix-list">
             {job.requirements.map((item) => {
@@ -133,18 +122,15 @@ export function JobMatchDrawer({ job, evidenceLoading = false, interested, onInt
               </button>;
             })}
           </div>}
-          </>}
         </section>
-        <section className={`growth-plan-pane evidence-pane${paneOpen.plan ? "" : " is-collapsed"}`}>
-          {!paneOpen.plan ? <button type="button" className="collapsed-pane-trigger" onClick={() => setPaneOpen((value) => ({ ...value, plan: true }))}>보강 플랜 펼치기</button> : <>
-          <div className="growth-plan-heading"><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>겹치는 보강 방법은 한 카드로 묶었습니다. 카드를 누르면 관련 근거 전체를 강조합니다.</p></div><button type="button" className="pane-toggle" onClick={() => setPaneOpen((value) => ({ ...value, plan: false }))}>접기</button></div>
+        <section className="growth-plan-pane evidence-pane">
+          <div className="growth-plan-heading"><div><span className="eyebrow">GROWTH PLAN</span><h3>부족 요건 보강 플랜</h3><p>겹치는 보강 방법은 한 카드로 묶었습니다. 카드를 누르면 관련 근거 전체를 강조합니다.</p></div></div>
           {growthActions.length === 0 ? <div className="growth-plan-empty">현재 확인된 부족 요건이 없습니다.</div> : <div className="growth-plan-list">{growthActions.map((action) => {
             const requirementIds = action.relatedRequirementIds?.length ? action.relatedRequirementIds : typeof action.requirementId === "number" ? [action.requirementId] : [];
             const requirements = job.requirements.filter((item) => typeof item.requirementId === "number" && requirementIds.includes(item.requirementId));
             const sourceNumbers = requirements.map((item) => item.sourceNumber);
-            return <article className="growth-plan-card" key={`${action.category}-${action.title}`}><button type="button" onClick={() => sourceNumbers.length > 0 && focusEvidence(sourceNumbers)}><span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p>{requirements.length > 0 && <small>공고 근거 {requirements.map((item) => `#${item.sourceNumber}`).join(" · ")} · {action.requirement}</small>}</button><Link to={`/opportunities?jobPostingId=${job.id}&requirementId=${action.requirementId ?? ""}`} className="growth-detail-link">자세히 보기 <ChevronRight size={14} /></Link></article>;
+            return <article className="growth-plan-card" key={`${action.category}-${action.title}-${action.requirementId ?? "group"}`}><button type="button" onClick={() => sourceNumbers.length > 0 && focusEvidence(sourceNumbers)}><span>{action.category}</span><strong>{action.title}</strong><p>{action.description}</p>{requirements.length > 0 && <small>공고 근거 {requirements.map((item) => `#${item.sourceNumber}`).join(" · ")} · {action.requirement}</small>}</button>{action.recommendations?.length ? <div className="growth-resource-list">{action.recommendations.map((resource) => resource.href.startsWith("http") ? <a key={resource.type} href={resource.href} target="_blank" rel="noreferrer" className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></a> : <Link key={resource.type} to={`${resource.href}${resource.href.includes("?") ? "&" : "?"}jobPostingId=${job.id}`} className="growth-resource-link"><span>{resource.label}</span><strong>{resource.title}</strong><small>{resource.description}</small><ChevronRight size={13} /></Link>)}</div> : <Link to={`/opportunities?jobPostingId=${job.id}&requirementId=${action.requirementId ?? ""}`} className="growth-detail-link">자세히 보기 <ChevronRight size={14} /></Link>}</article>;
           })}</div>}
-          </>}
         </section>
       </div>
 
