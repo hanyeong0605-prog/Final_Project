@@ -31,7 +31,7 @@ function BrandIdentity({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function AnimatedDesktopBrand() {
+function AnimatedBrand() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [animationActive, setAnimationActive] = useState(false);
 
@@ -68,7 +68,7 @@ function AnimatedDesktopBrand() {
           <video
             ref={videoRef}
             className="brand-pounce-video"
-            src="/mascot/animation/job-a-dream-logo-catch.webm"
+            src="/mascot/animation/job-a-dream-logo-catch-final.webm"
             muted
             playsInline
             preload="auto"
@@ -186,8 +186,7 @@ export function AppShell() {
         <main className="main-area">
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
-            <AnimatedDesktopBrand />
-            <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>
+            <AnimatedBrand />
 
             <nav className="desktop-navigation" aria-label="주요 메뉴">
               {navigationGroups.map((group) => {
