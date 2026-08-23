@@ -101,6 +101,8 @@ jobs:
                 $COMPOSE up -d --no-deps backend
             fi
 
+            # AI와 워드클라우드는 자기 소스 폴더가 변경된 경우에만 건드린다.
+            # frontend/backend 또는 Compose 파일만 바뀐 배포에서는 절대 재빌드·재기동하지 않는다.
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ai-server/'; then
                 $COMPOSE build ai-server
                 $COMPOSE up -d --no-deps ai-server
@@ -109,10 +111,6 @@ jobs:
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ml-project/'; then
                 $COMPOSE build wordcloud-server
                 $COMPOSE up -d --no-deps wordcloud-server
-            fi
-
-            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(docker-compose.prod.yml|deploy/)'; then
-                $COMPOSE up -d
             fi
 
             $COMPOSE ps
