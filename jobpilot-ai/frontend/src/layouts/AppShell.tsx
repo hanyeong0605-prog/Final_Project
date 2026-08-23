@@ -34,6 +34,7 @@ function BrandIdentity({ compact = false }: { compact?: boolean }) {
 function AnimatedBrand() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [animationActive, setAnimationActive] = useState(false);
+  const [compactVideo, setCompactVideo] = useState(() => window.matchMedia("(max-width: 1180px)").matches);
 
   const playAnimation = () => {
     const video = videoRef.current;
@@ -53,6 +54,20 @@ function AnimatedBrand() {
     setAnimationActive(false);
   };
 
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1180px)");
+    const updateVideoSource = (event: MediaQueryListEvent) => {
+      resetAnimation();
+      setCompactVideo(event.matches);
+    };
+    query.addEventListener("change", updateVideoSource);
+    return () => query.removeEventListener("change", updateVideoSource);
+  }, []);
+
+  const videoSource = compactVideo
+    ? "/mascot/animation/job-a-dream-logo-catch-228.webm"
+    : "/mascot/animation/job-a-dream-logo-catch-320.webm";
+
   return (
     <Link
       to="/"
@@ -66,9 +81,10 @@ function AnimatedBrand() {
         <span className="brand-mark brand-logo-letter">J</span>
         <span className="brand-bobo-stage" aria-hidden="true">
           <video
+            key={videoSource}
             ref={videoRef}
             className="brand-pounce-video"
-            src="/mascot/animation/job-a-dream-logo-catch-final.webm"
+            src={videoSource}
             muted
             playsInline
             preload="auto"
