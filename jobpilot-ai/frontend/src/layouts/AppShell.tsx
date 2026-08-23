@@ -31,6 +31,55 @@ function BrandIdentity({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function AnimatedDesktopBrand() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [animationActive, setAnimationActive] = useState(false);
+
+  const playAnimation = () => {
+    const video = videoRef.current;
+    if (!video || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    video.pause();
+    video.currentTime = 0;
+    setAnimationActive(true);
+    void video.play().catch(() => setAnimationActive(false));
+  };
+
+  const resetAnimation = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
+    setAnimationActive(false);
+  };
+
+  return (
+    <Link
+      to="/"
+      className={`desktop-brand brand-link${animationActive ? " is-animating" : ""}`}
+      onPointerEnter={playAnimation}
+      onPointerLeave={resetAnimation}
+      onFocus={playAnimation}
+      onBlur={resetAnimation}
+    >
+      <span className="brand-logo-scene">
+        <span className="brand-mark brand-logo-letter">J</span>
+        <span className="brand-bobo-stage" aria-hidden="true">
+          <video
+            ref={videoRef}
+            className="brand-pounce-video"
+            src="/mascot/animation/job-a-dream-logo-catch.webm"
+            muted
+            playsInline
+            preload="auto"
+          />
+        </span>
+      </span>
+      <BrandIdentity />
+    </Link>
+  );
+}
+
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDesktopMenu, setOpenDesktopMenu] = useState<string | null>(null);
@@ -137,10 +186,7 @@ export function AppShell() {
         <main className="main-area">
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
-            <Link to="/" className="desktop-brand brand-link">
-              <span className="brand-mark">J</span>
-              <BrandIdentity />
-            </Link>
+            <AnimatedDesktopBrand />
             <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>
 
             <nav className="desktop-navigation" aria-label="주요 메뉴">

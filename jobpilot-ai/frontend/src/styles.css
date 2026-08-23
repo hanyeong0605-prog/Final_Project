@@ -371,8 +371,8 @@ a { color: inherit; text-decoration: none; }
 .brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 0; transform: translateY(-11px); }
 .brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 1; transform: translateY(-10px); }
 .brand-link:hover .brand-tagline, .brand-link:focus-visible .brand-tagline { opacity: 1; transform: translateY(0); }
-.brand-logo-scene { position: relative; flex: none; overflow: visible; }
-.brand-logo-letter { display: grid; place-items: center; }
+.brand-logo-scene { position: relative; display: block; width: 35px; height: 35px; flex: none; overflow: visible; }
+.brand-logo-letter { display: grid; place-items: center; transition: opacity .12s ease; }
 .brand-job-mouse { position: absolute; z-index: 5; top: 29px; left: 2px; width: 31px; height: 19px; border: 1px solid #4a536c; border-radius: 49% 49% 45% 45% / 62% 62% 38% 38%; background: linear-gradient(145deg, #aeb6c9 0%, #7c859c 46%, #586176 100%); box-shadow: inset 1px 1px 1px #ffffff78, 0 2px 4px #26335442; color: #fff; transform-origin: 52% 50%; }
 .brand-job-mouse b { position: absolute; z-index: 2; right: 3px; bottom: 2px; color: #f9fbff; font-family: Manrope, sans-serif; font-size: 5px; font-weight: 900; letter-spacing: -.35px; line-height: 1; text-shadow: 0 1px 1px #31394e; }
 .brand-mouse-button { position: absolute; top: 1px; width: 13px; height: 8px; border-bottom: 1px solid #4e576f; background: linear-gradient(180deg, #d5d9e3, #a1aabc); }
@@ -380,8 +380,10 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
 .brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
-.brand-bobo-stage { position: absolute; z-index: 6; top: -40px; left: -78px; width: 208px; height: 117px; overflow: visible; pointer-events: none; }
+.brand-bobo-stage { position: absolute; z-index: 6; top: -40px; left: -78px; width: 208px; height: 117px; overflow: visible; pointer-events: none; opacity: 0; transition: opacity .12s ease; }
 .brand-pounce-video { display: block; width: 208px; height: 117px; object-fit: contain; }
+.desktop-brand.is-animating .brand-logo-letter, .desktop-brand.is-animating .brand-identity { opacity: 0; }
+.desktop-brand.is-animating .brand-bobo-stage { opacity: 1; }
 .brand-bobo-arrival, .brand-bobo-hold, .brand-bobo-click { position: absolute; width: 70px; height: 70px; object-fit: contain; transform-origin: center; }
 .brand-bobo-arrival { left: -120px; bottom: -2px; animation: bobo-logo-arrive 1.35s .3s cubic-bezier(.18,.8,.2,1) both; }
 .brand-bobo-hold { left: 55px; bottom: -2px; opacity: 0; animation: bobo-logo-hold 1.35s .3s steps(1, end) both; }
@@ -390,7 +392,7 @@ a { color: inherit; text-decoration: none; }
 .desktop-brand:hover .brand-bobo-click.press, .desktop-brand:focus-visible .brand-bobo-click.press { animation: bobo-logo-click-press .62s ease both; }
 .desktop-brand:hover .brand-bobo-hold, .desktop-brand:focus-visible .brand-bobo-hold { animation: bobo-logo-hold-hover .62s ease both; }
 .desktop-brand:hover .brand-job-mouse, .desktop-brand:focus-visible .brand-job-mouse { animation: bobo-logo-mouse-click .62s ease both; }
-@media (prefers-reduced-motion: reduce) { .brand-pounce-video { display: none; } }
+@media (prefers-reduced-motion: reduce) { .brand-bobo-stage { display: none; } }
 @keyframes bobo-logo-arrive { 0% { opacity: 0; transform: translateX(-18px) translateY(4px) scale(.68); } 7% { opacity: 1; } 58% { opacity: 1; transform: translateX(146px) translateY(-3px) scale(.94); } 80% { opacity: 1; transform: translateX(169px) translateY(0) scale(1); } 100% { opacity: 0; transform: translateX(175px) translateY(0) scale(1); } }
 @keyframes bobo-logo-hold { 0%, 80% { opacity: 0; } 81%, 100% { opacity: 1; } }
 @keyframes bobo-logo-hold-hover { 0%, 77% { opacity: 0; } 78%, 100% { opacity: 1; } }
