@@ -11,7 +11,8 @@ on:
 
 concurrency:
   group: production-deploy
-  cancel-in-progress: false
+  # 최신 main 커밋만 배포한다. 이전 대기/실행 배포가 뒤늦게 서버를 덮지 않게 한다.
+  cancel-in-progress: true
 
 permissions:
   contents: read
