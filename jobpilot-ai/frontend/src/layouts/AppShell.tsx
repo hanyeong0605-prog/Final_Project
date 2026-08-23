@@ -65,8 +65,8 @@ function AnimatedBrand() {
   }, []);
 
   const videoSource = compactVideo
-    ? "/mascot/animation/job-a-dream-logo-catch-228.webm"
-    : "/mascot/animation/job-a-dream-logo-catch-320.webm";
+    ? "/mascot/animation/job-a-dream-logo-catch-228-alpha.webm"
+    : "/mascot/animation/job-a-dream-logo-catch-320-alpha.webm";
 
   return (
     <Link
