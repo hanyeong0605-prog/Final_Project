@@ -19,7 +19,8 @@ public class JobMatchGrowthActionService {
         JobMatchDetailResponse detail = matches.findDetail(memberId, jobPostingId);
         LinkedHashMap<String, ActionGroup> groups = new LinkedHashMap<>();
         for (JobMatchEvidenceResponse evidence : detail.evidences()) {
-            if (!"MISSING".equals(evidence.status())) continue;
+            // 근거가 전혀 없거나( MISSING ), 관련 경험은 있으나 해당 요건을 직접 증명하지 못하는 경우( RELATED )를 보강 대상으로 둔다.
+            if (!("MISSING".equals(evidence.status()) || "RELATED".equals(evidence.status()))) continue;
             String requirement = value(evidence.requirement()); String type = value(evidence.requirementType()).toUpperCase(Locale.ROOT);
             if (!(type.equals("SKILL") || type.equals("EXPERIENCE") || type.equals("CERTIFICATION"))) continue;
             if (!type.equals("CERTIFICATION") && learningKeyword(requirement).isBlank()) continue;
