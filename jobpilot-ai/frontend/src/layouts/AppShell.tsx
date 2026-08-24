@@ -24,7 +24,7 @@ const megaMenuCopy: Record<string, string> = {
 function BrandIdentity({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`brand-identity${compact ? " compact" : ""}`}>
-      <span className="brand-name brand-name-en">Job A Dream</span>
+      <span className="brand-name brand-name-en"><img className="brand-wordmark-image" src="/brand/job-a-dream-logo.png" alt="Job A Dream" /></span>
       <span className="brand-name brand-name-ko">잡아드림</span>
       {!compact && <small className="brand-tagline">career action coach</small>}
     </span>
@@ -64,19 +64,16 @@ function AnimatedBrand() {
       onPointerEnter={playAnimation}
       onFocus={playAnimation}
     >
-      <span className="brand-logo-scene">
-        <span className="brand-mark brand-logo-letter">J</span>
-        <span className="brand-bobo-stage" aria-hidden="true">
-          <video
-            key={videoSource}
-            ref={videoRef}
-            className="brand-pounce-video"
-            src={videoSource}
-            muted
-            playsInline
-            preload="auto"
-          />
-        </span>
+      <span className="brand-bobo-stage" aria-hidden="true">
+        <video
+          key={videoSource}
+          ref={videoRef}
+          className="brand-pounce-video"
+          src={videoSource}
+          muted
+          playsInline
+          preload="auto"
+        />
       </span>
       <BrandIdentity />
     </Link>
@@ -151,7 +148,6 @@ export function AppShell() {
         <aside className={`sidebar ${menuOpen ? "open" : ""}`} aria-label="모바일 메뉴">
           <div className="brand mobile-sidebar-brand">
             <Link to="/" className="brand-link" onClick={closeMenu}>
-              <span className="brand-mark">J</span>
               <BrandIdentity compact />
             </Link>
             <button className="mobile-close" onClick={closeMenu} aria-label="메뉴 닫기"><X size={19} /></button>
@@ -190,7 +186,7 @@ export function AppShell() {
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
             <AnimatedBrand />
-            <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>
+            <Link to="/" className="mobile-brand brand-link"><BrandIdentity compact /></Link>
 
             <nav className="desktop-navigation" aria-label="주요 메뉴">
               {navigationGroups.map((group) => {
