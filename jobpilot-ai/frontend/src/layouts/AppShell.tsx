@@ -238,7 +238,7 @@ export function AppShell() {
               </div>
             </section>}
           </header>
-          <section className="content"><Outlet /></section>
+          <section className="content"><div className="page-transition" key={location.pathname}><Outlet /></div></section>
         </main>
       </div>
     </SiteAssistantWidgetProvider>

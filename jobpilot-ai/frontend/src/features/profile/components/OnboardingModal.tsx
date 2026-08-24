@@ -1,23 +1,20 @@
 import { useState } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/model/AuthContext";
-import { saveCareerProfile, skipCareerProfile } from "../api/careerProfileApi";
-import { saveMemberSkills } from "../api/memberSkillsApi";
-import { saveMemberCertificates } from "../api/memberCertificatesApi";
-import { CareerProfileForm } from "./CareerProfileForm";
+import { skipCareerProfile } from "../api/careerProfileApi";
 
 export function OnboardingModal() {
   const { member, updateMember } = useAuth();
   const [skipping, setSkipping] = useState(false);
-  if (!member || member.onboardingCompleted) return null;
+  const [dismissed, setDismissed] = useState(false);
+  const navigate = useNavigate();
+  if (!member || member.onboardingCompleted || dismissed) return null;
 
-  return <div className="modal-backdrop"><section className="onboarding-modal">
-    <div className="onboarding-head"><span className="eyebrow">PERSONALIZED RECOMMENDATION</span><h2>사용자 추천을 위한 정보를 입력해 주세요</h2><p>희망 직무와 현재 기술 경험을 바탕으로 채용공고의 지원 준비도를 비교합니다. 나중에 나의 스펙정보에서 언제든 수정할 수 있습니다.</p></div>
-    <CareerProfileForm onSave={async (value, skills, certificates) => {
-      await saveCareerProfile(value);
-      await saveMemberSkills(skills.map(({ skillId, selfReportedLevel, note }) => ({ skillId, selfReportedLevel, note })));
-      await saveMemberCertificates(certificates.map(({ name, issuer, acquiredAt, expiresAt, officialUrl }) => ({ name, issuer, acquiredAt, expiresAt, officialUrl })));
-      updateMember({ ...member, onboardingCompleted: true });
-    }} saveLabel="입력하고 추천 시작하기" />
-    <button className="skip-onboarding" disabled={skipping} onClick={() => { setSkipping(true); void skipCareerProfile().then(updateMember).finally(() => setSkipping(false)); }}>{skipping ? "처리 중..." : "괜찮아요, 전체 공고를 볼게요"}</button>
+  return <div className="modal-backdrop"><section className="onboarding-modal onboarding-choice" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <Sparkles className="onboarding-choice-icon" size={25} aria-hidden="true" />
+    <div className="onboarding-head"><span className="eyebrow">PERSONALIZED RECOMMENDATION</span><h2 id="onboarding-title">내 스펙으로 더 잘 맞는 공고를 찾아볼까요?</h2><p>희망 직무와 보유 기술을 입력하면 나에게 맞는 채용공고와 지원 준비도를 추천해 드립니다. 스펙은 마이페이지에서 언제든 수정할 수 있어요.</p></div>
+    <button className="primary-button onboarding-start" onClick={() => { setDismissed(true); navigate("/account?editSpec=1"); }}>내 스펙 입력하고 맞춤 추천받기<ArrowRight size={17} /></button>
+    <button className="skip-onboarding" disabled={skipping} onClick={() => { setSkipping(true); void skipCareerProfile().then(updateMember).finally(() => setSkipping(false)); }}>{skipping ? "처리 중..." : "나중에 하기"}</button>
   </section></div>;
 }

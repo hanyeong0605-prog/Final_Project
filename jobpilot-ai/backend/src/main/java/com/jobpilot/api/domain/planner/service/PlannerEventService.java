@@ -55,14 +55,18 @@ public class PlannerEventService {
     private String normalizeType(String value) { return value.trim().toUpperCase(); }
 
     private PlannerEventResponse response(PlannerEvent event) {
-        return new PlannerEventResponse(event.getId(), tone(event.getSourceType()), TIME.format(event.getStartsAt()),
+        return new PlannerEventResponse(event.getId(), tone(event.getSourceType(), event.getEventType()), TIME.format(event.getStartsAt()),
                 event.getTitle(), event.getEventType(), event.getEventType(), event.getStartsAt(), event.getEndsAt(),
                 event.isAllDay(), event.isManual(), event.getSourceType(), event.getSourceId());
     }
 
-    private String tone(String sourceType) {
+    private String tone(String sourceType, String eventType) {
         if ("JOB_POSTING".equals(sourceType)) return "blue";
         if ("CERTIFICATE".equals(sourceType)) return "purple";
-        return "orange";
+        return switch (eventType) {
+            case "APPLICATION", "INTERVIEW" -> "blue";
+            case "STUDY", "CERTIFICATE", "TRAINING_PERIOD" -> "purple";
+            default -> "orange";
+        };
     }
 }
