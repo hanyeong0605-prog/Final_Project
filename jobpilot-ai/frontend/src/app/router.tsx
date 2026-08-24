@@ -20,6 +20,7 @@ import { EmployerSignupPage } from "../pages/EmployerSignupPage";
 import { EmployerMyPage } from "../pages/EmployerMyPage";
 import { EmployerHomePage } from "../pages/EmployerHomePage";
 import { EmployerDashboardPage } from "../pages/EmployerDashboardPage";
+import { EmployerEnrollmentPage } from "../pages/EmployerEnrollmentPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { RequireAdmin } from "../features/auth/components/RequireAdmin";
 import { RequireAdminFaceVerified } from "../features/auth/components/RequireAdminFaceVerified";
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
   { path: "/signup", element: <SignupPage /> },
   { path: "/employer/login", element: <EmployerLoginPage /> },
   { path: "/employer/signup", element: <EmployerSignupPage /> },
+  { path: "/employer/enrollment", element: <EmployerEnrollmentPage /> },
   {
     path: "/employer",
     element: <RequireEmployer><EmployerShell /></RequireEmployer>,
