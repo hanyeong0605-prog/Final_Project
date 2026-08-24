@@ -16,20 +16,32 @@ export function loadFaceLandmarker(): Promise<FaceLandmarker> {
     const vision = await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
     );
-    const landmarker = await FaceLandmarker.createFromOptions(vision, {
+    const createLandmarker = (delegate: "GPU" | "CPU") => FaceLandmarker.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath:
           "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
-        delegate: "GPU",
+        delegate,
       },
       outputFaceBlendshapes: true,
       outputFacialTransformationMatrixes: false,
       runningMode: "VIDEO",
       numFaces: 1,
     });
+    // Some desktop GPU/WebGL drivers reject MediaPipe's delegate while the
+    // camera itself works. Keep the visible face guide/landmarks available by
+    // falling back to CPU instead of abandoning face analysis.
+    let landmarker: FaceLandmarker;
+    try {
+      landmarker = await createLandmarker("GPU");
+    } catch {
+      landmarker = await createLandmarker("CPU");
+    }
     cachedLandmarker = landmarker;
     return landmarker;
-  })();
+  })().catch((error) => {
+    loadingPromise = null;
+    throw error;
+  });
 
   return loadingPromise;
 }

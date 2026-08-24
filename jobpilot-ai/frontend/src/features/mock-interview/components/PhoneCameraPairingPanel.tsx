@@ -67,12 +67,13 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
     const handOffWhenMediaIsReady = () => {
       const stream = remoteStreamRef.current;
       if (!stream || transferredRef.current) return;
-      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live" && !track.muted);
-      const audioReady = stream.getAudioTracks().some((track) => track.readyState === "live" && !track.muted);
-      // ontrack fires when SDP is applied, often before mobile microphone
-      // frames arrive. Starting MediaRecorder before this point fails in
-      // Chromium with NotSupportedError.
-      if (!videoReady || !audioReady) return;
+      // iPhone Safari can leave the remote audio track in `muted` state even
+      // after the camera is already sending frames. Waiting for both tracks
+      // made the PC preview remain black forever. A live video track is the
+      // only requirement for handing off the preview; audio can join moments
+      // later on the same MediaStream.
+      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live");
+      if (!videoReady) return;
       transferredRef.current = true;
       onConnected({
         disconnect: () => {
@@ -86,13 +87,16 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
       onRemoteStream(stream);
     };
     peer.ontrack = (event) => {
-      const stream = event.streams[0] ?? new MediaStream([event.track]);
+      const stream = remoteStreamRef.current ?? event.streams[0] ?? new MediaStream();
+      if (!stream.getTracks().includes(event.track)) stream.addTrack(event.track);
       remoteStreamRef.current = stream;
       event.track.addEventListener("unmute", handOffWhenMediaIsReady, { once: true });
-      window.setTimeout(handOffWhenMediaIsReady, 200);
+      // Do not rely solely on `unmute`: Safari does not consistently emit it
+      // for a remote microphone track.
+      window.setTimeout(handOffWhenMediaIsReady, 350);
     };
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") window.setTimeout(handOffWhenMediaIsReady, 200);
+      if (peer.connectionState === "connected") window.setTimeout(handOffWhenMediaIsReady, 350);
     };
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
