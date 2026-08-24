@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { LoaderCircle, Smartphone } from "lucide-react";
 import { createAdminFacePairing, getAdminFacePairingResult, type AdminFacePairing } from "../api/adminFacePairingApi";
@@ -46,7 +47,7 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
 
   const pairUrl = pairing ? `${window.location.origin}/admin-face-pair?session=${encodeURIComponent(pairing.sessionId)}&token=${encodeURIComponent(pairing.token)}` : "";
 
-  return (
+  return createPortal(
     <div style={{
       position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
@@ -70,6 +71,7 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
