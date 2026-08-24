@@ -1053,3 +1053,71 @@ button:focus-visible,a:focus-visible {
   outline:3px solid #5DADEC55;
   outline-offset:2px;
 }
+
+/* Hover is intentionally neutral: interactive cards should lift like a paper
+   card, not flash a blue selected state. Persistent selected/active/status
+   states above keep their semantic color. */
+.primary-button,.search-box button,.add-job,.outline-button,.full-outline,
+.dashboard-match-tabs button,.dashboard-pagination button,.filter,
+.opportunity-category-tabs button,.training-status-tabs button,
+.field-chip,.certificate-opportunity-detail,.certificate-study-plan-trigger,
+.filter-button,.analysis-feature,.analysis-implementation > button,
+.calendar-grid button,.planner-event,.desktop-nav-link,.desktop-submenu-item,
+.mega-menu-link,.account-popover a,.account-popover button,.topbar-account,
+.home-showcase-controls button,.resume-entry-add,.jobkorea-nav-row > button,
+.jobkorea-nav-row span button,.education-inline-results button,.saved-capability-summary {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+}
+.primary-button:hover,.search-box button:hover {
+  border-color:#5DADEC;
+  background:#5DADEC;
+  box-shadow:0 10px 22px rgba(31,44,68,.22);
+  transform:translateY(-2px);
+}
+.add-job:hover,.outline-button:hover,.full-outline:hover {
+  border-color:#d9dee7;
+  background:#fff;
+  box-shadow:0 9px 20px rgba(31,44,68,.14);
+  transform:translateY(-2px);
+}
+.desktop-nav-link:hover:not(.active),.desktop-submenu-item:hover:not(.active),
+.mega-menu-link:hover,.account-popover a:hover,.account-popover button:hover,
+.topbar-account:hover:not([aria-expanded="true"]),.dashboard-match-tabs button:hover:not(.active),
+.dashboard-pagination button:hover:not(:disabled),.filter:hover:not(.active),
+.opportunity-category-tabs button:hover:not(.active),.training-status-tabs button:hover:not(.active),
+.field-chip:hover,.certificate-opportunity-detail:hover,.certificate-study-plan-trigger:hover,
+.filter-button:hover,.analysis-feature:hover,.analysis-implementation > button:hover,
+.calendar-grid button:hover,.planner-event:hover,.resume-entry-add:hover,
+.jobkorea-nav-row > button:hover,.jobkorea-nav-row span button:hover,
+.education-inline-results button:hover,.saved-capability-summary:hover {
+  border-color:#d9dee7;
+  background:#fff;
+  box-shadow:0 7px 17px rgba(31,44,68,.13);
+  color:inherit;
+  transform:translateY(-1px);
+}
+.job-card:hover,.compact-job:hover,.posting-card:hover,.opportunity-card:hover,
+.home-quick-card:hover,.home-job-card:hover,.capability-tool-card:hover,
+.growth-plan-card:hover,.match-growth-card:hover,.growth-resource-link:hover {
+  border-color:#d9dee7;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(31,44,68,.14);
+  transform:translateY(-2px);
+}
+.posting-card-main:hover h2 { color:inherit; }
+.notification-item:hover .notification-item-main,.notification-item.unread:hover .notification-item-main {
+  background:transparent;
+  box-shadow:0 5px 14px rgba(31,44,68,.10);
+}
+.account-popover button,.account-popover button:hover { color:#a5525e; }
+.home-showcase-controls button:not(:disabled):hover,
+.posting-pagination button:hover:not(:disabled):not(.active),
+.development-login-button:hover:not(:disabled),.evidence-pane-resizer:hover,
+.growth-plan-jump:hover,.collapsed-pane-trigger:hover,.jobkorea-entry-close:hover,
+.education-inline-results button:hover {
+  border-color:#d9dee7;
+  background:#fff;
+  box-shadow:0 8px 18px rgba(31,44,68,.14);
+  color:inherit;
+  transform:translateY(-1px);
+}
