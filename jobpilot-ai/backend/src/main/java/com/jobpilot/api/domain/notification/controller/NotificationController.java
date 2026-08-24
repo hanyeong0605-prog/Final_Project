@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,5 +43,15 @@ public class NotificationController {
     @PostMapping("/read-all")
     public void markAllRead(Authentication auth) {
         service.markAllRead(AuthenticatedMember.id(auth));
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id, Authentication auth) {
+        service.delete(AuthenticatedMember.id(auth), id);
+    }
+
+    @DeleteMapping
+    public void deleteAll(Authentication auth) {
+        service.deleteAll(AuthenticatedMember.id(auth));
     }
 }

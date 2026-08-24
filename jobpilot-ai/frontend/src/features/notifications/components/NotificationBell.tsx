@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   getUnreadCount,
   listNotifications,
+  deleteAllNotifications,
+  deleteNotification,
   markAllNotificationsRead,
   markNotificationRead,
   type NotificationItem,
@@ -81,6 +83,27 @@ export function NotificationBell() {
     void markAllNotificationsRead().catch(() => {});
   };
 
+  const handleDelete = (item: NotificationItem) => {
+    setItems((prev) => prev.filter((it) => it.id !== item.id));
+    if (!item.read) setUnreadCount((count) => Math.max(0, count - 1));
+    void deleteNotification(item.id).catch(() => {
+      void listNotifications().then(setItems).catch(() => {});
+      void getUnreadCount().then((result) => setUnreadCount(result.count)).catch(() => {});
+    });
+  };
+
+  const handleDeleteAll = () => {
+    if (!window.confirm("표시된 알림을 모두 삭제할까요?")) return;
+    const previousItems = items;
+    const previousUnreadCount = unreadCount;
+    setItems([]);
+    setUnreadCount(0);
+    void deleteAllNotifications().catch(() => {
+      setItems(previousItems);
+      setUnreadCount(previousUnreadCount);
+    });
+  };
+
   return (
     <div className="topbar-notification-menu" ref={containerRef}>
       <button
@@ -96,24 +119,27 @@ export function NotificationBell() {
         <div className="notification-popover" role="menu">
           <div className="notification-popover-head">
             <span>알림</span>
-            {unreadCount > 0 && (
-              <button type="button" onClick={handleMarkAllRead}><CheckCheck size={13} />모두 읽음</button>
-            )}
+            <div className="notification-popover-actions">
+              {unreadCount > 0 && (
+                <button type="button" onClick={handleMarkAllRead}><CheckCheck size={13} />모두 읽음</button>
+              )}
+              {items.length > 0 && (
+                <button type="button" className="notification-clear-all" onClick={handleDeleteAll}><Trash2 size={12} />전체 삭제</button>
+              )}
+            </div>
           </div>
           <div className="notification-popover-list">
             {loading && <p className="notification-empty">불러오는 중...</p>}
             {!loading && items.length === 0 && <p className="notification-empty">아직 알림이 없어요.</p>}
             {!loading && items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`notification-item${item.read ? "" : " unread"}`}
-                onClick={() => handleItemClick(item)}
-              >
-                <span className="notification-item-title">{item.title ?? "알림"}</span>
-                {item.body && <span className="notification-item-body">{item.body}</span>}
-                <span className="notification-item-time">{formatRelativeTime(item.sentAt)}</span>
-              </button>
+              <div key={item.id} className={`notification-item${item.read ? "" : " unread"}`}>
+                <button type="button" className="notification-item-main" onClick={() => handleItemClick(item)}>
+                  <span className="notification-item-title">{item.title ?? "알림"}</span>
+                  {item.body && <span className="notification-item-body">{item.body}</span>}
+                  <span className="notification-item-time">{formatRelativeTime(item.sentAt)}</span>
+                </button>
+                <button type="button" className="notification-delete" aria-label="알림 삭제" onClick={() => handleDelete(item)}><X size={14} /></button>
+              </div>
             ))}
           </div>
         </div>

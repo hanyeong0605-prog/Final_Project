@@ -7,6 +7,7 @@ interface Props {
   radiusKm: number;
   jobs: LocationJob[];
   selectedJobId: number | null;
+  isCenterLocked: boolean;
   onSelectJob: (job: LocationJob) => void;
   onCenterChanged: (center: { lat: number; lng: number }) => void;
 }
@@ -16,6 +17,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
   radiusKm,
   jobs,
   selectedJobId,
+  isCenterLocked,
   onSelectJob,
   onCenterChanged,
 }) => {
@@ -25,8 +27,19 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const centerMarkerRef = useRef<any>(null); 
   const markersRef = useRef<any[]>([]);
   const overlayRef = useRef<any>(null);
+  const centerLockedRef = useRef(isCenterLocked);
+  const onCenterChangedRef = useRef(onCenterChanged);
   
   const navigate = useNavigate();
+
+  useEffect(() => {
+    centerLockedRef.current = isCenterLocked;
+    mapRef.current?.setDraggable(!isCenterLocked);
+  }, [isCenterLocked]);
+
+  useEffect(() => {
+    onCenterChangedRef.current = onCenterChanged;
+  }, [onCenterChanged]);
 
   // 말풍선 생성 및 이벤트 핸들러
   const createOverlayContent = (job: LocationJob) => {
@@ -85,10 +98,11 @@ export const KakaoMapContainer: React.FC<Props> = ({
         };
         const kakaoMap = new window.kakao.maps.Map(containerRef.current, options);
         mapRef.current = kakaoMap;
+        kakaoMap.setDraggable(!centerLockedRef.current);
         window.kakao.maps.event.addListener(kakaoMap, "idle", () => {
           const nextCenter = kakaoMap.getCenter();
           const next = { lat: nextCenter.getLat(), lng: nextCenter.getLng() };
-          if (Math.abs(next.lat - center.lat) > 0.00001 || Math.abs(next.lng - center.lng) > 0.00001) onCenterChanged(next);
+          if (!centerLockedRef.current) onCenterChangedRef.current(next);
         });
 
         // 커스텀 오버레이 생성

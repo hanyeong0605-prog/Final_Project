@@ -1,4 +1,4 @@
-import { getJson, postJson } from "../../../api/httpClient";
+import { deleteJson, getJson, postJson } from "../../../api/httpClient";
 
 export interface NotificationItem {
   id: number;
@@ -25,4 +25,12 @@ export function markNotificationRead(id: number): Promise<void> {
 
 export function markAllNotificationsRead(): Promise<void> {
   return postJson("/api/v1/notifications/read-all", {});
+}
+
+export function deleteNotification(id: number): Promise<void> {
+  return deleteJson("/api/v1/notifications/" + id);
+}
+
+export function deleteAllNotifications(): Promise<void> {
+  return deleteJson("/api/v1/notifications");
 }

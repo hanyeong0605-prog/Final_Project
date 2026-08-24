@@ -22,22 +22,32 @@ public class NotificationLogService {
     }
 
     public List<NotificationItemResponse> list(Long memberId) {
-        return notificationLogs.findTop30ByMemberIdOrderBySentAtDesc(memberId).stream()
+        return notificationLogs.findTop30ByMemberIdAndHiddenFalseOrderBySentAtDesc(memberId).stream()
                 .map(NotificationItemResponse::from)
                 .toList();
     }
 
     public Map<String, Long> unreadCount(Long memberId) {
-        return Map.of("count", notificationLogs.countByMemberIdAndReadFalse(memberId));
+        return Map.of("count", notificationLogs.countByMemberIdAndReadFalseAndHiddenFalse(memberId));
     }
 
     public void markRead(Long memberId, Long id) {
-        NotificationLog log = notificationLogs.findByIdAndMemberId(id, memberId)
+        NotificationLog log = notificationLogs.findByIdAndMemberIdAndHiddenFalse(id, memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("알림을 찾을 수 없습니다."));
         log.markRead();
     }
 
     public void markAllRead(Long memberId) {
         notificationLogs.markAllReadByMemberId(memberId);
+    }
+
+    public void delete(Long memberId, Long id) {
+        NotificationLog log = notificationLogs.findByIdAndMemberIdAndHiddenFalse(id, memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("알림을 찾을 수 없습니다."));
+        log.hide();
+    }
+
+    public void deleteAll(Long memberId) {
+        notificationLogs.hideAllByMemberId(memberId);
     }
 }

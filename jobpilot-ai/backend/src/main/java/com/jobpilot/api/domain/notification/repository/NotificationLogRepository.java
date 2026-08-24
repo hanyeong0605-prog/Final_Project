@@ -14,13 +14,17 @@ public interface NotificationLogRepository extends JpaRepository<NotificationLog
 
     // 종 아이콘 드롭다운 - 최근 것부터, 너무 길어지지 않게 화면에서 List.subList로 잘라 쓴다
     // (Pageable을 쓸 정도로 무거운 화면은 아니라서 단순하게 유지).
-    List<NotificationLog> findTop30ByMemberIdOrderBySentAtDesc(Long memberId);
+    List<NotificationLog> findTop30ByMemberIdAndHiddenFalseOrderBySentAtDesc(Long memberId);
 
-    long countByMemberIdAndReadFalse(Long memberId);
+    long countByMemberIdAndReadFalseAndHiddenFalse(Long memberId);
 
-    Optional<NotificationLog> findByIdAndMemberId(Long id, Long memberId);
+    Optional<NotificationLog> findByIdAndMemberIdAndHiddenFalse(Long id, Long memberId);
 
     @Modifying
-    @Query("update NotificationLog n set n.read = true where n.memberId = :memberId and n.read = false")
+    @Query("update NotificationLog n set n.read = true where n.memberId = :memberId and n.read = false and n.hidden = false")
     int markAllReadByMemberId(@Param("memberId") Long memberId);
+
+    @Modifying
+    @Query("update NotificationLog n set n.hidden = true where n.memberId = :memberId and n.hidden = false")
+    int hideAllByMemberId(@Param("memberId") Long memberId);
 }

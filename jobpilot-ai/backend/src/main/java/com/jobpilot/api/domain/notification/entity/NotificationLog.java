@@ -27,6 +27,7 @@ public class NotificationLog {
     @Column(name = "body") private String body;
     @Column(name = "url") private String url;
     @Column(name = "is_read", nullable = false) private boolean read;
+    @Column(name = "is_hidden", nullable = false) private boolean hidden;
     @Column(name = "sent_at", nullable = false) private LocalDateTime sentAt;
 
     protected NotificationLog() {}
@@ -48,6 +49,7 @@ public class NotificationLog {
         this.body = body;
         this.url = url;
         this.read = false;
+        this.hidden = false;
         this.sentAt = LocalDateTime.now();
     }
 
@@ -63,4 +65,5 @@ public class NotificationLog {
     public LocalDateTime getSentAt() { return sentAt; }
 
     public void markRead() { this.read = true; }
+    public void hide() { this.hidden = true; }
 }

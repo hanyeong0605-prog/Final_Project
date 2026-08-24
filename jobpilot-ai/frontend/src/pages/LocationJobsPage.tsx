@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Filter, MapPin, Navigation, Search } from "lucide-react";
+import { Filter, Lock, MapPin, Navigation, Search, Unlock } from "lucide-react";
 import { KakaoMapContainer } from "../features/location-jobs/components/KaKaoMapContainer";
 import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
 import type { LocationJob } from "../features/location-jobs/model/types";
@@ -21,6 +21,9 @@ export function LocationJobsPage() {
   const [currentAddress, setCurrentAddress] = useState(DEFAULT_ADDRESS);
   const [center, setCenter] = useState(DEFAULT_CENTER);
   const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [isCenterLocked, setIsCenterLocked] = useState(true);
+  const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   const [jobs, setJobs] = useState<LocationJob[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -53,6 +56,8 @@ export function LocationJobsPage() {
   const handleSelectAddress = (address: string) => {
     setCurrentAddress(address);
     setSelectedJobId(null);
+    setIsCenterLocked(false);
+    setLocationMessage("주소를 변경했습니다. 지도를 움직여 탐색할 수 있습니다.");
 
     window.kakao?.maps?.services?.Geocoder().addressSearch(address, (result: any[], statusResult: any) => {
       if (statusResult === window.kakao.maps.services.Status.OK) {
@@ -62,8 +67,50 @@ export function LocationJobsPage() {
   };
 
   const handleMapCenterChanged = (nextCenter: { lat: number; lng: number }) => {
+    if (isCenterLocked) return;
     setSelectedJobId(null);
     setCenter((current) => Math.abs(current.lat - nextCenter.lat) < 0.00001 && Math.abs(current.lng - nextCenter.lng) < 0.00001 ? current : nextCenter);
+  };
+
+  const getAddressFromCoordinates = (lat: number, lng: number) => new Promise<string | null>((resolve) => {
+    const geocoder = window.kakao?.maps?.services?.Geocoder ? new window.kakao.maps.services.Geocoder() : null;
+    if (!geocoder) {
+      resolve(null);
+      return;
+    }
+    geocoder.coord2Address(lng, lat, (result: any[], statusResult: any) => {
+      if (statusResult !== window.kakao.maps.services.Status.OK || !result[0]) {
+        resolve(null);
+        return;
+      }
+      resolve(result[0].road_address?.address_name ?? result[0].address?.address_name ?? null);
+    });
+  });
+
+  const moveToCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage("이 브라우저에서는 현재 위치 기능을 사용할 수 없습니다.");
+      return;
+    }
+    setLocating(true);
+    setLocationMessage(null);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        const nextCenter = { lat: coords.latitude, lng: coords.longitude };
+        const address = await getAddressFromCoordinates(nextCenter.lat, nextCenter.lng);
+        setCenter(nextCenter);
+        setCurrentAddress(address ?? "현재 위치");
+        setSelectedJobId(null);
+        setIsCenterLocked(true);
+        setLocationMessage("현재 실제 위치를 기준으로 고정했습니다.");
+        setLocating(false);
+      },
+      () => {
+        setLocationMessage("현재 위치를 가져오지 못했습니다. 브라우저 위치 권한을 허용해 주세요.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
   };
 
   return (
@@ -89,13 +136,27 @@ export function LocationJobsPage() {
 
               <button
                 type="button"
-                onClick={() => handleSelectAddress(DEFAULT_ADDRESS)}
+                onClick={moveToCurrentLocation}
                 style={styles.navBtn}
-                title="기본 설정 주소로 이동"
+                title="내 실제 위치로 이동"
+                disabled={locating}
               >
                 <Navigation size={15} />
               </button>
             </div>
+
+            <div style={styles.locationControl}>
+              <span style={styles.locationHint}>
+                {isCenterLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                {isCenterLocked ? "선택한 기준 위치에 고정됨" : "지도를 움직여 탐색 중"}
+              </span>
+              {isCenterLocked && (
+                <button type="button" onClick={() => { setIsCenterLocked(false); setLocationMessage("지도 이동 잠금을 해제했습니다."); }} style={styles.unlockBtn}>
+                  지도 이동 잠금 해제
+                </button>
+              )}
+            </div>
+            {locationMessage && <p style={styles.locationMessage}>{locationMessage}</p>}
 
             <div style={styles.selectRow}>
               <span style={styles.selectLabel}>
@@ -173,6 +234,7 @@ export function LocationJobsPage() {
               radiusKm={radiusKm}
               jobs={jobs}
               selectedJobId={selectedJobId}
+              isCenterLocked={isCenterLocked}
               onSelectJob={(job) => setSelectedJobId(job.id)}
               onCenterChanged={handleMapCenterChanged}
             />
@@ -200,6 +262,10 @@ const styles: Record<string, React.CSSProperties> = {
   filterBox: { padding: "12px", backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #ebedf2", boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)", display: "flex", flexDirection: "column", gap: "8px", marginBottom: "10px", marginRight: "12px" },
   addressBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "8px", fontSize: "12px", color: "#30394d" },
   navBtn: { padding: "7px 9px", backgroundColor: "#edf9ff", border: "1px solid #b9dff1", borderRadius: "8px", color: "#277fbb" },
+  locationControl: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "2px 1px 0" },
+  locationHint: { display: "inline-flex", alignItems: "center", gap: "4px", color: "#69778e", fontSize: "10px", fontWeight: "700" },
+  unlockBtn: { border: 0, background: "transparent", color: "#277fbb", padding: "2px 0", fontSize: "10px", fontWeight: "800", cursor: "pointer" },
+  locationMessage: { margin: "-1px 1px 0", color: "#718099", fontSize: "10px", lineHeight: 1.4 },
   selectRow: { display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#ffffff", border: "1px solid #dce1ea", padding: "6px 10px", borderRadius: "8px" },
   selectLabel: { fontSize: "12px", fontWeight: "600", color: "#424b60", display: "flex", alignItems: "center", gap: "6px" },
   select: { fontSize: "11px", fontWeight: "bold", color: "#277fbb", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "6px", padding: "2px 6px" },
