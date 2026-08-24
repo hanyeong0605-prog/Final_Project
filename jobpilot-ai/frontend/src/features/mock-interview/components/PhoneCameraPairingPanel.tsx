@@ -26,7 +26,7 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
       .then((created) => {
         if (disposed) return;
         setPairing(created);
-        setStatus("휴대폰으로 QR을 스캔한 뒤 같은 계정으로 로그인해 주세요.");
+        setStatus("PC와 휴대폰을 같은 Wi-Fi에 연결한 뒤, 같은 계정으로 QR을 스캔해 주세요.");
         socketRef.current = openPairingSocket(created.socketTicket, handleSignal, setError);
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "QR 코드를 만들지 못했습니다."));
@@ -144,7 +144,8 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
         <div style={{ display: "grid", justifyItems: "center", gap: 12, marginTop: 16 }}>
           <QRCodeSVG value={pairUrl} size={210} level="M" includeMargin />
           <code style={{ maxWidth: "100%", overflowWrap: "anywhere", fontSize: 10, color: "#667085" }}>{pairUrl}</code>
-          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> QR은 5분 안에 한 번만 사용할 수 있습니다.</span>
+          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> PC와 휴대폰은 반드시 같은 Wi-Fi에 연결해야 합니다.</span>
+          <span style={{ fontSize: 11, color: "#667085" }}>QR은 5분 안에 한 번만 사용할 수 있습니다.</span>
         </div>
       )}
     </div>
