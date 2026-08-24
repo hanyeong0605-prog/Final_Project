@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Pencil, Trash2 } from "lucide-react";
 import { PageHeading } from "../shared/components/PageHeading";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
@@ -14,8 +13,7 @@ const emptyForm: EmployerJobPostingInput = {
 };
 
 export function EmployerMyPage() {
-  const { employer, logout } = useEmployerAuth();
-  const navigate = useNavigate();
+  const { employer } = useEmployerAuth();
   const [postings, setPostings] = useState<EmployerJobPosting[]>([]);
   const [form, setForm] = useState<EmployerJobPostingInput>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -95,10 +93,9 @@ export function EmployerMyPage() {
   return (
     <main className="content">
       <PageHeading
-        eyebrow="EMPLOYER"
-        title={employer.companyName}
-        body={`${employer.managerName} 담당자님, 환영합니다.`}
-        action={<button className="outline-button" onClick={() => { logout(); navigate("/employer/login"); }}>로그아웃</button>}
+        eyebrow="JOB POSTING MANAGEMENT"
+        title="공고 관리"
+        body={`${employer.companyName}에서 등록한 채용공고를 작성하고 관리합니다.`}
       />
 
       {employer.status === "PENDING" && (

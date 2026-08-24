@@ -60,7 +60,7 @@ export function AdminPage() {
     content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0,
   });
   const [employerQuery, setEmployerQuery] = useState("");
-  const [employerStatus, setEmployerStatus] = useState<EmployerAccountStatus | "ALL">("PENDING");
+  const [employerStatus, setEmployerStatus] = useState<EmployerAccountStatus | "ALL">("ALL");
 
   const [memberQuery, setMemberQuery] = useState("");
   const [postingQuery, setPostingQuery] = useState("");
