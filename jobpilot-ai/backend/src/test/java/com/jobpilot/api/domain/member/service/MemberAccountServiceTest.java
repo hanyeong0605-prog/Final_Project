@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.member.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,5 +64,18 @@ class MemberAccountServiceTest {
 
         verify(members).delete(member);
         verify(members).flush();
+    }
+
+    @Test
+    void rejectsProfileChangesForOAuthOnlyMember() {
+        Member member = new Member("oauth-kakao-test", "oauth@example.com", passwords.encode("random-password"), "소셜회원");
+        when(members.findById(1L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> service.changeNickname(1L, new NicknameUpdateRequest("새닉네임")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("회원 탈퇴만");
+        assertThatThrownBy(() -> service.changePassword(1L, new PasswordUpdateRequest("anything", "new-password")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("회원 탈퇴만");
     }
 }

@@ -28,6 +28,9 @@ public class MemberAccountService {
 
     public MemberResponse changeNickname(Long memberId, NicknameUpdateRequest request) {
         Member member = member(memberId);
+        if (isOAuthOnly(member)) {
+            throw new IllegalArgumentException("소셜 로그인 계정은 계정 정보 변경 없이 회원 탈퇴만 가능합니다.");
+        }
         member.changeNickname(request.nickname().trim());
         return MemberResponse.from(member);
     }
@@ -35,7 +38,7 @@ public class MemberAccountService {
     public void changePassword(Long memberId, PasswordUpdateRequest request) {
         Member member = member(memberId);
         if (isOAuthOnly(member)) {
-            throw new IllegalArgumentException("소셜 로그인 계정의 비밀번호는 네이버·카카오·구글에서 변경해 주세요.");
+            throw new IllegalArgumentException("소셜 로그인 계정은 계정 정보 변경 없이 회원 탈퇴만 가능합니다.");
         }
         verifyPassword(request.currentPassword(), member);
         if (passwordEncoder.matches(request.newPassword(), member.getPasswordHash())) {
