@@ -38,7 +38,7 @@ public class EmployerAuthService {
         this.ntsClient = ntsClient;
     }
 
-    public EmployerAuthResponse signup(EmployerSignupRequest request) {
+    public EmployerResponse signup(EmployerSignupRequest request) {
         if (employers.existsByLoginId(request.loginId())) throw new DuplicateEmployerException("이미 사용 중인 로그인 아이디입니다.");
         String email = normalizeEmail(request.email());
         if (employers.existsByEmail(email)) throw new DuplicateEmployerException("이미 사용 중인 이메일입니다.");
@@ -56,8 +56,7 @@ public class EmployerAuthService {
                 ntsClient.verify(businessNumber, request.openingDate(), request.representativeName());
         employer.applyNtsVerificationResult(verification.verified(), verification.rawResponse());
 
-        EmployerAccount saved = employers.save(employer);
-        return response(saved);
+        return EmployerResponse.from(employers.save(employer));
     }
 
     public EmployerAuthResponse login(EmployerLoginRequest request) {

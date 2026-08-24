@@ -68,6 +68,19 @@ public class EmployerAccount {
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "passwordless_status", nullable = false, length = 24)
+    private EmployerPasswordlessStatus passwordlessStatus;
+
+    @Column(name = "passwordless_user_id", unique = true, length = 100)
+    private String passwordlessUserId;
+
+    @Column(name = "passwordless_activated_at")
+    private LocalDateTime passwordlessActivatedAt;
+
+    @Column(name = "passwordless_last_verified_at")
+    private LocalDateTime passwordlessLastVerifiedAt;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -91,6 +104,7 @@ public class EmployerAccount {
         this.companyAddress = companyAddress;
         this.ntsVerified = false;
         this.status = EmployerAccountStatus.PENDING;
+        this.passwordlessStatus = EmployerPasswordlessStatus.NONE;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
     }
@@ -104,6 +118,11 @@ public class EmployerAccount {
 
     public void approve(Long adminMemberId) {
         this.status = EmployerAccountStatus.APPROVED;
+        if (this.passwordlessStatus == EmployerPasswordlessStatus.NONE
+                || this.passwordlessStatus == EmployerPasswordlessStatus.REVOKED) {
+            this.passwordlessStatus = EmployerPasswordlessStatus.ENROLL_REQUIRED;
+            this.passwordlessUserId = "EMPLOYER:" + id;
+        }
         this.rejectionReason = null;
         this.reviewedBy = adminMemberId;
         this.reviewedAt = LocalDateTime.now();
@@ -119,6 +138,23 @@ public class EmployerAccount {
     }
 
     public boolean isApproved() { return status == EmployerAccountStatus.APPROVED; }
+
+    public void activatePasswordless() {
+        this.passwordlessStatus = EmployerPasswordlessStatus.ACTIVE;
+        this.passwordlessActivatedAt = LocalDateTime.now();
+        this.passwordlessLastVerifiedAt = this.passwordlessActivatedAt;
+        this.updatedAt = this.passwordlessActivatedAt;
+    }
+
+    public void recordPasswordlessVerification() {
+        this.passwordlessLastVerifiedAt = LocalDateTime.now();
+        this.updatedAt = this.passwordlessLastVerifiedAt;
+    }
+
+    public void revokePasswordless() {
+        this.passwordlessStatus = EmployerPasswordlessStatus.REVOKED;
+        this.updatedAt = LocalDateTime.now();
+    }
 
     public Long getId() { return id; }
     public String getLoginId() { return loginId; }
@@ -138,5 +174,9 @@ public class EmployerAccount {
     public String getRejectionReason() { return rejectionReason; }
     public Long getReviewedBy() { return reviewedBy; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }
+    public EmployerPasswordlessStatus getPasswordlessStatus() { return passwordlessStatus; }
+    public String getPasswordlessUserId() { return passwordlessUserId; }
+    public LocalDateTime getPasswordlessActivatedAt() { return passwordlessActivatedAt; }
+    public LocalDateTime getPasswordlessLastVerifiedAt() { return passwordlessLastVerifiedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

@@ -7,7 +7,7 @@ interface EmployerAuthContextValue {
   employer: EmployerAccount | null;
   loading: boolean;
   login: (input: EmployerLoginInput) => Promise<void>;
-  signup: (input: EmployerSignupInput) => Promise<void>;
+  signup: (input: EmployerSignupInput) => Promise<EmployerAccount>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -27,7 +27,7 @@ export function EmployerAuthProvider({ children }: PropsWithChildren) {
     employer,
     loading,
     login: async (input) => { const response = await requestLogin(input); setEmployerAccessToken(response.accessToken); setEmployer(response.employer); },
-    signup: async (input) => { const response = await requestSignup(input); setEmployerAccessToken(response.accessToken); setEmployer(response.employer); },
+    signup: requestSignup,
     logout: () => { clearEmployerAccessToken(); setEmployer(null); },
     refresh: async () => { setEmployer(await getMe()); },
   }), [employer, loading]);

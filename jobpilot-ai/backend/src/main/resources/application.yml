@@ -163,6 +163,12 @@ nts:
   api:
     key: ${NTS_API_KEY:}
 
+# 기업회원 전용 Passwordless X1280. Server Key는 백엔드 환경변수로만 주입한다.
+x1280:
+  enabled: ${X1280_ENABLED:false}
+  base-url: ${X1280_BASE_URL:http://localhost:11040}
+  server-key: ${X1280_SERVER_KEY:}
+
 barun:
   api:
     key: ${BARUN_API_KEY}

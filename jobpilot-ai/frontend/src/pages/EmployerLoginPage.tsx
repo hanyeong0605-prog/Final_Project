@@ -1,11 +1,12 @@
 import { FormEvent, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
 import { AccountTypeToggle } from "../shared/components/AccountTypeToggle";
 
 export function EmployerLoginPage() {
   const { employer, login } = useEmployerAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -41,6 +42,9 @@ export function EmployerLoginPage() {
         <span className="eyebrow">EMPLOYER LOGIN</span>
         <h1>기업회원 로그인</h1>
         <p>승인된 기업회원은 채용공고를 직접 등록·관리할 수 있어요.</p>
+        {searchParams.get("signup") === "pending" && (
+          <div className="auth-success">가입 신청이 접수되었습니다. 관리자 승인 후 Passwordless 기기를 등록해 주세요.</div>
+        )}
         <form onSubmit={submit}>
           <label>
             아이디
