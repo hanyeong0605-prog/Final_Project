@@ -1,14 +1,10 @@
 package com.jobpilot.api.domain.employer.service;
 
-import com.jobpilot.api.domain.auth.service.JwtTokenService;
 import com.jobpilot.api.domain.employer.client.NtsBusinessVerificationClient;
-import com.jobpilot.api.domain.employer.dto.EmployerAuthResponse;
-import com.jobpilot.api.domain.employer.dto.EmployerLoginRequest;
 import com.jobpilot.api.domain.employer.dto.EmployerResponse;
 import com.jobpilot.api.domain.employer.dto.EmployerSignupRequest;
 import com.jobpilot.api.domain.employer.entity.EmployerAccount;
 import com.jobpilot.api.domain.employer.exception.DuplicateEmployerException;
-import com.jobpilot.api.domain.employer.exception.InvalidEmployerCredentialsException;
 import com.jobpilot.api.domain.employer.repository.EmployerAccountRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
@@ -27,14 +23,12 @@ import org.springframework.stereotype.Service;
 public class EmployerAuthService {
     private final EmployerAccountRepository employers;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenService tokenService;
     private final NtsBusinessVerificationClient ntsClient;
 
     public EmployerAuthService(EmployerAccountRepository employers, PasswordEncoder passwordEncoder,
-                                JwtTokenService tokenService, NtsBusinessVerificationClient ntsClient) {
+                                NtsBusinessVerificationClient ntsClient) {
         this.employers = employers;
         this.passwordEncoder = passwordEncoder;
-        this.tokenService = tokenService;
         this.ntsClient = ntsClient;
     }
 
@@ -59,20 +53,9 @@ public class EmployerAuthService {
         return EmployerResponse.from(employers.save(employer));
     }
 
-    public EmployerAuthResponse login(EmployerLoginRequest request) {
-        EmployerAccount employer = employers.findByLoginId(request.loginId()).orElseThrow(InvalidEmployerCredentialsException::new);
-        if (!passwordEncoder.matches(request.password(), employer.getPasswordHash())) throw new InvalidEmployerCredentialsException();
-        return response(employer);
-    }
-
     public EmployerResponse me(Long employerId) {
         return EmployerResponse.from(employers.findById(employerId)
                 .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다.")));
-    }
-
-    private EmployerAuthResponse response(EmployerAccount employer) {
-        JwtTokenService.Token token = tokenService.issueForEmployer(employer);
-        return new EmployerAuthResponse(token.value(), "Bearer", token.expiresInSeconds(), EmployerResponse.from(employer));
     }
 
     private String normalizeEmail(String email) { return email.trim().toLowerCase(Locale.ROOT); }

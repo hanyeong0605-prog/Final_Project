@@ -1,7 +1,5 @@
 package com.jobpilot.api.domain.employer.controller;
 
-import com.jobpilot.api.domain.employer.dto.EmployerAuthResponse;
-import com.jobpilot.api.domain.employer.dto.EmployerLoginRequest;
 import com.jobpilot.api.domain.employer.dto.EmployerResponse;
 import com.jobpilot.api.domain.employer.dto.EmployerSignupRequest;
 import com.jobpilot.api.domain.employer.service.EmployerAuthService;
@@ -25,9 +23,6 @@ public class EmployerAuthController {
 
     @PostMapping("/signup")
     public EmployerResponse signup(@Valid @RequestBody EmployerSignupRequest request) { return service.signup(request); }
-
-    @PostMapping("/login")
-    public EmployerAuthResponse login(@Valid @RequestBody EmployerLoginRequest request) { return service.login(request); }
 
     @GetMapping("/me")
     public EmployerResponse me(Authentication authentication) {

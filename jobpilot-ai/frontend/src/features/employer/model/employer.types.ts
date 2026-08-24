@@ -44,3 +44,5 @@ export interface EmployerLoginInput {
   loginId: string;
   password: string;
 }
+export interface EmployerEnrollmentInput { loginId: string; password: string; }
+export interface EmployerPasswordlessStart { result: "OK"; sessionId: string; data: { servicePassword?: string; term?: number }; }
