@@ -26,7 +26,7 @@ export function EmployerEnrollmentPage() {
     try {
       const input = { loginId: loginId.trim(), password, passwordlessConsent: agreed };
       const response = await requestEnrollment(input);
-      if (response.registered) { navigate("/employer/login?enrollment=complete"); return; }
+      if (response.registered) { setError("Passwordless QR 등록이 완료된 계정입니다."); return; }
       const value = qrPayload(response.data);
       if (!value) throw new Error("X1280 서버에서 등록 QR 이미지를 응답하지 않았습니다.");
       setQr(value);
@@ -41,6 +41,6 @@ export function EmployerEnrollmentPage() {
     <div className="auth-brand"><span className="brand-mark"><span>J</span></span><div><strong>Job-A-Dream AI</strong><small>기업회원 Passwordless</small></div></div>
     <span className="eyebrow">X1280 ENROLLMENT</span><h1>Passwordless 전환</h1><p>관리자 승인이 완료된 기업회원만 등록할 수 있습니다.</p>
     {!qr ? <div className="passwordless-enrollment-form"><div className="passwordless-consent-notice"><strong>전환 전에 꼭 확인해 주세요.</strong><p>Passwordless 등록이 완료되면 기존 아이디·비밀번호 로그인은 사용할 수 없으며, 이후에는 등록한 모바일 기기로만 로그인합니다.</p></div><label>기업회원 아이디<input value={loginId} onChange={(event) => setLoginId(event.target.value)} /></label><label>현재 비밀번호 확인<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><label className="passwordless-consent-check"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} /><span>비밀번호 로그인이 비활성화되고 Passwordless 방식으로 전환되는 것에 동의합니다.</span></label><button className="primary-button" disabled={loading || !loginId || !password || !agreed} onClick={() => void begin()}>{loading ? "QR 요청 중..." : "등록 QR 생성"}</button></div> : <div className="passwordless-qr"><img src={qr.qr} alt="X1280 Passwordless 등록 QR" />{qr.registerKey && <small>Register Key: {qr.registerKey.match(/.{1,4}/g)?.join(" ")}</small>}<strong>X1280 앱으로 QR을 스캔해 주세요.</strong><span>등록 완료 여부를 자동으로 확인하고 있습니다.</span></div>}
-    {error && <div className="auth-error">{error}</div>}<div className="auth-switch"><Link to="/employer/login">기업회원 로그인으로 돌아가기</Link></div>
+    {error && <div className={error === "Passwordless QR 등록이 완료된 계정입니다." ? "auth-success" : "auth-error"}>{error}</div>}<div className="auth-switch"><Link to="/employer/login">기업회원 로그인으로 돌아가기</Link></div>
   </section></main>;
 }

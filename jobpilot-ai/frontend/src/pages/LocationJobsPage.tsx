@@ -56,8 +56,8 @@ export function LocationJobsPage() {
   const handleSelectAddress = (address: string) => {
     setCurrentAddress(address);
     setSelectedJobId(null);
-    setIsCenterLocked(false);
-    setLocationMessage("주소를 변경했습니다. 지도를 움직여 탐색할 수 있습니다.");
+    setIsCenterLocked(true);
+    setLocationMessage("선택한 주소를 탐색 기준으로 고정했습니다.");
 
     window.kakao?.maps?.services?.Geocoder().addressSearch(address, (result: any[], statusResult: any) => {
       if (statusResult === window.kakao.maps.services.Status.OK) {
@@ -150,11 +150,11 @@ export function LocationJobsPage() {
                 {isCenterLocked ? <Lock size={12} /> : <Unlock size={12} />}
                 {isCenterLocked ? "선택한 기준 위치에 고정됨" : "지도를 움직여 탐색 중"}
               </span>
-              {isCenterLocked && (
-                <button type="button" onClick={() => { setIsCenterLocked(false); setLocationMessage("지도 이동 잠금을 해제했습니다."); }} style={styles.unlockBtn}>
-                  지도 이동 잠금 해제
-                </button>
-              )}
+              <label style={styles.lockSwitch} title={isCenterLocked ? "탐색 중심과 반경 고정" : "지도 중심을 따라 탐색"}>
+                <input type="checkbox" checked={isCenterLocked} onChange={(event) => { const locked = event.target.checked; setIsCenterLocked(locked); setLocationMessage(locked ? "탐색 중심과 반경을 고정했습니다. 지도 화면은 자유롭게 이동할 수 있습니다." : "지도 중심을 따라 탐색 위치가 이동합니다."); }} style={styles.lockSwitchInput} />
+                <span style={{ ...styles.lockSwitchTrack, backgroundColor: isCenterLocked ? "#5B92F3" : "#cbd3df" }}><span style={{ ...styles.lockSwitchThumb, transform: isCenterLocked ? "translateX(16px)" : "translateX(0)" }} /></span>
+                <span>{isCenterLocked ? "ON" : "OFF"}</span>
+              </label>
             </div>
             {locationMessage && <p style={styles.locationMessage}>{locationMessage}</p>}
 
@@ -264,7 +264,10 @@ const styles: Record<string, React.CSSProperties> = {
   navBtn: { padding: "7px 9px", backgroundColor: "#edf9ff", border: "1px solid #b9dff1", borderRadius: "8px", color: "#277fbb" },
   locationControl: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "2px 1px 0" },
   locationHint: { display: "inline-flex", alignItems: "center", gap: "4px", color: "#69778e", fontSize: "10px", fontWeight: "700" },
-  unlockBtn: { border: 0, background: "transparent", color: "#277fbb", padding: "2px 0", fontSize: "10px", fontWeight: "800", cursor: "pointer" },
+  lockSwitch: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#5B92F3", fontSize: "10px", fontWeight: "800", cursor: "pointer", userSelect: "none" },
+  lockSwitchInput: { position: "absolute", width: "1px", height: "1px", opacity: 0, pointerEvents: "none" },
+  lockSwitchTrack: { display: "inline-flex", alignItems: "center", width: "34px", height: "18px", padding: "2px", borderRadius: "999px", transition: "background-color .18s ease" },
+  lockSwitchThumb: { display: "block", width: "14px", height: "14px", borderRadius: "50%", backgroundColor: "#fff", boxShadow: "0 1px 4px rgba(30, 48, 82, .28)", transition: "transform .18s ease" },
   locationMessage: { margin: "-1px 1px 0", color: "#718099", fontSize: "10px", lineHeight: 1.4 },
   selectRow: { display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#ffffff", border: "1px solid #dce1ea", padding: "6px 10px", borderRadius: "8px" },
   selectLabel: { fontSize: "12px", fontWeight: "600", color: "#424b60", display: "flex", alignItems: "center", gap: "6px" },

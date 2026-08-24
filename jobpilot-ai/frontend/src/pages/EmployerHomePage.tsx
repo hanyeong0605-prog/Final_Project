@@ -9,6 +9,7 @@ export function EmployerHomePage() {
   return (
     <>
       <section className="employer-hero employer-hero-reference">
+        <img className="employer-hero-background" src="/employer-recruiter-home.png" alt="" />
         <div className="employer-hero-copy">
           <span className="eyebrow">JOB-A-DREAM FOR RECRUITERS</span>
           <h1>좋은 인재와 회사를 연결해<br />더 나은 내일을 만듭니다.</h1>
@@ -17,9 +18,6 @@ export function EmployerHomePage() {
             <Link className="primary-button" to="/employer/dashboard"><UsersRound size={17} />공개 인재 보기</Link>
             <Link className="outline-button" to="/employer/postings"><BriefcaseBusiness size={17} />공고 관리</Link>
           </div>
-        </div>
-        <div className="employer-reference-visual">
-          <img src="/employer-recruiter-home.png" alt="인재 목록을 확인하는 Job-A-Dream 기업 채용담당자" />
         </div>
       </section>
       <section className="employer-home-links">
