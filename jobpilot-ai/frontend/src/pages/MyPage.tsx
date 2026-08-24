@@ -10,28 +10,20 @@ import type { Opportunity } from "../features/opportunities/model/opportunity.ty
 import { useInterests } from "../features/interests/model/InterestContext";
 import { JobPostingCard } from "../features/job-postings/components/JobPostingCard";
 import type { JobPosting } from "../features/job-postings/model/jobPosting.types";
-import { getCareerProfile, saveCareerProfile } from "../features/profile/api/careerProfileApi";
-import { getMemberSkills, saveMemberSkills } from "../features/profile/api/memberSkillsApi";
-import { getMemberCertificates, saveMemberCertificates } from "../features/profile/api/memberCertificatesApi";
-import { CareerProfileForm } from "../features/profile/components/CareerProfileForm";
 import { SubscriptionSection } from "../features/subscription/components/SubscriptionSection";
 import { PushNotificationSection } from "../features/push-notifications/components/PushNotificationSection";
-import type { CareerProfile } from "../features/profile/model/careerProfile.types";
-import type { MemberSkill } from "../features/profile/model/memberSkill.types";
-import type { MemberCertificate } from "../features/profile/model/memberCertificate.types";
 import { PageHeading } from "../shared/components/PageHeading";
+import { SavedCapabilityList } from "./CapabilityManagementPage";
 
-type Action = "nickname" | "password" | "withdraw" | "spec" | null;
+type Action = "nickname" | "password" | "withdraw" | null;
 export function MyPage() {
   const { member, loading, updateMember, logout } = useAuth(); const { interestCount } = useInterests(); const navigate = useNavigate(); const location = useLocation();
   const [action, setAction] = useState<Action>(null); const [nickname, setNickname] = useState(member?.nickname ?? "");
   const [passwords, setPasswords] = useState({ current: "", next: "" }); const [withdrawPassword, setWithdrawPassword] = useState("");
-  const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]); const [profile, setProfile] = useState<CareerProfile>(); const [memberSkills, setMemberSkills] = useState<MemberSkill[]>([]); const [memberCertificates, setMemberCertificates] = useState<MemberCertificate[]>([]);
+  const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
   useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
   useEffect(() => { if (!loading && !member) navigate(`/login?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`, { replace: true }); }, [loading, member, navigate, location.pathname, location.search]);
-  useEffect(() => { if (new URLSearchParams(location.search).get("editSpec") === "1") setAction("spec"); }, [location.search]);
-  useEffect(() => { void Promise.all([getCareerProfile(), getMemberSkills(), getMemberCertificates()]).then(([savedProfile, savedSkills, savedCertificates]) => { setProfile(savedProfile); setMemberSkills(savedSkills); setMemberCertificates(savedCertificates); }).catch(() => { setProfile(undefined); setMemberSkills([]); setMemberCertificates([]); }); }, []);
   const run = async (kind: Exclude<Action, null>, fn: () => Promise<void>, success: string) => { if (submitting) return; setError(""); setMessage(""); setSubmitting(kind); try { await fn(); setMessage(success); setAction(null); } catch (e) { setError(e instanceof Error ? e.message : "요청에 실패했습니다."); } finally { setSubmitting(null); } };
   const nicknameSubmit = (e: FormEvent) => { e.preventDefault(); void run("nickname", async () => updateMember(await changeNickname(nickname.trim())), "닉네임을 변경했습니다."); };
   const passwordSubmit = (e: FormEvent) => { e.preventDefault(); void run("password", async () => { await changePassword(passwords.current, passwords.next); setPasswords({ current: "", next: "" }); }, "비밀번호를 변경했습니다."); };
@@ -47,10 +39,8 @@ export function MyPage() {
     {action === "withdraw" && <section className="panel account-editor danger-zone"><h2>회원 탈퇴</h2><p>탈퇴하면 회원 프로필, 매칭 결과, 찜과 일정이 모두 삭제됩니다.</p><form onSubmit={withdrawalSubmit}><label>{isOAuthOnly ? "확인 문구" : "비밀번호 확인"}<input required type={isOAuthOnly ? "text" : "password"} autoComplete={isOAuthOnly ? "off" : "current-password"} placeholder={isOAuthOnly ? "회원탈퇴" : undefined} value={withdrawPassword} onChange={(e) => setWithdrawPassword(e.target.value)} /></label><button className="danger-button" disabled={submitting === "withdraw"}>{submitting === "withdraw" ? "탈퇴 처리 중..." : "회원 탈퇴 진행"}</button></form></section>}
     <SubscriptionSection />
     <PushNotificationSection />
-    <div className="mypage-section-title spec-title"><div><h2>나의 스펙정보</h2><p>공고 추천과 지원 준비도 비교에 사용됩니다.</p></div><button className="outline-button" onClick={() => setAction(action === "spec" ? null : "spec")}><Target size={16} />{profile ? "스펙 수정" : "스펙 입력"}</button></div>
-    {action === "spec" && <section className="panel account-editor spec-editor"><CareerProfileForm initial={profile} initialSkills={memberSkills} initialCertificates={memberCertificates} onCancel={() => setAction(null)} onSave={async (value, skills, certificates) => { const saved = await saveCareerProfile(value); const savedSkills = await saveMemberSkills(skills.map(({ skillId, selfReportedLevel, note }) => ({ skillId, selfReportedLevel, note }))); const savedCertificates = await saveMemberCertificates(certificates.map(({ name, issuer, acquiredAt, expiresAt, officialUrl }) => ({ name, issuer, acquiredAt, expiresAt, officialUrl }))); setProfile(saved); setMemberSkills(savedSkills); setMemberCertificates(savedCertificates); if (member) updateMember({ ...member, onboardingCompleted: true }); setMessage("스펙정보, 보유 기술, 자격증을 저장했습니다."); setAction(null); }} /></section>}
-    {!profile && action !== "spec" && <section className="panel saved-empty">아직 등록한 스펙정보가 없습니다.</section>}
-    {profile && action !== "spec" && <section className="panel spec-summary"><div><span>목표 직무</span><strong>{profile.targetRole}</strong></div><div><span>희망 지역</span><strong>{profile.preferredLocations.join(", ") || "미입력"}</strong></div><div><span>경력</span><strong>{profile.totalCareerMonths}개월</strong></div><div><span>기술 요약</span><strong>{profile.technicalSummary || "미입력"}</strong></div></section>}
+    <div className="mypage-section-title spec-title"><div><h2>나의 스펙정보</h2><p>역량 관리에 저장한 스펙정보를 조회합니다.</p></div><button className="outline-button" onClick={() => navigate("/capability?tool=profile")}><Target size={16} />스펙정보 입력하기</button></div>
+    <section className="panel mypage-capability-view"><SavedCapabilityList readOnly /></section>
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.length}개</span></div>
     {jobs.length === 0 ? <section className="panel saved-empty">찜한 채용공고가 없습니다.</section> : <section className="posting-grid">{jobs.map((job) => <JobPostingCard key={job.id} posting={job} />)}</section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 성장 기회</h2></div><span>{opportunities.length}개</span></div>
