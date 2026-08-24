@@ -73,8 +73,10 @@ public class JobADreamMailService {
             helper.setFrom(from); helper.setTo(to); helper.setSubject(subject);
             String html = "<div style='max-width:640px;margin:auto;padding:28px;background:#f6f9fc;font-family:Arial,sans-serif;color:#263248'>"
                     + "<div style='padding:18px 20px;background:#fff;border-radius:16px 16px 0 0;border-bottom:3px solid #5DADEC'>"
-                    + "<img src='" + publicBaseUrl + "/brand/job-a-dream-wordmark-cutout.png' alt='Job A Dream' style='width:180px;max-width:65%;vertical-align:middle'>"
-                    + "<img src='" + publicBaseUrl + "/mascot/mascot_nukki.png' alt='' style='height:52px;margin-left:10px;vertical-align:middle'></div>"
+                    + "<table role='presentation' cellspacing='0' cellpadding='0'><tr>"
+                    + "<td style='padding-right:14px;vertical-align:middle'><img src='" + publicBaseUrl + "/brand/job-a-dream-email-logo.png' alt='Job A Dream' width='210' style='display:block;width:210px;max-width:100%;height:auto;border:0'></td>"
+                    + "<td style='vertical-align:middle'><img src='" + publicBaseUrl + "/mascot/job-a-dream-email-cat.png' alt='Job-A-Dream 마스코트' width='88' style='display:block;width:88px;height:auto;border:0'></td>"
+                    + "</tr></table></div>"
                     + "<div style='padding:24px 20px;background:#fff;border-radius:0 0 16px 16px'>" + content + "</div></div>";
             helper.setText(html, true);
             sender.send(message);
@@ -88,7 +90,7 @@ public class JobADreamMailService {
         JsonNode payload = job.getRawPayload();
         String candidate = imageCandidate(payload == null ? null : payload.path("imageUrls").path(0));
         if (candidate == null) candidate = imageCandidate(payload == null ? null : payload.path("images").path("job_thumbnail_urls").path(0));
-        return candidate != null ? candidate : publicBaseUrl + "/mascot/mascot_nukki.png";
+        return candidate != null ? candidate : publicBaseUrl + "/mascot/job-a-dream-email-cat.png";
     }
     private static String imageCandidate(JsonNode node) {
         if (node == null || !node.isTextual()) return null;

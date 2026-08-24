@@ -31,6 +31,7 @@ public class EmployerPasswordlessService {
     public Map<String, Object> enrollment(String loginId, String password) {
         EmployerAccount employer = credential(loginId, password);
         requireApproved(employer);
+        employer.normalizePasswordlessUserId();
         JsonNode check = client.isRegistered(employer.getPasswordlessUserId());
         if (check.path("data").path("exist").asBoolean(false)) {
             employer.activatePasswordless();
@@ -44,6 +45,7 @@ public class EmployerPasswordlessService {
     public Map<String, Object> enrollmentStatus(String loginId, String password) {
         EmployerAccount employer = credential(loginId, password);
         requireApproved(employer);
+        employer.normalizePasswordlessUserId();
         boolean registered = client.isRegistered(employer.getPasswordlessUserId()).path("data").path("exist").asBoolean(false);
         if (registered) employer.activatePasswordless();
         return Map.of("registered", registered, "status", employer.getPasswordlessStatus().name());
@@ -52,6 +54,7 @@ public class EmployerPasswordlessService {
     public Map<String, Object> start(String loginId, String clientIp) {
         EmployerAccount employer = find(loginId);
         requireApproved(employer);
+        employer.normalizePasswordlessUserId();
         boolean registered = client.isRegistered(employer.getPasswordlessUserId()).path("data").path("exist").asBoolean(false);
         if (!registered) throw new IllegalArgumentException("Passwordless 기기 등록이 필요합니다.");
         if (employer.getPasswordlessStatus().name().equals("ENROLL_REQUIRED")) employer.activatePasswordless();
@@ -65,6 +68,7 @@ public class EmployerPasswordlessService {
     public Object result(String loginId, String sessionId) {
         EmployerAccount employer = find(loginId);
         requireApproved(employer);
+        employer.normalizePasswordlessUserId();
         JsonNode response = client.result(employer.getPasswordlessUserId(), sessionId);
         String code = response.path("code").asText("");
         String auth = response.path("data").path("auth").asText("");
@@ -78,6 +82,7 @@ public class EmployerPasswordlessService {
 
     public Map<String, Object> cancel(String loginId, String sessionId) {
         EmployerAccount employer = find(loginId);
+        employer.normalizePasswordlessUserId();
         client.cancel(employer.getPasswordlessUserId(), sessionId);
         return Map.of("result", "OK");
     }
