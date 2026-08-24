@@ -726,6 +726,7 @@ export function MockInterviewPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const phoneStreamNeedsPreviewRef = useRef(false);
   const phonePairDisconnectRef = useRef<(() => void) | null>(null);
   const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
   const phoneAutoStartRef = useRef(false);
@@ -771,6 +772,7 @@ export function MockInterviewPage() {
   // 때 이전 재생을 확실히 멈추고, objectURL은 다 쓰면 revoke해서 메모리 누수를 막는다.
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAudioUrlRef = useRef<string | null>(null);
+  const interviewerVideoRef = useRef<HTMLVideoElement | null>(null);
   // 2026-08-13: "경청하다가 질문할 때 입 벌리는 느낌" 요청.
   // 처음엔 JS setInterval로 정지 이미지 2장을 번갈아 보여주는 방식으로 했었는데, 실제
   // 애니메이션 파일(움짤)로 만들어달라는 요청 + "고양이 크기가 통째로 움직인다"는 버그
@@ -1149,21 +1151,18 @@ export function MockInterviewPage() {
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    phoneStreamNeedsPreviewRef.current = false;
     if (videoRef.current) videoRef.current.srcObject = null;
   };
 
-  const usePhoneCameraStream = async (stream: MediaStream) => {
+  const usePhoneCameraStream = (stream: MediaStream) => {
     stopStream();
     streamRef.current = stream;
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-    }
-    const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
-    landmarkerRef.current = landmarker;
-    startFaceTrackingLoop(landmarker);
-    startMeterLoop(stream);
-    setCameraReady(true);
+    // The QR panel lives in `device-check`, where the preview <video> has not
+    // been rendered yet. Defer attachment until the `testing-mic` tile mounts;
+    // otherwise the stream is sent successfully but the PC stays black.
+    phoneStreamNeedsPreviewRef.current = true;
+    setCameraReady(false);
     setPairingPanelOpen(false);
     // QR pairing hands the whole interview to the phone camera. It should not
     // leave the user at a second manual "start" button on the PC.
@@ -1799,6 +1798,52 @@ export function MockInterviewPage() {
     stage === "recording" ||
     stage === "break";
 
+  useEffect(() => {
+    if (!showVideoPreview || !phoneStreamNeedsPreviewRef.current) return;
+    const stream = streamRef.current;
+    const video = videoRef.current;
+    if (!stream || !video) return;
+    phoneStreamNeedsPreviewRef.current = false;
+
+    const attachPhonePreview = async () => {
+      try {
+        video.srcObject = stream;
+        await video.play();
+        const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
+        if (streamRef.current !== stream) return;
+        landmarkerRef.current = landmarker;
+        startFaceTrackingLoop(landmarker);
+        startMeterLoop(stream);
+        setCameraReady(true);
+      } catch {
+        setErrorMessage("휴대폰 카메라 화면을 PC에 표시하지 못했습니다. QR을 닫고 다시 연결해 주세요.");
+        setStage("error");
+      }
+    };
+    void attachPhonePreview();
+    // `showVideoPreview` changes only when the camera tile mounts/unmounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showVideoPreview]);
+
+  useEffect(() => {
+    const video = interviewerVideoRef.current;
+    if (!video) return;
+    const freezeAtFinalFrame = () => {
+      if (!Number.isFinite(video.duration)) return;
+      video.currentTime = Math.max(0, video.duration - 0.04);
+      video.pause();
+    };
+    if (isSpeaking) {
+      video.loop = true;
+      video.currentTime = 0;
+      void video.play().catch(() => undefined);
+    } else {
+      video.loop = false;
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) freezeAtFinalFrame();
+      else video.addEventListener("loadedmetadata", freezeAtFinalFrame, { once: true });
+    }
+  }, [isSpeaking]);
+
   const hasSession = sessionQuestions.length > 0;
   // 2026-08-06: "countdown"(3초) 단계 자체는 아직 이전 질문 텍스트를 들고 있을 수 있어서
   // 무조건 포함시키면 안 되고, questionTextReady(질문이 실제로 공개된 시점부터 true)로
@@ -1862,32 +1907,17 @@ export function MockInterviewPage() {
             <div className="interview-call-stage">
               <div className="interview-call-tile interviewer-tile">
                 <div className="interviewer-avatar-wrap">
-                  {/* 2026-08-14: "차라리 편집하지 말고 영상통화처럼 그 영상을 그대로 쓰자"는
-                      요청 - AI(lipsync.video)가 만들어준 실제 영상(mascot-interview-talking.mp4,
-                      음성만 제거)을 배경 편집 없이 그대로 쓴다. 대신 컨테이너 크기를 고정해서
-                      (interviewer-avatar-frame) 이전에 겪었던 "정지 이미지 ↔ 애니메이션 프레임을
-                      바꿀 때 고양이 전체 크기가 같이 흔들리는" 문제가 재발하지 않게 했다 - 이미지/
-                      영상 둘 다 이 고정 박스 안에서 object-fit: cover로 채워지므로 박스 자체는
-                      절대 움직이지 않는다. 영상 자체의 어두운 배경은 실제 화상통화 타일처럼
-                      보이게 컨테이너도 어두운 배경(candidate-tile과 톤 맞춤)으로 감쌌다. */}
+                  {/* 면접관은 한 영상만 사용한다. 질문 음성이 재생되는 동안만 반복하고,
+                      재생이 끝나면 마지막 프레임에 멈춰 다음 질문까지 그대로 유지한다. */}
                   <div className="interviewer-avatar-frame">
-                    {isSpeaking ? (
-                      <video
-                        key="talking"
-                        className="interviewer-avatar-media"
-                        src="/mascot-interview-talking.webm"
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                      />
-                    ) : (
-                      <img
-                        src="/mascot-interview-face.png"
-                        alt="AI 면접관"
-                        className="interviewer-avatar-media interviewer-avatar-media-idle"
-                      />
-                    )}
+                    <video
+                      ref={interviewerVideoRef}
+                      className="interviewer-avatar-media"
+                      src="/mascot-interview-talking.webm"
+                      muted
+                      playsInline
+                      aria-label="AI 면접관 잡아드림"
+                    />
                   </div>
                   {/* isSpeaking은 speakQuestionText가 실제로 재생 중인 구간(질문 자동 낭독 +
                       "다시 듣기" 수동 재생 모두 포함)과 정확히 일치한다. */}
