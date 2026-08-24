@@ -8,6 +8,7 @@ interface Props {
   jobs: LocationJob[];
   selectedJobId: number | null;
   onSelectJob: (job: LocationJob) => void;
+  onCenterChanged: (center: { lat: number; lng: number }) => void;
 }
 
 export const KakaoMapContainer: React.FC<Props> = ({
@@ -16,6 +17,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
   jobs,
   selectedJobId,
   onSelectJob,
+  onCenterChanged,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -32,7 +34,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
     container.style.cssText = `
       padding: 10px 12px;
       background-color: #ffffff;
-      border: 1px solid #2563eb;
+      border: 1px solid #277fbb;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       font-size: 12px;
@@ -45,8 +47,8 @@ export const KakaoMapContainer: React.FC<Props> = ({
 
     container.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-        <strong style="color: #2563eb; font-size: 13px;">${job.companyName || "기업명 미지정"}</strong>
-        <span style="font-size: 10px; color: #2563eb; font-weight: bold; background: #eff6ff; padding: 2px 6px; border-radius: 4px;">상세보기 &gt;</span>
+        <strong style="color: #277fbb; font-size: 13px;">${job.companyName || "기업명 미지정"}</strong>
+        <span style="font-size: 10px; color: #277fbb; font-weight: bold; background: #edf9ff; padding: 2px 6px; border-radius: 4px;">상세보기 &gt;</span>
       </div>
       <div style="font-weight: 600; color: #111827; margin-top: 2px; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">
         ${job.title || "채용 공고"}
@@ -83,6 +85,11 @@ export const KakaoMapContainer: React.FC<Props> = ({
         };
         const kakaoMap = new window.kakao.maps.Map(containerRef.current, options);
         mapRef.current = kakaoMap;
+        window.kakao.maps.event.addListener(kakaoMap, "idle", () => {
+          const nextCenter = kakaoMap.getCenter();
+          const next = { lat: nextCenter.getLat(), lng: nextCenter.getLng() };
+          if (Math.abs(next.lat - center.lat) > 0.00001 || Math.abs(next.lng - center.lng) > 0.00001) onCenterChanged(next);
+        });
 
         // 커스텀 오버레이 생성
         overlayRef.current = new window.kakao.maps.CustomOverlay({
@@ -134,10 +141,10 @@ export const KakaoMapContainer: React.FC<Props> = ({
       center: moveLatLon,
       radius: currentRadius * 1000,
       strokeWeight: 2,
-      strokeColor: "#2563EB",
+      strokeColor: "#277fbb",
       strokeOpacity: 0.8,
       strokeStyle: "dashed",
-      fillColor: "#3B82F6",
+      fillColor: "#65b8e4",
       fillOpacity: 0.1,
     });
 

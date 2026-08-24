@@ -480,7 +480,7 @@ a { color: inherit; text-decoration: none; }
   .top-actions { gap: 6px; }
 }
 /* The desktop navigation needs roughly 1,180px once search and action buttons are present. */
-@media (max-width: 1180px) {
+@media (max-width: 1320px) {
   .desktop-navigation, .topbar-account { display: none; }
   .desktop-mega-menu { display: none; }
   .desktop-brand, .menu-button { display: inline-flex; }
@@ -817,7 +817,6 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 1100px) { .admin-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-panel-heading { align-items: flex-start; flex-direction: column; }.admin-panel-heading form { width: 100%; }.admin-panel-heading input { flex: 1; width: auto; }.admin-page-link { padding: 8px; font-size: 0; }.admin-page-link svg { margin: 0; } }
 
-/* Portfolio generation - RepositoryAnalysisPage brief panel + MyPage saved list. */
 .analysis-portfolio-action { display: grid; gap: 8px; margin-top: 14px; border-top: 1px solid #ffffff18; padding-top: 14px; }
 .analysis-portfolio-action .primary-button { width: 100%; justify-content: center; }
 /* 2026-08-14: 포트폴리오 PDF/PPTX에 실제 코드 발췌와 개요 페이지가 빠져 있다는 피드백으로
@@ -918,6 +917,37 @@ a { color: inherit; text-decoration: none; }
 .opportunity-card{transition:.18s}.opportunity-card:hover{border-color:#cbd5ff;box-shadow:0 10px 26px #253d7d10}.opportunity-card.closed{border-color:#e1e4e9;background:#f3f4f6;filter:grayscale(.7)}.opportunity-card.closed h2,.opportunity-card.closed .organization,.opportunity-card.closed .period{color:#8b929d}.type-badge.closed-badge{background:#e4e6ea;color:#707783}.opportunity-card .period{gap:7px;margin:14px 0 0;color:#66758b;font-size:12px;font-weight:700}.opportunity-card .skills{min-height:26px}.opportunity-card .opportunity-footer{color:#7d8899;font-size:11px;font-weight:700}.opportunity-section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}.training-status-tabs{display:flex;gap:6px}.training-status-tabs button{border:1px solid #dce3f2;border-radius:999px;background:#fff;color:#78859a;padding:7px 10px;font-size:11px;font-weight:800}.training-status-tabs button.active{border-color:#6178f3;background:#eef1ff;color:#5069df}.training-detail{position:relative;overflow:hidden}.training-thumbnail{display:block;width:calc(100% + 50px);max-height:280px;margin:-25px -25px 22px;object-fit:cover;background:#f4f6fb}.training-detail .spec-summary{grid-template-columns:repeat(3,minmax(0,1fr));padding:22px 0}.training-detail .spec-summary span{display:flex;align-items:center;gap:4px}.training-detail .spec-summary strong{white-space:normal;line-height:1.5}.training-description{margin-top:4px;border-top:1px solid #e8edf5;padding-top:20px}.training-description h3{margin:0 0 9px;color:#37445a;font-size:14px}.training-description p{margin:0;color:#66748a;font-size:12px;line-height:1.8;white-space:pre-wrap}@media(max-width:700px){.opportunity-section-heading{align-items:flex-start;flex-direction:column}.training-detail .spec-summary{grid-template-columns:1fr}.training-thumbnail{width:calc(100% + 36px);margin:-18px -18px 18px}}
 .opportunity-catalog-controls{display:flex;align-items:center;gap:8px;margin:0 0 14px}.opportunity-catalog-controls input,.opportunity-catalog-controls select{height:36px;border:1px solid #dce3f2;border-radius:8px;background:#fff;padding:0 10px;color:#4e5d73;font:inherit;font-size:12px}.opportunity-catalog-controls input{min-width:220px;flex:1}.opportunity-catalog-controls select{min-width:126px}.opportunity-catalog-controls .outline-button{height:36px;padding:0 12px}.opportunity-pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin:22px 0 4px}.opportunity-pagination button{min-width:34px;border:1px solid #d9e0ee;border-radius:7px;background:#fff;padding:7px 10px;color:#56657b;font-size:11px;font-weight:800}.opportunity-pagination button.active{border-color:#6178f3;background:#eef1ff;color:#5069df}.opportunity-pagination button:disabled{cursor:not-allowed;opacity:.42}@media(max-width:700px){.opportunity-catalog-controls{align-items:stretch;flex-wrap:wrap}.opportunity-catalog-controls input{min-width:100%;flex-basis:100%}.opportunity-catalog-controls select{flex:1;min-width:0}}
 .book-recommendation-section{margin:0 0 30px;padding:20px;border:1px solid #e0e6f2;border-radius:15px;background:linear-gradient(145deg,#fbfcff,#f7f9ff)}.book-recommendation-section .certificate-opportunity-header{margin-bottom:5px}.book-recommendation-section .certificate-opportunity-header>span{border-radius:999px;background:#edf1ff;padding:5px 8px;color:#586fe1;font-size:10px;font-weight:800}.book-recommendation-guide{margin:0 0 15px;color:#748197;font-size:12px}.book-recommendation-context{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;border:1px solid #dce4ff;border-radius:9px;background:#f2f5ff;padding:10px 12px;color:#5369d6;font-size:12px}.book-recommendation-context svg{flex:none;margin-top:1px}.book-recommendation-context span{display:grid;gap:3px}.book-recommendation-context small{color:#79869d;font-size:10px;line-height:1.45}.book-recommendation-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.book-recommendation-card{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;border:1px solid #e1e7f1;border-radius:12px;background:#fff;padding:12px}.book-cover{display:grid;place-items:center;overflow:hidden;align-self:start;min-height:106px;border-radius:7px;background:#f1f4fa;color:#7180ab}.book-cover img{display:block;width:100%;height:106px;object-fit:cover}.book-recommendation-copy{display:grid;min-width:0;align-content:start;gap:5px}.book-category{overflow:hidden;color:#687ce1;font-size:9px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.book-recommendation-copy h3{overflow:hidden;margin:0;color:#33415a;font-size:13px;line-height:1.4;text-overflow:ellipsis;white-space:nowrap}.book-recommendation-copy p{overflow:hidden;margin:0;color:#8994a6;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.book-recommendation-copy small{display:-webkit-box;overflow:hidden;margin-top:2px;color:#6e7b91;font-size:10px;line-height:1.5;-webkit-line-clamp:2;-webkit-box-orient:vertical}.book-recommendation-copy .skills{margin-top:2px}.book-recommendation-copy .skills span{font-size:9px}.book-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px;color:#79869b;font-size:10px;font-weight:700}.book-card-footer a{display:inline-flex;align-items:center;gap:3px;color:#546ee1;font-size:10px;font-weight:800;text-decoration:none;white-space:nowrap}@media(max-width:1100px){.book-recommendation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.book-recommendation-section{padding:15px}.book-recommendation-grid{grid-template-columns:1fr}.book-recommendation-card{grid-template-columns:66px minmax(0,1fr)}.book-cover,.book-cover img{min-height:94px;height:94px}}
+
+/* Sky-blue brand refinement and responsive header controls. */
+.primary-button { border-color: #277fbb; background: #277fbb; box-shadow: 0 5px 11px #277fbb2b; }
+.primary-button:hover { background: #176b9f; }
+.brand-mark { background: linear-gradient(135deg, #4fa8db 0%, #267db7 100%); box-shadow: 0 7px 16px #277fbb33; }
+.outline-button:hover, .full-outline:hover, .add-job:hover { border-color: #8dc9e9; background: #eef9ff; color: #176b9f; }
+.nav-item.active, .desktop-nav-link.active { background: #eaf7fe; color: #176b9f; }
+.nav-item em, .desktop-nav-link.active::after { background-color: #d6effb; color: #176b9f; }
+.topbar-account, .metric-card.blue .metric-icon, .insight-icon { background: #e8f6fe; color: #277fbb; }
+.menu-button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #b9dff1; border-radius: 12px; background: #edf9ff; color: #176b9f; padding: 0; box-shadow: 0 3px 10px #277fbb1f; }
+.menu-button:hover { background: #dff3fd; border-color: #77bce0; }
+.posting-card:hover { border-color: #a9d7ed; box-shadow: 0 13px 30px #277fbb14; }
+.posting-card-main:hover h2 { color: #176b9f; }
+.bookmark:hover, .bookmark.active { color: #277fbb; }
+.account-actions > button:hover, .account-actions > button:focus-visible { border-color: #9bcfe8; background: #f5fbff; box-shadow: 0 7px 17px #277fbb14; }
+.account-actions > button[aria-expanded="true"] { border-color: #4b9dcc; background: #edf9ff; box-shadow: inset 3px 0 0 #4b9dcc; }
+.onboarding-choice-icon { color: #277fbb; }
+.job-detail-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 20px; }
+.job-detail-bookmark { min-height: 42px; }
+.job-detail-bookmark.active { border-color: #5aa9d4; background: #eaf7fe; color: #176b9f; }
+.job-detail-stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; color: #697a8b; font-size: 12px; font-weight: 700; }
+.job-detail-stats span { display: inline-flex; align-items: center; gap: 5px; }
+/* Auth screens use the same English-to-Korean wordmark behavior as the home header. */
+.auth-brand { min-height: 42px; }
+.auth-brand .brand-mark { display: none; }
+.auth-brand > div { position: relative; display: grid; width: 190px; height: 38px; overflow: hidden; }
+.auth-brand > div > strong { display: block; grid-area: 1 / 1; width: 190px; height: 38px; background: url("/brand/job-a-dream-wordmark-cutout.png") left center / contain no-repeat; color: transparent; font-size: 0; line-height: 38px; transform: translateY(0); transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .2s ease; }
+.auth-brand > div::after { position: absolute; inset: 0; background: #fff; color: #151515; content: "잡아드림"; font-size: 25px; font-weight: 800; letter-spacing: -1px; line-height: 38px; opacity: 0; transform: translateY(38px); transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .2s ease; }
+.auth-brand:hover > div > strong, .auth-brand:focus-within > div > strong { opacity: 0; transform: translateY(-38px); }
+.auth-brand:hover > div::after, .auth-brand:focus-within > div::after { opacity: 1; transform: translateY(0); }
+@media (max-width: 1320px) { .menu-button { display: grid; } }
 
 /* Shared polish: non-home routes enter with the same restrained motion as the landing page. */
 .page-transition { animation: page-enter .42s cubic-bezier(.22,.8,.32,1) both; }

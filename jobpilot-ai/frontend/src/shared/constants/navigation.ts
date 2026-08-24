@@ -4,7 +4,6 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   ClipboardCheck,
-  Code2,
   History,
   LayoutDashboard,
   MapPin,
@@ -53,7 +52,6 @@ export const navigationGroups: NavigationGroup[] = [
       { path: "/capability", label: "역량 관리", icon: Target },
       { path: "/opportunities", label: "성장 기회 추천", icon: Sparkles },
       { path: "/question", label: "진로검사·글쓰기 도구", icon: ClipboardCheck },
-      { path: "/repository-analysis", label: "GitHub 코드 분석", icon: Code2 },
     ],
   },
   {

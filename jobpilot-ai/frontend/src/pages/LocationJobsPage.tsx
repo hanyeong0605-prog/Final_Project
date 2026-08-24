@@ -61,6 +61,11 @@ export function LocationJobsPage() {
     });
   };
 
+  const handleMapCenterChanged = (nextCenter: { lat: number; lng: number }) => {
+    setSelectedJobId(null);
+    setCenter((current) => Math.abs(current.lat - nextCenter.lat) < 0.00001 && Math.abs(current.lng - nextCenter.lng) < 0.00001 ? current : nextCenter);
+  };
+
   return (
     <div style={{ backgroundColor: PAGE_BG_COLOR, minHeight: "100vh", width: "100%" }}>
       <PageHeading
@@ -76,7 +81,7 @@ export function LocationJobsPage() {
             <div style={{ display: "flex", gap: "6px" }}>
               <button type="button" onClick={() => setIsPostcodeOpen(true)} style={styles.addressBtn}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-                  <MapPin size={15} color="#526af3" />
+                  <MapPin size={15} color="#277fbb" />
                   <span style={styles.ellipsis}>{currentAddress}</span>
                 </div>
                 <Search size={14} color="#929aaa" />
@@ -94,7 +99,7 @@ export function LocationJobsPage() {
 
             <div style={styles.selectRow}>
               <span style={styles.selectLabel}>
-                <Filter size={13} color="#526af3" /> 탐색 반경
+                <Filter size={13} color="#277fbb" /> 탐색 반경
               </span>
               <select
                 value={radiusKm}
@@ -146,7 +151,7 @@ export function LocationJobsPage() {
                     onClick={() => setSelectedJobId(job.id)}
                     style={{
                       ...styles.cardWrapper,
-                      border: isSelected ? "2px solid #526af3" : "2px solid transparent",
+                      border: isSelected ? "2px solid #277fbb" : "2px solid transparent",
                       boxShadow: isSelected ? "0 4px 12px rgba(39, 63, 133, 0.12)" : "none",
                     }}
                   >
@@ -169,6 +174,7 @@ export function LocationJobsPage() {
               jobs={jobs}
               selectedJobId={selectedJobId}
               onSelectJob={(job) => setSelectedJobId(job.id)}
+              onCenterChanged={handleMapCenterChanged}
             />
           </div>
         </main>
@@ -193,13 +199,13 @@ const styles: Record<string, React.CSSProperties> = {
   aside: { width: "380px", minWidth: "380px", height: "100%", display: "flex", flexDirection: "column", zIndex: 10, padding: "0 0 16px 16px" },
   filterBox: { padding: "12px", backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #ebedf2", boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)", display: "flex", flexDirection: "column", gap: "8px", marginBottom: "10px", marginRight: "12px" },
   addressBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "8px", fontSize: "12px", color: "#30394d" },
-  navBtn: { padding: "7px 9px", backgroundColor: "#eef2ff", border: "1px solid #cbd4ff", borderRadius: "8px", color: "#526af3" },
+  navBtn: { padding: "7px 9px", backgroundColor: "#edf9ff", border: "1px solid #b9dff1", borderRadius: "8px", color: "#277fbb" },
   selectRow: { display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#ffffff", border: "1px solid #dce1ea", padding: "6px 10px", borderRadius: "8px" },
   selectLabel: { fontSize: "12px", fontWeight: "600", color: "#424b60", display: "flex", alignItems: "center", gap: "6px" },
-  select: { fontSize: "11px", fontWeight: "bold", color: "#526af3", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "6px", padding: "2px 6px" },
+  select: { fontSize: "11px", fontWeight: "bold", color: "#277fbb", backgroundColor: "#ffffff", border: "1px solid #dce1ea", borderRadius: "6px", padding: "2px 6px" },
   countHeader: { padding: "0 16px 6px 4px", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#7c8596" },
   cardWrapper: { position: "relative", marginBottom: "8px", borderRadius: "10px", transition: "all 0.18s ease", cursor: "pointer", transform: "scale(0.96)", transformOrigin: "top left", width: "104%" },
-  distanceBadge: { position: "absolute", top: "10px", right: "14px", fontSize: "10px", fontWeight: "800", color: "#526af3", backgroundColor: "#eef2ff", padding: "2px 6px", borderRadius: "20px", zIndex: 2, pointerEvents: "none" },
+  distanceBadge: { position: "absolute", top: "10px", right: "14px", fontSize: "10px", fontWeight: "800", color: "#277fbb", backgroundColor: "#edf9ff", padding: "2px 6px", borderRadius: "20px", zIndex: 2, pointerEvents: "none" },
   mapContainer: { width: "100%", height: "100%", borderRadius: "13px", border: "1px solid #e8ebf1", overflow: "hidden", boxShadow: "0 1px 3px rgba(39, 63, 133, 0.03)" },
   wordCloudSection: { padding: "60px 20px", backgroundColor: "#ffffff", marginTop: "24px", borderTop: "1px solid #ebedf2" },
   ellipsis: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },

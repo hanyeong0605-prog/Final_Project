@@ -184,7 +184,7 @@ export function AppShell() {
 
         <main className="main-area">
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
-            <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
+            <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={28} strokeWidth={2.5} /></button>
             <AnimatedBrand />
             <Link to="/" className="mobile-brand brand-link"><BrandIdentity compact /></Link>
 

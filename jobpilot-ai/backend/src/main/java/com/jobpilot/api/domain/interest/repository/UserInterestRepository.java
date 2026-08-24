@@ -10,4 +10,5 @@ public interface UserInterestRepository extends JpaRepository<UserInterest, Long
     Optional<UserInterest> findByMemberIdAndTargetTypeAndTargetId(Long memberId, String targetType, Long targetId);
     // 2026-08-13: DeadlineReminderScheduler가 "찜한 공고" 전체(모든 회원)를 순회하기 위해 추가.
     List<UserInterest> findByTargetType(String targetType);
+    long countByTargetTypeAndTargetId(String targetType, Long targetId);
 }
