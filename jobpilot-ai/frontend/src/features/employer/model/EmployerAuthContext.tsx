@@ -1,13 +1,14 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { clearEmployerAccessToken, getEmployerAccessToken, setEmployerAccessToken } from "../api/employerHttpClient";
-import { getMe, signup as requestSignup } from "../api/employerAuthApi";
-import type { EmployerAccount, EmployerAuthResponse, EmployerSignupInput } from "./employer.types";
+import { getMe, login as requestLogin, signup as requestSignup } from "../api/employerAuthApi";
+import type { EmployerAccount, EmployerAuthResponse, EmployerLoginInput, EmployerSignupInput } from "./employer.types";
 
 interface EmployerAuthContextValue {
   employer: EmployerAccount | null;
   loading: boolean;
   acceptPasswordlessAuth: (response: EmployerAuthResponse) => void;
   signup: (input: EmployerSignupInput) => Promise<EmployerAccount>;
+  login: (input: EmployerLoginInput) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
   setCurrentEmployer: (employer: EmployerAccount) => void;
@@ -29,6 +30,7 @@ export function EmployerAuthProvider({ children }: PropsWithChildren) {
     loading,
     acceptPasswordlessAuth: (response) => { setEmployerAccessToken(response.accessToken); setEmployer(response.employer); },
     signup: requestSignup,
+    login: async (input) => { const response = await requestLogin(input); setEmployerAccessToken(response.accessToken); setEmployer(response.employer); },
     logout: () => { clearEmployerAccessToken(); setEmployer(null); },
     refresh: async () => { setEmployer(await getMe()); },
     setCurrentEmployer: setEmployer,

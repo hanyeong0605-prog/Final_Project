@@ -43,7 +43,7 @@ export function EmployerAccountPage() {
     <section className="panel admin-panel"><form className="employer-posting-form" onSubmit={save}>
       <label>로그인 아이디<input required value={form.loginId} onChange={update("loginId")} /></label>
       <label>이메일<input required type="email" value={form.email} onChange={update("email")} /></label>
-      <label>새 비밀번호<input type="password" value={form.newPassword ?? ""} onChange={update("newPassword")} placeholder="변경할 때만 입력" /></label>
+      {employer.passwordlessStatus !== "ACTIVE" && <label>새 비밀번호<input type="password" value={form.newPassword ?? ""} onChange={update("newPassword")} placeholder="변경할 때만 입력" /></label>}
       <label>담당자 이름<input required value={form.managerName} onChange={update("managerName")} /></label>
       <label>담당자 연락처<input value={form.managerPhone ?? ""} onChange={update("managerPhone")} /></label>
       <label>회사명<input required value={form.companyName} onChange={update("companyName")} /></label>
