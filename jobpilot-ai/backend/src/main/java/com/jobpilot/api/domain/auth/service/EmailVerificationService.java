@@ -4,15 +4,13 @@ import com.jobpilot.api.domain.auth.entity.EmailVerification;
 import com.jobpilot.api.domain.auth.exception.EmailDeliveryException;
 import com.jobpilot.api.domain.auth.exception.EmailVerificationException;
 import com.jobpilot.api.domain.auth.repository.EmailVerificationRepository;
+import com.jobpilot.api.global.mail.JobADreamMailService;
 import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +20,7 @@ public class EmailVerificationService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final EmailVerificationRepository verifications;
-    private final JavaMailSender mailSender;
+    private final JobADreamMailService mail;
     private final PasswordEncoder passwordEncoder;
     private final String from;
     private final long codeExpiryMinutes;
@@ -31,14 +29,14 @@ public class EmailVerificationService {
 
     public EmailVerificationService(
             EmailVerificationRepository verifications,
-            JavaMailSender mailSender,
+            JobADreamMailService mail,
             PasswordEncoder passwordEncoder,
             @Value("${app.mail.from:}") String from,
             @Value("${app.email-verification.code-expiry-minutes:10}") long codeExpiryMinutes,
             @Value("${app.email-verification.resend-cooldown-seconds:60}") long resendCooldownSeconds,
             @Value("${app.email-verification.max-failed-attempts:5}") int maxFailedAttempts) {
         this.verifications = verifications;
-        this.mailSender = mailSender;
+        this.mail = mail;
         this.passwordEncoder = passwordEncoder;
         this.from = from;
         this.codeExpiryMinutes = codeExpiryMinutes;
@@ -105,16 +103,9 @@ public class EmailVerificationService {
         if (from.isBlank()) {
             throw new EmailDeliveryException("MAIL_USERNAME 또는 MAIL_FROM 환경변수를 설정해 주세요.");
         }
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(email);
-        message.setSubject("[JobPilot AI] 이메일 인증 코드");
-        message.setText("JobPilot AI 회원가입 인증 코드입니다.\n\n"
-                + code + "\n\n"
-                + "인증 코드는 " + codeExpiryMinutes + "분 동안 유효합니다. 본인이 요청하지 않았다면 이 이메일을 무시해 주세요.");
         try {
-            mailSender.send(message);
-        } catch (MailException exception) {
+            mail.sendVerificationCode(email, code, codeExpiryMinutes);
+        } catch (RuntimeException exception) {
             throw new EmailDeliveryException("인증 이메일을 보내지 못했습니다. Gmail 앱 비밀번호와 SMTP 설정을 확인해 주세요.", exception);
         }
     }
