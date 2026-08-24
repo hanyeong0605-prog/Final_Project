@@ -21,6 +21,7 @@ import { EmployerMyPage } from "../pages/EmployerMyPage";
 import { EmployerHomePage } from "../pages/EmployerHomePage";
 import { EmployerDashboardPage } from "../pages/EmployerDashboardPage";
 import { EmployerEnrollmentPage } from "../pages/EmployerEnrollmentPage";
+import { EmployerAccountPage } from "../pages/EmployerAccountPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { RequireAdmin } from "../features/auth/components/RequireAdmin";
 import { RequireAdminFaceVerified } from "../features/auth/components/RequireAdminFaceVerified";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
       { index: true, element: <EmployerHomePage /> },
       { path: "dashboard", element: <EmployerDashboardPage /> },
       { path: "postings", element: <EmployerMyPage /> },
+      { path: "account", element: <EmployerAccountPage /> },
     ],
   },
   { path: "/oauth/callback", element: <OAuthCallbackPage /> },

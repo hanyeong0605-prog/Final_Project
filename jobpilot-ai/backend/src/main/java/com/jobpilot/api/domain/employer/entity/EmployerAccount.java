@@ -156,6 +156,27 @@ public class EmployerAccount {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateProfile(String loginId, String email, String passwordHash, String managerName,
+                              String managerPhone, String companyName, String representativeName,
+                              String openingDate, String companyAddress) {
+        this.loginId = loginId;
+        this.email = email;
+        if (passwordHash != null) this.passwordHash = passwordHash;
+        this.managerName = managerName;
+        this.managerPhone = managerPhone;
+        this.companyName = companyName;
+        this.representativeName = representativeName;
+        this.openingDate = openingDate;
+        this.companyAddress = companyAddress;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void withdraw() {
+        this.status = EmployerAccountStatus.WITHDRAWN;
+        revokePasswordless();
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public Long getId() { return id; }
     public String getLoginId() { return loginId; }
     public String getEmail() { return email; }
