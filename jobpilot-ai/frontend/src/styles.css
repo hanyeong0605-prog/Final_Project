@@ -979,8 +979,7 @@ a { color: inherit; text-decoration: none; }
 .nav-item.active, .desktop-nav-link.active { background: #eaf7fe; color: #176b9f; }
 .nav-item em, .desktop-nav-link.active::after { background-color: #d6effb; color: #176b9f; }
 .topbar-account, .metric-card.blue .metric-icon, .insight-icon { background: #e8f6fe; color: #277fbb; }
-.menu-button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #b9dff1; border-radius: 12px; background: #edf9ff; color: #176b9f; padding: 0; box-shadow: 0 3px 10px #277fbb1f; }
-.menu-button:hover { background: #dff3fd; border-color: #77bce0; }
+.menu-button { display: none; width: auto; height: auto; place-items: center; border: 0; border-radius: 0; background: transparent; color: #176b9f; padding: 6px 0; box-shadow: none; }
 .posting-card:hover { border-color: #a9d7ed; box-shadow: 0 13px 30px #277fbb14; }
 .posting-card-main:hover h2 { color: #176b9f; }
 .bookmark:hover, .bookmark.active { color: #277fbb; }
@@ -1008,33 +1007,19 @@ a { color: inherit; text-decoration: none; }
 @keyframes page-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes page-item-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Warm neutral action palette: removes the former job-board-blue primary treatment. */
-.brand-mark { background: linear-gradient(135deg, #d26b45 0%, #a84939 100%); box-shadow: 0 7px 16px #a8493933; }
-.primary-button { border-color: #b85a3d; background: #b85a3d; box-shadow: 0 5px 11px #b85a3d2b; }
-.primary-button:hover { background: #99452f; }
-.outline-button:hover, .full-outline:hover, .add-job:hover { border-color: #d69272; background: #fff7f3; color: #a94d34; }
-.nav-item.active, .desktop-nav-link.active { background: #fff1eb; color: #a94d34; }
-.nav-item em, .desktop-nav-link.active::after { background-color: #f5d2c3; color: #a94d34; }
-.topbar-account, .metric-card.blue .metric-icon, .insight-icon { background: #fff0e9; color: #b85a3d; }
+/* Keep shared interactions blue/sky; orange is only the dashboard challenge warning. */
 .posting-card { cursor: pointer; }
-.posting-card:focus-visible { outline: 3px solid #efc2ad; outline-offset: 3px; }
-.posting-card:hover { border-color: #e7b8a3; box-shadow: 0 13px 30px #8f483214; }
-.posting-card-main:hover h2 { color: #a94d34; }
-.bookmark:hover, .bookmark.active { color: #b85a3d; }
+.posting-card:focus-visible { outline: 3px solid #a9d7ed; outline-offset: 3px; }
 .account-actions > button { cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
-.account-actions > button:hover, .account-actions > button:focus-visible { border-color: #dfaa92; background: #fffaf7; box-shadow: 0 7px 17px #7d493014; transform: translateY(-1px); outline: 0; }
-.account-actions > button[aria-expanded="true"] { border-color: #c66c4b; background: #fff4ef; box-shadow: inset 3px 0 0 #c66c4b; }
+.account-actions > button:hover, .account-actions > button:focus-visible { transform: translateY(-1px); outline: 0; }
 .danger-button { min-height: 46px; padding: 12px 21px; font-size: 14px; letter-spacing: -.15px; }
 .planner-modal-backdrop { z-index: 1001; background: #25304480; }
 .planner-modal { width: min(620px, 100%); margin: auto; box-shadow: 0 24px 70px #1a23364d; }
 .planner-modal .section-title { padding-bottom: 14px; border-bottom: 1px solid #edf0f4; }
 .planner-modal .section-title button { cursor: pointer; font-size: 12px; font-weight: 800; }
 .planner-modal .primary-button { min-width: 100px; }
-.calendar-event.blue { border-color: #409a89; background: #e8f7f2; color: #276d60; }
-.calendar-legend i.blue { background: #409a89; }
-.planner-event-kind { color: #397e71; }
 .onboarding-choice { width: min(510px, 100%); padding: 34px; text-align: center; }
-.onboarding-choice-icon { margin: 0 auto 13px; color: #b85a3d; }
+.onboarding-choice-icon { margin: 0 auto 13px; color: #277fbb; }
 .onboarding-choice .onboarding-head p { max-width: 400px; margin: 0 auto 24px; }
 .onboarding-start { width: 100%; min-height: 48px; font-size: 13px; }
 .onboarding-choice .skip-onboarding { margin-top: 13px; cursor: pointer; }
