@@ -1152,23 +1152,42 @@ export function MockInterviewPage() {
     if (videoRef.current) videoRef.current.srcObject = null;
   };
 
-  const usePhoneCameraStream = async (stream: MediaStream) => {
+  const usePhoneCameraStream = (stream: MediaStream) => {
     stopStream();
     streamRef.current = stream;
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+      // Remote streams can be attached before a Safari video element is ready
+      // to play. Preview playback must not block the interview start.
+      void videoRef.current.play().catch(() => undefined);
     }
-    const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
-    landmarkerRef.current = landmarker;
-    startFaceTrackingLoop(landmarker);
-    startMeterLoop(stream);
     setCameraReady(true);
     setPairingPanelOpen(false);
     // QR pairing hands the whole interview to the phone camera. It should not
     // leave the user at a second manual "start" button on the PC.
     phoneAutoStartRef.current = true;
     setStage("testing-mic");
+
+    // Face landmark loading is an optional analysis enhancement. Previously
+    // awaiting the CDN model here meant a slow/blocked model download kept a
+    // successfully connected phone from ever starting the interview.
+    const attachedStream = stream;
+    void (landmarkerRef.current ? Promise.resolve(landmarkerRef.current) : loadFaceLandmarker())
+      .then((landmarker) => {
+        if (streamRef.current !== attachedStream) return;
+        landmarkerRef.current = landmarker;
+        startFaceTrackingLoop(landmarker);
+      })
+      .catch(() => {
+        // The interview can continue without local face metrics.
+      });
+    try {
+      startMeterLoop(stream);
+    } catch {
+      // Do not prevent the interview: MediaRecorder will report a real audio
+      // problem at recording time with an actionable message.
+      setMicLevel(0);
+    }
   };
 
   useEffect(() => {

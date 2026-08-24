@@ -67,11 +67,13 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
     const handOffWhenMediaIsReady = () => {
       const stream = remoteStreamRef.current;
       if (!stream || transferredRef.current) return;
-      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live" && !track.muted);
-      const audioReady = stream.getAudioTracks().some((track) => track.readyState === "live" && !track.muted);
-      // ontrack fires when SDP is applied, often before mobile microphone
-      // frames arrive. Starting MediaRecorder before this point fails in
-      // Chromium with NotSupportedError.
+      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live");
+      const audioReady = stream.getAudioTracks().some((track) => track.readyState === "live");
+      // iPhone Safari can keep a received WebRTC audio track marked muted
+      // until the first audio frame is played, even though the track is
+      // already usable by MediaRecorder. Waiting for !muted here stranded
+      // the PC on the QR screen forever. A live audio/video pair is enough;
+      // the recorder itself still has its existing fallback if needed.
       if (!videoReady || !audioReady) return;
       transferredRef.current = true;
       onConnected({
@@ -83,16 +85,24 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
           send({ type: "interview-state", stage, question, elapsedSec });
         },
       });
+      setStatus("휴대폰 카메라와 마이크를 연결했습니다. 면접을 시작합니다.");
       onRemoteStream(stream);
     };
     peer.ontrack = (event) => {
-      const stream = event.streams[0] ?? new MediaStream([event.track]);
+      const stream = remoteStreamRef.current ?? new MediaStream();
+      if (!stream.getTracks().some((track) => track.id === event.track.id)) stream.addTrack(event.track);
       remoteStreamRef.current = stream;
       event.track.addEventListener("unmute", handOffWhenMediaIsReady, { once: true });
+      // Some iOS/WebKit builds do not emit an unmute event for remote tracks.
+      // Retry after SDP/ICE settles instead of requiring that browser event.
       window.setTimeout(handOffWhenMediaIsReady, 200);
+      window.setTimeout(handOffWhenMediaIsReady, 1000);
     };
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") window.setTimeout(handOffWhenMediaIsReady, 200);
+      if (peer.connectionState === "connected") {
+        window.setTimeout(handOffWhenMediaIsReady, 200);
+        window.setTimeout(handOffWhenMediaIsReady, 1000);
+      }
     };
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
