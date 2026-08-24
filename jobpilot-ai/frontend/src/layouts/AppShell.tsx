@@ -24,7 +24,7 @@ const megaMenuCopy: Record<string, string> = {
 function BrandIdentity({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`brand-identity${compact ? " compact" : ""}`}>
-      <span className="brand-name brand-name-en"><img className="brand-wordmark-image" src="/brand/job-a-dream-wordmark-cutout.png" alt="Job A Dream" /></span>
+      <span className="brand-name brand-name-en"><img className="brand-wordmark-image" src="/brand/job-a-dream-wordmark-blue.png" alt="Job A Dream" /></span>
       <span className="brand-name brand-name-ko">잡아드림</span>
       {!compact && <small className="brand-tagline">career action coach</small>}
     </span>
@@ -183,7 +183,7 @@ export function AppShell() {
         </aside>
 
         <main className="main-area">
-          <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
+          <header className={`topbar${location.pathname === "/" ? " home-topbar" : ""}`} onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={28} strokeWidth={2.5} /></button>
             <AnimatedBrand />
             <Link to="/" className="mobile-brand brand-link"><BrandIdentity compact /></Link>
