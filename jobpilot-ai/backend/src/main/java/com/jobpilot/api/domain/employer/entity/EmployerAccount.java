@@ -121,7 +121,7 @@ public class EmployerAccount {
         if (this.passwordlessStatus == EmployerPasswordlessStatus.NONE
                 || this.passwordlessStatus == EmployerPasswordlessStatus.REVOKED) {
             this.passwordlessStatus = EmployerPasswordlessStatus.ENROLL_REQUIRED;
-            this.passwordlessUserId = "EMPLOYER:" + id;
+            this.passwordlessUserId = email;
         }
         this.rejectionReason = null;
         this.reviewedBy = adminMemberId;
@@ -149,6 +149,14 @@ public class EmployerAccount {
     public void recordPasswordlessVerification() {
         this.passwordlessLastVerifiedAt = LocalDateTime.now();
         this.updatedAt = this.passwordlessLastVerifiedAt;
+    }
+
+    public void normalizePasswordlessUserId() {
+        if (this.passwordlessUserId == null || this.passwordlessUserId.isBlank()
+                || this.passwordlessUserId.startsWith("EMPLOYER:")) {
+            this.passwordlessUserId = this.email;
+            this.updatedAt = LocalDateTime.now();
+        }
     }
 
     public void revokePasswordless() {
