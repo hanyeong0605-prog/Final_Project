@@ -10,6 +10,7 @@ interface EmployerAuthContextValue {
   signup: (input: EmployerSignupInput) => Promise<EmployerAccount>;
   logout: () => void;
   refresh: () => Promise<void>;
+  setCurrentEmployer: (employer: EmployerAccount) => void;
 }
 
 const EmployerAuthContext = createContext<EmployerAuthContextValue | null>(null);
@@ -30,6 +31,7 @@ export function EmployerAuthProvider({ children }: PropsWithChildren) {
     signup: requestSignup,
     logout: () => { clearEmployerAccessToken(); setEmployer(null); },
     refresh: async () => { setEmployer(await getMe()); },
+    setCurrentEmployer: setEmployer,
   }), [employer, loading]);
 
   return <EmployerAuthContext.Provider value={value}>{children}</EmployerAuthContext.Provider>;

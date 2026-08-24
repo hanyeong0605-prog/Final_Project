@@ -64,6 +64,7 @@ public class EmployerPasswordlessService {
 
     public Object result(String loginId, String sessionId) {
         EmployerAccount employer = find(loginId);
+        requireApproved(employer);
         JsonNode response = client.result(employer.getPasswordlessUserId(), sessionId);
         String code = response.path("code").asText("");
         String auth = response.path("data").path("auth").asText("");

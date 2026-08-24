@@ -1,4 +1,4 @@
-export type EmployerAccountStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type EmployerAccountStatus = "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN";
 export type EmployerPasswordlessStatus = "NONE" | "ENROLL_REQUIRED" | "ACTIVE" | "REVOKED";
 
 export interface EmployerAccount {
@@ -43,6 +43,10 @@ export interface EmployerSignupInput {
 export interface EmployerLoginInput {
   loginId: string;
   password: string;
+}
+export interface EmployerProfileInput {
+  loginId: string; email: string; newPassword?: string; managerName: string; managerPhone?: string;
+  companyName: string; representativeName: string; openingDate: string; companyAddress?: string;
 }
 export interface EmployerEnrollmentInput { loginId: string; password: string; }
 export interface EmployerPasswordlessStart { result: "OK"; sessionId: string; data: { servicePassword?: string; term?: number }; }

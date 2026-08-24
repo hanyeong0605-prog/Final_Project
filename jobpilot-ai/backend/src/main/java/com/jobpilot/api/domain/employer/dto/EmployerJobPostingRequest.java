@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.employer.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.AssertTrue;
 import java.time.LocalDateTime;
 
 /**
@@ -17,4 +18,9 @@ public record EmployerJobPostingRequest(
         String salary,
         LocalDateTime deadlineAt,
         boolean rollingDeadline
-) {}
+) {
+    @AssertTrue(message = "상시 채용이 아니면 마감일시를 입력해 주세요.")
+    public boolean isDeadlineValid() {
+        return rollingDeadline || deadlineAt != null;
+    }
+}

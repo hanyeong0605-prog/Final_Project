@@ -1,5 +1,5 @@
-import { getEmployerJson, postEmployerJson } from "./employerHttpClient";
-import type { EmployerAccount, EmployerAuthResponse, EmployerEnrollmentInput, EmployerPasswordlessStart, EmployerSignupInput } from "../model/employer.types";
+import { deleteEmployerJson, getEmployerJson, postEmployerJson, putEmployerJson } from "./employerHttpClient";
+import type { EmployerAccount, EmployerAuthResponse, EmployerEnrollmentInput, EmployerPasswordlessStart, EmployerProfileInput, EmployerSignupInput } from "../model/employer.types";
 
 export function signup(input: EmployerSignupInput) {
   return postEmployerJson<EmployerAccount>("/api/v1/employer/auth/signup", input);
@@ -14,3 +14,5 @@ export const cancelPasswordless = (loginId: string, sessionId: string) => postEm
 export function getMe() {
   return getEmployerJson<EmployerAccount>("/api/v1/employer/auth/me");
 }
+export const updateMe = (input: EmployerProfileInput) => putEmployerJson<EmployerAccount>("/api/v1/employer/auth/me", input);
+export const withdraw = () => deleteEmployerJson<void>("/api/v1/employer/auth/me");

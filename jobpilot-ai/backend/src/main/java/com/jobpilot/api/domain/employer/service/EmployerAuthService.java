@@ -2,6 +2,7 @@ package com.jobpilot.api.domain.employer.service;
 
 import com.jobpilot.api.domain.employer.client.NtsBusinessVerificationClient;
 import com.jobpilot.api.domain.employer.dto.EmployerResponse;
+import com.jobpilot.api.domain.employer.dto.EmployerProfileUpdateRequest;
 import com.jobpilot.api.domain.employer.dto.EmployerSignupRequest;
 import com.jobpilot.api.domain.employer.entity.EmployerAccount;
 import com.jobpilot.api.domain.employer.exception.DuplicateEmployerException;
@@ -58,6 +59,30 @@ public class EmployerAuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다.")));
     }
 
+    public EmployerResponse updateProfile(Long employerId, EmployerProfileUpdateRequest request) {
+        EmployerAccount employer = employers.findById(employerId)
+                .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다."));
+        String loginId = request.loginId().trim();
+        String email = normalizeEmail(request.email());
+        if (employers.existsByLoginIdAndIdNot(loginId, employerId))
+            throw new DuplicateEmployerException("이미 사용 중인 로그인 아이디입니다.");
+        if (employers.existsByEmailAndIdNot(email, employerId))
+            throw new DuplicateEmployerException("이미 사용 중인 이메일입니다.");
+        String passwordHash = request.newPassword() == null || request.newPassword().isBlank()
+                ? null : passwordEncoder.encode(request.newPassword());
+        employer.updateProfile(loginId, email, passwordHash, request.managerName().trim(), blankToNull(request.managerPhone()),
+                request.companyName().trim(), request.representativeName().trim(), request.openingDate(),
+                blankToNull(request.companyAddress()));
+        return EmployerResponse.from(employer);
+    }
+
+    public void withdraw(Long employerId) {
+        EmployerAccount employer = employers.findById(employerId)
+                .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다."));
+        employer.withdraw();
+    }
+
     private String normalizeEmail(String email) { return email.trim().toLowerCase(Locale.ROOT); }
     private String normalizeBusinessNumber(String raw) { return raw.replaceAll("[^0-9]", ""); }
+    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }

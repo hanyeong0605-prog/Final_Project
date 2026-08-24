@@ -57,7 +57,8 @@ export function EmployerShell() {
             <button className="employer-account-button" onClick={() => setAccountOpen((value) => !value)}>{employer.companyName.slice(0, 1)}</button>
             {accountOpen && <div className="account-popover employer-account-popover">
               <div className="account-popover-head"><span>{employer.companyName}</span><small>{employer.managerName} 담당자</small></div>
-              <div className="employer-account-status"><UserRound size={15} /><span>기업 승인: {employer.status}</span></div>
+              <Link to="/employer/account"><UserRound size={16} />기업 마이페이지</Link>
+              <div className="employer-account-status"><span>기업 승인: {employer.status}</span></div>
               <button type="button" onClick={signOut}><LogOut size={16} />로그아웃</button>
             </div>}
           </div>
