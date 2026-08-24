@@ -486,6 +486,11 @@ a { color: inherit; text-decoration: none; }
   .desktop-navigation, .topbar-account { display: none; }
   .desktop-mega-menu { display: none; }
   .desktop-brand, .menu-button { display: inline-flex; }
+  /* The mascot sits over the far-left header area. Move only the visible
+     hamburger icon into the gap beside it, while its hit area still extends
+     back across the mascot so the whole left zone reliably opens the menu. */
+  .topbar .menu-button { position: relative; z-index: 8; width: 28px; height: 44px; transform: translateX(58px); }
+  .topbar .menu-button::before { position: absolute; top: -10px; left: -66px; width: 102px; height: 64px; content: ""; }
   .brand-bobo-stage { width: 114px; height: 64px; }
   /* Keep the wordmark tucked against the mascot at compact desktop widths too. */
   .desktop-brand { margin-left: 10px; }
