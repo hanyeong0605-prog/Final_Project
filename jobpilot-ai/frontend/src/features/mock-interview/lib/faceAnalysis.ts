@@ -87,7 +87,12 @@ export interface FaceMetrics {
   frameCount: number;
 }
 
-const BLINK_THRESHOLD = 0.5;
+// MediaPipe의 eyeBlink blendshape는 조명·안경·카메라 각도에 따라 완전히 눈을 감아도
+// 0.5까지 올라가지 않는 경우가 잦다. 기존 단일 0.5 임계값은 실제 눈 깜빡임을
+// "0회"로 놓치는 원인이었다. 시작/종료 임계값을 나눠(히스테리시스) 민감도는 높이고,
+// 임계값 근처에서 흔들릴 때 한 번의 깜빡임을 여러 번 세는 문제는 막는다.
+const BLINK_START_THRESHOLD = 0.28;
+const BLINK_END_THRESHOLD = 0.14;
 // 실제 깜빡임 한 번은 보통 100~400ms 정도 걸리는데, 프레임마다(60fps 근처) 점수가
 // 임계값 근처에서 미세하게 흔들리면 같은 깜빡임이 여러 번 카운트되는 문제가 있었다.
 // 그래서 마지막으로 센 깜빡임 이후 이 시간(ms) 안에는 새로 세지 않는다(디바운스).
@@ -100,7 +105,9 @@ export function summarizeFaceFrames(frames: FaceFrameSample[], durationSec: numb
   let wasBlinking = false;
   let lastBlinkTimestamp = -Infinity;
   for (const frame of frames) {
-    const isBlinking = frame.blinkScore > BLINK_THRESHOLD;
+    const isBlinking: boolean = wasBlinking
+      ? frame.blinkScore > BLINK_END_THRESHOLD
+      : frame.blinkScore > BLINK_START_THRESHOLD;
     if (isBlinking && !wasBlinking && frame.timestampMs - lastBlinkTimestamp > MIN_BLINK_GAP_MS) {
       blinkCount++;
       lastBlinkTimestamp = frame.timestampMs;
