@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from "react";
 import type { LocationJob } from "../model/types";
 import { useNavigate } from "react-router-dom";
 
+const CURRENT_LOCATION_MARKER = "/map-markers/current-location-cat.png";
+const JOB_LOCATION_MARKER = "/map-markers/job-location-pin.png";
+
 interface Props {
   center: { lat: number; lng: number };
   radiusKm: number;
@@ -169,10 +172,12 @@ export const KakaoMapContainer: React.FC<Props> = ({
       centerMarkerRef.current.setMap(null);
     }
 
-  
-    const redMarkerImageSrc = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='29' height='42' viewBox='0 0 29 42'><path fill='%23ef4444' stroke='%23b91c1c' stroke-width='1.5' d='M14.5 1C7.04 1 1 7.04 1 14.5C1 24.63 14.5 41 14.5 41C14.5 41 28 24.63 28 14.5C28 7.04 21.96 1 14.5 1Z'/><circle cx='14.5' cy='14.5' r='5.5' fill='white'/></svg>";
-    const imageSize = new window.kakao.maps.Size(31, 35);
-    const markerImage = new window.kakao.maps.MarkerImage(redMarkerImageSrc, imageSize);
+    // 내 기준 위치는 한눈에 구분되는 고양이 핀을 조금 크게, 공고 위치는 더 작은
+    // 좌표 핀을 쓴다. offset을 핀 끝으로 맞춰 실제 좌표가 이미지 하단에 놓인다.
+    const imageSize = new window.kakao.maps.Size(50, 66);
+    const markerImage = new window.kakao.maps.MarkerImage(CURRENT_LOCATION_MARKER, imageSize, {
+      offset: new window.kakao.maps.Point(25, 64),
+    });
 
     const centerMarker = new window.kakao.maps.Marker({
       position: moveLatLon,
@@ -196,10 +201,17 @@ export const KakaoMapContainer: React.FC<Props> = ({
       overlayRef.current.setMap(null);
     }
 
+    const jobMarkerImage = new window.kakao.maps.MarkerImage(
+      JOB_LOCATION_MARKER,
+      new window.kakao.maps.Size(36, 46),
+      { offset: new window.kakao.maps.Point(18, 44) },
+    );
+
     currentJobs.forEach((job) => {
       const markerPosition = new window.kakao.maps.LatLng(job.latitude, job.longitude);
       const marker = new window.kakao.maps.Marker({
         position: markerPosition,
+        image: jobMarkerImage,
         title: job.title,
       });
 
