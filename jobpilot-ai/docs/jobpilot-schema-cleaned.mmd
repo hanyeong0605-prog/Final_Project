@@ -1,0 +1,548 @@
+---
+title: JobPilot AI — Cleaned Target ERD
+---
+%% Target schema excludes education_histories, opportunity_skills, and
+%% portfolio_documents. Duplicate Java mappings are represented by the single
+%% physical job_posting_locations table.
+erDiagram
+  members {
+    bigint id PK
+    varchar login_id
+    varchar email
+    varchar password_hash
+    varchar nickname
+    varchar role
+    boolean onboarding_completed
+    datetime created_at
+    datetime updated_at
+  }
+
+  member_profiles {
+    bigint member_id PK, FK
+    varchar target_role
+    varchar target_job_family
+    json preferred_locations
+    date available_from
+    varchar experience_type
+    varchar github_username
+  }
+
+  member_specifications {
+    bigint member_id PK, FK
+    varchar education_level
+    varchar school_name
+    varchar major
+    varchar graduation_status
+    int total_career_months
+    text technical_summary
+    varchar portfolio_url
+    longblob profile_photo
+    varchar profile_photo_content_type
+    datetime updated_at
+  }
+
+  self_introductions {
+    bigint id PK
+    bigint member_id FK
+    varchar title
+    mediumtext content
+    boolean is_primary
+    datetime created_at
+    datetime updated_at
+  }
+
+  member_skills {
+    bigint id PK
+    bigint member_id FK
+    bigint skill_id FK
+    varchar self_reported_level
+    varchar note
+  }
+
+  projects {
+    bigint id PK
+    bigint member_id FK
+    varchar title
+    text role_description
+    text problem_description
+    text solution_description
+    text result_description
+    varchar github_url
+    varchar deployment_url
+    date started_at
+    date ended_at
+  }
+
+  certificates {
+    bigint id PK
+    bigint member_id FK
+    varchar name
+    varchar issuer
+    date acquired_at
+    date expires_at
+    varchar official_url
+  }
+
+  member_consents {
+    bigint id PK
+    bigint member_id FK
+    varchar consent_type
+    varchar policy_version
+    boolean agreed
+    datetime agreed_at
+    datetime created_at
+  }
+
+  skills {
+    bigint id PK
+    varchar name
+    varchar category
+    varchar catalog_status
+    bigint parent_skill_id FK
+    int display_order
+    varchar normalized_name
+  }
+
+  skill_aliases {
+    bigint id PK
+    bigint skill_id FK
+    varchar alias
+    varchar normalized_alias
+  }
+
+  project_skills {
+    bigint project_id PK, FK
+    bigint skill_id PK, FK
+  }
+
+  job_postings {
+    bigint id PK
+    varchar external_job_id
+    varchar source_provider
+    bigint employer_account_id FK
+    varchar source_company_id
+    varchar title
+    varchar company_name
+    varchar company_url
+    varchar company_logo_url
+    mediumtext description
+    varchar source_url
+    varchar location
+    varchar employment_type
+    varchar experience_type
+    boolean is_entry_level
+    varchar industry_code
+    varchar industry_name
+    varchar job_mid_code
+    varchar job_mid_name
+    varchar job_code
+    varchar job_name
+    varchar salary
+    text keywords
+    datetime published_at
+    datetime deadline_at
+    boolean is_rolling_deadline
+    varchar status
+    datetime fetched_at
+    datetime source_updated_at
+    varchar crawl_status
+    datetime crawled_at
+    bigint view_count
+    json raw_payload
+  }
+
+  job_requirements {
+    bigint id PK
+    bigint job_posting_id FK
+    varchar type
+    text content
+    text source_excerpt
+    varchar importance
+    varchar extraction_source
+    varchar verification_status
+  }
+
+  job_skills {
+    bigint job_posting_id PK, FK
+    bigint skill_id PK, FK
+    bigint canonical_skill_id FK
+    varchar requirement_type PK
+    text source_excerpt
+  }
+
+  job_matches {
+    bigint id PK
+    bigint member_id FK
+    bigint job_posting_id FK
+    bigint self_introduction_id FK
+    varchar recommendation_level
+    decimal readiness_score
+    text summary_comment
+    int missing_required_count
+    varchar ai_model
+    json profile_snapshot
+    datetime analyzed_at
+  }
+
+  job_match_evidences {
+    bigint id PK
+    bigint job_match_id FK
+    bigint job_requirement_id FK
+    bigint skill_id FK
+    varchar member_evidence_type
+    bigint member_evidence_id
+    varchar status
+    text comment
+    text gap_action
+  }
+
+  opportunities {
+    bigint id PK
+    varchar type
+    varchar source_name
+    varchar external_id
+    varchar title
+    varchar organization
+    text description
+    varchar source_url
+    datetime application_start_at
+    datetime deadline_at
+    datetime event_start_at
+    datetime event_end_at
+    varchar status
+    varchar training_address
+    varchar training_phone
+    varchar training_target
+    int capacity
+    int enrolled_count
+    int course_fee
+    int self_pay_fee
+    decimal satisfaction_score
+    varchar detail_url
+    varchar institution_url
+    varchar training_ncs_code
+    text training_contents
+    varchar training_certificate
+    varchar training_grade
+    varchar employment_rate_3m
+    varchar employment_rate_6m
+    varchar thumbnail_url
+  }
+
+  user_interests {
+    bigint id PK
+    bigint member_id FK
+    varchar target_type
+    bigint target_id
+    datetime created_at
+  }
+
+  planner_events {
+    bigint id PK
+    bigint member_id FK
+    varchar source_type
+    bigint source_id
+    varchar event_type
+    varchar title
+    datetime starts_at
+    datetime ends_at
+    boolean all_day
+    datetime created_at
+  }
+
+  email_verifications {
+    bigint id PK
+    varchar email
+    varchar code_hash
+    varchar verification_token_hash
+    datetime expires_at
+    datetime verified_at
+    datetime consumed_at
+    int failed_attempts
+    datetime created_at
+  }
+
+  job_posting_locations {
+    bigint id PK
+    bigint job_posting_id FK
+    varchar source_provider
+    varchar source_location_id
+    varchar location_text
+    varchar sido
+    varchar sigungu
+    varchar detailed_address
+    decimal latitude
+    decimal longitude
+    boolean is_primary
+    datetime created_at
+    datetime updated_at
+  }
+
+  job_requirement_daily_backfill_usage {
+    date run_date PK
+    int processed_count
+    datetime created_at
+    datetime updated_at
+  }
+
+  job_requirement_extraction_status {
+    bigint job_posting_id PK
+    varchar status
+    varchar extraction_source
+    datetime completed_at
+  }
+
+  interview_session_records {
+    bigint id PK
+    bigint member_id FK
+    varchar role
+    varchar interview_mode
+    varchar interview_type
+    int question_count
+    int overall_score
+    int content_score
+    int delivery_score
+    json strengths
+    json improvements
+    json next_steps
+    json questions
+    datetime created_at
+  }
+
+  subscriptions {
+    bigint id PK
+    bigint member_id FK
+    varchar customer_key
+    varchar billing_key
+    varchar plan_id
+    int price_won
+    varchar status
+    datetime current_period_start
+    datetime current_period_end
+    datetime next_billing_at
+    datetime created_at
+    datetime canceled_at
+  }
+
+  subscription_payments {
+    bigint id PK
+    bigint subscription_id FK
+    bigint member_id FK
+    varchar order_id
+    int amount
+    varchar status
+    varchar failure_reason
+    datetime created_at
+  }
+
+  job_crawl_runs {
+    bigint id PK
+    varchar source_provider
+    varchar trigger_type
+    datetime started_at
+    datetime finished_at
+    varchar status
+    int candidate_count
+    int detail_requests
+    int skipped_known_count
+    int collected_count
+    int received_count
+    int created_count
+    int updated_count
+    int skipped_count
+    int failure_count
+    text error_message
+  }
+
+  certificate_bookmarks {
+    bigint id PK
+    bigint member_id FK
+    varchar jmcd
+    varchar name
+    varchar qualification_type
+    varchar field
+    varchar sub_field
+    datetime created_at
+  }
+
+  member_oauth_accounts {
+    bigint id PK
+    bigint member_id FK
+    varchar provider
+    varchar provider_subject
+    datetime created_at
+  }
+
+  oauth_pending_logins {
+    char id PK
+    varchar provider
+    varchar provider_subject
+    varchar nickname
+    varchar provider_email
+    datetime expires_at
+    datetime used_at
+    datetime created_at
+  }
+
+  member_job_events {
+    bigint id PK
+    bigint member_id FK
+    bigint job_posting_id FK
+    varchar event_type
+    datetime created_at
+  }
+
+  member_daily_visits {
+    bigint id PK
+    bigint member_id FK
+    date visit_date
+    datetime created_at
+  }
+
+  push_subscriptions {
+    bigint id PK
+    bigint member_id FK
+    varchar endpoint
+    varchar p256dh
+    varchar auth_key
+    varchar user_agent
+    datetime created_at
+  }
+
+  notification_logs {
+    bigint id PK
+    bigint member_id FK
+    varchar target_type
+    bigint target_id
+    varchar notification_type
+    varchar title
+    varchar body
+    varchar url
+    tinyint is_read
+    tinyint is_hidden
+    datetime sent_at
+  }
+
+  resume_documents {
+    bigint id PK
+    bigint member_id FK
+    varchar document_type
+    varchar title
+    varchar original_filename
+    varchar template_key
+    longtext extracted_text
+    longtext generated_content
+    json structured_content
+    datetime created_at
+    datetime updated_at
+  }
+
+  resume_entries {
+    bigint id PK
+    bigint member_id FK
+    varchar entry_type
+    varchar title
+    json content
+    int display_order
+    datetime created_at
+    datetime updated_at
+  }
+
+  employer_accounts {
+    bigint id PK
+    varchar login_id
+    varchar email
+    varchar password_hash
+    varchar manager_name
+    varchar manager_phone
+    varchar company_name
+    varchar business_registration_number
+    varchar representative_name
+    varchar opening_date
+    varchar company_address
+    boolean nts_verified
+    datetime nts_checked_at
+    text nts_raw_response
+    varchar status
+    varchar rejection_reason
+    bigint reviewed_by FK
+    datetime reviewed_at
+    varchar passwordless_status
+    varchar passwordless_user_id
+    datetime passwordless_activated_at
+    datetime passwordless_last_verified_at
+    datetime created_at
+    datetime updated_at
+  }
+
+  employer_notifications {
+    bigint id PK
+    bigint employer_account_id FK
+    bigint member_id FK
+    bigint job_posting_id FK
+    varchar title
+    varchar body
+    varchar url
+    boolean is_read
+    datetime created_at
+  }
+  member_resume_save_states {
+    bigint member_id PK, FK
+    varchar save_status
+    datetime updated_at
+  }
+
+  work24_training_sync_runs {
+    bigint id PK
+    datetime started_at
+    datetime finished_at
+    int imported_count
+    varchar status
+    varchar error_message
+  }
+
+  members ||--|| member_profiles : "fk_member_profiles_member"
+  members ||--|| member_specifications : "fk_member_specifications_member"
+  members ||--|{ self_introductions : "fk_self_introductions_member"
+  members ||--|{ member_skills : "fk_member_skills_member"
+  skills ||--|{ member_skills : "fk_member_skills_skill"
+  members ||--|{ projects : "fk_projects_member"
+  projects ||--|{ project_skills : "fk_project_skills_project"
+  skills ||--|{ project_skills : "fk_project_skills_skill"
+  members ||--|{ certificates : "fk_certificates_member"
+  members ||--|{ member_consents : "fk_member_consents_member"
+  skills ||--|{ skill_aliases : "fk_skill_aliases_skill"
+  skills ||--o{ skills : "fk_skills_parent"
+  job_postings ||--|{ job_requirements : "fk_job_requirements_job"
+  job_postings ||--|{ job_skills : "fk_job_skills_job"
+  skills ||--|{ job_skills : "fk_job_skills_skill"
+  skills ||--o{ job_skills : "fk_job_skills_canonical_skill"
+  job_postings ||--|{ job_posting_locations : "fk_job_posting_locations_job"
+  members ||--|{ job_matches : "fk_job_matches_member"
+  job_postings ||--|{ job_matches : "fk_job_matches_job"
+  self_introductions ||--o{ job_matches : "fk_job_matches_self_intro"
+  job_matches ||--|{ job_match_evidences : "fk_job_match_evidences_match"
+  job_requirements ||--o{ job_match_evidences : "fk_job_match_evidences_requirement"
+  skills ||--o{ job_match_evidences : "fk_job_match_evidences_skill"
+  members ||--|{ user_interests : "fk_user_interests_member"
+  members ||--|{ planner_events : "fk_planner_events_member"
+  members ||--|{ interview_session_records : "fk_interview_session_records_member"
+  members ||--|| subscriptions : "fk_subscriptions_member"
+  subscriptions ||--|{ subscription_payments : "fk_subscription_payments_subscription"
+  members ||--|{ subscription_payments : "fk_subscription_payments_member"
+  members ||--|{ certificate_bookmarks : "fk_certificate_bookmarks_member"
+  members ||--|{ member_oauth_accounts : "fk_member_oauth_accounts_member"
+  members ||--|{ member_job_events : "fk_member_job_events_member"
+  job_postings ||--|{ member_job_events : "fk_member_job_events_job"
+  members ||--|{ member_daily_visits : "fk_member_daily_visits_member"
+  members ||--|{ push_subscriptions : "fk_push_subscriptions_member"
+  members ||--|{ notification_logs : "fk_notification_logs_member"
+  members ||--|{ resume_documents : "fk_resume_documents_member"
+  members ||--|{ resume_entries : "fk_resume_entries_member"
+  members ||--o{ employer_accounts : "fk_employer_accounts_reviewed_by"
+  employer_accounts ||--o{ job_postings : "fk_job_postings_employer_account"
+  employer_accounts ||--o{ employer_notifications : "fk_employer_notifications_owner"
+  members ||--o{ employer_notifications : "fk_employer_notifications_member"
+  job_postings ||--o{ employer_notifications : "fk_employer_notifications_job"
+  members ||--|| member_resume_save_states
+

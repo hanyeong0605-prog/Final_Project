@@ -1,0 +1,766 @@
+// Paste this entire file into https://dbdiagram.io/d
+// Physical schema source: Flyway migrations V1 through V40, with reviewed removals applied (current schema after all ALTER/DROP operations)
+// Target schema after removing confirmed/reviewed legacy structures:
+// education_histories, opportunity_skills, portfolio_documents.
+// The two Java mappings for job_posting_locations are represented as one physical table.
+
+Project jobpilot_ai {
+  database_type: 'MySQL'
+  Note: 'JobPilot AI physical database schema. Solid relationships are only actual DB foreign keys. Polymorphic references are recorded as notes and intentionally have no Ref.'
+}
+
+Table members [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  login_id varchar(80) [not null]
+  email varchar(255) [not null]
+  password_hash varchar(255) [not null, note: 'Password hash only; never expose in API responses.']
+  nickname varchar(80) [not null]
+  role varchar(20) [not null, default: 'USER']
+  onboarding_completed boolean [not null, default: false]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: 'MySQL: ON UPDATE CURRENT_TIMESTAMP']
+
+  Indexes {
+    login_id [unique, name: 'uk_members_login_id']
+    email [unique, name: 'uk_members_email']
+  }
+}
+
+Table member_profiles [headercolor: #3B82F6] {
+  member_id bigint [pk, not null]
+  target_role varchar(80) [not null]
+  target_job_family varchar(80) [not null]
+  preferred_locations json
+  available_from date
+  experience_type varchar(30) [not null, default: 'ENTRY']
+  github_username varchar(100)
+
+  Note: 'Optional 1:1 current job-preference profile. member_id is both PK and FK.'
+}
+
+Table member_specifications [headercolor: #3B82F6] {
+  member_id bigint [pk, not null]
+  education_level varchar(50)
+  school_name varchar(255)
+  major varchar(255)
+  graduation_status varchar(30)
+  total_career_months int [not null, default: 0]
+  technical_summary text
+  portfolio_url varchar(1000)
+  profile_photo longblob
+  profile_photo_content_type varchar(40)
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: 'MySQL: ON UPDATE CURRENT_TIMESTAMP']
+
+  Note: 'Optional 1:1 summary of current education, career, and portfolio.'
+}
+
+Table self_introductions [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  title varchar(255) [not null]
+  content mediumtext [not null]
+  is_primary boolean [not null, default: false, note: 'The database does not enforce only one primary introduction per member.']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: 'MySQL: ON UPDATE CURRENT_TIMESTAMP']
+
+  Indexes {
+    member_id [name: 'ix_self_introductions_member']
+  }
+}
+
+Table member_skills [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  skill_id bigint [not null]
+  self_reported_level varchar(20)
+  note varchar(500)
+
+  Indexes {
+    (member_id, skill_id) [unique, name: 'uk_member_skills_member_skill']
+  }
+}
+
+Table projects [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  title varchar(255) [not null]
+  role_description text
+  problem_description text
+  solution_description text
+  result_description text
+  github_url varchar(1000)
+  deployment_url varchar(1000)
+  started_at date
+  ended_at date
+
+  Indexes {
+    member_id [name: 'ix_projects_member']
+  }
+}
+
+Table certificates [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  name varchar(255) [not null]
+  issuer varchar(255)
+  acquired_at date
+  expires_at date
+  official_url varchar(1000)
+
+  Indexes {
+    member_id [name: 'ix_certificates_member']
+  }
+}
+
+Table member_consents [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  consent_type varchar(50) [not null, note: 'Application enum: TERMS_OF_SERVICE, PRIVACY_COLLECTION, MARKETING_EMAIL.']
+  policy_version varchar(30) [not null]
+  agreed boolean [not null]
+  agreed_at datetime
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (member_id, consent_type) [unique, name: 'uk_member_consents_member_type']
+    member_id [name: 'ix_member_consents_member']
+  }
+}
+
+Table skills [headercolor: #10B981] {
+  id bigint [pk, not null, increment]
+  name varchar(100) [not null]
+  category varchar(30) [not null]
+  catalog_status varchar(20) [not null, default: 'RAW']
+  parent_skill_id bigint
+  display_order int [not null, default: 9999]
+  normalized_name varchar(100)
+
+  Indexes {
+    name [unique, name: 'uk_skills_name']
+    (catalog_status, category, display_order, name) [name: 'ix_skills_catalog_search']
+    parent_skill_id [name: 'ix_skills_parent']
+  }
+}
+
+Table skill_aliases [headercolor: #10B981] {
+  id bigint [pk, not null, increment]
+  skill_id bigint [not null]
+  alias varchar(100) [not null]
+  normalized_alias varchar(100) [not null, default: '']
+
+  Indexes {
+    alias [unique, name: 'uk_skill_aliases_alias']
+    normalized_alias [name: 'ix_skill_aliases_normalized_alias']
+  }
+}
+
+Table project_skills [headercolor: #10B981] {
+  project_id bigint [not null]
+  skill_id bigint [not null]
+
+  Indexes {
+    (project_id, skill_id) [pk]
+  }
+}
+
+Table job_postings [headercolor: #F97316] {
+  id bigint [pk, not null, increment]
+  external_job_id varchar(150) [not null]
+  source_provider varchar(30) [not null, default: 'WANTED']
+  employer_account_id bigint
+  source_company_id varchar(150)
+  title varchar(500) [not null]
+  company_name varchar(255)
+  company_url varchar(1500)
+  company_logo_url varchar(1500)
+  description mediumtext
+  source_url varchar(1500) [not null]
+  location varchar(255)
+  employment_type varchar(50)
+  experience_type varchar(50)
+  is_entry_level boolean
+  industry_code varchar(100)
+  industry_name varchar(255)
+  job_mid_code varchar(100)
+  job_mid_name varchar(255)
+  job_code varchar(500)
+  job_name varchar(1000)
+  salary varchar(255)
+  keywords text
+  published_at datetime
+  deadline_at datetime
+  is_rolling_deadline boolean [not null, default: false]
+  status varchar(30) [not null, default: 'UNKNOWN', note: 'Ingest service can set CLOSED.']
+  fetched_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  source_updated_at datetime
+  crawl_status varchar(30) [not null, default: 'NOT_REQUESTED']
+  crawled_at datetime
+  view_count bigint [not null, default: 0]
+  raw_payload json [note: 'Original provider response retained for traceability and reprocessing.']
+
+  Indexes {
+    (source_provider, external_job_id) [unique, name: 'uk_job_postings_source_external_job_id']
+    (source_provider, source_company_id) [name: 'ix_job_postings_source_company_id']
+    employer_account_id [name: 'ix_job_postings_employer_account']
+    (status, deadline_at) [name: 'ix_job_postings_status_deadline']
+    (company_name, title) [name: 'ix_job_postings_company_title']
+    (status, view_count) [name: 'ix_job_postings_popularity']
+  }
+}
+
+Table job_requirements [headercolor: #F97316] {
+  id bigint [pk, not null, increment]
+  job_posting_id bigint [not null]
+  type varchar(20) [not null, note: 'Application uses REQUIRED or PREFERRED.']
+  content text [not null]
+  source_excerpt text [not null]
+  importance varchar(20) [not null, default: 'MEDIUM']
+  extraction_source varchar(30) [not null, default: 'SARAMIN_API', note: 'Application uses SARAMIN_API or SARAMIN_CRAWL.']
+  verification_status varchar(30) [not null, default: 'VERIFIED', note: 'Application uses VERIFIED or NEEDS_REVIEW.']
+
+  Indexes {
+    (job_posting_id, type) [name: 'ix_job_requirements_posting_type']
+  }
+}
+
+Table job_skills [headercolor: #F97316] {
+  job_posting_id bigint [not null]
+  skill_id bigint [not null]
+  canonical_skill_id bigint
+  requirement_type varchar(20) [not null]
+  source_excerpt text [not null]
+
+  Indexes {
+    (job_posting_id, skill_id, requirement_type) [pk]
+    canonical_skill_id [name: 'ix_job_skills_canonical_skill']
+  }
+}
+
+Table job_matches [headercolor: #8B5CF6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  job_posting_id bigint [not null]
+  self_introduction_id bigint [null]
+  recommendation_level varchar(40) [not null, note: 'JPA enum: APPLY_NOW, CHALLENGE_AFTER_GAPS, DIFFICULT_NOW.']
+  readiness_score decimal(5,2) [not null]
+  summary_comment text
+  missing_required_count int [not null, default: 0]
+  ai_model varchar(100)
+  profile_snapshot json [note: 'Member profile as it was when the analysis ran.']
+  analyzed_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (member_id, job_posting_id) [unique, name: 'uk_job_matches_member_job']
+    (member_id, recommendation_level, readiness_score) [name: 'ix_job_matches_member_level_score']
+  }
+}
+
+Table job_match_evidences [headercolor: #8B5CF6] {
+  id bigint [pk, not null, increment]
+  job_match_id bigint [not null]
+  job_requirement_id bigint [null]
+  skill_id bigint [null]
+  member_evidence_type varchar(30) [not null, note: 'Polymorphic reference discriminator; no DB FK.']
+  member_evidence_id bigint [null, note: 'Polymorphic reference ID; no DB FK.']
+  status varchar(30) [not null]
+  comment text
+  gap_action text
+
+  Indexes {
+    job_match_id [name: 'ix_job_match_evidences_match']
+  }
+
+  Note: 'member_evidence_type + member_evidence_id can logically point to a project, member skill, certificate, education history, or self introduction. The database does not enforce that relationship.'
+}
+
+Table opportunities [headercolor: #EC4899] {
+  id bigint [pk, not null, increment]
+  type varchar(30) [not null]
+  source_name varchar(100) [not null]
+  external_id varchar(150)
+  title varchar(500) [not null]
+  organization varchar(255)
+  description text
+  source_url varchar(1500) [not null]
+  application_start_at datetime
+  deadline_at datetime
+  event_start_at datetime
+  event_end_at datetime
+  status varchar(30) [not null, default: 'ACTIVE']
+  training_address varchar(500)
+  training_phone varchar(80)
+  training_target varchar(255)
+  capacity int
+  enrolled_count int
+  course_fee int
+  self_pay_fee int
+  satisfaction_score decimal(5,2)
+  detail_url varchar(1500)
+  institution_url varchar(1500)
+  training_ncs_code varchar(100)
+  training_contents text
+  training_certificate varchar(1000)
+  training_grade varchar(100)
+  employment_rate_3m varchar(50)
+  employment_rate_6m varchar(50)
+  thumbnail_url varchar(1500)
+
+  Indexes {
+    (source_name, external_id) [unique, name: 'uk_opportunities_source_external']
+    (type, deadline_at) [name: 'ix_opportunities_type_deadline']
+  }
+}
+
+Table user_interests [headercolor: #EC4899] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  target_type varchar(30) [not null, note: 'Polymorphic target discriminator. Current service uses JOB_POSTING.']
+  target_id bigint [not null, note: 'Polymorphic target ID; no DB FK.']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (member_id, target_type, target_id) [unique, name: 'uk_user_interests_member_target']
+    member_id [name: 'ix_user_interests_member']
+    (target_type, target_id) [name: 'ix_user_interests_job_popularity']
+  }
+
+  Note: 'target_type + target_id is intentionally not a physical foreign key.'
+}
+
+Table planner_events [headercolor: #EC4899] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  source_type varchar(30) [not null, note: 'Current implementation uses MANUAL or JOB_POSTING.']
+  source_id bigint [null, note: 'Polymorphic source ID; MANUAL events use NULL. No DB FK.']
+  event_type varchar(30) [not null, note: 'Automatic job-interest events use APPLICATION_PERIOD.']
+  title varchar(500) [not null]
+  starts_at datetime [not null]
+  ends_at datetime
+  all_day boolean [not null, default: true]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (member_id, source_type, source_id, event_type) [unique, name: 'uk_planner_events_member_source_type']
+    (member_id, starts_at) [name: 'ix_planner_events_member_starts']
+  }
+
+  Note: 'source_type + source_id is intentionally not a physical foreign key.'
+}
+
+Table email_verifications [headercolor: #64748B] {
+  id bigint [pk, not null, increment]
+  email varchar(255) [not null]
+  code_hash varchar(255) [not null]
+  verification_token_hash varchar(255)
+  expires_at datetime [not null]
+  verified_at datetime
+  consumed_at datetime
+  failed_attempts int [not null, default: 0]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (email, created_at) [name: 'ix_email_verifications_email_created']
+  }
+
+  Note: 'Pre-signup email-verification transaction. It deliberately has no foreign key to members.'
+}
+
+Table job_posting_locations [headercolor: #F97316] {
+  id bigint [pk, not null, increment]
+  job_posting_id bigint [not null]
+  source_provider varchar(30) [not null]
+  source_location_id varchar(100) [not null]
+  location_text varchar(255)
+  sido varchar(50)
+  sigungu varchar(100)
+  detailed_address varchar(500)
+  latitude decimal(10,7)
+  longitude decimal(10,7)
+  is_primary boolean [not null, default: true]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: 'MySQL: ON UPDATE CURRENT_TIMESTAMP']
+  Indexes {
+    (job_posting_id, source_provider, source_location_id) [unique, name: 'uk_job_posting_locations_source']
+    (latitude, longitude) [name: 'ix_job_posting_locations_lat_lng']
+  }
+}
+
+Table job_requirement_daily_backfill_usage [headercolor: #F97316] {
+  run_date date [pk, not null]
+  processed_count int [not null, default: 0]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: 'MySQL: ON UPDATE CURRENT_TIMESTAMP']
+}
+
+Table job_requirement_extraction_status [headercolor: #F97316] {
+  job_posting_id bigint [pk, not null, note: 'Logical job-posting identifier; migration defines no physical FK.']
+  status varchar(20) [not null]
+  extraction_source varchar(30) [not null]
+  completed_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes { status [name: 'ix_job_requirement_extraction_status_status'] }
+}
+
+Table interview_session_records [headercolor: #8B5CF6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  role varchar(50)
+  interview_mode varchar(20) [not null]
+  interview_type varchar(30)
+  question_count int [not null]
+  overall_score int
+  content_score int
+  delivery_score int
+  strengths json
+  improvements json
+  next_steps json
+  questions json
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes { (member_id, created_at) [name: 'ix_interview_session_records_member'] }
+}
+
+Table subscriptions [headercolor: #06B6D4] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  customer_key varchar(64) [not null]
+  billing_key varchar(200)
+  plan_id varchar(30) [not null]
+  price_won int [not null]
+  status varchar(20) [not null]
+  current_period_start datetime
+  current_period_end datetime
+  next_billing_at datetime
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  canceled_at datetime
+  Indexes {
+    member_id [unique, name: 'uq_subscriptions_member']
+    customer_key [unique, name: 'uq_subscriptions_customer_key']
+  }
+}
+
+Table subscription_payments [headercolor: #06B6D4] {
+  id bigint [pk, not null, increment]
+  subscription_id bigint [not null]
+  member_id bigint [not null]
+  order_id varchar(64) [not null]
+  amount int [not null]
+  status varchar(20) [not null]
+  failure_reason varchar(255)
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes {
+    order_id [unique, name: 'uq_subscription_payments_order_id']
+    (subscription_id, created_at) [name: 'ix_subscription_payments_subscription']
+  }
+}
+
+Table job_crawl_runs [headercolor: #F97316] {
+  id bigint [pk, not null, increment]
+  source_provider varchar(30) [not null]
+  trigger_type varchar(20) [not null]
+  started_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  finished_at datetime
+  status varchar(20) [not null, default: 'RUNNING']
+  candidate_count int [not null, default: 0]
+  detail_requests int [not null, default: 0]
+  skipped_known_count int [not null, default: 0]
+  collected_count int [not null, default: 0]
+  received_count int [not null, default: 0]
+  created_count int [not null, default: 0]
+  updated_count int [not null, default: 0]
+  skipped_count int [not null, default: 0]
+  failure_count int [not null, default: 0]
+  error_message text
+  Indexes { (source_provider, started_at) [name: 'ix_job_crawl_runs_source_started'] }
+}
+
+Table certificate_bookmarks [headercolor: #EC4899] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  jmcd varchar(20) [not null]
+  name varchar(255) [not null]
+  qualification_type varchar(100)
+  field varchar(200)
+  sub_field varchar(200)
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes { (member_id, jmcd) [unique, name: 'uk_certificate_bookmarks_member_jmcd'] }
+}
+
+Table member_oauth_accounts [headercolor: #64748B] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  provider varchar(20) [not null]
+  provider_subject varchar(255) [not null]
+  created_at datetime [not null]
+  Indexes {
+    (provider, provider_subject) [unique, name: 'uq_member_oauth_provider_subject']
+    member_id [name: 'ix_member_oauth_accounts_member']
+  }
+}
+
+Table oauth_pending_logins [headercolor: #64748B] {
+  id char(36) [pk, not null]
+  provider varchar(20) [not null]
+  provider_subject varchar(255) [not null]
+  nickname varchar(80) [not null]
+  provider_email varchar(255)
+  expires_at datetime [not null]
+  used_at datetime
+  created_at datetime [not null]
+  Indexes { (provider, provider_subject) [unique, name: 'uq_oauth_pending_provider_subject'] }
+}
+
+Table member_job_events [headercolor: #8B5CF6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  job_posting_id bigint [not null]
+  event_type varchar(30) [not null]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes {
+    (member_id, created_at) [name: 'ix_member_job_events_member_created']
+    (job_posting_id, created_at) [name: 'ix_member_job_events_job_created']
+  }
+}
+
+Table member_daily_visits [headercolor: #8B5CF6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  visit_date date [not null]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes {
+    (member_id, visit_date) [unique, name: 'uq_member_daily_visits_member_date']
+    visit_date [name: 'ix_member_daily_visits_date']
+  }
+}
+
+Table push_subscriptions [headercolor: #64748B] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  endpoint varchar(1000) [not null, note: 'Unique index uses MySQL prefix length endpoint(500).']
+  p256dh varchar(255) [not null]
+  auth_key varchar(255) [not null]
+  user_agent varchar(255)
+  created_at datetime [not null]
+  Indexes {
+    endpoint [unique, name: 'uq_push_subscriptions_endpoint']
+    member_id [name: 'ix_push_subscriptions_member']
+  }
+}
+
+Table notification_logs [headercolor: #64748B] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  target_type varchar(30) [not null]
+  target_id bigint [not null, note: 'Polymorphic target; no physical FK.']
+  notification_type varchar(30) [not null]
+  title varchar(200)
+  body varchar(500)
+  url varchar(300)
+  is_read tinyint [not null, default: 0]
+  is_hidden tinyint [not null, default: 0]
+  sent_at datetime [not null]
+  Indexes {
+    (member_id, target_type, target_id, notification_type) [unique, name: 'uq_notification_logs']
+    (member_id, sent_at) [name: 'ix_notification_logs_member_sent']
+  }
+}
+
+Table resume_documents [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  document_type varchar(24) [not null]
+  title varchar(255) [not null]
+  original_filename varchar(500)
+  template_key varchar(40)
+  extracted_text longtext
+  generated_content longtext
+  structured_content json
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  Indexes { (member_id, created_at) [name: 'idx_resume_documents_member_created'] }
+
+  Note: 'Physical MySQL index orders created_at DESC; DBML shows the indexed columns without direction.'
+}
+
+Table resume_entries [headercolor: #3B82F6] {
+  id bigint [pk, not null, increment]
+  member_id bigint [not null]
+  entry_type varchar(30) [not null]
+  title varchar(255) [not null]
+  content json [not null]
+  display_order int [not null, default: 0]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: 'MySQL: ON UPDATE CURRENT_TIMESTAMP']
+  Indexes { (member_id, entry_type, display_order, id) [name: 'ix_resume_entries_member_type_order'] }
+}
+
+Table employer_accounts [headercolor: #14B8A6] {
+  id bigint [pk, not null, increment]
+  login_id varchar(80) [not null]
+  email varchar(255) [not null]
+  password_hash varchar(255) [not null]
+  manager_name varchar(80) [not null]
+  manager_phone varchar(20)
+  company_name varchar(150) [not null]
+  business_registration_number varchar(12) [not null]
+  representative_name varchar(80) [not null]
+  opening_date varchar(8) [not null]
+  company_address varchar(255)
+  nts_verified boolean [not null, default: false]
+  nts_checked_at datetime
+  nts_raw_response text
+  status varchar(20) [not null, default: 'PENDING']
+  rejection_reason varchar(255)
+  reviewed_by bigint
+  reviewed_at datetime
+  passwordless_status varchar(24) [not null, default: 'NONE']
+  passwordless_user_id varchar(100)
+  passwordless_activated_at datetime
+  passwordless_last_verified_at datetime
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  Indexes {
+    login_id [unique, name: 'uq_employer_accounts_login_id']
+    email [unique, name: 'uq_employer_accounts_email']
+    business_registration_number [unique, name: 'uq_employer_accounts_business_reg']
+    passwordless_user_id [unique, name: 'uq_employer_passwordless_user_id']
+  }
+}
+
+Table employer_notifications [headercolor: #14B8A6] {
+  id bigint [pk, not null, increment]
+  employer_account_id bigint [not null]
+  member_id bigint [not null]
+  job_posting_id bigint [not null]
+  title varchar(200) [not null]
+  body varchar(500) [not null]
+  url varchar(500) [not null]
+  is_read boolean [not null, default: false]
+  created_at datetime [not null, note: 'Physical MySQL type: DATETIME(6).']
+  Indexes { (employer_account_id, is_read, created_at) [name: 'ix_employer_notifications_owner'] }
+}
+Table member_resume_save_states [headercolor: #3B82F6] {
+  member_id bigint [pk, not null]
+  save_status varchar(20) [not null]
+  updated_at datetime [not null]
+}
+
+Table work24_training_sync_runs [headercolor: #EC4899] {
+  id bigint [pk, not null, increment]
+  started_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  finished_at datetime
+  imported_count int [not null, default: 0]
+  status varchar(20) [not null]
+  error_message varchar(1000)
+  Indexes { started_at [name: 'ix_work24_training_sync_runs_started'] }
+}
+
+// Actual physical foreign keys only. Relationships with no migration FK are documented as notes instead.
+Ref fk_member_profiles_member: members.id - member_profiles.member_id
+Ref fk_member_specifications_member: members.id - member_specifications.member_id
+Ref fk_self_introductions_member: self_introductions.member_id > members.id
+Ref fk_member_skills_member: member_skills.member_id > members.id
+Ref fk_member_skills_skill: member_skills.skill_id > skills.id
+Ref fk_projects_member: projects.member_id > members.id
+Ref fk_project_skills_project: project_skills.project_id > projects.id
+Ref fk_project_skills_skill: project_skills.skill_id > skills.id
+Ref fk_certificates_member: certificates.member_id > members.id
+Ref fk_member_consents_member: member_consents.member_id > members.id
+Ref fk_skill_aliases_skill: skill_aliases.skill_id > skills.id
+Ref fk_skills_parent: skills.parent_skill_id > skills.id
+Ref fk_job_requirements_job: job_requirements.job_posting_id > job_postings.id
+Ref fk_job_skills_job: job_skills.job_posting_id > job_postings.id
+Ref fk_job_skills_skill: job_skills.skill_id > skills.id
+Ref fk_job_skills_canonical_skill: job_skills.canonical_skill_id > skills.id
+Ref fk_job_posting_locations_job: job_posting_locations.job_posting_id > job_postings.id
+Ref fk_job_matches_member: job_matches.member_id > members.id
+Ref fk_job_matches_job: job_matches.job_posting_id > job_postings.id
+Ref fk_job_matches_self_intro: job_matches.self_introduction_id > self_introductions.id
+Ref fk_job_match_evidences_match: job_match_evidences.job_match_id > job_matches.id
+Ref fk_job_match_evidences_requirement: job_match_evidences.job_requirement_id > job_requirements.id
+Ref fk_job_match_evidences_skill: job_match_evidences.skill_id > skills.id
+Ref fk_user_interests_member: user_interests.member_id > members.id
+Ref fk_planner_events_member: planner_events.member_id > members.id
+Ref fk_interview_session_records_member: interview_session_records.member_id > members.id
+Ref fk_subscriptions_member: subscriptions.member_id - members.id
+Ref fk_subscription_payments_subscription: subscription_payments.subscription_id > subscriptions.id
+Ref fk_subscription_payments_member: subscription_payments.member_id > members.id
+Ref fk_certificate_bookmarks_member: certificate_bookmarks.member_id > members.id
+Ref fk_member_oauth_accounts_member: member_oauth_accounts.member_id > members.id
+Ref fk_member_job_events_member: member_job_events.member_id > members.id
+Ref fk_member_job_events_job: member_job_events.job_posting_id > job_postings.id
+Ref fk_member_daily_visits_member: member_daily_visits.member_id > members.id
+Ref fk_push_subscriptions_member: push_subscriptions.member_id > members.id
+Ref fk_notification_logs_member: notification_logs.member_id > members.id
+Ref fk_resume_documents_member: resume_documents.member_id > members.id [delete: cascade]
+Ref fk_resume_entries_member: resume_entries.member_id > members.id [delete: cascade]
+Ref fk_employer_accounts_reviewed_by: employer_accounts.reviewed_by > members.id
+Ref fk_job_postings_employer_account: job_postings.employer_account_id > employer_accounts.id
+Ref fk_employer_notifications_owner: employer_notifications.employer_account_id > employer_accounts.id
+Ref fk_employer_notifications_member: employer_notifications.member_id > members.id
+Ref fk_employer_notifications_job: employer_notifications.job_posting_id > job_postings.id
+Ref fk_member_resume_save_states_member: members.id - member_resume_save_states.member_id
+
+TableGroup member_domain [color: #DBEAFE, note: 'Account, profile, and member-owned career evidence'] {
+  members
+  member_profiles
+  member_specifications
+  self_introductions
+  member_skills
+  projects
+  certificates
+  member_consents
+  certificate_bookmarks
+  resume_documents
+  resume_entries
+  member_resume_save_states
+}
+
+TableGroup skill_domain [color: #D1FAE5, note: 'Shared normalized skill dictionary and bridge tables'] {
+  skills
+  skill_aliases
+  project_skills
+}
+
+TableGroup job_domain [color: #FFEDD5, note: 'Externally collected job postings and normalized requirements'] {
+  job_postings
+  job_requirements
+  job_skills
+  job_posting_locations
+  job_requirement_daily_backfill_usage
+  job_requirement_extraction_status
+  job_crawl_runs
+}
+
+TableGroup matching_domain [color: #EDE9FE, note: 'Explainable member-to-job matching results'] {
+  job_matches
+  job_match_evidences
+  interview_session_records
+  member_job_events
+  member_daily_visits
+}
+
+TableGroup opportunity_domain [color: #FCE7F3, note: 'Growth opportunities, bookmarks, and calendar events'] {
+  opportunities
+  user_interests
+  planner_events
+  work24_training_sync_runs
+}
+
+TableGroup auth_notification_domain [color: #E2E8F0, note: 'Authentication, OAuth, and notification infrastructure'] {
+  email_verifications
+  member_oauth_accounts
+  oauth_pending_logins
+  push_subscriptions
+  notification_logs
+}
+
+TableGroup billing_domain [color: #CFFAFE, note: 'Recurring subscriptions and payment attempts'] {
+  subscriptions
+  subscription_payments
+}
+
+TableGroup employer_domain [color: #CCFBF1, note: 'Employer accounts and approval workflow'] {
+  employer_accounts
+  employer_notifications
+}
+
