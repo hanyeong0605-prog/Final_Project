@@ -24,7 +24,7 @@ const megaMenuCopy: Record<string, string> = {
 function BrandIdentity({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`brand-identity${compact ? " compact" : ""}`}>
-      <span className="brand-name brand-name-en"><img className="brand-wordmark-image" src="/brand/job-a-dream-logo.png" alt="Job A Dream" /></span>
+      <span className="brand-name brand-name-en"><img className="brand-wordmark-image" src="/brand/job-a-dream-wordmark-cutout.png" alt="Job A Dream" /></span>
       <span className="brand-name brand-name-ko">잡아드림</span>
       {!compact && <small className="brand-tagline">career action coach</small>}
     </span>

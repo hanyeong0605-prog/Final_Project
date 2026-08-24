@@ -283,7 +283,7 @@ a { color: inherit; text-decoration: none; }
 .auth-page { display: grid; min-height: 100vh; place-items: center; background: radial-gradient(circle at 20% 10%, #e9edff, transparent 35%), #f5f7fb; padding: 28px 18px; }
 .auth-card { width: min(440px, 100%); border: 1px solid #e1e6ef; border-radius: 18px; background: #fff; box-shadow: 0 20px 55px #24345f14; padding: 34px; }
 .auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; }
-.auth-brand .brand-mark { width: 176px; height: 34px; border-radius: 0; background: #fff url('/brand/job-a-dream-logo.png') -7px -43px / 190px auto no-repeat; box-shadow: none; color: transparent; font-size: 0; }
+.auth-brand .brand-mark { width: 220px; height: 44px; border-radius: 0; background: transparent url('/brand/job-a-dream-wordmark-cutout.png') center / contain no-repeat; box-shadow: none; color: transparent; font-size: 0; }
 .auth-brand > div { display: none; }
 .auth-brand strong, .auth-brand small { display: block; }
 .auth-brand strong { color: #1c2640; font-size: 16px; }
@@ -365,13 +365,13 @@ a { color: inherit; text-decoration: none; }
 .main-area { min-width: 0; }
 .topbar { position: sticky; z-index: 15; top: 0; height: 90px; gap: 32px; padding: 0 clamp(54px, 5vw, 76px); }
 .brand-link { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
-.brand-identity { position: relative; display: grid; min-width: 176px; height: 34px; overflow: hidden; }
-.brand-name { position: relative; grid-area: 1 / 1; align-self: center; width: 100%; height: 34px; color: #1c2640; font-size: 20px; font-weight: 800; letter-spacing: -.9px; line-height: 34px; transition: opacity .22s ease, transform .36s cubic-bezier(.2,.8,.2,1); }
+.brand-identity { position: relative; display: grid; min-width: 232px; height: 46px; overflow: hidden; }
+.brand-name { position: relative; grid-area: 1 / 1; align-self: center; width: 100%; height: 46px; color: #151515; font-size: 25px; font-weight: 800; letter-spacing: -1.1px; line-height: 46px; transition: opacity .22s ease, transform .36s cubic-bezier(.2,.8,.2,1); }
 .brand-name-en { opacity: 1; transform: translateY(0); white-space: nowrap; }
-.brand-name-ko { opacity: 0; transform: translateY(34px); }
-.brand-wordmark-image { position: absolute; top: -43px; left: -7px; display: block; width: 190px; max-width: none; mix-blend-mode: multiply; }
+.brand-name-ko { opacity: 0; transform: translateY(46px); }
+.brand-wordmark-image { display: block; width: 232px; height: 46px; object-fit: contain; }
 .brand-tagline { display: none; }
-.brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 0; transform: translateY(-34px); }
+.brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 0; transform: translateY(-46px); }
 .brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 1; transform: translateY(0); }
 .brand-logo-scene { position: relative; display: block; width: 35px; height: 35px; flex: none; overflow: visible; }
 .brand-logo-letter { display: grid; place-items: center; transition: opacity .12s ease; }
@@ -384,7 +384,7 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
 .brand-bobo-stage { position: fixed; z-index: 6; top: 0; left: 0; width: 160px; height: 90px; overflow: hidden; pointer-events: none; }
 .brand-pounce-video { display: block; width: 100%; height: 100%; object-fit: contain; object-position: left center; }
-.desktop-brand.is-animating .brand-name-en { opacity: 0; transform: translateY(-34px); }
+.desktop-brand.is-animating .brand-name-en { opacity: 0; transform: translateY(-46px); }
 .desktop-brand.is-animating .brand-name-ko { opacity: 1; transform: translateY(0); }
 .brand-bobo-arrival, .brand-bobo-hold, .brand-bobo-click { position: absolute; width: 70px; height: 70px; object-fit: contain; transform-origin: center; }
 .brand-bobo-arrival { left: -120px; bottom: -2px; animation: bobo-logo-arrive 1.35s .3s cubic-bezier(.18,.8,.2,1) both; }
@@ -401,12 +401,12 @@ a { color: inherit; text-decoration: none; }
 @keyframes bobo-logo-click-lift { 0%, 12% { opacity: 0; } 13%, 50% { opacity: 1; transform: translateY(-7px) rotate(-3deg); } 51%, 100% { opacity: 0; transform: translateY(-3px) rotate(-1deg); } }
 @keyframes bobo-logo-click-press { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; transform: translateY(1px) scaleY(.97); } }
 @keyframes bobo-logo-mouse-click { 0%, 50% { transform: translateY(0); } 64% { transform: translateY(2px) scaleY(.88); } 78%, 100% { transform: translateY(0) scaleY(1); } }
-.brand-identity.compact { min-width: 145px; height: 28px; }
-.brand-identity.compact .brand-name { height: 28px; font-size: 17px; line-height: 28px; }
-.brand-identity.compact .brand-name-ko { transform: translateY(28px); }
-.brand-identity.compact .brand-wordmark-image { top: -37px; left: -6px; width: 157px; }
-.brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(-28px); }
-.desktop-brand { flex: none; }
+.brand-identity.compact { min-width: 160px; height: 32px; }
+.brand-identity.compact .brand-name { height: 32px; font-size: 18px; line-height: 32px; }
+.brand-identity.compact .brand-name-ko { transform: translateY(32px); }
+.brand-identity.compact .brand-wordmark-image { width: 160px; height: 32px; }
+.brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(-32px); }
+.desktop-brand { flex: none; margin-left: 116px; }
 .mobile-brand { display: none; }
 .desktop-navigation { display: flex; min-width: 0; flex: 1; align-items: center; gap: 3px; overflow: hidden; }
 .desktop-nav-group { position: relative; }
@@ -487,6 +487,7 @@ a { color: inherit; text-decoration: none; }
   .desktop-mega-menu { display: none; }
   .desktop-brand, .menu-button { display: inline-flex; }
   .brand-bobo-stage { width: 114px; height: 64px; }
+  .desktop-brand { margin-left: 104px; }
   .topbar { height: 64px; gap: 13px; padding: 0 18px; }.menu-button { color: #4f5c6f; padding: 6px 0; }.top-actions { gap: 4px; }.add-job { padding: 8px 10px; font-size: 10px; }.global-search-trigger span { display: none; }.global-search-trigger { padding: 8px; }
   .mobile-menu-backdrop { display: block; position: fixed; z-index: 19; inset: 0; border: 0; background: #12203c70; }
   .sidebar { z-index: 20; display: flex; position: fixed; inset: 0 auto 0 0; width: min(310px, 86vw); flex-direction: column; border-right: 1px solid #e6eaf0; background: #fff; padding: 24px 16px 20px; box-shadow: 12px 0 30px #13254928; transform: translateX(-110%); transition: transform .22s ease; }
