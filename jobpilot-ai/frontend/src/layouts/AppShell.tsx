@@ -24,8 +24,8 @@ const megaMenuCopy: Record<string, string> = {
 function BrandIdentity({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`brand-identity${compact ? " compact" : ""}`}>
+      <span className="brand-name brand-name-en">Job A Dream</span>
       <span className="brand-name brand-name-ko">잡아드림</span>
-      <span className="brand-name brand-name-en">Job-A-Dream AI</span>
       {!compact && <small className="brand-tagline">career action coach</small>}
     </span>
   );
@@ -33,31 +33,20 @@ function BrandIdentity({ compact = false }: { compact?: boolean }) {
 
 function AnimatedBrand() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [animationActive, setAnimationActive] = useState(false);
+  const [hasPounced, setHasPounced] = useState(false);
   const [compactVideo, setCompactVideo] = useState(() => window.matchMedia("(max-width: 1180px)").matches);
 
   const playAnimation = () => {
     const video = videoRef.current;
-    if (!video || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    video.pause();
+    if (!video || hasPounced || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     video.currentTime = 0;
-    setAnimationActive(true);
-    void video.play().catch(() => setAnimationActive(false));
-  };
-
-  const resetAnimation = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.pause();
-      video.currentTime = 0;
-    }
-    setAnimationActive(false);
+    setHasPounced(true);
+    void video.play().catch(() => setHasPounced(false));
   };
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1180px)");
     const updateVideoSource = (event: MediaQueryListEvent) => {
-      resetAnimation();
       setCompactVideo(event.matches);
     };
     query.addEventListener("change", updateVideoSource);
@@ -71,11 +60,9 @@ function AnimatedBrand() {
   return (
     <Link
       to="/"
-      className={`desktop-brand brand-link${animationActive ? " is-animating" : ""}`}
+      className={`desktop-brand brand-link${hasPounced ? " is-animating" : ""}`}
       onPointerEnter={playAnimation}
-      onPointerLeave={resetAnimation}
       onFocus={playAnimation}
-      onBlur={resetAnimation}
     >
       <span className="brand-logo-scene">
         <span className="brand-mark brand-logo-letter">J</span>
@@ -165,7 +152,7 @@ export function AppShell() {
           <div className="brand mobile-sidebar-brand">
             <Link to="/" className="brand-link" onClick={closeMenu}>
               <span className="brand-mark">J</span>
-              <BrandIdentity />
+              <BrandIdentity compact />
             </Link>
             <button className="mobile-close" onClick={closeMenu} aria-label="메뉴 닫기"><X size={19} /></button>
           </div>
@@ -203,6 +190,7 @@ export function AppShell() {
           <header className="topbar" onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={21} /></button>
             <AnimatedBrand />
+            <Link to="/" className="mobile-brand brand-link"><span className="brand-mark">J</span><BrandIdentity compact /></Link>
 
             <nav className="desktop-navigation" aria-label="주요 메뉴">
               {navigationGroups.map((group) => {

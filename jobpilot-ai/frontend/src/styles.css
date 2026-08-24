@@ -363,14 +363,13 @@ a { color: inherit; text-decoration: none; }
 .main-area { min-width: 0; }
 .topbar { position: sticky; z-index: 15; top: 0; height: 90px; gap: 32px; padding: 0 clamp(54px, 5vw, 76px); }
 .brand-link { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
-.brand-identity { position: relative; display: grid; min-width: 108px; height: 30px; overflow: hidden; }
-.brand-name { grid-area: 1 / 1; align-self: end; color: #1c2640; font-size: 15px; font-weight: 800; letter-spacing: -.55px; line-height: 15px; transition: opacity .28s ease, transform .34s cubic-bezier(.2,.8,.2,1); }
-.brand-name-ko { opacity: 1; transform: translateY(0); }
-.brand-name-en { opacity: 0; transform: translateY(11px); white-space: nowrap; }
-.brand-tagline { grid-area: 1 / 1; align-self: end; color: #98a1b3; font-size: 8px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; opacity: 0; transform: translateY(11px); transition: opacity .24s ease, transform .34s cubic-bezier(.2,.8,.2,1); }
-.brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 0; transform: translateY(-11px); }
-.brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 1; transform: translateY(-10px); }
-.brand-link:hover .brand-tagline, .brand-link:focus-visible .brand-tagline { opacity: 1; transform: translateY(0); }
+.brand-identity { position: relative; display: grid; min-width: 118px; height: 22px; overflow: hidden; }
+.brand-name { grid-area: 1 / 1; align-self: center; color: #1c2640; font-size: 17px; font-weight: 800; letter-spacing: -.75px; line-height: 1; transition: opacity .22s ease, transform .36s cubic-bezier(.2,.8,.2,1); }
+.brand-name-en { opacity: 1; transform: translateY(0); white-space: nowrap; }
+.brand-name-ko { opacity: 0; transform: translateY(14px); }
+.brand-tagline { display: none; }
+.brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 0; transform: translateY(-14px); }
+.brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 1; transform: translateY(0); }
 .brand-logo-scene { position: relative; display: block; width: 35px; height: 35px; flex: none; overflow: visible; }
 .brand-logo-letter { display: grid; place-items: center; transition: opacity .12s ease; }
 .brand-job-mouse { position: absolute; z-index: 5; top: 29px; left: 2px; width: 31px; height: 19px; border: 1px solid #4a536c; border-radius: 49% 49% 45% 45% / 62% 62% 38% 38%; background: linear-gradient(145deg, #aeb6c9 0%, #7c859c 46%, #586176 100%); box-shadow: inset 1px 1px 1px #ffffff78, 0 2px 4px #26335442; color: #fff; transform-origin: 52% 50%; }
@@ -380,7 +379,7 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
 .brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
-.brand-bobo-stage { position: fixed; z-index: 6; top: 0; left: 0; width: 160px; height: 90px; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .12s ease; }
+.brand-bobo-stage { position: fixed; z-index: 6; top: 0; left: 0; width: 160px; height: 90px; overflow: hidden; pointer-events: none; }
 .brand-pounce-video { display: block; width: 100%; height: 100%; object-fit: contain; object-position: left center; }
 .desktop-brand.is-animating .brand-logo-letter, .desktop-brand.is-animating .brand-identity { opacity: 0; }
 .desktop-brand.is-animating .brand-bobo-stage { opacity: 1; }
@@ -401,7 +400,7 @@ a { color: inherit; text-decoration: none; }
 @keyframes bobo-logo-mouse-click { 0%, 50% { transform: translateY(0); } 64% { transform: translateY(2px) scaleY(.88); } 78%, 100% { transform: translateY(0) scaleY(1); } }
 .brand-identity.compact { min-width: 102px; height: 16px; }
 .brand-identity.compact .brand-name { align-self: center; }
-.brand-link:hover .brand-identity.compact .brand-name-en, .brand-link:focus-visible .brand-identity.compact .brand-name-en { transform: translateY(0); }
+.brand-identity.compact .brand-name { font-size: 15px; }
 .desktop-brand { flex: none; }
 .mobile-brand { display: none; }
 .desktop-navigation { display: flex; min-width: 0; flex: 1; align-items: center; gap: 3px; overflow: hidden; }
