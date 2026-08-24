@@ -3,7 +3,6 @@ import type { LocationJob } from "../model/types";
 import { useNavigate } from "react-router-dom";
 
 const CURRENT_LOCATION_MARKER = "/map-markers/current-location-cat.png";
-const JOB_LOCATION_MARKER = "/map-markers/job-location-pin.png";
 
 interface Props {
   center: { lat: number; lng: number };
@@ -29,6 +28,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const circleRef = useRef<any>(null);
   const centerMarkerRef = useRef<any>(null); 
   const markersRef = useRef<any[]>([]);
+  const clustererRef = useRef<any>(null);
   const overlayRef = useRef<any>(null);
   const centerLockedRef = useRef(isCenterLocked);
   const onCenterChangedRef = useRef(onCenterChanged);
@@ -37,7 +37,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
 
   useEffect(() => {
     centerLockedRef.current = isCenterLocked;
-    mapRef.current?.setDraggable(!isCenterLocked);
+    mapRef.current?.setDraggable(true);
   }, [isCenterLocked]);
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
         };
         const kakaoMap = new window.kakao.maps.Map(containerRef.current, options);
         mapRef.current = kakaoMap;
-        kakaoMap.setDraggable(!centerLockedRef.current);
+        kakaoMap.setDraggable(true);
         window.kakao.maps.event.addListener(kakaoMap, "idle", () => {
           const nextCenter = kakaoMap.getCenter();
           const next = { lat: nextCenter.getLat(), lng: nextCenter.getLng() };
@@ -194,6 +194,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const updateMarkers = (map: any, currentJobs: LocationJob[]) => {
     if (!map || !window.kakao) return;
 
+    clustererRef.current?.clear();
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
@@ -201,11 +202,8 @@ export const KakaoMapContainer: React.FC<Props> = ({
       overlayRef.current.setMap(null);
     }
 
-    const jobMarkerImage = new window.kakao.maps.MarkerImage(
-      JOB_LOCATION_MARKER,
-      new window.kakao.maps.Size(36, 46),
-      { offset: new window.kakao.maps.Point(18, 44) },
-    );
+    const singleMarkerSvg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="17" fill="#5B92F3" stroke="white" stroke-width="3"/><text x="19" y="24" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="15" font-weight="700">1</text></svg>`);
+    const jobMarkerImage = new window.kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${singleMarkerSvg}`, new window.kakao.maps.Size(38, 38), { offset: new window.kakao.maps.Point(19, 19) });
 
     currentJobs.forEach((job) => {
       const markerPosition = new window.kakao.maps.LatLng(job.latitude, job.longitude);
@@ -214,8 +212,6 @@ export const KakaoMapContainer: React.FC<Props> = ({
         image: jobMarkerImage,
         title: job.title,
       });
-
-      marker.setMap(map);
 
       window.kakao.maps.event.addListener(marker, "click", () => {
         const contentNode = createOverlayContent(job);
@@ -228,6 +224,17 @@ export const KakaoMapContainer: React.FC<Props> = ({
 
       markersRef.current.push(marker);
     });
+
+    const clusterer = new window.kakao.maps.MarkerClusterer({
+      map,
+      markers: markersRef.current,
+      averageCenter: true,
+      minLevel: 1,
+      minClusterSize: 2,
+      disableClickZoom: false,
+      styles: [{ width: "42px", height: "42px", background: "#5B92F3", border: "3px solid #fff", borderRadius: "50%", color: "#fff", textAlign: "center", fontWeight: "800", fontSize: "14px", lineHeight: "36px", boxShadow: "0 5px 14px rgba(43, 82, 153, .3)" }],
+    });
+    clustererRef.current = clusterer;
   };
 
   useEffect(() => {
