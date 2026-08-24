@@ -24,7 +24,7 @@ public class EmployerAuthController {
     }
 
     @PostMapping("/signup")
-    public EmployerAuthResponse signup(@Valid @RequestBody EmployerSignupRequest request) { return service.signup(request); }
+    public EmployerResponse signup(@Valid @RequestBody EmployerSignupRequest request) { return service.signup(request); }
 
     @PostMapping("/login")
     public EmployerAuthResponse login(@Valid @RequestBody EmployerLoginRequest request) { return service.login(request); }

@@ -46,7 +46,7 @@ export function EmployerSignupPage() {
     setSubmitting(true);
     try {
       await signup(form);
-      navigate("/employer");
+      navigate("/employer/login?signup=pending");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "가입에 실패했습니다.");
     } finally {
