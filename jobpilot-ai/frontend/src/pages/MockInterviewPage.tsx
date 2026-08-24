@@ -125,6 +125,7 @@ type Stage =
   | "countdown" // 질문 공개 직전 3초 카운트다운 - 여기서부터 다시 카메라/얼굴 추적 재개
   | "get-ready"
   | "recording"
+  | "finalizing" // 휴대폰→PC 전송 지연을 흡수하며 마지막 발화를 저장하는 짧은 구간
   | "analyzing"
   | "session-report" // 세션의 마지막 질문까지 다 끝난 뒤 - 전체를 한 번에 종합 평가한 최종 화면
   | "error"
@@ -740,6 +741,7 @@ export function MockInterviewPage() {
   const faceFramesRef = useRef<FaceFrameSample[]>([]);
   const isRecordingRef = useRef(false);
   const timerIdRef = useRef<number | null>(null);
+  const recordingStopTimerRef = useRef<number | null>(null);
   // 2026-08-05: 얼굴 인식 모델은 로딩에 몇 초 걸려서, 세션 중 다음 질문으로 넘어갈 때마다
   // 다시 로딩하지 않도록 한 번 로드한 걸 캐싱해둔다(카메라 스트림 자체도 질문 사이에 끊지
   // 않고 계속 켜둔다 - stopRecording 참고).
@@ -793,6 +795,9 @@ export function MockInterviewPage() {
   // 아니고, 감 잡는 용도로만 색을 살짝 바꿔 보여준다.
   const RECOMMENDED_MIN_SEC = 30;
   const RECOMMENDED_MAX_SEC = 60;
+  // 휴대폰 카메라를 WebRTC로 쓰면 "답변 완료" 클릭 시점의 마지막 오디오 패킷이 PC에
+  // 아직 도착하지 않았을 수 있다. 이 짧은 여유를 둬서 문장 끝이 잘리는 일을 막는다.
+  const RECORDING_TAIL_MS = 900;
   // 2026-08-11: 1.5초 고정 대기 대신 "3, 2, 1" 카운트다운으로 바꿨다(사용자 요청 - 질문을
   // 다 읽어준 다음 "곧 녹화가 시작됩니다, 정면을 응시해주세요"와 숫자 카운트다운을 보여주고
   // 카운트가 끝나는 순간 바로 답변할 수 있게 녹화가 시작되길 원함). "countdown"/"break"
@@ -1545,8 +1550,17 @@ export function MockInterviewPage() {
     speakQuestionText(text, () => startRecording());
   };
 
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+  const finishRecordingAfterTail = () => {
+    recordingStopTimerRef.current = null;
+    const recorder = mediaRecorderRef.current;
+    // requestData()를 먼저 호출하면 stop 이벤트 전에 마지막 청크를 한 번 더 받아,
+    // "답변 완료" 버튼 직전의 음절이 빠지는 현상을 줄일 수 있다.
+    try {
+      recorder?.requestData();
+      recorder?.stop();
+    } catch {
+      // 이미 종료된 recorder는 onstop을 다시 발생시키지 않으므로 아래 상태 정리만 진행한다.
+    }
     isRecordingRef.current = false;
     // 2026-08-05: 예전엔 여기서 stopStream()까지 같이 불러서 한 문제(답변)가 끝날 때마다
     // 카메라/마이크가 완전히 꺼졌다 - 세션 안에서 다음 질문으로 넘어갈 때 매번 권한을 다시
@@ -1575,6 +1589,14 @@ export function MockInterviewPage() {
       setCountdownValue(BREAK_COUNTDOWN_SECONDS);
       setStage("break");
     }
+  };
+
+  const stopRecording = () => {
+    if (!isRecordingRef.current || recordingStopTimerRef.current !== null) return;
+    // 즉시 stop하면 특히 휴대폰→PC WebRTC에서 마지막 말소리 패킷이 늦게 도착해
+    // 문장 끝이 잘릴 수 있다. 녹음과 얼굴 샘플링을 0.9초 더 유지한 뒤 확정한다.
+    setStage("finalizing");
+    recordingStopTimerRef.current = window.setTimeout(finishRecordingAfterTail, RECORDING_TAIL_MS);
   };
 
   // 2026-08-06: analyzeAnswer 결과가 도착했을 때 호출된다. 마지막 질문(쉬는 시간 없이 바로
@@ -1713,6 +1735,10 @@ export function MockInterviewPage() {
   // Gemini 프롬프트에 넣으므로, 빈 문자열 대신 "건너뛰었다"는 걸 명시한 문장을 넣어서
   // 모델이 "답변 없음"과 헷갈리지 않고 그대로 코멘트할 수 있게 한다.
   const skipCurrentQuestion = () => {
+    if (recordingStopTimerRef.current !== null) {
+      window.clearTimeout(recordingStopTimerRef.current);
+      recordingStopTimerRef.current = null;
+    }
     if (isRecordingRef.current && mediaRecorderRef.current) {
       mediaRecorderRef.current.onstop = null;
       try {
@@ -1737,6 +1763,10 @@ export function MockInterviewPage() {
 
   // 세션을 완전히 종료하고 랜딩 화면으로 돌아간다 - 카메라/마이크 스트림도 이 시점에만 끈다.
   const endSession = () => {
+    if (recordingStopTimerRef.current !== null) {
+      window.clearTimeout(recordingStopTimerRef.current);
+      recordingStopTimerRef.current = null;
+    }
     stopMeterLoop();
     stopFaceLoop();
     stopTtsAudio();
@@ -1801,6 +1831,7 @@ export function MockInterviewPage() {
     stage === "countdown" ||
     stage === "get-ready" ||
     stage === "recording" ||
+    stage === "finalizing" ||
     stage === "break";
 
   useEffect(() => {
@@ -2453,6 +2484,14 @@ export function MockInterviewPage() {
                   <SkipForward size={14} /> 건너뛰기
                 </button>
               </div>
+            </>
+          )}
+
+          {stage === "finalizing" && (
+            <>
+              <LoaderCircle className="spin" color="#5B92F3" size={25} />
+              <strong style={{ color: "#293349", fontSize: 14 }}>마지막 음성을 저장하고 있어요...</strong>
+              <span style={{ fontSize: 11, color: "#9098a7" }}>문장 끝까지 정확히 인식하기 위해 잠시만 기다려 주세요.</span>
             </>
           )}
 
