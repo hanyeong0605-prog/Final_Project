@@ -34,10 +34,10 @@ export function NotificationBell() {
 
   useEffect(() => {
     void getUnreadCount().then((r) => setUnreadCount(r.count)).catch(() => setUnreadCount(0));
-    // 새로 켠 다른 기기/스케줄러 발송분을 반영하기 위해 1분마다 안읽음 개수만 가볍게 갱신.
+    // 스케줄러가 새 맞춤공고를 기록하면 헤더에서 곧바로 보이도록 15초마다 갱신.
     const interval = setInterval(() => {
       void getUnreadCount().then((r) => setUnreadCount(r.count)).catch(() => {});
-    }, 60_000);
+    }, 15_000);
     return () => clearInterval(interval);
   }, []);
 

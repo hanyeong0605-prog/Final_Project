@@ -180,5 +180,6 @@ push:
     cron: "${PUSH_DEADLINE_REMINDER_CRON:0 0 9 * * *}"
   recommended-job:
     # 매일 오전 8시 30분(KST) - 크롤러(06:00)/요건추출 백필 이후, 마감임박 알림(09:00) 전에
-    # 새로 APPLY_NOW로 매칭된 JobMatch를 찾아 발송한다 (RecommendedJobPushScheduler 참고).
-    cron: "${PUSH_RECOMMENDED_JOB_CRON:0 30 8 * * *}"
+    # 새로 APPLY_NOW/보완후도전으로 매칭된 공고를 찾아 발송한다. 공고 크롤링·요건 추출이
+    # 끝난 뒤 빠르게 알리되, NotificationLog 중복키가 같은 공고의 재발송은 막는다.
+    cron: "${PUSH_RECOMMENDED_JOB_CRON:0 */15 * * * *}"
