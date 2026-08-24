@@ -982,7 +982,7 @@ a { color: inherit; text-decoration: none; }
 .planner-modal .section-title button { cursor: pointer; font-size: 12px; font-weight: 800; }
 .planner-modal .primary-button { min-width: 100px; }
 .onboarding-choice { width: min(510px, 100%); padding: 34px; text-align: center; }
-.onboarding-choice-icon { margin: 0 auto 13px; color: #277fbb; }
+.onboarding-choice-mascot { display: block; width: 58px; height: 58px; margin: -6px auto 7px; object-fit: contain; }
 .onboarding-choice .onboarding-head p { max-width: 400px; margin: 0 auto 24px; }
 .onboarding-start { width: 100%; min-height: 48px; font-size: 13px; }
 .onboarding-choice .skip-onboarding { margin-top: 13px; cursor: pointer; }
