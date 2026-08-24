@@ -1188,3 +1188,10 @@ button:focus-visible,a:focus-visible {
   border-color:#e2e6ec;
   box-shadow:none;
 }
+
+/* 로그인은 서비스의 대표 실행 버튼이므로 요청한 브랜드 블루를 유지한다. */
+.auth-card form .primary-button,.auth-card form .primary-button:hover:not(:disabled) {
+  border-color:#5B92F3;
+  background:#5B92F3;
+  color:#fff;
+}

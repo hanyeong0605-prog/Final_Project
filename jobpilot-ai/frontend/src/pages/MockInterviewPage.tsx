@@ -1875,7 +1875,7 @@ export function MockInterviewPage() {
                       <video
                         key="talking"
                         className="interviewer-avatar-media"
-                        src="/mascot-interview-talking.mp4"
+                        src="/mascot-interview-talking.webm"
                         autoPlay
                         loop
                         muted

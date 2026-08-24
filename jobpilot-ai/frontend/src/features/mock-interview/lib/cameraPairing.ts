@@ -29,8 +29,21 @@ export function openPairingSocket(ticket: string, onSignal: (signal: PairingSign
 }
 
 export function createPeerConnection(send: (signal: PairingSignal) => void) {
+  const turnUrls = (import.meta.env.VITE_TURN_URL ?? "")
+    .split(",")
+    .map((url: string) => url.trim())
+    .filter(Boolean);
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME?.trim();
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL?.trim();
+  const iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+  // TURN relays media when the PC and phone are on different mobile/Wi-Fi
+  // networks or either side is behind a restrictive NAT. It is optional in
+  // local development, but production supplies these three VITE_* values.
+  if (turnUrls.length > 0 && turnUsername && turnCredential) {
+    iceServers.push({ urls: turnUrls, username: turnUsername, credential: turnCredential });
+  }
   const peer = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    iceServers,
   });
   peer.onicecandidate = (event) => {
     if (event.candidate) send({ type: "ice-candidate", candidate: event.candidate.toJSON() });

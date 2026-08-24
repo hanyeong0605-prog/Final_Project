@@ -96,6 +96,20 @@ jobs:
                 $COMPOSE up -d --no-deps frontend
             fi
 
+            # A configured coturn relay makes phone-camera WebRTC work across
+            # mobile data and restrictive NATs. Keep it optional until the
+            # EC2 environment file contains the relay account and public IP.
+            if grep -Eq '^TURN_USERNAME=.+$' /etc/jobpilot/jobpilot.env && \
+               grep -Eq '^TURN_PASSWORD=.+$' /etc/jobpilot/jobpilot.env && \
+               grep -Eq '^TURN_EXTERNAL_IP=.+$' /etc/jobpilot/jobpilot.env && \
+               grep -Eq '^VITE_TURN_URL=.+$' /etc/jobpilot/jobpilot.env && \
+               grep -Eq '^VITE_TURN_USERNAME=.+$' /etc/jobpilot/jobpilot.env && \
+               grep -Eq '^VITE_TURN_CREDENTIAL=.+$' /etc/jobpilot/jobpilot.env; then
+                $COMPOSE --profile turn up -d turn
+            else
+                echo "TURN relay is not configured; using direct STUN only."
+            fi
+
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/backend/'; then
                 $COMPOSE build backend
                 $COMPOSE up -d --no-deps backend

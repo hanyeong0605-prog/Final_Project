@@ -18,6 +18,7 @@ export function CameraPairPage() {
   const socketRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   useEffect(() => {
     if (!member || !roomId || !pairingToken) return;
@@ -41,13 +42,31 @@ export function CameraPairPage() {
     if (socketRef.current?.readyState === WebSocket.OPEN) socketRef.current.send(JSON.stringify(signal));
   };
 
+  const addRemoteCandidate = async (candidate: RTCIceCandidateInit) => {
+    const peer = peerRef.current;
+    if (!peer || !peer.remoteDescription) {
+      pendingCandidatesRef.current.push(candidate);
+      return;
+    }
+    try {
+      await peer.addIceCandidate(candidate);
+    } catch {
+      setError("PC 카메라 연결 후보를 적용하지 못했습니다.");
+    }
+  };
+
+  const flushPendingCandidates = async (peer: RTCPeerConnection) => {
+    const candidates = pendingCandidatesRef.current.splice(0);
+    for (const candidate of candidates) await peer.addIceCandidate(candidate);
+  };
+
   async function handleSignal(signal: PairingSignal) {
     if (signal.type === "interview-state") {
       setInterviewState({ stage: signal.stage, question: signal.question, elapsedSec: signal.elapsedSec });
       return;
     }
     if (signal.type !== "offer" || peerRef.current) {
-      if (signal.type === "ice-candidate" && peerRef.current) await peerRef.current.addIceCandidate(signal.candidate);
+      if (signal.type === "ice-candidate") await addRemoteCandidate(signal.candidate);
       return;
     }
     try {
@@ -65,6 +84,7 @@ export function CameraPairPage() {
       };
       stream.getTracks().forEach((track) => peer.addTrack(track, stream));
       await peer.setRemoteDescription(signal.sdp);
+      await flushPendingCandidates(peer);
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
       send({ type: "answer", sdp: answer });

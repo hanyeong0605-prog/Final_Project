@@ -7,6 +7,9 @@ services:
         VITE_KAKAO_MAP_KEY: ${VITE_KAKAO_MAP_KEY:?Set VITE_KAKAO_MAP_KEY in the server environment file}
         VITE_ML_API_URL: ${VITE_ML_API_URL:-/wordcloud-api}
         VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY:?Set VITE_TOSS_CLIENT_KEY in the server environment file}
+        VITE_TURN_URL: ${VITE_TURN_URL:-}
+        VITE_TURN_USERNAME: ${VITE_TURN_USERNAME:-}
+        VITE_TURN_CREDENTIAL: ${VITE_TURN_CREDENTIAL:-}
     restart: unless-stopped
     ports:
       # TLS terminates at the host Nginx. Keep the application container
@@ -19,6 +22,27 @@ services:
         condition: service_healthy
       wordcloud-server:
         condition: service_healthy
+
+  # Optional WebRTC relay for the phone camera. Direct STUN connections work
+  # on many networks, but a TURN relay is required when phone data / carrier
+  # NAT blocks peer-to-peer media. Start with `--profile turn` after setting
+  # the TURN_* and VITE_TURN_* entries in /etc/jobpilot/jobpilot.env.
+  turn:
+    image: coturn/coturn:4.6.2
+    profiles: ["turn"]
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --fingerprint
+      - --lt-cred-mech
+      - --realm=${TURN_REALM:-job-a-dream.site}
+      - --user=${TURN_USERNAME:?Set TURN_USERNAME in the server environment file}:${TURN_PASSWORD:?Set TURN_PASSWORD in the server environment file}
+      - --external-ip=${TURN_EXTERNAL_IP:?Set TURN_EXTERNAL_IP to the EC2 public IP in the server environment file}
+      - --min-port=49160
+      - --max-port=49200
+      - --no-multicast-peers
 
   backend:
     build:

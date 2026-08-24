@@ -18,6 +18,7 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const transferredRef = useRef(false);
   const remoteStreamRef = useRef<MediaStream | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   useEffect(() => {
     let disposed = false;
@@ -51,11 +52,34 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
       return;
     }
     if (signal.type === "answer" && peerRef.current) {
-      void peerRef.current.setRemoteDescription(signal.sdp).then(() => setStatus("휴대폰 카메라에 연결되었습니다."));
+      void peerRef.current.setRemoteDescription(signal.sdp)
+        .then(async () => {
+          await flushPendingCandidates(peerRef.current!);
+          setStatus("휴대폰 카메라에 연결되었습니다.");
+        })
+        .catch(() => setError("휴대폰 카메라 연결 정보를 적용하지 못했습니다."));
       return;
     }
-    if (signal.type === "ice-candidate" && peerRef.current) void peerRef.current.addIceCandidate(signal.candidate);
+    if (signal.type === "ice-candidate") void addRemoteCandidate(signal.candidate);
     if (signal.type === "peer-left") setStatus("휴대폰 연결이 종료되었습니다.");
+  }
+
+  async function addRemoteCandidate(candidate: RTCIceCandidateInit) {
+    const peer = peerRef.current;
+    if (!peer || !peer.remoteDescription) {
+      pendingCandidatesRef.current.push(candidate);
+      return;
+    }
+    try {
+      await peer.addIceCandidate(candidate);
+    } catch {
+      setError("휴대폰 카메라 네트워크 후보를 연결하지 못했습니다.");
+    }
+  }
+
+  async function flushPendingCandidates(peer: RTCPeerConnection) {
+    const candidates = pendingCandidatesRef.current.splice(0);
+    for (const candidate of candidates) await peer.addIceCandidate(candidate);
   }
 
   async function offerPhoneConnection() {
