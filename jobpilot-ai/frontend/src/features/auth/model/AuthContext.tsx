@@ -1,5 +1,5 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
-import { clearAccessToken, getAccessToken, setAccessToken } from "../../../api/httpClient";
+import { authExpiredEvent, clearAccessToken, getAccessToken, setAccessToken } from "../../../api/httpClient";
 import {
   developmentAdminLogin as requestDevelopmentAdminLogin,
   developmentLogin as requestDevelopmentLogin,
@@ -30,6 +30,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!getAccessToken()) { setLoading(false); return; }
     void getMe().then(setMember).catch(() => { clearAccessToken(); setMember(null); }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const onExpired = () => setMember(null);
+    window.addEventListener(authExpiredEvent, onExpired);
+    return () => window.removeEventListener(authExpiredEvent, onExpired);
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
