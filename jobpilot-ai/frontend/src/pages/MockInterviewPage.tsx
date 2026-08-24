@@ -731,6 +731,7 @@ export function MockInterviewPage() {
   const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
   const phoneAutoStartRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const recordingAudioContextRef = useRef<AudioContext | null>(null);
   // 2026-08-12 추가: 마이크 테스트 화면의 막대바 대신 실제 파형(오실로스코프 모양)을
   // 그려주기 위한 canvas ref - startMeterLoop의 tick()에서 매 프레임 그린다.
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1360,55 +1361,55 @@ export function MockInterviewPage() {
       return;
     }
 
-    // 2026-08-13: "아이폰 사파리에서 녹음은 되는데(에러도 안 뜸) 전사가 계속 빈칸으로 나온다"
-    // 버그 리포트 원인 - webm/ogg 컨테이너를 MediaRecorder가 아예 지원 안 하는 브라우저는
-    // 사실상 WebKit(iOS/모든 iOS 브라우저 + macOS Safari) 계열뿐이다. 그런데 아래처럼
-    // "오디오 트랙만 뽑아서 새로 만든 MediaStream"을 WebKit의 MediaRecorder에 넘기면, 예외는
-    // 안 던지고 녹음도 "성공"하지만 실제로는 무음이 녹음되는 WebKit 버그가 있다(원본 stream의
-    // 트랙을 그대로 안 쓰고 getAudioTracks()로 뽑아 새 MediaStream을 만드는 지점이 문제) - 그
-    // 결과 서버(ffmpeg->Google STT)는 정상적으로 "무음"을 처리해서 빈 전사를 돌려준 것뿐이라
-    // 에러도 안 뜬 것이다. 크롬 계열은 webm/ogg 중 하나가 항상 지원되니 기존처럼 오디오 트랙만
-    // 추출해서 녹음(대역폭 절약)하고, WebKit 계열로 판별되면 트랙 추출 없이 원본 stream(영상+
-    // 오디오)을 그대로 녹음한다 - ai-server는 어차피 ffmpeg로 오디오만 뽑아 쓰므로 영상이
-    // 섞여 있어도 STT 동작은 동일하고, 대신 업로드 용량이 좀 더 커진다.
+    // 분석 서버에는 음성만 필요하다. WebKit은 remote audio track을 단순히 새
+    // MediaStream에 넣으면 무음으로 저장하는 경우가 있어, AudioContext의 destination
+    // stream으로 한 번 연결해 오디오 전용 녹음을 만든다. 이 방식이면 휴대폰 영상이
+    // 분석 요청에 섞이지 않아 413(요청 본문 초과)도 피할 수 있다.
     const audioMimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
       .find((candidate) => MediaRecorder.isTypeSupported(candidate));
     const isLikelyWebkit = !audioMimeType;
 
-    let recordStream = stream;
-    if (!isLikelyWebkit) {
-      // STT 서버에는 오디오만 보내면 되니, 녹음 자체는 오디오 트랙만 따로 담아서 만든다
-      // (영상까지 녹화해서 올리면 용량도 크고 서버에 얼굴 영상을 보내는 셈이 되어버림) -
-      // 다만 이건 위에서 설명한 WebKit 무음 버그를 피할 수 있는 브라우저(크롬 계열)에서만.
-      const audioOnlyStream = new MediaStream(stream.getAudioTracks());
-      if (audioOnlyStream.getAudioTracks().length === 0) {
-        setErrorMessage("마이크 오디오를 받지 못했습니다. 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
-        setStage("error");
-        return;
+    const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+    if (audioOnlyStream.getAudioTracks().length === 0) {
+      setErrorMessage("마이크 오디오를 받지 못했습니다. 브라우저에서 마이크 권한을 허용한 뒤 다시 연결해 주세요.");
+      setStage("error");
+      return;
+    }
+
+    let recordStream = audioOnlyStream;
+    if (isLikelyWebkit) {
+      try {
+        void recordingAudioContextRef.current?.close();
+        const recordingContext = new AudioContext();
+        recordingAudioContextRef.current = recordingContext;
+        const source = recordingContext.createMediaStreamSource(stream);
+        const destination = recordingContext.createMediaStreamDestination();
+        source.connect(destination);
+        if (recordingContext.state === "suspended") void recordingContext.resume();
+        recordStream = destination.stream;
+      } catch {
+        // Safari에서도 AudioContext 생성이 막힌 경우에는 오디오 트랙만 직접 사용한다.
+        // 영상 전체를 보내는 폴백은 요청 크기 초과를 일으키므로 사용하지 않는다.
+        recordStream = audioOnlyStream;
       }
-      recordStream = audioOnlyStream;
     }
 
     chunksRef.current = [];
-    // WebKit 계열은 webm/ogg 대신 mp4(audio/mp4, video/mp4)만 지원한다.
+    // WebKit 계열은 webm/ogg 대신 MP4 컨테이너만 지원한다.
     const mimeType = isLikelyWebkit
-      ? ["video/mp4", "audio/mp4"].find((candidate) => MediaRecorder.isTypeSupported(candidate))
+      ? ["audio/mp4", "video/mp4"].find((candidate) => MediaRecorder.isTypeSupported(candidate))
       : audioMimeType;
     let recorder: MediaRecorder;
     try {
       recorder = mimeType ? new MediaRecorder(recordStream, { mimeType }) : new MediaRecorder(recordStream);
       recorder.start();
     } catch (reason) {
-      // Some Chromium builds reject an audio-only MediaStream made from a
-      // remote WebRTC track. The AI server accepts WebM and extracts audio
-      // with ffmpeg, so use the original remote audio+video stream as a safe
-      // fallback instead of abandoning the interview.
-      const fallbackMimeType = ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
+      const fallbackMimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
         .find((candidate) => MediaRecorder.isTypeSupported(candidate));
       try {
         recorder = fallbackMimeType
-          ? new MediaRecorder(stream, { mimeType: fallbackMimeType })
-          : new MediaRecorder(stream);
+          ? new MediaRecorder(audioOnlyStream, { mimeType: fallbackMimeType })
+          : new MediaRecorder(audioOnlyStream);
         recorder.start();
       } catch (fallbackReason) {
         setErrorMessage(`녹화를 시작하지 못했습니다. ${fallbackReason instanceof Error ? fallbackReason.message : reason instanceof Error ? reason.message : "휴대폰의 마이크 권한을 다시 확인해 주세요."}`);
@@ -1419,7 +1420,11 @@ export function MockInterviewPage() {
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
-    recorder.onstop = () => void submitRecording();
+    recorder.onstop = () => {
+      void recordingAudioContextRef.current?.close();
+      recordingAudioContextRef.current = null;
+      void submitRecording();
+    };
 
     mediaRecorderRef.current = recorder;
 
@@ -1893,7 +1898,7 @@ export function MockInterviewPage() {
               disabled={questionAudioBusy}
               style={{ marginLeft: "auto", flex: "none" }}
             >
-              <Volume2 size={16} /> 질문 듣기
+              <Volume2 size={16} /> 다시 듣기
             </button>
           </div>
         )}

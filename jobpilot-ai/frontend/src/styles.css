@@ -566,7 +566,7 @@ a { color: inherit; text-decoration: none; }
 .interviewer-tile .interview-call-tag { left: 12px; bottom: 12px; background: #29335599; }
 
 .interviewer-avatar-wrap { position: relative; display: flex; justify-content: center; }
-.interviewer-avatar-frame { width: min(100%, 236px); aspect-ratio: 4 / 3; overflow: hidden; border-radius: 14px; background: #cfd8ef; box-shadow: 0 10px 24px #4c5f8b2b; }
+.interviewer-avatar-frame { width: min(100%, 310px); aspect-ratio: 16 / 10; overflow: hidden; border-radius: 14px; background: #cfd8ef; box-shadow: 0 10px 24px #4c5f8b2b; }
 .interviewer-avatar-media { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .interviewer-avatar { width: 132px; height: auto; filter: drop-shadow(0 10px 14px #5a6bcf30); animation: interviewer-idle-bob 2.6s ease-in-out infinite; }
 @keyframes interviewer-idle-bob {
