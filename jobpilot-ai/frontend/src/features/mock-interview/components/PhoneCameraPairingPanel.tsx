@@ -116,7 +116,7 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
         <div style={{ display: "grid", justifyItems: "center", gap: 12, marginTop: 16 }}>
           <QRCodeSVG value={pairUrl} size={210} level="M" includeMargin />
           <code style={{ maxWidth: "100%", overflowWrap: "anywhere", fontSize: 10, color: "#667085" }}>{pairUrl}</code>
-          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> QR은 5분 안에 한 번만 사용할 수 있습니다.</span>
+          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> QR은 5분 동안 유효하며, 같은 계정으로 다시 연결할 수 있습니다.</span>
         </div>
       )}
     </div>

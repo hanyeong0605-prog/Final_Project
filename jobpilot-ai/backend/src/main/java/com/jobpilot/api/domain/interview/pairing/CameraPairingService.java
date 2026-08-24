@@ -11,8 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
 /**
- * Single-instance MVP store. Tokens are random, short-lived and removed as soon
- * as the corresponding WebSocket handshake consumes them.
+ * Single-instance MVP store. The QR pairing token is random and short-lived.
+ * WebSocket tickets are single-use, but the same authenticated owner may scan
+ * the QR again during its lifetime to recover from a mobile-page reload.
  */
 @Service
 public class CameraPairingService {
@@ -33,7 +34,7 @@ public class CameraPairingService {
         Instant expiresAt = clock.instant().plus(PAIRING_LIFETIME);
         String roomId = UUID.randomUUID().toString();
         String pairingToken = nextToken();
-        rooms.put(roomId, new PairingSession(roomId, ownerMemberId, pairingToken, expiresAt, false));
+        rooms.put(roomId, new PairingSession(roomId, ownerMemberId, pairingToken, expiresAt));
         return new CreatedPairing(roomId, pairingToken, issueTicket(roomId, ownerMemberId, PeerRole.PC, expiresAt), expiresAt);
     }
 
@@ -42,11 +43,10 @@ public class CameraPairingService {
         PairingSession room = rooms.get(roomId);
         if (room == null || room.expiresAt().isBefore(clock.instant())) throw new PairingException("페어링 시간이 만료되었거나 존재하지 않습니다.");
         if (room.ownerMemberId() != memberId) throw new PairingException("페어링을 만든 계정으로 휴대폰에서 로그인해 주세요.");
-        synchronized (room) {
-            if (room.pairingTokenUsed()) throw new PairingException("이미 사용된 페어링 코드입니다. PC에서 새 QR 코드를 생성해 주세요.");
-            if (!room.pairingToken().equals(pairingToken)) throw new PairingException("유효하지 않은 페어링 코드입니다.");
-            rooms.put(roomId, room.withPairingTokenUsed());
-        }
+        // The phone page can be re-mounted after login or a network retry.
+        // Authentication already verifies that only the PC owner can join, so
+        // reusing a still-valid QR is safe and avoids a false 400 on retry.
+        if (!room.pairingToken().equals(pairingToken)) throw new PairingException("유효하지 않은 페어링 코드입니다.");
         return new JoinedPairing(roomId, issueTicket(roomId, memberId, PeerRole.PHONE, room.expiresAt()), room.expiresAt());
     }
 
@@ -83,8 +83,6 @@ public class CameraPairingService {
     public record CreatedPairing(String roomId, String pairingToken, String socketTicket, Instant expiresAt) {}
     public record JoinedPairing(String roomId, String socketTicket, Instant expiresAt) {}
     public record SocketIdentity(String roomId, long memberId, PeerRole role) {}
-    private record PairingSession(String roomId, long ownerMemberId, String pairingToken, Instant expiresAt, boolean pairingTokenUsed) {
-        PairingSession withPairingTokenUsed() { return new PairingSession(roomId, ownerMemberId, pairingToken, expiresAt, true); }
-    }
+    private record PairingSession(String roomId, long ownerMemberId, String pairingToken, Instant expiresAt) {}
     private record SocketTicket(String roomId, long memberId, PeerRole role, Instant expiresAt) {}
 }
