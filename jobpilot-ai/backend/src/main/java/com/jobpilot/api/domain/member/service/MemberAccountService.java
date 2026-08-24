@@ -44,19 +44,30 @@ public class MemberAccountService {
     public void withdraw(Long memberId, WithdrawalRequest request) {
         Member member = member(memberId);
         verifyPassword(request.password(), member);
-        jdbc.update("DELETE FROM job_match_evidences WHERE job_match_id IN (SELECT id FROM job_matches WHERE member_id = ?)", memberId);
-        jdbc.update("DELETE FROM job_matches WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM project_skills WHERE project_id IN (SELECT id FROM projects WHERE member_id = ?)", memberId);
-        jdbc.update("DELETE FROM projects WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM member_skills WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM certificates WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM education_histories WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM self_introductions WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM planner_events WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM user_interests WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM member_specifications WHERE member_id = ?", memberId);
-        jdbc.update("DELETE FROM member_profiles WHERE member_id = ?", memberId);
+        // Production databases have evolved over several schema versions.
+        // Delete every known child table that exists before removing members,
+        // rather than failing withdrawal because an optional legacy table is absent.
+        if (tableExists("job_match_evidences") && tableExists("job_matches")) {
+            jdbc.update("DELETE evidence FROM job_match_evidences evidence JOIN job_matches matches ON matches.id = evidence.job_match_id WHERE matches.member_id = ?", memberId);
+        }
+        if (tableExists("project_skills") && tableExists("projects")) {
+            jdbc.update("DELETE skills FROM project_skills skills JOIN projects projects ON projects.id = skills.project_id WHERE projects.member_id = ?", memberId);
+        }
+        String[] memberTables = {
+                "notification_logs", "push_subscriptions", "member_daily_visits", "member_job_events",
+                "member_oauth_accounts", "member_consents", "portfolio_documents", "resume_documents",
+                "resume_entries", "member_resume_save_states", "interview_session_records", "planner_events",
+                "user_interests", "certificate_bookmarks", "credit_transactions", "payments",
+                "subscription_payments", "subscriptions", "credit_balances", "job_matches", "projects",
+                "self_introductions", "member_skills", "certificates", "education_histories",
+                "member_specifications", "member_profiles"
+        };
+        for (String table : memberTables) {
+            if (tableExists(table)) jdbc.update("DELETE FROM " + table + " WHERE member_id = ?", memberId);
+        }
+        if (tableExists("employer_accounts")) jdbc.update("UPDATE employer_accounts SET reviewed_by = NULL WHERE reviewed_by = ?", memberId);
         members.delete(member);
+        members.flush();
     }
 
     private Member member(Long memberId) {
@@ -65,5 +76,12 @@ public class MemberAccountService {
 
     private void verifyPassword(String rawPassword, Member member) {
         if (!passwordEncoder.matches(rawPassword, member.getPasswordHash())) throw new InvalidCredentialsException();
+    }
+
+    private boolean tableExists(String table) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+                Integer.class, table);
+        return count != null && count > 0;
     }
 }
