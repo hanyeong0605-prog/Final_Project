@@ -34,6 +34,9 @@ public class MemberAccountService {
 
     public void changePassword(Long memberId, PasswordUpdateRequest request) {
         Member member = member(memberId);
+        if (isOAuthOnly(member)) {
+            throw new IllegalArgumentException("소셜 로그인 계정의 비밀번호는 네이버·카카오·구글에서 변경해 주세요.");
+        }
         verifyPassword(request.currentPassword(), member);
         if (passwordEncoder.matches(request.newPassword(), member.getPasswordHash())) {
             throw new IllegalArgumentException("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
@@ -43,7 +46,13 @@ public class MemberAccountService {
 
     public void withdraw(Long memberId, WithdrawalRequest request) {
         Member member = member(memberId);
-        verifyPassword(request.password(), member);
+        if (isOAuthOnly(member)) {
+            if (!"회원탈퇴".equals(request.confirmationText())) {
+                throw new IllegalArgumentException("소셜 로그인 계정은 확인 문구 ‘회원탈퇴’를 입력해 주세요.");
+            }
+        } else {
+            verifyPassword(request.password(), member);
+        }
         // Production databases have evolved over several schema versions.
         // Delete every known child table that exists before removing members,
         // rather than failing withdrawal because an optional legacy table is absent.
@@ -76,6 +85,12 @@ public class MemberAccountService {
 
     private void verifyPassword(String rawPassword, Member member) {
         if (!passwordEncoder.matches(rawPassword, member.getPasswordHash())) throw new InvalidCredentialsException();
+    }
+
+    private boolean isOAuthOnly(Member member) {
+        // OAuth signup stores a random non-login password and an oauth-* login
+        // id. It must never be presented as a password users can change.
+        return member.getLoginId().startsWith("oauth-");
     }
 
     private boolean tableExists(String table) {

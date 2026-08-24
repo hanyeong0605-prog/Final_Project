@@ -4,6 +4,7 @@ const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const tokenKey = "jobpilot.accessToken";
 const adminFaceSessionKey = "admin_face_session_id";
 const adminFaceVerifiedAtKey = "admin_face_verified_at";
+export const authExpiredEvent = "jobpilot:auth-expired";
 
 function addAdminFaceSession(path: string, headers: Headers) {
   // Pairing endpoints must remain reachable before face verification completes.
@@ -32,7 +33,10 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
 
   const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
   if (!response.ok) {
-    if (response.status === 401) clearAccessToken();
+    if (response.status === 401) {
+      clearAccessToken();
+      window.dispatchEvent(new Event(authExpiredEvent));
+    }
     const error = await response.json().catch(() => null) as { message?: string } | null;
     throw new Error(error?.message ?? `${init.method ?? "GET"} ${path} failed: ${response.status}`);
   }
@@ -59,7 +63,10 @@ export async function postForm<T>(path: string, body: FormData): Promise<T> {
   addAdminFaceSession(path, headers);
   const response = await fetch(`${apiBaseUrl}${path}`, { method: "POST", body, headers });
   if (!response.ok) {
-    if (response.status === 401) clearAccessToken();
+    if (response.status === 401) {
+      clearAccessToken();
+      window.dispatchEvent(new Event(authExpiredEvent));
+    }
     const error = await response.json().catch(() => null) as { message?: string } | null;
     throw new Error(error?.message ?? `POST ${path} failed: ${response.status}`);
   }

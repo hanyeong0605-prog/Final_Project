@@ -48,7 +48,18 @@ class MemberAccountServiceTest {
         Member member = member("withdraw-password");
         when(members.findById(1L)).thenReturn(Optional.of(member));
 
-        service.withdraw(1L, new WithdrawalRequest("withdraw-password"));
+        service.withdraw(1L, new WithdrawalRequest("withdraw-password", null));
+
+        verify(members).delete(member);
+        verify(members).flush();
+    }
+
+    @Test
+    void withdrawsOAuthOnlyMemberWithExplicitConfirmationInsteadOfUnknownPassword() {
+        Member member = new Member("oauth-naver-test", "oauth@example.com", passwords.encode("random-password"), "소셜회원");
+        when(members.findById(1L)).thenReturn(Optional.of(member));
+
+        service.withdraw(1L, new WithdrawalRequest(null, "회원탈퇴"));
 
         verify(members).delete(member);
         verify(members).flush();
