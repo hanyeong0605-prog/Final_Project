@@ -149,7 +149,7 @@ export function QuestionPage() {
                         key={idx}
                         onClick={() => navigate(action.path)}
                         style={{
-                          background: "#3b82f6",
+                          background: "#5B92F3",
                           color: "#ffffff",
                           border: "none",
                           borderRadius: "6px",
@@ -183,7 +183,7 @@ export function QuestionPage() {
                     fontWeight: "500"
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <Clock size={16} color="#3b82f6" />
+                      <Clock size={16} color="#5B92F3" />
                       <span>소요시간 {test.duration}</span>
                     </div>
                     <span>{test.questionCount}</span>

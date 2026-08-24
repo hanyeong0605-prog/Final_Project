@@ -162,7 +162,7 @@ export function CareerTestPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                style={{ padding: "12px 24px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" }}
+                style={{ padding: "12px 24px", backgroundColor: "#5B92F3", color: "#ffffff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" }}
               >
                 {isSubmitting ? "제출 중..." : "결과 제출하기"}
               </button>
@@ -171,7 +171,7 @@ export function CareerTestPage() {
             {reportUrl && (
               <div style={{ textAlign: "center", marginTop: "16px" }}>
                 <p>검사가 완료되었습니다.</p>
-                <a href={reportUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "600" }}>결과 리포트 보기 열기</a>
+                <a href={reportUrl} target="_blank" rel="noreferrer" style={{ color: "#5B92F3", fontWeight: "600" }}>결과 리포트 보기 열기</a>
               </div>
             )}
           </div>

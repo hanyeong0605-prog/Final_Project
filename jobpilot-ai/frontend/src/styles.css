@@ -183,7 +183,7 @@ a { color: inherit; text-decoration: none; }
 .data-state-panel h2 { margin: 0 0 7px; font-size: 18px; }
 .data-state-panel p { margin: 0; color: var(--muted); }
 .data-state-dot { width: 12px; height: 12px; flex: 0 0 12px; border-radius: 50%; background: #94a3b8; }
-.data-state-panel.loading .data-state-dot { background: #3b82f6; }
+.data-state-panel.loading .data-state-dot { background: #5B92F3; }
 .data-state-panel.error .data-state-dot { background: #ef4444; }
 .data-state-panel.empty .data-state-dot { background: #f59e0b; }
 .posting-search { display: flex; align-items: center; gap: 9px; margin-top: 20px; border: 1px solid #e1e5ec; border-radius: 10px; background: #fff; color: #98a1b2; padding-left: 13px; }
@@ -361,20 +361,20 @@ a { color: inherit; text-decoration: none; }
 .app-shell { display: block; background: #f7f8fc; }
 .main-area { min-width: 0; }
 .topbar { position: sticky; z-index: 15; top: 0; height: 90px; gap: 32px; padding: 0 clamp(54px, 5vw, 76px); }
-.brand-link { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
-.brand-identity { position: relative; display: grid; min-width: 232px; height: 46px; overflow: hidden; }
-.brand-name { position: relative; grid-area: 1 / 1; align-self: center; width: 100%; height: 46px; color: #151515; font-size: 25px; font-weight: 800; letter-spacing: -1.1px; line-height: 46px; transition: opacity .22s ease, transform .36s cubic-bezier(.2,.8,.2,1); }
+.brand-link { display: inline-flex; align-items: center; gap: 3px; color: inherit; text-decoration: none; }
+.brand-identity { position: relative; display: grid; min-width: 270px; height: 60px; overflow: hidden; }
+.brand-name { position: relative; grid-area: 1 / 1; align-self: center; width: 100%; height: 60px; color: #151515; font-size: 25px; font-weight: 800; letter-spacing: -1.1px; line-height: 60px; transition: opacity .22s ease, transform .36s cubic-bezier(.2,.8,.2,1); }
 .brand-name-en { opacity: 1; transform: translateY(0); white-space: nowrap; }
-.brand-name-ko { opacity: 0; transform: translateY(46px); color: #142544; font-size: 31px; }
-.brand-wordmark-image { display: block; width: 232px; height: 46px; object-fit: contain; }
+.brand-name-ko { opacity: 0; transform: translateY(60px); color: #5B92F3; font-size: 44px; letter-spacing: -2px; }
+.brand-wordmark-image { display: block; width: 270px; height: 60px; object-fit: contain; }
 .brand-tagline { display: none; }
-.brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 0; transform: translateY(-46px); }
+.brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 0; transform: translateY(-60px); }
 .brand-link:hover .brand-name-ko, .brand-link:focus-visible .brand-name-ko { opacity: 1; transform: translateY(0); }
-.home-topbar .brand-identity { min-width: 210px; height: 42px; }
-.home-topbar .brand-name { height: 42px; line-height: 42px; }
-.home-topbar .brand-name-ko { transform: translateY(42px); font-size: 27px; }
-.home-topbar .brand-wordmark-image { width: 210px; height: 42px; }
-.home-topbar .brand-link:hover .brand-name-en, .home-topbar .brand-link:focus-visible .brand-name-en { transform: translateY(-42px); }
+.home-topbar .brand-identity { min-width: 252px; height: 56px; }
+.home-topbar .brand-name { height: 56px; line-height: 56px; }
+.home-topbar .brand-name-ko { transform: translateY(56px); font-size: 40px; }
+.home-topbar .brand-wordmark-image { width: 252px; height: 56px; }
+.home-topbar .brand-link:hover .brand-name-en, .home-topbar .brand-link:focus-visible .brand-name-en { transform: translateY(-56px); }
 .brand-logo-scene { position: relative; display: block; width: 35px; height: 35px; flex: none; overflow: visible; }
 .brand-logo-letter { display: grid; place-items: center; transition: opacity .12s ease; }
 .brand-job-mouse { position: absolute; z-index: 5; top: 29px; left: 2px; width: 31px; height: 19px; border: 1px solid #4a536c; border-radius: 49% 49% 45% 45% / 62% 62% 38% 38%; background: linear-gradient(145deg, #aeb6c9 0%, #7c859c 46%, #586176 100%); box-shadow: inset 1px 1px 1px #ffffff78, 0 2px 4px #26335442; color: #fff; transform-origin: 52% 50%; }
@@ -991,35 +991,35 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .page-transition, .page-transition > * { animation: none; } }
 @media (max-width: 700px) { .planner-modal { max-height: calc(100vh - 32px); overflow-y: auto; }.onboarding-choice { min-height: auto; padding: 30px 22px; } }
 
-/* Blue Jeans is the shared interactive-button color. Dashboard challenge
+/* Brand blue is the shared interactive-button color. Dashboard challenge
    warnings deliberately retain their orange status treatment. */
 .primary-button,
 .search-box button {
-  border-color:#5DADEC;
-  background:#5DADEC;
-  box-shadow:0 5px 11px #5DADEC33;
+  border-color:#5B92F3;
+  background:#5B92F3;
+  box-shadow:0 5px 11px #5B92F333;
 }
 .primary-button:hover,
-.search-box button:hover { border-color:#4299d7; background:#4299d7; }
+.search-box button:hover { border-color:#5B92F3; background:#5B92F3; }
 .add-job,.outline-button,.full-outline {
-  border-color:#5DADEC;
-  color:#258dcb;
+  border-color:#5B92F3;
+  color:#5B92F3;
 }
 .add-job:hover,.outline-button:hover,.full-outline:hover {
-  border-color:#5DADEC;
-  background:#5DADEC;
+  border-color:#5B92F3;
+  background:#5B92F3;
   color:#fff;
 }
 .desktop-nav-link.active,.nav-item.active {
-  background:#e8f5fd;
-  color:#258dcb;
+  background:#edf3ff;
+  color:#5B92F3;
 }
 .topbar-account,.metric-card.blue .metric-icon,.insight-icon {
-  background:#e8f5fd;
-  color:#258dcb;
+  background:#edf3ff;
+  color:#5B92F3;
 }
 .text-button,.notification-popover-head button,.bookmark:hover,.bookmark.active {
-  color:#5DADEC;
+  color:#5B92F3;
 }
 
 /* Keep ordinary actions and their hover feedback on the Blue Jeans palette.
@@ -1029,28 +1029,28 @@ a { color: inherit; text-decoration: none; }
 .dashboard-match-tabs button:hover,.dashboard-match-tabs button.active,
 .filter:hover,.filter.active,
 .opportunity-category-tabs button:hover,.opportunity-category-tabs button.active {
-  border-color:#5DADEC;
-  background:#eaf6fd;
-  color:#258dcb;
+  border-color:#5B92F3;
+  background:#edf3ff;
+  color:#5B92F3;
 }
 .dashboard-match-tabs button.active small {
-  background:#cfeafb;
-  color:#258dcb;
+  background:#dce9ff;
+  color:#5B92F3;
 }
 .dashboard-pagination button:hover:not(:disabled),
 .job-card:hover,.compact-job:hover {
-  border-color:#5DADEC;
-  box-shadow:0 8px 18px #5DADEC24;
+  border-color:#5B92F3;
+  box-shadow:0 8px 18px #5B92F324;
 }
 .dashboard-pagination button:hover:not(:disabled),
 .card-actions a,.pane-toggle,.original-pane-heading a,.growth-detail-link {
-  color:#258dcb;
+  color:#5B92F3;
 }
 .growth-plan-card:hover,.match-growth-card:hover {
-  border-color:#5DADEC;
+  border-color:#5B92F3;
 }
 button:focus-visible,a:focus-visible {
-  outline:3px solid #5DADEC55;
+  outline:3px solid #5B92F355;
   outline-offset:2px;
 }
 
@@ -1069,8 +1069,8 @@ button:focus-visible,a:focus-visible {
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
 }
 .primary-button:hover,.search-box button:hover {
-  border-color:#5DADEC;
-  background:#5DADEC;
+  border-color:#5B92F3;
+  background:#5B92F3;
   box-shadow:0 10px 22px rgba(31,44,68,.22);
   transform:translateY(-2px);
 }
@@ -1120,4 +1120,37 @@ button:focus-visible,a:focus-visible {
   box-shadow:0 8px 18px rgba(31,44,68,.14);
   color:inherit;
   transform:translateY(-1px);
+}
+
+/* One brand blue for every shared action/icon surface. Hover never changes
+   that color: it only lifts the element with the same neutral shadow used by
+   the home cards. */
+.brand-name-ko,.auth-brand > div::after,
+.brand-mark,.menu-button,.bookmark:hover,.bookmark.active,
+.text-button,.card-actions a,.pane-toggle,.original-pane-heading a,
+.growth-detail-link,.home-section-heading > a,.home-quick-card > span,
+.home-growth-card > span,.home-showcase-pagination b,.home-showcase-pagination i,
+.home-job-company > span,.mega-menu-intro > span,.mega-menu-link > svg:first-child,
+.home-job-card > svg,.planner-event-kind,.calendar-more {
+  color:#5B92F3;
+}
+.brand-mark { background:#5B92F3; box-shadow:0 7px 16px #5B92F333; }
+.home-quick-card > span,.mega-menu-intro > span,.metric-card.blue .metric-icon,.insight-icon {
+  background:#edf3ff;
+  color:#5B92F3;
+}
+.home-hero .primary-button:hover {
+  border-color:#fff;
+  background:#fff;
+  color:#5B92F3;
+  box-shadow:0 10px 22px rgba(31,44,68,.22);
+  transform:translateY(-2px);
+}
+.home-showcase-controls button:not(:disabled):hover,
+.global-search-results > button:hover,.account-actions > button:hover,
+.account-actions > button:focus-visible {
+  color:inherit;
+  background:#fff;
+  border-color:#d9dee7;
+  box-shadow:0 8px 18px rgba(31,44,68,.14);
 }
