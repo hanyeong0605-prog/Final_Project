@@ -1,7 +1,8 @@
-import { Bell, BriefcaseBusiness, LayoutDashboard, LogOut, Menu, UserRound, X } from "lucide-react";
+import { BriefcaseBusiness, LayoutDashboard, LogOut, Menu, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
+import { EmployerNotificationBell } from "../features/employer/components/EmployerNotificationBell";
 
 const employerNavigation = [
   { path: "/employer/dashboard", label: "대시보드", icon: LayoutDashboard },
@@ -52,7 +53,7 @@ export function EmployerShell() {
           ))}
         </nav>
         <div className="employer-actions">
-          <button className="employer-notification-button" aria-label="기업 알림" title="기업 알림"><Bell size={19} /></button>
+          <EmployerNotificationBell />
           <div className="topbar-account-menu" ref={menuRef}>
             <button className="employer-account-button" onClick={() => setAccountOpen((value) => !value)}>{employer.companyName.slice(0, 1)}</button>
             {accountOpen && <div className="account-popover employer-account-popover">

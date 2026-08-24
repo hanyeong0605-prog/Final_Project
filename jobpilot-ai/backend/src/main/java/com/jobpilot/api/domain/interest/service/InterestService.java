@@ -12,6 +12,9 @@ import com.jobpilot.api.domain.planner.repository.PlannerEventRepository;
 import com.jobpilot.api.domain.opportunity.repository.OpportunityRepository;
 import com.jobpilot.api.domain.matching.service.MemberJobEventService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
+import com.jobpilot.api.domain.employer.entity.EmployerNotification;
+import com.jobpilot.api.domain.employer.repository.EmployerNotificationRepository;
+import com.jobpilot.api.domain.member.repository.MemberRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,10 +29,14 @@ public class InterestService {
     private final PlannerEventRepository events;
     private final MemberJobEventService memberJobEvents;
     private final OpportunityRepository opportunities;
+    private final EmployerNotificationRepository employerNotifications;
+    private final MemberRepository members;
 
     public InterestService(UserInterestRepository interests, JobPostingRepository jobs, PlannerEventRepository events,
-                           MemberJobEventService memberJobEvents, OpportunityRepository opportunities) {
+                           MemberJobEventService memberJobEvents, OpportunityRepository opportunities,
+                           EmployerNotificationRepository employerNotifications, MemberRepository members) {
         this.interests = interests; this.jobs = jobs; this.events = events; this.memberJobEvents = memberJobEvents; this.opportunities=opportunities;
+        this.employerNotifications = employerNotifications; this.members = members;
     }
 
     public List<Long> ids(Long memberId, String type) {
@@ -49,6 +56,7 @@ public class InterestService {
             if (JOB.equals(request.targetType())) {
                 addJobEvent(memberId, request.targetId());
                 memberJobEvents.record(memberId, request.targetId(), "BOOKMARK");
+                notifyEmployer(memberId, request.targetId());
             }
             if ("OPPORTUNITY".equals(request.targetType())) opportunities.findById(request.targetId()).ifPresent(item -> { if (item.getEventStartAt()!=null) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId,"OPPORTUNITY",item.getId(),"TRAINING_PERIOD").orElseGet(() -> events.save(PlannerEvent.fromOpportunity(memberId,item.getId(),item.getTitle(),item.getEventStartAt(),item.getEventEndAt()))); });
         } else if (!request.interested()) {
@@ -58,6 +66,14 @@ public class InterestService {
             if ("OPPORTUNITY".equals(request.targetType())) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId,"OPPORTUNITY",request.targetId(),"TRAINING_PERIOD").ifPresent(events::delete);
         }
         return new InterestToggleResponse(request.targetId(), request.interested());
+    }
+
+    private void notifyEmployer(Long memberId, Long jobId) {
+        JobPosting job = jobs.findById(jobId).orElse(null);
+        if (job == null || job.getEmployerAccountId() == null) return;
+        String nickname = members.findById(memberId).map(value -> value.getNickname()).orElse("일반회원");
+        employerNotifications.save(new EmployerNotification(job.getEmployerAccountId(), memberId, jobId,
+                "회원이 내 공고를 찜했습니다.", nickname + "님이 ‘" + job.getTitle() + "’ 공고를 관심 목록에 저장했습니다."));
     }
 
     private void addJobEvent(Long memberId, Long jobId) {
