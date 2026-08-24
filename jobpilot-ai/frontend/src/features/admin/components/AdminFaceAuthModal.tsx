@@ -39,7 +39,7 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
         }
         if (result.status === "REJECTED") setError(result.message ?? "얼굴 인증에 실패했습니다. 휴대폰에서 다시 시도해 주세요.");
       }).catch((reason) => { window.clearInterval(timer); setError(reason instanceof Error ? reason.message : "인증 상태를 확인하지 못했습니다."); });
-    }, 1500);
+    }, 600);
     return () => window.clearInterval(timer);
   }, [pairing, isOpen, onSuccess]);
 
@@ -57,7 +57,7 @@ export const AdminFaceAuthModal: React.FC<Props> = ({
         <p style={{ color: "#667085", fontSize: 14 }}>휴대폰으로 QR을 스캔한 뒤 같은 관리자 계정으로 촬영해 주세요.</p>
         {error && <p style={{ color: "#c0392b", fontSize: 13 }}>{error}</p>}
         {!pairing && !error && <LoaderCircle className="spin" size={28} style={{ margin: "28px auto" }} />}
-        {pairing && <div style={{ display: "grid", justifyItems: "center", gap: 10, margin: "20px 0" }}><QRCodeSVG value={pairUrl} size={220} level="M" includeMargin /><small><Smartphone size={13} /> QR은 2분 동안 한 번만 사용할 수 있습니다.</small></div>}
+        {pairing && <div style={{ display: "grid", justifyItems: "center", gap: 10, margin: "20px 0" }}><QRCodeSVG value={pairUrl} size={220} level="M" includeMargin /><small><Smartphone size={13} /> QR은 2분 동안 유효하며, 실패해도 같은 휴대폰 화면에서 다시 인증할 수 있습니다.</small></div>}
 
         <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
           <button

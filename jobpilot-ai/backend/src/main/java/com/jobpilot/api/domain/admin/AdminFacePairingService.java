@@ -36,7 +36,12 @@ public class AdminFacePairingService {
     public void verifyOwner(long memberId, String id, String token) {
         Session session = active(id);
         if (session.memberId() != memberId || !session.token().equals(token)) throw new AdminFacePairingException("유효하지 않은 휴대폰 인증 코드입니다.");
-        if (session.status() != Status.WAITING) throw new AdminFacePairingException("이미 처리된 인증 코드입니다. PC에서 새 QR 코드를 생성해 주세요.");
+        // A failed comparison must not invalidate the QR immediately. The phone
+        // stays on the capture page, so the same signed-in administrator can
+        // correct framing or lighting and try again until the short expiry.
+        if (session.status() != Status.WAITING && session.status() != Status.REJECTED) {
+            throw new AdminFacePairingException("이미 완료된 인증 코드입니다. PC에서 새 QR 코드를 생성해 주세요.");
+        }
     }
 
     public void complete(long memberId, String id, boolean verified, double similarity, String message) {

@@ -19,7 +19,7 @@ export function AdminFacePairPage() {
   useEffect(() => {
     if (!member || !sessionId || !token) return;
     let disposed = false;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 960 }, height: { ideal: 540 } }, audio: false })
       .then((stream) => {
         if (disposed) { stream.getTracks().forEach((track) => track.stop()); return; }
         streamRef.current = stream;
@@ -34,18 +34,29 @@ export function AdminFacePairPage() {
   const capture = async () => {
     const video = videoRef.current;
     if (!video || !ready || submitting) return;
+    if (!video.videoWidth || !video.videoHeight) {
+      setError("카메라 영상을 준비 중입니다. 잠시 후 다시 눌러 주세요.");
+      return;
+    }
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // RetinaFace does not need a phone's full-resolution frame for a single
+    // centered face. Limiting the upload cuts mobile transfer and server-side
+    // detection work without weakening the matching threshold.
+    const scale = Math.min(1, 720 / video.videoWidth);
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
     canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageBase64 = canvas.toDataURL("image/jpeg", 0.9);
+    const imageBase64 = canvas.toDataURL("image/jpeg", 0.82);
     setSubmitting(true); setError(null); setMessage("얼굴을 안전하게 확인하고 있습니다.");
     try {
       const result = await submitAdminFaceCapture(sessionId, token, imageBase64);
       if (result.status === "VERIFIED") {
         setMessage(`인증되었습니다. PC 화면으로 돌아가세요. (일치율 ${result.similarity ?? "-"}%)`);
         streamRef.current?.getTracks().forEach((track) => track.stop());
-      } else setError(result.message ?? "등록 사진과 일치하지 않습니다. 다시 촬영해 주세요.");
+      } else {
+        setError(`${result.message ?? "등록 사진과 일치하지 않습니다."} QR을 새로 만들 필요 없이 이 화면에서 다시 인증할 수 있습니다.`);
+        setMessage("얼굴 위치나 조명을 조정한 뒤 다시 인증해 주세요.");
+      }
     } catch (reason) { setError(reason instanceof Error ? reason.message : "인증 처리에 실패했습니다."); }
     finally { setSubmitting(false); }
   };
@@ -60,7 +71,7 @@ export function AdminFacePairPage() {
     {error && <p style={{ color: "#c0392b" }}>{error}</p>}
     <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", borderRadius: 12, background: "#111", marginTop: 12, transform: "scaleX(-1)" }} />
     <button className="primary-button" type="button" onClick={() => void capture()} disabled={!ready || submitting} style={{ marginTop: 16, width: "100%" }}>
-      {submitting ? <><LoaderCircle className="spin" size={17} /> 분석 중</> : <><CheckCircle2 size={17} /> 지금 인증하기</>}
+      {submitting ? <><LoaderCircle className="spin" size={17} /> 분석 중</> : <><CheckCircle2 size={17} /> {error ? "다시 인증하기" : "지금 인증하기"}</>}
     </button>
   </section></main>;
 }
