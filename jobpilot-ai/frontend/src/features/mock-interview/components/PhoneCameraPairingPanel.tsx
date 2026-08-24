@@ -89,14 +89,23 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
       onRemoteStream(stream);
     };
     peer.ontrack = (event) => {
-      const stream = remoteStreamRef.current ?? new MediaStream();
-      if (!stream.getTracks().some((track) => track.id === event.track.id)) stream.addTrack(event.track);
+      // 브라우저가 WebRTC 수신용으로 만든 원본 MediaStream을 우선 사용해야 한다.
+      // 최근 트랙만 새 MediaStream으로 재조합하면서 일부 iPhone -> PC 조합에서 화면은
+      // 검게 남고 녹화 트랙만 살아있는 현상이 생겼다. 원본 스트림은 video/audio의 동기화와
+      // 후속 프레임 수신을 브라우저가 그대로 관리한다.
+      const nativeStream = event.streams[0];
+      const stream = nativeStream ?? remoteStreamRef.current ?? new MediaStream();
+      if (!nativeStream && !stream.getTracks().some((track) => track.id === event.track.id)) {
+        stream.addTrack(event.track);
+      }
       remoteStreamRef.current = stream;
       event.track.addEventListener("unmute", handOffWhenMediaIsReady, { once: true });
       // Some iOS/WebKit builds do not emit an unmute event for remote tracks.
-      // Retry after SDP/ICE settles instead of requiring that browser event.
+      // Retry while SDP/ICE and the first camera frames settle instead of
+      // handing a still-empty track to the PC preview too early.
       window.setTimeout(handOffWhenMediaIsReady, 200);
-      window.setTimeout(handOffWhenMediaIsReady, 1000);
+      window.setTimeout(handOffWhenMediaIsReady, 700);
+      window.setTimeout(handOffWhenMediaIsReady, 1500);
     };
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {

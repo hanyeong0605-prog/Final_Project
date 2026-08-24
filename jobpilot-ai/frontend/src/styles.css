@@ -1016,3 +1016,35 @@ a { color: inherit; text-decoration: none; }
 .text-button,.notification-popover-head button,.bookmark:hover,.bookmark.active {
   color:#5DADEC;
 }
+
+/* Keep ordinary actions and their hover feedback on the Blue Jeans palette.
+   Status signals (notably the dashboard's "보완 후 도전") are intentionally
+   excluded: those communicate matching state rather than a clickable action. */
+.desktop-nav-link:hover,.desktop-nav-link.active,
+.dashboard-match-tabs button:hover,.dashboard-match-tabs button.active,
+.filter:hover,.filter.active,
+.opportunity-category-tabs button:hover,.opportunity-category-tabs button.active {
+  border-color:#5DADEC;
+  background:#eaf6fd;
+  color:#258dcb;
+}
+.dashboard-match-tabs button.active small {
+  background:#cfeafb;
+  color:#258dcb;
+}
+.dashboard-pagination button:hover:not(:disabled),
+.job-card:hover,.compact-job:hover {
+  border-color:#5DADEC;
+  box-shadow:0 8px 18px #5DADEC24;
+}
+.dashboard-pagination button:hover:not(:disabled),
+.card-actions a,.pane-toggle,.original-pane-heading a,.growth-detail-link {
+  color:#258dcb;
+}
+.growth-plan-card:hover,.match-growth-card:hover {
+  border-color:#5DADEC;
+}
+button:focus-visible,a:focus-visible {
+  outline:3px solid #5DADEC55;
+  outline-offset:2px;
+}

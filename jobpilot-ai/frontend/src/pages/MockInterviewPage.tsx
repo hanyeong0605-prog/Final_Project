@@ -730,20 +730,29 @@ export function MockInterviewPage() {
   const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
   const phoneAutoStartRef = useRef(false);
 
+  const attachPreviewStream = useCallback((video: HTMLVideoElement | null) => {
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    if (video.srcObject !== stream) video.srcObject = stream;
+    // 원격 스트림은 메타데이터가 늦게 도착하는 경우가 있어 srcObject를 붙인 직후 한 번만
+    // play()하면 검은 화면으로 남을 수 있다. 두 준비 이벤트와 아래 단계 전환 재시도로
+    // 실제 프레임이 들어온 뒤에도 항상 재생을 시도한다.
+    video.muted = true;
+    video.playsInline = true;
+    const resume = () => void video.play().catch(() => undefined);
+    video.onloadedmetadata = resume;
+    video.oncanplay = resume;
+    resume();
+  }, []);
+
   // 휴대폰 QR 연결은 device-check 화면에서 시작되지만, 실제 카메라 타일은 연결 직후
   // testing-mic 단계로 전환되며 새로 렌더링된다. 따라서 스트림을 받은 순간의 videoRef가
   // 비어 있어도, 새 video 요소가 만들어지는 즉시 같은 스트림을 다시 연결해야 한다.
   const setPreviewVideoRef = useCallback((video: HTMLVideoElement | null) => {
     videoRef.current = video;
-    const stream = streamRef.current;
-    if (!video || !stream) return;
-
-    if (video.srcObject !== stream) video.srcObject = stream;
-    // 원격 스트림에는 오디오 트랙도 포함된다. 미리보기는 음소거해야 브라우저의 자동재생
-    // 정책에 막히지 않고, 실제 녹음에는 원본 MediaStream을 그대로 사용한다.
-    video.muted = true;
-    void video.play().catch(() => undefined);
-  }, []);
+    attachPreviewStream(video);
+  }, [attachPreviewStream]);
   const audioContextRef = useRef<AudioContext | null>(null);
   // 2026-08-12 추가: 마이크 테스트 화면의 막대바 대신 실제 파형(오실로스코프 모양)을
   // 그려주기 위한 canvas ref - startMeterLoop의 tick()에서 매 프레임 그린다.
@@ -1178,12 +1187,7 @@ export function MockInterviewPage() {
   const usePhoneCameraStream = (stream: MediaStream) => {
     stopStream();
     streamRef.current = stream;
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      // Remote streams can be attached before a Safari video element is ready
-      // to play. Preview playback must not block the interview start.
-      void videoRef.current.play().catch(() => undefined);
-    }
+    attachPreviewStream(videoRef.current);
     setCameraReady(true);
     setPairingPanelOpen(false);
     // QR pairing hands the whole interview to the phone camera. It should not
@@ -1840,6 +1844,24 @@ export function MockInterviewPage() {
     stage === "get-ready" ||
     stage === "recording" ||
     stage === "break";
+
+  // Mobile Safari can finish ICE/SDP negotiation after this tile has already
+  // mounted.  Keep asking the video element to play for the short hand-off
+  // window, so a late first frame cannot leave the PC tile black.
+  useEffect(() => {
+    if (!showVideoPreview || !streamRef.current) return;
+
+    let attempts = 0;
+    const attach = () => {
+      attachPreviewStream(videoRef.current);
+      attempts += 1;
+      const video = videoRef.current;
+      if (video?.videoWidth || attempts >= 12) window.clearInterval(retryId);
+    };
+    const retryId = window.setInterval(attach, 350);
+    attach();
+    return () => window.clearInterval(retryId);
+  }, [attachPreviewStream, showVideoPreview, stage]);
 
   const hasSession = sessionQuestions.length > 0;
   // 2026-08-06: "countdown"(3초) 단계 자체는 아직 이전 질문 텍스트를 들고 있을 수 있어서
