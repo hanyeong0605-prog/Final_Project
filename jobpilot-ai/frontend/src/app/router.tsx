@@ -7,7 +7,6 @@ import { OpportunityDetailPage } from "../pages/OpportunityDetailPage";
 import { PlannerPage } from "../pages/PlannerPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { ResumePage } from "../pages/ResumePage";
-import { RepositoryAnalysisPage } from "../pages/RepositoryAnalysisPage";
 import { MockInterviewPage } from "../pages/MockInterviewPage";
 import { TimelinePage } from "../pages/TimelinePage";
 import { AllJobPostingsPage } from "../pages/AllJobPostingsPage";
@@ -67,7 +66,6 @@ export const router = createBrowserRouter([
       { path: "mock-interview", element: <MockInterviewPage /> },
       { path: "timeline", element: <TimelinePage /> },
       { path: "account", element: <MyPage /> },
-      { path: "repository-analysis", element: <RepositoryAnalysisPage /> },
       { path: "statistics", element: <StatisticsDashboard /> },
       { path: "question", element: <QuestionPage /> },
       { path: "tests/:testKey", element: <CareerTestPage /> },

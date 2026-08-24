@@ -10,6 +10,7 @@ import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingLocationRepository;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
 import com.jobpilot.api.domain.jobposting.service.JobPostingSearchService;
+import com.jobpilot.api.domain.interest.repository.UserInterestRepository;
 import com.jobpilot.api.domain.matching.service.MemberJobEventService;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import com.jobpilot.api.global.security.AuthenticatedMember;
@@ -30,6 +31,7 @@ public class JobPostingController {
     private final JobPostingLocationRepository locationRepository;
     private final JobPostingSearchService searchService;
     private final MemberJobEventService memberJobEvents;
+    private final UserInterestRepository interests;
     private final ObjectMapper objectMapper;
 
     public JobPostingController(
@@ -37,11 +39,13 @@ public class JobPostingController {
             JobPostingLocationRepository locationRepository,
             JobPostingSearchService searchService,
             MemberJobEventService memberJobEvents,
+            UserInterestRepository interests,
             ObjectMapper objectMapper) {
         this.repository = repository;
         this.locationRepository = locationRepository;
         this.searchService = searchService;
         this.memberJobEvents = memberJobEvents;
+        this.interests = interests;
         this.objectMapper = objectMapper;
     }
 
@@ -79,7 +83,7 @@ public class JobPostingController {
                 posting.getIndustryName(), posting.getJobMidName(), posting.getJobName(), posting.getSalary(),
                 posting.getKeywords(), posting.getPublishedAt(), posting.getDeadlineAt(), posting.isRollingDeadline(),
                 posting.getStatus(), locations(posting.getId()),
-                imageUrls(posting)
+                imageUrls(posting), posting.getViewCount(), interests.countByTargetTypeAndTargetId("JOB_POSTING", posting.getId())
         );
     }
 

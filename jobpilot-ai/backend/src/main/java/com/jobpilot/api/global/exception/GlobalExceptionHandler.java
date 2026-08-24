@@ -1,7 +1,6 @@
 package com.jobpilot.api.global.exception;
 
 import com.jobpilot.api.domain.subscription.exception.SubscriptionException;
-import com.jobpilot.api.domain.projectanalysis.exception.ProjectAnalysisException;
 import com.jobpilot.api.domain.jobposting.provider.saramindata.exception.SaraminDataException;
 import com.jobpilot.api.domain.auth.exception.DuplicateMemberException;
 import com.jobpilot.api.domain.auth.exception.EmailDeliveryException;
@@ -81,15 +80,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleProvider(Exception exception) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
                 "code", "PROVIDER_SYNC_FAILED",
-                "message", exception.getMessage(),
-                "timestamp", Instant.now().toString()
-        ));
-    }
-
-    @ExceptionHandler(ProjectAnalysisException.class)
-    public ResponseEntity<Map<String, Object>> handleProjectAnalysis(ProjectAnalysisException exception) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "code", "PROJECT_ANALYSIS_FAILED",
                 "message", exception.getMessage(),
                 "timestamp", Instant.now().toString()
         ));

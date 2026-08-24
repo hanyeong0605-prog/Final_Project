@@ -16,7 +16,6 @@ import { getMemberCertificates, saveMemberCertificates } from "../features/profi
 import { CareerProfileForm } from "../features/profile/components/CareerProfileForm";
 import { SubscriptionSection } from "../features/subscription/components/SubscriptionSection";
 import { PushNotificationSection } from "../features/push-notifications/components/PushNotificationSection";
-import { PortfolioSection } from "../features/portfolio/components/PortfolioSection";
 import type { CareerProfile } from "../features/profile/model/careerProfile.types";
 import type { MemberSkill } from "../features/profile/model/memberSkill.types";
 import type { MemberCertificate } from "../features/profile/model/memberCertificate.types";
@@ -43,7 +42,6 @@ export function MyPage() {
     <section className="account-actions"><button aria-expanded={action === "nickname"} onClick={() => setAction(action === "nickname" ? null : "nickname")}><Pencil size={18} /><span><strong>닉네임 변경</strong><small>서비스에 표시되는 이름을 변경합니다.</small></span><ChevronRight size={17} /></button><button aria-expanded={action === "password"} onClick={() => setAction(action === "password" ? null : "password")}><KeyRound size={18} /><span><strong>비밀번호 변경</strong><small>현재 비밀번호 확인 후 변경합니다.</small></span><ChevronRight size={17} /></button><button className="withdraw-action" aria-expanded={action === "withdraw"} onClick={() => setAction(action === "withdraw" ? null : "withdraw")}><UserX size={18} /><span><strong>회원 탈퇴</strong><small>회원 데이터와 개인 일정을 삭제합니다.</small></span><ChevronRight size={17} /></button></section>
     <SubscriptionSection />
     <PushNotificationSection />
-    <PortfolioSection />
     {action === "nickname" &&<section className="panel account-editor"><h2>닉네임 변경</h2><form onSubmit={nicknameSubmit}><label>새 닉네임<input required minLength={2} maxLength={80} value={nickname} onChange={(e) => setNickname(e.target.value)} /></label><button className="primary-button">변경하기</button></form></section>}
     {action === "password" && <section className="panel account-editor"><h2>비밀번호 변경</h2><form onSubmit={passwordSubmit}><label>현재 비밀번호<input required type="password" value={passwords.current} onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} /></label><label>새 비밀번호<input required type="password" minLength={8} maxLength={72} value={passwords.next} onChange={(e) => setPasswords({ ...passwords, next: e.target.value })} /></label><button className="primary-button">변경하기</button></form></section>}
     {action === "withdraw" && <section className="panel account-editor danger-zone"><h2>회원 탈퇴</h2><p>탈퇴하면 회원 프로필, 매칭 결과, 찜과 일정이 모두 삭제됩니다.</p><form onSubmit={withdrawalSubmit}><label>비밀번호 확인<input required type="password" value={withdrawPassword} onChange={(e) => setWithdrawPassword(e.target.value)} /></label><button className="danger-button">회원 탈퇴 진행</button></form></section>}

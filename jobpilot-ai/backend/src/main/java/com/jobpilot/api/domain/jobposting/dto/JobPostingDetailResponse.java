@@ -27,5 +27,7 @@ public record JobPostingDetailResponse(
         boolean rollingDeadline,
         String status,
         List<JobPostingLocationResponse> locations,
-        List<String> imageUrls
+        List<String> imageUrls,
+        long viewCount,
+        long bookmarkCount
 ) {}

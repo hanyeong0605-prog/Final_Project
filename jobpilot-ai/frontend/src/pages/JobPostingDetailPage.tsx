@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BriefcaseBusiness, Building2, CalendarDays, ExternalLink, MapPin } from "lucide-react";
+import { ArrowLeft, Bookmark, BriefcaseBusiness, Building2, CalendarDays, Eye, ExternalLink, MapPin } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { getJobPosting } from "../features/job-postings/api/jobPostingsApi";
 import type { JobPostingDetail } from "../features/job-postings/model/jobPosting.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
+import { useInterests } from "../features/interests/model/InterestContext";
 
 function hasText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -23,6 +24,7 @@ export function JobPostingDetailPage() {
   const [posting, setPosting] = useState<JobPostingDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [companyImageFailed, setCompanyImageFailed] = useState(false);
+  const { isInterested, toggleInterest } = useInterests();
 
   useEffect(() => {
     if (!id) { setStatus("error"); return; }
@@ -61,6 +63,7 @@ export function JobPostingDetailPage() {
   ];
   const images = [...new Set(posting.imageUrls ?? [])].slice(0, 8);
   const companyImageUrl = posting.thumbnailUrl || posting.companyLogoUrl;
+  const interested = isInterested(posting.id);
 
   return <div className="job-detail-page">
     <Link className="job-detail-back" to="/job-postings"><ArrowLeft size={16} />전체 채용공고</Link>
@@ -77,7 +80,8 @@ export function JobPostingDetailPage() {
         {workType && <span><BriefcaseBusiness size={16} />{workType}</span>}
         {deadline && <span><CalendarDays size={16} />마감 {deadline}</span>}
       </div>}
-      <a className="primary-button job-source-link" href={posting.sourceUrl} target="_blank" rel="noreferrer">공고 원문 보기<ExternalLink size={16} /></a>
+      <div className="job-detail-actions"><a className="primary-button job-source-link" href={posting.sourceUrl} target="_blank" rel="noreferrer">공고 원문 보기<ExternalLink size={16} /></a><button className={interested ? "outline-button job-detail-bookmark active" : "outline-button job-detail-bookmark"} onClick={() => void toggleInterest(posting.id)}><Bookmark size={16} fill={interested ? "currentColor" : "none"} />{interested ? "찜한 공고" : "공고 찜하기"}</button></div>
+      <div className="job-detail-stats"><span><Eye size={15} />조회 {posting.viewCount?.toLocaleString() ?? 0}</span><span><Bookmark size={14} />찜 {posting.bookmarkCount?.toLocaleString() ?? 0}</span></div>
     </section>
 
     {images.length > 0 && <section className="job-detail-section"><div className="job-detail-section-heading"><span className="eyebrow">COMPANY IMAGES</span><h2>공고 이미지</h2></div><div className="job-image-gallery">{images.map((url) => <img key={url} src={url} alt={`${posting.companyName ?? "회사"} 공고 이미지`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />)}</div></section>}
