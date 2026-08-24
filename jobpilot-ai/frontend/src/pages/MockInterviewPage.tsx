@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
@@ -729,30 +729,6 @@ export function MockInterviewPage() {
   const phonePairDisconnectRef = useRef<(() => void) | null>(null);
   const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
   const phoneAutoStartRef = useRef(false);
-
-  const attachPreviewStream = useCallback((video: HTMLVideoElement | null) => {
-    const stream = streamRef.current;
-    if (!video || !stream) return;
-
-    if (video.srcObject !== stream) video.srcObject = stream;
-    // 원격 스트림은 메타데이터가 늦게 도착하는 경우가 있어 srcObject를 붙인 직후 한 번만
-    // play()하면 검은 화면으로 남을 수 있다. 두 준비 이벤트와 아래 단계 전환 재시도로
-    // 실제 프레임이 들어온 뒤에도 항상 재생을 시도한다.
-    video.muted = true;
-    video.playsInline = true;
-    const resume = () => void video.play().catch(() => undefined);
-    video.onloadedmetadata = resume;
-    video.oncanplay = resume;
-    resume();
-  }, []);
-
-  // 휴대폰 QR 연결은 device-check 화면에서 시작되지만, 실제 카메라 타일은 연결 직후
-  // testing-mic 단계로 전환되며 새로 렌더링된다. 따라서 스트림을 받은 순간의 videoRef가
-  // 비어 있어도, 새 video 요소가 만들어지는 즉시 같은 스트림을 다시 연결해야 한다.
-  const setPreviewVideoRef = useCallback((video: HTMLVideoElement | null) => {
-    videoRef.current = video;
-    attachPreviewStream(video);
-  }, [attachPreviewStream]);
   const audioContextRef = useRef<AudioContext | null>(null);
   // 2026-08-12 추가: 마이크 테스트 화면의 막대바 대신 실제 파형(오실로스코프 모양)을
   // 그려주기 위한 canvas ref - startMeterLoop의 tick()에서 매 프레임 그린다.
@@ -896,6 +872,7 @@ export function MockInterviewPage() {
   const audioUnlockedRef = useRef(false);
   const unlockAudioPlaybackForMobile = () => {
     if (audioUnlockedRef.current) return;
+    audioUnlockedRef.current = true;
     try {
       // 2026-08-13: speakQuestionText가 매 질문마다 재사용할 "바로 그 엘리먼트"로 무음
       // 재생을 해둔다(별도의 throwaway Audio가 아니라 getTtsAudioElement()로 가져온 동일
@@ -906,16 +883,9 @@ export function MockInterviewPage() {
       const unlockAudio = getTtsAudioElement();
       unlockAudio.src = silentWavDataUrl;
       unlockAudio.volume = 0;
-      void unlockAudio
-        .play()
-        .then(() => {
-          audioUnlockedRef.current = true;
-        })
-        .catch(() => {
-          // 이전 자동 실행이 막혔더라도, 사용자가 "다시 듣기"를 누르면 다시 잠금 해제를
-          // 시도할 수 있어야 한다.
-          audioUnlockedRef.current = false;
-        });
+      void unlockAudio.play().catch(() => {
+        // 여기서 막혀도(엄격한 브라우저) 아래 워치독이 있으니 흐름 자체는 이어진다.
+      });
     } catch {
       // no-op - 최선의 시도일 뿐이다.
     }
@@ -994,8 +964,6 @@ export function MockInterviewPage() {
   // 이땐 다 읽은 뒤 이어서 할 일이 없어서 onDone은 아무것도 안 한다.
   const speakQuestion = (text: string = question) => {
     if (!text) return;
-    // 수동 재생 버튼은 실제 사용자 제스처이므로, 여기서도 iOS의 오디오 잠금을 풀어준다.
-    unlockAudioPlaybackForMobile();
     speakQuestionText(text, () => {});
   };
 
@@ -1184,37 +1152,23 @@ export function MockInterviewPage() {
     if (videoRef.current) videoRef.current.srcObject = null;
   };
 
-  const usePhoneCameraStream = (stream: MediaStream) => {
+  const usePhoneCameraStream = async (stream: MediaStream) => {
     stopStream();
     streamRef.current = stream;
-    attachPreviewStream(videoRef.current);
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+    }
+    const landmarker = landmarkerRef.current ?? await loadFaceLandmarker();
+    landmarkerRef.current = landmarker;
+    startFaceTrackingLoop(landmarker);
+    startMeterLoop(stream);
     setCameraReady(true);
     setPairingPanelOpen(false);
     // QR pairing hands the whole interview to the phone camera. It should not
     // leave the user at a second manual "start" button on the PC.
     phoneAutoStartRef.current = true;
     setStage("testing-mic");
-
-    // Face landmark loading is an optional analysis enhancement. Previously
-    // awaiting the CDN model here meant a slow/blocked model download kept a
-    // successfully connected phone from ever starting the interview.
-    const attachedStream = stream;
-    void (landmarkerRef.current ? Promise.resolve(landmarkerRef.current) : loadFaceLandmarker())
-      .then((landmarker) => {
-        if (streamRef.current !== attachedStream) return;
-        landmarkerRef.current = landmarker;
-        startFaceTrackingLoop(landmarker);
-      })
-      .catch(() => {
-        // The interview can continue without local face metrics.
-      });
-    try {
-      startMeterLoop(stream);
-    } catch {
-      // Do not prevent the interview: MediaRecorder will report a real audio
-      // problem at recording time with an actionable message.
-      setMicLevel(0);
-    }
   };
 
   useEffect(() => {
@@ -1845,24 +1799,6 @@ export function MockInterviewPage() {
     stage === "recording" ||
     stage === "break";
 
-  // Mobile Safari can finish ICE/SDP negotiation after this tile has already
-  // mounted.  Keep asking the video element to play for the short hand-off
-  // window, so a late first frame cannot leave the PC tile black.
-  useEffect(() => {
-    if (!showVideoPreview || !streamRef.current) return;
-
-    let attempts = 0;
-    const attach = () => {
-      attachPreviewStream(videoRef.current);
-      attempts += 1;
-      const video = videoRef.current;
-      if (video?.videoWidth || attempts >= 12) window.clearInterval(retryId);
-    };
-    const retryId = window.setInterval(attach, 350);
-    attach();
-    return () => window.clearInterval(retryId);
-  }, [attachPreviewStream, showVideoPreview, stage]);
-
   const hasSession = sessionQuestions.length > 0;
   // 2026-08-06: "countdown"(3초) 단계 자체는 아직 이전 질문 텍스트를 들고 있을 수 있어서
   // 무조건 포함시키면 안 되고, questionTextReady(질문이 실제로 공개된 시점부터 true)로
@@ -1873,9 +1809,7 @@ export function MockInterviewPage() {
   // showVideoPreview/questionRevealed로 이미 좁혀진 stage 타입 위에 또 stage === "recording"을
   // 직접 비교하면(narrowing이 겹치는 지점에 따라) TS가 "겹치는 타입이 없다"고 오탐하는 경우가
   // 있어서, 좁혀지기 전에 미리 계산해 불리언 하나로만 참조한다.
-  // 답변 녹화 중에도 사용자가 질문을 다시 들을 수 있어야 한다. 분석 중에는 화면 전환을
-  // 방해하지 않도록 막고, 이미 재생 중일 때만 중복 재생을 막는다.
-  const questionAudioBusy = stage === "analyzing" || isSpeaking;
+  const questionAudioBusy = stage === "recording" || stage === "analyzing";
 
   return (
     <>
@@ -1991,7 +1925,7 @@ export function MockInterviewPage() {
                     autoPlay
                     muted
                     playsInline
-                    ref={setPreviewVideoRef}
+                    ref={videoRef}
                     style={{
                       width: "100%",
                       height: "100%",

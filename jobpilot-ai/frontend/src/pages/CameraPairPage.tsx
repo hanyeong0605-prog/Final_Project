@@ -5,12 +5,6 @@ import { useAuth } from "../features/auth/model/AuthContext";
 import { joinCameraPairing } from "../features/mock-interview/api/cameraPairingApi";
 import { createPeerConnection, openPairingSocket, type PairingSignal } from "../features/mock-interview/lib/cameraPairing";
 
-function pairingErrorMessage(reason: unknown) {
-  const message = reason instanceof Error ? reason.message : "";
-  if (message.includes("failed: 400")) return "QR 코드가 만료되었거나 PC와 같은 계정으로 로그인되어 있지 않습니다. PC에서 새 QR 코드를 생성한 뒤 다시 시도해 주세요.";
-  return message || "페어링에 실패했습니다.";
-}
-
 export function CameraPairPage() {
   const { member, loading } = useAuth();
   const [params] = useSearchParams();
@@ -34,7 +28,7 @@ export function CameraPairPage() {
         setStatus("PC의 면접 시작 신호를 기다리고 있습니다.");
         socketRef.current = openPairingSocket(joined.socketTicket, handleSignal, setError);
       })
-      .catch((reason: unknown) => setError(pairingErrorMessage(reason)));
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "페어링에 실패했습니다."));
     return () => {
       disposed = true;
       socketRef.current?.close();

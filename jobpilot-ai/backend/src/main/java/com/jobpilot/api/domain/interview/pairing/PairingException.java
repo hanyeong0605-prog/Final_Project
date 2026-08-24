@@ -1,5 +1,9 @@
 package com.jobpilot.api.domain.interview.pairing;
 
-public class PairingException extends IllegalArgumentException {
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.BAD_REQUEST)
+public class PairingException extends RuntimeException {
     public PairingException(String message) { super(message); }
 }

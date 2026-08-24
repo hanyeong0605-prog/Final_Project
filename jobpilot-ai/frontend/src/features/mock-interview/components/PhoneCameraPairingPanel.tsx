@@ -67,13 +67,11 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
     const handOffWhenMediaIsReady = () => {
       const stream = remoteStreamRef.current;
       if (!stream || transferredRef.current) return;
-      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live");
-      const audioReady = stream.getAudioTracks().some((track) => track.readyState === "live");
-      // iPhone Safari can keep a received WebRTC audio track marked muted
-      // until the first audio frame is played, even though the track is
-      // already usable by MediaRecorder. Waiting for !muted here stranded
-      // the PC on the QR screen forever. A live audio/video pair is enough;
-      // the recorder itself still has its existing fallback if needed.
+      const videoReady = stream.getVideoTracks().some((track) => track.readyState === "live" && !track.muted);
+      const audioReady = stream.getAudioTracks().some((track) => track.readyState === "live" && !track.muted);
+      // ontrack fires when SDP is applied, often before mobile microphone
+      // frames arrive. Starting MediaRecorder before this point fails in
+      // Chromium with NotSupportedError.
       if (!videoReady || !audioReady) return;
       transferredRef.current = true;
       onConnected({
@@ -85,33 +83,16 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
           send({ type: "interview-state", stage, question, elapsedSec });
         },
       });
-      setStatus("휴대폰 카메라와 마이크를 연결했습니다. 면접을 시작합니다.");
       onRemoteStream(stream);
     };
     peer.ontrack = (event) => {
-      // 브라우저가 WebRTC 수신용으로 만든 원본 MediaStream을 우선 사용해야 한다.
-      // 최근 트랙만 새 MediaStream으로 재조합하면서 일부 iPhone -> PC 조합에서 화면은
-      // 검게 남고 녹화 트랙만 살아있는 현상이 생겼다. 원본 스트림은 video/audio의 동기화와
-      // 후속 프레임 수신을 브라우저가 그대로 관리한다.
-      const nativeStream = event.streams[0];
-      const stream = nativeStream ?? remoteStreamRef.current ?? new MediaStream();
-      if (!nativeStream && !stream.getTracks().some((track) => track.id === event.track.id)) {
-        stream.addTrack(event.track);
-      }
+      const stream = event.streams[0] ?? new MediaStream([event.track]);
       remoteStreamRef.current = stream;
       event.track.addEventListener("unmute", handOffWhenMediaIsReady, { once: true });
-      // Some iOS/WebKit builds do not emit an unmute event for remote tracks.
-      // Retry while SDP/ICE and the first camera frames settle instead of
-      // handing a still-empty track to the PC preview too early.
       window.setTimeout(handOffWhenMediaIsReady, 200);
-      window.setTimeout(handOffWhenMediaIsReady, 700);
-      window.setTimeout(handOffWhenMediaIsReady, 1500);
     };
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") {
-        window.setTimeout(handOffWhenMediaIsReady, 200);
-        window.setTimeout(handOffWhenMediaIsReady, 1000);
-      }
+      if (peer.connectionState === "connected") window.setTimeout(handOffWhenMediaIsReady, 200);
     };
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
@@ -135,7 +116,7 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
         <div style={{ display: "grid", justifyItems: "center", gap: 12, marginTop: 16 }}>
           <QRCodeSVG value={pairUrl} size={210} level="M" includeMargin />
           <code style={{ maxWidth: "100%", overflowWrap: "anywhere", fontSize: 10, color: "#667085" }}>{pairUrl}</code>
-          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> QR은 5분 동안 유효하며, 같은 계정으로 다시 연결할 수 있습니다.</span>
+          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> QR은 5분 안에 한 번만 사용할 수 있습니다.</span>
         </div>
       )}
     </div>
