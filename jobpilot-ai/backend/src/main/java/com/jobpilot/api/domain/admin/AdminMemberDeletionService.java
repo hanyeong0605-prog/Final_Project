@@ -26,7 +26,9 @@ public class AdminMemberDeletionService {
                 .orElseThrow(() -> new ResourceNotFoundException("회원을 찾을 수 없습니다."));
 
         // Child of a member-owned child must go first.
-        jdbc.update("DELETE evidence FROM job_match_evidences evidence JOIN job_matches matches ON matches.id = evidence.job_match_id WHERE matches.member_id = ?", memberId);
+        if (tableExists("job_match_evidences") && tableExists("job_matches")) {
+            jdbc.update("DELETE evidence FROM job_match_evidences evidence JOIN job_matches matches ON matches.id = evidence.job_match_id WHERE matches.member_id = ?", memberId);
+        }
         String[] memberTables = {
                 "notification_logs", "push_subscriptions", "member_daily_visits", "member_job_events",
                 "member_oauth_accounts", "member_consents", "portfolio_documents", "resume_documents",
@@ -36,13 +38,22 @@ public class AdminMemberDeletionService {
                 "self_introductions", "member_skills", "certificates", "education_histories",
                 "member_specifications", "member_profiles"
         };
-        for (String table : memberTables) jdbc.update("DELETE FROM " + table + " WHERE member_id = ?", memberId);
+        for (String table : memberTables) {
+            if (tableExists(table)) jdbc.update("DELETE FROM " + table + " WHERE member_id = ?", memberId);
+        }
 
         // An employer approval is historical data; keep the employer row but
         // detach the administrator who performed the review.
-        jdbc.update("UPDATE employer_accounts SET reviewed_by = NULL WHERE reviewed_by = ?", memberId);
+        if (tableExists("employer_accounts")) jdbc.update("UPDATE employer_accounts SET reviewed_by = NULL WHERE reviewed_by = ?", memberId);
         members.delete(target);
         members.flush();
         return target;
+    }
+
+    private boolean tableExists(String table) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+                Integer.class, table);
+        return count != null && count > 0;
     }
 }
