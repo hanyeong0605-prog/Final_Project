@@ -29,7 +29,8 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
   const workType = [posting.experienceType, posting.employmentType].filter(hasText).join(" · ");
   const schedule = scheduleLabel(posting);
 
-  return <article className="posting-card">
+  const openDetail = () => navigate(`/job-postings/${posting.id}`);
+  return <article className="posting-card" role="link" tabIndex={0} onClick={openDetail} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetail(); } }} aria-label={`${posting.title} 상세 보기`}>
     <div className="posting-card-top">
       <div className="posting-company-identity">
         {hasText(companyImageUrl) && !imageFailed
@@ -37,9 +38,9 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
           : <Building2 size={17} />}
         {hasText(posting.companyName) && <span className="company-name">{posting.companyName}</span>}
       </div>
-      <button className={interested ? "bookmark active" : "bookmark"} onClick={() => void toggleInterest(posting.id)} aria-label="관심 공고 등록"><Bookmark size={19} fill={interested ? "currentColor" : "none"} /></button>
+      <button className={interested ? "bookmark active" : "bookmark"} onClick={(event) => { event.stopPropagation(); void toggleInterest(posting.id); }} aria-label="관심 공고 등록"><Bookmark size={19} fill={interested ? "currentColor" : "none"} /></button>
     </div>
-    <button className="posting-card-main" type="button" onClick={() => navigate(`/job-postings/${posting.id}`)} aria-label={`${posting.title} 상세 보기`}>
+    <div className="posting-card-main">
       <h2>{posting.title}</h2>
       {(hasText(posting.location) || workType || schedule) && <div className="posting-meta">
         {hasText(posting.location) && <span><MapPin size={14} />{posting.location}</span>}
@@ -47,7 +48,7 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
         {schedule && <span><CalendarDays size={14} />{schedule}</span>}
       </div>}
       {skills.length > 0 && <div className="skills">{skills.map((skill) => <span key={skill}>{skill}</span>)}</div>}
-    </button>
+    </div>
     <div className="posting-footer">{hasText(posting.salary) && <strong>{posting.salary}</strong>}<span>상세 보기</span></div>
   </article>;
 }

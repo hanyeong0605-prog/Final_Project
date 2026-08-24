@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Bookmark, ChevronRight, KeyRound, Pencil, Target, UserX } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { changeNickname, changePassword, withdraw } from "../features/auth/api/accountApi";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getBookmarkedJobs } from "../features/interests/api/interestsApi";
@@ -24,12 +24,13 @@ import { PageHeading } from "../shared/components/PageHeading";
 
 type Action = "nickname" | "password" | "withdraw" | "spec" | null;
 export function MyPage() {
-  const { member, updateMember, logout } = useAuth(); const { interestCount } = useInterests(); const navigate = useNavigate();
+  const { member, updateMember, logout } = useAuth(); const { interestCount } = useInterests(); const navigate = useNavigate(); const location = useLocation();
   const [action, setAction] = useState<Action>(null); const [nickname, setNickname] = useState(member?.nickname ?? "");
   const [passwords, setPasswords] = useState({ current: "", next: "" }); const [withdrawPassword, setWithdrawPassword] = useState("");
   const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]); const [profile, setProfile] = useState<CareerProfile>(); const [memberSkills, setMemberSkills] = useState<MemberSkill[]>([]); const [memberCertificates, setMemberCertificates] = useState<MemberCertificate[]>([]);
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
   useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
+  useEffect(() => { if (new URLSearchParams(location.search).get("editSpec") === "1") setAction("spec"); }, [location.search]);
   useEffect(() => { void Promise.all([getCareerProfile(), getMemberSkills(), getMemberCertificates()]).then(([savedProfile, savedSkills, savedCertificates]) => { setProfile(savedProfile); setMemberSkills(savedSkills); setMemberCertificates(savedCertificates); }).catch(() => { setProfile(undefined); setMemberSkills([]); setMemberCertificates([]); }); }, []);
   const run = async (fn: () => Promise<void>, success: string) => { setError(""); setMessage(""); try { await fn(); setMessage(success); setAction(null); } catch (e) { setError(e instanceof Error ? e.message : "요청에 실패했습니다."); } };
   const nicknameSubmit = (e: FormEvent) => { e.preventDefault(); void run(async () => updateMember(await changeNickname(nickname)), "닉네임을 변경했습니다."); };
@@ -39,7 +40,7 @@ export function MyPage() {
     {(message || error) && <div className={error ? "account-alert error" : "account-alert"}>{error || message}</div>}
     <div className="mypage-section-title"><h2>나의 정보</h2><p>계정 기본 정보를 관리합니다.</p></div>
     <section className="panel account-summary"><div className="avatar large">{member?.nickname.slice(0, 1)}</div><div><h2>{member?.nickname}</h2><p>{member?.loginId} · {member?.email}</p></div></section>
-    <section className="account-actions"><button onClick={() => setAction(action === "nickname" ? null : "nickname")}><Pencil size={18} /><span><strong>닉네임 변경</strong><small>서비스에 표시되는 이름을 변경합니다.</small></span><ChevronRight size={17} /></button><button onClick={() => setAction(action === "password" ? null : "password")}><KeyRound size={18} /><span><strong>비밀번호 변경</strong><small>현재 비밀번호 확인 후 변경합니다.</small></span><ChevronRight size={17} /></button><button className="withdraw-action" onClick={() => setAction(action === "withdraw" ? null : "withdraw")}><UserX size={18} /><span><strong>회원 탈퇴</strong><small>회원 데이터와 개인 일정을 삭제합니다.</small></span><ChevronRight size={17} /></button></section>
+    <section className="account-actions"><button aria-expanded={action === "nickname"} onClick={() => setAction(action === "nickname" ? null : "nickname")}><Pencil size={18} /><span><strong>닉네임 변경</strong><small>서비스에 표시되는 이름을 변경합니다.</small></span><ChevronRight size={17} /></button><button aria-expanded={action === "password"} onClick={() => setAction(action === "password" ? null : "password")}><KeyRound size={18} /><span><strong>비밀번호 변경</strong><small>현재 비밀번호 확인 후 변경합니다.</small></span><ChevronRight size={17} /></button><button className="withdraw-action" aria-expanded={action === "withdraw"} onClick={() => setAction(action === "withdraw" ? null : "withdraw")}><UserX size={18} /><span><strong>회원 탈퇴</strong><small>회원 데이터와 개인 일정을 삭제합니다.</small></span><ChevronRight size={17} /></button></section>
     <SubscriptionSection />
     <PushNotificationSection />
     <PortfolioSection />
