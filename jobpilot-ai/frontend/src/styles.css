@@ -384,7 +384,7 @@ a { color: inherit; text-decoration: none; }
 .brand-mouse-button.right { right: 1px; border-radius: 2px 11px 2px 3px; }
 .brand-mouse-wheel { position: absolute; z-index: 1; top: 3px; left: 14px; width: 3px; height: 6px; border: 1px solid #3e475d; border-radius: 4px; background: repeating-linear-gradient(180deg, #e8edf7 0 1px, #596277 1px 2px); }
 .brand-mouse-cable { position: absolute; right: -11px; bottom: 1px; width: 13px; height: 9px; border-right: 2px solid #586278; border-bottom: 2px solid #586278; border-radius: 0 0 10px 0; transform: rotate(-10deg); }
-.brand-bobo-stage { position: fixed; z-index: 6; top: 0; left: 0; width: 160px; height: 90px; overflow: hidden; pointer-events: none; }
+.brand-bobo-stage { position: fixed; z-index: 6; top: 0; left: -5px; width: 160px; height: 90px; overflow: hidden; pointer-events: none; }
 .brand-pounce-video { display: block; width: 100%; height: 100%; object-fit: contain; object-position: left center; }
 .brand-bobo-arrival, .brand-bobo-hold, .brand-bobo-click { position: absolute; width: 70px; height: 70px; object-fit: contain; transform-origin: center; }
 .brand-bobo-arrival { left: -120px; bottom: -2px; animation: bobo-logo-arrive 1.35s .3s cubic-bezier(.18,.8,.2,1) both; }
