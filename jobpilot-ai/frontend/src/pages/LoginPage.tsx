@@ -14,6 +14,8 @@ export function LoginPage() {
   const socialError = params.get("socialError");
   // Preserve only an internal phone-pairing route after login.
   const returnTo = requestedReturnTo?.startsWith("/camera-pair?") || requestedReturnTo?.startsWith("/admin-face-pair?") ? requestedReturnTo : "/";
+  const oauthHref = (provider: "google" | "naver" | "kakao") =>
+    `/oauth2/authorization/${provider}${returnTo === "/" ? "" : `?returnTo=${encodeURIComponent(returnTo)}`}`;
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -105,9 +107,9 @@ export function LoginPage() {
 
         <div className="oauth-login-separator"><span>간편 로그인</span></div>
         <div className="oauth-login-buttons" aria-label="소셜 로그인">
-          <a className="oauth-login-button google" href="/oauth2/authorization/google">Google로 계속하기</a>
-          <a className="oauth-login-button naver" href="/oauth2/authorization/naver">NAVER로 계속하기</a>
-          <a className="oauth-login-button kakao" href="/oauth2/authorization/kakao">카카오로 계속하기</a>
+          <a className="oauth-login-button google" href={oauthHref("google")}>Google로 계속하기</a>
+          <a className="oauth-login-button naver" href={oauthHref("naver")}>NAVER로 계속하기</a>
+          <a className="oauth-login-button kakao" href={oauthHref("kakao")}>카카오로 계속하기</a>
         </div>
 
         {developmentLoginEnabled && (

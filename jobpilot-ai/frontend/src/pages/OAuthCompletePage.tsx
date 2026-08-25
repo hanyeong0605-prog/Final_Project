@@ -12,6 +12,10 @@ export function OAuthCompletePage() {
   const [params] = useSearchParams();
   const ticket = params.get("ticket") ?? "";
   const provider = params.get("provider") ?? "social";
+  const requestedReturnTo = params.get("returnTo");
+  const returnTo = requestedReturnTo?.startsWith("/camera-pair?") || requestedReturnTo?.startsWith("/admin-face-pair?")
+    ? requestedReturnTo
+    : "/";
   const providerEmail = params.get("email") ?? "";
   const trustsProviderEmail = Boolean(providerEmail);
   const [email, setEmail] = useState(providerEmail);
@@ -24,7 +28,7 @@ export function OAuthCompletePage() {
   const [privacyCollectionAgreed, setPrivacyCollectionAgreed] = useState(false);
   const [marketingEmailAgreed, setMarketingEmailAgreed] = useState(false);
 
-  if (member) return <Navigate to="/" replace />;
+  if (member) return <Navigate to={returnTo} replace />;
   if (!ticket) return <Navigate to="/login" replace />;
 
   const sendCode = async () => {
