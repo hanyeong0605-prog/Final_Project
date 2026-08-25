@@ -37,7 +37,9 @@ public class JobADreamMailService {
                 + "<div style='margin:24px 0;padding:18px;border-radius:12px;background:#e8f5fd;color:#125f91;font-size:28px;font-weight:800;letter-spacing:7px;text-align:center'>"
                 + escape(code) + "</div><p>인증 코드는 " + expiresInMinutes
                 + "분 동안 유효합니다. 본인이 요청하지 않았다면 이 메일을 무시해 주세요.</p>";
-        sendHtml(to, "[Job-A-Dream] 이메일 인증 코드", body);
+        // 인증 코드는 즉시 도착해야 한다. 대용량 인라인 이미지를 붙이면 SMTP 응답이
+        // 늦어져, 메일은 도착했지만 요청은 실패(503)로 처리되는 상황이 생길 수 있다.
+        sendHtml(to, "[Job-A-Dream] 이메일 인증 코드", body, false);
     }
 
     public void sendRecommendedJobs(Member member, Map<RecommendationLevel, List<JobPosting>> grouped) {
@@ -46,7 +48,7 @@ public class JobADreamMailService {
         appendSection(body, "지금 지원 가능", "#5DADEC", grouped.getOrDefault(RecommendationLevel.APPLY_NOW, List.of()));
         appendSection(body, "보완 후 도전", "#d97706", grouped.getOrDefault(RecommendationLevel.CHALLENGE_AFTER_GAPS, List.of()));
         body.append("<p style='margin-top:22px;color:#667085;font-size:12px'>Job-A-Dream에서 내 역량 근거와 함께 공고를 확인해 보세요.</p>");
-        sendHtml(member.getEmail(), "[Job-A-Dream] 회원님을 위한 새 맞춤 채용공고", body.toString());
+        sendHtml(member.getEmail(), "[Job-A-Dream] 회원님을 위한 새 맞춤 채용공고", body.toString(), true);
     }
 
     private void appendSection(StringBuilder html, String title, String color, List<JobPosting> jobs) {
@@ -66,22 +68,27 @@ public class JobADreamMailService {
         }
     }
 
-    private void sendHtml(String to, String subject, String content) {
+    private void sendHtml(String to, String subject, String content, boolean includeInlineBrandImages) {
         if (from.isBlank()) throw new IllegalStateException("MAIL_USERNAME 또는 MAIL_FROM 환경변수를 설정해 주세요.");
         try {
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(from); helper.setTo(to); helper.setSubject(subject);
-            String html = "<div style='max-width:640px;margin:auto;padding:28px;background:#f6f9fc;font-family:Arial,sans-serif;color:#263248'>"
-                    + "<div style='padding:18px 20px;background:#fff;border-radius:16px 16px 0 0;border-bottom:3px solid #5DADEC'>"
-                    + "<table role='presentation' cellspacing='0' cellpadding='0'><tr>"
+            String brand = includeInlineBrandImages
+                    ? "<table role='presentation' cellspacing='0' cellpadding='0'><tr>"
                     + "<td style='padding-right:14px;vertical-align:middle'><img src='cid:jobADreamLogo' alt='Job A Dream' width='210' style='display:block;width:210px;max-width:100%;height:auto;border:0'></td>"
                     + "<td style='vertical-align:middle'><img src='cid:jobADreamMascot' alt='Job-A-Dream 마스코트' width='88' style='display:block;width:88px;height:auto;border:0'></td>"
-                    + "</tr></table></div>"
+                    + "</tr></table>"
+                    : "<strong style='font-size:21px;color:#2877bd'>Job-A-Dream</strong>";
+            String html = "<div style='max-width:640px;margin:auto;padding:28px;background:#f6f9fc;font-family:Arial,sans-serif;color:#263248'>"
+                    + "<div style='padding:18px 20px;background:#fff;border-radius:16px 16px 0 0;border-bottom:3px solid #5DADEC'>"
+                    + brand + "</div>"
                     + "<div style='padding:24px 20px;background:#fff;border-radius:0 0 16px 16px'>" + content + "</div></div>";
             helper.setText(html, true);
-            helper.addInline("jobADreamLogo", new ClassPathResource("mail/job-a-dream-logo.png"), "image/png");
-            helper.addInline("jobADreamMascot", new ClassPathResource("mail/job-a-dream-cat.png"), "image/png");
+            if (includeInlineBrandImages) {
+                helper.addInline("jobADreamLogo", new ClassPathResource("mail/job-a-dream-logo.png"), "image/png");
+                helper.addInline("jobADreamMascot", new ClassPathResource("mail/job-a-dream-cat.png"), "image/png");
+            }
             sender.send(message);
         } catch (MessagingException | MailException exception) {
             throw new IllegalStateException("이메일을 보내지 못했습니다.", exception);
