@@ -92,11 +92,30 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler({ConstraintViolationException.class, MethodArgumentNotValidException.class})
-    public ResponseEntity<Map<String, Object>> handleValidation(Exception exception) {
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException exception) {
+        String message = exception.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("입력값을 확인해 주세요.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 "code", "VALIDATION_FAILED",
-                "message", exception.getMessage(),
+                "message", message,
+                "timestamp", Instant.now().toString()
+        ));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException exception) {
+        String message = exception.getConstraintViolations().stream()
+                .map(violation -> violation.getMessage())
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("입력값을 확인해 주세요.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "code", "VALIDATION_FAILED",
+                "message", message,
                 "timestamp", Instant.now().toString()
         ));
     }

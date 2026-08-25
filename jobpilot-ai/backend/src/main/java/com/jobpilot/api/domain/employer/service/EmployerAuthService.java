@@ -5,10 +5,12 @@ import com.jobpilot.api.domain.employer.client.NtsBusinessVerificationClient;
 import com.jobpilot.api.domain.employer.dto.EmployerAuthResponse;
 import com.jobpilot.api.domain.employer.dto.EmployerLoginRequest;
 import com.jobpilot.api.domain.employer.dto.EmployerResponse;
+import com.jobpilot.api.domain.employer.dto.EmployerProfileUpdateRequest;
 import com.jobpilot.api.domain.employer.dto.EmployerSignupRequest;
 import com.jobpilot.api.domain.employer.entity.EmployerAccount;
 import com.jobpilot.api.domain.employer.exception.DuplicateEmployerException;
 import com.jobpilot.api.domain.employer.exception.InvalidEmployerCredentialsException;
+import com.jobpilot.api.domain.employer.entity.EmployerPasswordlessStatus;
 import com.jobpilot.api.domain.employer.repository.EmployerAccountRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
@@ -38,7 +40,7 @@ public class EmployerAuthService {
         this.ntsClient = ntsClient;
     }
 
-    public EmployerAuthResponse signup(EmployerSignupRequest request) {
+    public EmployerResponse signup(EmployerSignupRequest request) {
         if (employers.existsByLoginId(request.loginId())) throw new DuplicateEmployerException("이미 사용 중인 로그인 아이디입니다.");
         String email = normalizeEmail(request.email());
         if (employers.existsByEmail(email)) throw new DuplicateEmployerException("이미 사용 중인 이메일입니다.");
@@ -56,14 +58,7 @@ public class EmployerAuthService {
                 ntsClient.verify(businessNumber, request.openingDate(), request.representativeName());
         employer.applyNtsVerificationResult(verification.verified(), verification.rawResponse());
 
-        EmployerAccount saved = employers.save(employer);
-        return response(saved);
-    }
-
-    public EmployerAuthResponse login(EmployerLoginRequest request) {
-        EmployerAccount employer = employers.findByLoginId(request.loginId()).orElseThrow(InvalidEmployerCredentialsException::new);
-        if (!passwordEncoder.matches(request.password(), employer.getPasswordHash())) throw new InvalidEmployerCredentialsException();
-        return response(employer);
+        return EmployerResponse.from(employers.save(employer));
     }
 
     public EmployerResponse me(Long employerId) {
@@ -71,11 +66,44 @@ public class EmployerAuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다.")));
     }
 
-    private EmployerAuthResponse response(EmployerAccount employer) {
+    public EmployerAuthResponse login(EmployerLoginRequest request) {
+        EmployerAccount employer = employers.findByLoginId(request.loginId())
+                .orElseThrow(InvalidEmployerCredentialsException::new);
+        if (!passwordEncoder.matches(request.password(), employer.getPasswordHash()))
+            throw new InvalidEmployerCredentialsException();
+        if (employer.getPasswordlessStatus() == EmployerPasswordlessStatus.ACTIVE)
+            throw new IllegalArgumentException("Passwordless 전환이 완료된 계정입니다. Passwordless 로그인으로 이용해 주세요.");
+        if (!employer.isApproved())
+            throw new IllegalArgumentException("관리자 승인이 완료된 기업회원만 로그인할 수 있습니다.");
         JwtTokenService.Token token = tokenService.issueForEmployer(employer);
         return new EmployerAuthResponse(token.value(), "Bearer", token.expiresInSeconds(), EmployerResponse.from(employer));
     }
 
+    public EmployerResponse updateProfile(Long employerId, EmployerProfileUpdateRequest request) {
+        EmployerAccount employer = employers.findById(employerId)
+                .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다."));
+        String loginId = request.loginId().trim();
+        String email = normalizeEmail(request.email());
+        if (employers.existsByLoginIdAndIdNot(loginId, employerId))
+            throw new DuplicateEmployerException("이미 사용 중인 로그인 아이디입니다.");
+        if (employers.existsByEmailAndIdNot(email, employerId))
+            throw new DuplicateEmployerException("이미 사용 중인 이메일입니다.");
+        String passwordHash = employer.getPasswordlessStatus() == EmployerPasswordlessStatus.ACTIVE
+                || request.newPassword() == null || request.newPassword().isBlank()
+                ? null : passwordEncoder.encode(request.newPassword());
+        employer.updateProfile(loginId, email, passwordHash, request.managerName().trim(), blankToNull(request.managerPhone()),
+                request.companyName().trim(), request.representativeName().trim(), request.openingDate(),
+                blankToNull(request.companyAddress()));
+        return EmployerResponse.from(employer);
+    }
+
+    public void withdraw(Long employerId) {
+        EmployerAccount employer = employers.findById(employerId)
+                .orElseThrow(() -> new ResourceNotFoundException("기업회원을 찾을 수 없습니다."));
+        employer.withdraw();
+    }
+
     private String normalizeEmail(String email) { return email.trim().toLowerCase(Locale.ROOT); }
     private String normalizeBusinessNumber(String raw) { return raw.replaceAll("[^0-9]", ""); }
+    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }

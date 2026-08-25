@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Pencil, Trash2 } from "lucide-react";
 import { PageHeading } from "../shared/components/PageHeading";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
@@ -7,21 +6,22 @@ import {
   createJobPosting, getMyJobPostings, hideJobPosting, updateJobPosting,
   type EmployerJobPosting, type EmployerJobPostingInput,
 } from "../features/employer/api/employerJobPostingApi";
+import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
 
 const emptyForm: EmployerJobPostingInput = {
   title: "", companyUrl: "", description: "", location: "", employmentType: "", experienceType: "",
-  salary: "", deadlineAt: "", rollingDeadline: true,
+  salary: "", deadlineAt: "", rollingDeadline: false,
 };
 
 export function EmployerMyPage() {
-  const { employer, logout } = useEmployerAuth();
-  const navigate = useNavigate();
+  const { employer } = useEmployerAuth();
   const [postings, setPostings] = useState<EmployerJobPosting[]>([]);
   const [form, setForm] = useState<EmployerJobPostingInput>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [addressSearchOpen, setAddressSearchOpen] = useState(false);
 
   const approved = employer?.status === "APPROVED";
 
@@ -63,7 +63,8 @@ export function EmployerMyPage() {
     setError(""); setNotice("");
     setSubmitting(true);
     try {
-      const payload: EmployerJobPostingInput = { ...form, deadlineAt: form.deadlineAt || null };
+      if (!form.rollingDeadline && !form.deadlineAt) throw new Error("마감일시를 입력하거나 상시 채용을 선택해 주세요.");
+      const payload: EmployerJobPostingInput = { ...form, deadlineAt: form.rollingDeadline ? null : form.deadlineAt || null };
       if (editingId) {
         await updateJobPosting(editingId, payload);
         setNotice("채용공고를 수정했습니다.");
@@ -95,10 +96,9 @@ export function EmployerMyPage() {
   return (
     <main className="content">
       <PageHeading
-        eyebrow="EMPLOYER"
-        title={employer.companyName}
-        body={`${employer.managerName} 담당자님, 환영합니다.`}
-        action={<button className="outline-button" onClick={() => { logout(); navigate("/employer/login"); }}>로그아웃</button>}
+        eyebrow="JOB POSTING MANAGEMENT"
+        title="공고 관리"
+        body={`${employer.companyName}에서 등록한 채용공고를 작성하고 관리합니다.`}
       />
 
       {employer.status === "PENDING" && (
@@ -123,7 +123,7 @@ export function EmployerMyPage() {
             <form onSubmit={submit} className="employer-posting-form">
               <label>제목<input required value={form.title} onChange={update("title")} /></label>
               <label>상세 설명<textarea required rows={5} value={form.description} onChange={update("description")} /></label>
-              <label>근무지<input value={form.location} onChange={update("location")} /></label>
+              <label>근무지<div className="field-input-action"><input value={form.location} readOnly placeholder="주소 찾기를 눌러 주세요" /><button type="button" className="outline-button" onClick={() => setAddressSearchOpen(true)}>주소 찾기</button></div></label>
               <label>고용 형태<input value={form.employmentType} onChange={update("employmentType")} placeholder="정규직/계약직 등" /></label>
               <label>경력 조건<input value={form.experienceType} onChange={update("experienceType")} placeholder="신입/경력 등" /></label>
               <label>급여<input value={form.salary} onChange={update("salary")} /></label>
@@ -165,6 +165,7 @@ export function EmployerMyPage() {
               </table>
             </div>
           </section>
+          <PostcodeSearchModal isOpen={addressSearchOpen} onClose={() => setAddressSearchOpen(false)} onSelectAddress={(address) => setForm((value) => ({ ...value, location: address }))} />
         </>
       )}
     </main>

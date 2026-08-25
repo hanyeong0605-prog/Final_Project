@@ -1,4 +1,5 @@
-export type EmployerAccountStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type EmployerAccountStatus = "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN";
+export type EmployerPasswordlessStatus = "NONE" | "ENROLL_REQUIRED" | "ACTIVE" | "REVOKED";
 
 export interface EmployerAccount {
   id: number;
@@ -14,6 +15,9 @@ export interface EmployerAccount {
   ntsVerified: boolean;
   status: EmployerAccountStatus;
   rejectionReason: string | null;
+  passwordlessStatus: EmployerPasswordlessStatus;
+  passwordlessActivatedAt: string | null;
+  passwordlessLastVerifiedAt: string | null;
 }
 
 export interface EmployerAuthResponse {
@@ -40,3 +44,9 @@ export interface EmployerLoginInput {
   loginId: string;
   password: string;
 }
+export interface EmployerProfileInput {
+  loginId: string; email: string; newPassword?: string; managerName: string; managerPhone?: string;
+  companyName: string; representativeName: string; openingDate: string; companyAddress?: string;
+}
+export interface EmployerEnrollmentInput { loginId: string; password: string; passwordlessConsent: boolean; }
+export interface EmployerPasswordlessStart { result: "OK"; sessionId: string; data: { servicePassword?: string; term?: number }; }

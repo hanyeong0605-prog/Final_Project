@@ -26,6 +26,12 @@ export function EmployerSignupPage() {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
+  const updateDigits = (field: "businessRegistrationNumber" | "openingDate", maxLength: number) =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value.replace(/\D/g, "").slice(0, maxLength);
+      setForm((prev) => ({ ...prev, [field]: value }));
+    };
+
   const applyAddress = (base: string, detail: string) => {
     setForm((prev) => ({ ...prev, companyAddress: [base, detail].filter(Boolean).join(" ") }));
   };
@@ -46,7 +52,7 @@ export function EmployerSignupPage() {
     setSubmitting(true);
     try {
       await signup(form);
-      navigate("/employer");
+      navigate("/employer/login?signup=pending");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "가입에 실패했습니다.");
     } finally {
@@ -78,9 +84,9 @@ export function EmployerSignupPage() {
           <label>담당자 이름<input required value={form.managerName} onChange={update("managerName")} /></label>
           <label>담당자 연락처<input value={form.managerPhone} onChange={update("managerPhone")} placeholder="선택 입력" /></label>
           <label>회사명<input required value={form.companyName} onChange={update("companyName")} /></label>
-          <label>사업자등록번호<input required value={form.businessRegistrationNumber} onChange={update("businessRegistrationNumber")} placeholder="1234567890 (하이픈 없이)" /></label>
+          <label>사업자등록번호<input required inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} value={form.businessRegistrationNumber} onChange={updateDigits("businessRegistrationNumber", 10)} placeholder="숫자 10자리" title="사업자등록번호 숫자 10자리를 입력해 주세요." /></label>
           <label>대표자명<input required value={form.representativeName} onChange={update("representativeName")} /></label>
-          <label>개업일자<input required value={form.openingDate} onChange={update("openingDate")} placeholder="YYYYMMDD" maxLength={8} /></label>
+          <label>개업일자<input required inputMode="numeric" pattern="[0-9]{8}" minLength={8} maxLength={8} value={form.openingDate} onChange={updateDigits("openingDate", 8)} placeholder="YYYYMMDD" title="개업일자를 YYYYMMDD 8자리로 입력해 주세요." /></label>
           <label>
             회사 주소
             <div className="field-input-action">

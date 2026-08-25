@@ -3,7 +3,6 @@ import type { LocationJob } from "../model/types";
 import { useNavigate } from "react-router-dom";
 
 const CURRENT_LOCATION_MARKER = "/map-markers/current-location-cat.png";
-const JOB_LOCATION_MARKER = "/map-markers/job-location-pin.png";
 
 interface Props {
   center: { lat: number; lng: number };
@@ -29,6 +28,9 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const circleRef = useRef<any>(null);
   const centerMarkerRef = useRef<any>(null); 
   const markersRef = useRef<any[]>([]);
+  const markerJobsRef = useRef<Map<any, LocationJob>>(new Map());
+  const clustererRef = useRef<any>(null);
+  const clusterOverlayRef = useRef<any>(null);
   const overlayRef = useRef<any>(null);
   const centerLockedRef = useRef(isCenterLocked);
   const onCenterChangedRef = useRef(onCenterChanged);
@@ -37,7 +39,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
 
   useEffect(() => {
     centerLockedRef.current = isCenterLocked;
-    mapRef.current?.setDraggable(!isCenterLocked);
+    mapRef.current?.setDraggable(true);
   }, [isCenterLocked]);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
         };
         const kakaoMap = new window.kakao.maps.Map(containerRef.current, options);
         mapRef.current = kakaoMap;
-        kakaoMap.setDraggable(!centerLockedRef.current);
+        kakaoMap.setDraggable(true);
         window.kakao.maps.event.addListener(kakaoMap, "idle", () => {
           const nextCenter = kakaoMap.getCenter();
           const next = { lat: nextCenter.getLat(), lng: nextCenter.getLng() };
@@ -111,6 +113,10 @@ export const KakaoMapContainer: React.FC<Props> = ({
         // 커스텀 오버레이 생성
         overlayRef.current = new window.kakao.maps.CustomOverlay({
           zIndex: 3,
+        });
+        clusterOverlayRef.current = new window.kakao.maps.CustomOverlay({
+          zIndex: 6,
+          yAnchor: 1.08,
         });
 
         updateCircleAndLevel(kakaoMap, center, radiusKm, true);
@@ -194,18 +200,18 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const updateMarkers = (map: any, currentJobs: LocationJob[]) => {
     if (!map || !window.kakao) return;
 
+    clustererRef.current?.clear();
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
+    markerJobsRef.current.clear();
+    clusterOverlayRef.current?.setMap(null);
 
     if (overlayRef.current) {
       overlayRef.current.setMap(null);
     }
 
-    const jobMarkerImage = new window.kakao.maps.MarkerImage(
-      JOB_LOCATION_MARKER,
-      new window.kakao.maps.Size(36, 46),
-      { offset: new window.kakao.maps.Point(18, 44) },
-    );
+    const singleMarkerSvg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="17" fill="#5B92F3" stroke="white" stroke-width="3"/><text x="19" y="24" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="15" font-weight="700">1</text></svg>`);
+    const jobMarkerImage = new window.kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${singleMarkerSvg}`, new window.kakao.maps.Size(38, 38), { offset: new window.kakao.maps.Point(19, 19) });
 
     currentJobs.forEach((job) => {
       const markerPosition = new window.kakao.maps.LatLng(job.latitude, job.longitude);
@@ -214,8 +220,6 @@ export const KakaoMapContainer: React.FC<Props> = ({
         image: jobMarkerImage,
         title: job.title,
       });
-
-      marker.setMap(map);
 
       window.kakao.maps.event.addListener(marker, "click", () => {
         const contentNode = createOverlayContent(job);
@@ -227,7 +231,50 @@ export const KakaoMapContainer: React.FC<Props> = ({
       });
 
       markersRef.current.push(marker);
+      markerJobsRef.current.set(marker, job);
     });
+
+    const clusterer = new window.kakao.maps.MarkerClusterer({
+      map,
+      markers: markersRef.current,
+      averageCenter: true,
+      minLevel: 1,
+      minClusterSize: 2,
+      disableClickZoom: false,
+      styles: [{ width: "42px", height: "42px", background: "#5B92F3", border: "3px solid #fff", borderRadius: "50%", color: "#fff", textAlign: "center", fontWeight: "800", fontSize: "14px", lineHeight: "36px", boxShadow: "0 5px 14px rgba(43, 82, 153, .3)" }],
+    });
+    window.kakao.maps.event.addListener(clusterer, "clusterover", (cluster: any) => {
+      const clusteredJobs = cluster.getMarkers().map((marker: any) => markerJobsRef.current.get(marker)).filter(Boolean) as LocationJob[];
+      if (clusteredJobs.length < 2 || !clusterOverlayRef.current) return;
+      clusterOverlayRef.current.setContent(createClusterOverlayContent(clusteredJobs));
+      clusterOverlayRef.current.setPosition(cluster.getCenter());
+      clusterOverlayRef.current.setMap(map);
+    });
+    window.kakao.maps.event.addListener(clusterer, "clusterout", () => clusterOverlayRef.current?.setMap(null));
+    clustererRef.current = clusterer;
+  };
+
+  const createClusterOverlayContent = (clusteredJobs: LocationJob[]) => {
+    const panel = document.createElement("section");
+    panel.className = "location-cluster-preview";
+    const heading = document.createElement("strong");
+    heading.textContent = `이 위치의 채용공고 ${clusteredJobs.length}개`;
+    panel.appendChild(heading);
+    clusteredJobs.slice(0, 8).forEach((job) => {
+      const row = document.createElement("div");
+      const company = document.createElement("b");
+      const detail = document.createElement("span");
+      company.textContent = job.companyName || job.company_name || job.company || "기업명 미지정";
+      detail.textContent = [job.title || job.jobTitle || "채용 공고", job.address || job.locationText || job.location].filter(Boolean).join(" · ");
+      row.append(company, detail);
+      panel.appendChild(row);
+    });
+    if (clusteredJobs.length > 8) {
+      const more = document.createElement("small");
+      more.textContent = `외 ${(clusteredJobs.length - 8).toLocaleString()}개 공고`;
+      panel.appendChild(more);
+    }
+    return panel;
   };
 
   useEffect(() => {

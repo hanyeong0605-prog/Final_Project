@@ -9,7 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EmployerAccountRepository extends JpaRepository<EmployerAccount, Long> {
     boolean existsByLoginId(String loginId);
+    boolean existsByLoginIdAndIdNot(String loginId, Long id);
     boolean existsByEmail(String email);
+    boolean existsByEmailAndIdNot(String email, Long id);
     boolean existsByBusinessRegistrationNumber(String businessRegistrationNumber);
     Optional<EmployerAccount> findByLoginId(String loginId);
 
