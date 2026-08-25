@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.jobpilot.api.domain.auth.service.OAuthAuthenticationSuccessHandler;
@@ -35,6 +36,7 @@ public class SecurityConfig {
             HttpSecurity http,
             @Value("${app.dev-auth.enabled:false}") boolean developmentAuthenticationEnabled,
             InternalApiKeyFilter internalApiKeyFilter,
+            OAuthReturnToRequestFilter oauthReturnToRequestFilter,
             OAuthAuthenticationSuccessHandler oauthSuccessHandler
     ) throws Exception {
         return http
@@ -43,6 +45,7 @@ public class SecurityConfig {
                 // OAuth uses a short-lived session for the authorization state; APIs still authenticate by JWT.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(oauthReturnToRequestFilter, OAuth2AuthorizationRequestRedirectFilter.class)
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers(
                             "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/login-id-availability",

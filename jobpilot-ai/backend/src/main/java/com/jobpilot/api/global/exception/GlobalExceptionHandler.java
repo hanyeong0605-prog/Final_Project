@@ -13,6 +13,8 @@ import com.jobpilot.api.domain.interview.pairing.PairingException;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     // 2026-08-19: AdminAccessService/AuthenticatedMember/AuthenticatedEmployer가 던지는
     // AccessDeniedException은 (@EnableMethodSecurity를 안 쓰기 때문에) 시큐리티 필터가
     // 아니라 컨트롤러 안에서 던져진다 - 여기서 안 잡아주면 기본 500으로 새 나가서
@@ -83,6 +87,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EmailDeliveryException.class)
     public ResponseEntity<Map<String, Object>> handleEmailDelivery(EmailDeliveryException exception) {
+        // Keep the browser message generic, but retain the SMTP/root cause in server logs.
+        // Never log environment values such as the Gmail app password.
+        log.error("Email verification delivery failed: {}", exception.getMessage(), exception);
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
                 "code", "EMAIL_DELIVERY_FAILED", "message", exception.getMessage(), "timestamp", Instant.now().toString()));
     }
