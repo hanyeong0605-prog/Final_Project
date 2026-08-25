@@ -132,17 +132,16 @@ export function PhoneCameraPairingPanel({ onRemoteStream, onConnected, onClose }
   return (
     <div style={{ width: "100%", maxWidth: 480, border: "1px solid #dfe4ec", borderRadius: 14, padding: 18, background: "#fbfcff" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-        <div><strong><Smartphone size={16} /> 폰을 카메라로 연결</strong><p style={{ margin: "7px 0 0", fontSize: 12, color: "#667085" }}>{status}</p></div>
+        <div><strong style={{ fontSize: 16 }}><Smartphone size={19} /> 폰을 카메라로 연결</strong><p style={{ margin: "7px 0 0", fontSize: 14, color: "#667085" }}>{status}</p></div>
         <button className="text-button" onClick={onClose} type="button"><X size={16} /> 닫기</button>
       </div>
-      {error && <p style={{ color: "#c0392b", fontSize: 12 }}>{error}</p>}
+      {error && <p style={{ color: "#c0392b", fontSize: 14 }}>{error}</p>}
       {!pairing && !error && <LoaderCircle className="spin" size={28} style={{ display: "block", margin: "22px auto" }} />}
       {pairing && (
         <div style={{ display: "grid", justifyItems: "center", gap: 12, marginTop: 16 }}>
           <QRCodeSVG value={pairUrl} size={210} level="M" includeMargin />
-          <code style={{ maxWidth: "100%", overflowWrap: "anywhere", fontSize: 10, color: "#667085" }}>{pairUrl}</code>
-          <span style={{ fontSize: 11, color: "#667085" }}><Camera size={12} /> PC와 휴대폰은 반드시 같은 Wi-Fi에 연결해야 합니다.</span>
-          <span style={{ fontSize: 11, color: "#667085" }}>QR은 5분 안에 한 번만 사용할 수 있습니다.</span>
+          <span style={{ fontSize: 14, color: "#667085" }}><Camera size={15} /> PC와 휴대폰은 반드시 같은 Wi-Fi에 연결해야 합니다.</span>
+          <span style={{ fontSize: 14, color: "#667085" }}>QR은 5분 안에 한 번만 사용할 수 있습니다.</span>
         </div>
       )}
     </div>

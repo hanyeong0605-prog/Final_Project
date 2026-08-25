@@ -24,6 +24,7 @@ LoRA도 다 실패했을 때 마지막 보루로 반드시 배포 환경에 있�
 """
 
 import json
+import random
 from pathlib import Path
 
 from app.domain.interview.question_generator import DEFAULT_JOB, FIELD_SENSITIVE_CATEGORIES
@@ -79,6 +80,23 @@ def get_pool(category: str, job: str) -> list[str]:
             return pool
         return pools.get((category, DEFAULT_JOB), [])
     return pools.get((category, ""), [])
+
+
+def pick_question(category: str, job: str, exclude: set[str]) -> str | None:
+    """category/job 풀에서 exclude(이번 세션에서 이미 나온 질문들)에 없는 질문 하나를
+    무작위로 골라 돌려준다 - 무료 등급의 1차 질문 소스이자, 유료 등급이 Gemini 실패로
+    코퍼스에 기댈 때도 같은 함수를 써서 세션 안에서 중복이 안 나오게 한다(기존
+    generate_validated_question의 random.choice(pool)은 세션 내 다른 호출 결과를 몰라서
+    같은 풀에서 중복으로 뽑힐 수 있었다).
+
+    풀에서 exclude 뺀 후보가 하나도 안 남으면(풀이 세션 질문 수보다 작은 극단적인 경우)
+    "중복 없음"보다 "질문이 아예 안 나오는 것"을 막는 게 우선이라 exclude를 무시하고 풀
+    전체에서 다시 고른다 - 이 경우만 중복이 남을 수 있다."""
+    pool = get_pool(category, job)
+    if not pool:
+        return None
+    candidates = [q for q in pool if q not in exclude]
+    return random.choice(candidates or pool)
 
 
 def reload_pools() -> None:

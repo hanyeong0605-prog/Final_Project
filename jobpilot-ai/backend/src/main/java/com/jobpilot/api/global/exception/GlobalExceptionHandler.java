@@ -9,6 +9,7 @@ import com.jobpilot.api.domain.auth.exception.InvalidCredentialsException;
 import com.jobpilot.api.domain.employer.exception.DuplicateEmployerException;
 import com.jobpilot.api.domain.employer.exception.EmployerNotApprovedException;
 import com.jobpilot.api.domain.employer.exception.InvalidEmployerCredentialsException;
+import com.jobpilot.api.domain.interview.pairing.PairingException;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.Map;
@@ -69,6 +70,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleEmailVerification(EmailVerificationException exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 "code", "EMAIL_VERIFICATION_FAILED", "message", exception.getMessage(), "timestamp", Instant.now().toString()));
+    }
+
+    // PairingException은 @ResponseStatus(BAD_REQUEST)만 붙어 있어서 여기서 안 잡아주면
+    // Spring 기본 에러 응답(message 필드 없음)으로 새 나가, 프론트가 만료/계정불일치/
+    // 재사용 등 실제 사유 대신 "failed: 400" 같은 의미 없는 문구만 보여주게 된다.
+    @ExceptionHandler(PairingException.class)
+    public ResponseEntity<Map<String, Object>> handlePairing(PairingException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "code", "PAIRING_FAILED", "message", exception.getMessage(), "timestamp", Instant.now().toString()));
     }
 
     @ExceptionHandler(EmailDeliveryException.class)

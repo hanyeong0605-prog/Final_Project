@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
+from app.domain.interview import question_corpus
 from app.domain.interview.question_generator import (
     DEFAULT_JOB,
     generate_personalized_question,
@@ -54,6 +55,16 @@ class NextQuestionRequest(BaseModel):
     # generate_personalized_question의 angle_hint 설계 메모 참고). 안 보내면 기존처럼 모델이
     # 알아서 다양성을 챙기는 느슨한 지시만 적용된다.
     angle_hint: str = ""
+    # 2026-08-25: 무료/유료 등급 분기 추가 - 무료 등급은 Gemini를 아예 호출하지 않고
+    # AI Hub 코퍼스(question_corpus.py)에서만 질문을 뽑는다("유료만 실시간 생성, 무료는
+    # 기존 데이터"라는 결제 설계). True면 generate_personalized_question을 건너뛴다.
+    corpus_only: bool = False
+    # 2026-08-25: 세션 안에서 이미 나온 질문 텍스트 목록 - 프론트가 지금까지 확정된 질문들을
+    # 그대로 넘긴다. 무료 등급(순차 호출)에서는 매번 누적된 exclude로 코퍼스 중복을 원천
+    # 차단하고, 유료 등급은 병렬 호출이라 사전에 못 막지만 Gemini가 실패해서 코퍼스로 빠질
+    # 때 최소한 지금까지 확정된 질문과는 안 겹치게 하는 데 쓴다(question_corpus.pick_question
+    # 참고 - random.choice(pool) 하나만 쓰던 것보다 개선).
+    exclude: list[str] = []
 
 
 @router.post("/next-question")
@@ -68,12 +79,27 @@ def next_question(body: NextQuestionRequest):
     # 들어가 있어서(app/domain/interview/model/은 이미지에서 제외됨), 이 폴백이 없으면
     # 배포 환경에서 LoRA 경로를 타는 요청이 전부 503으로 실패한다 - 품질 이유뿐 아니라
     # 배포 안정성 측면에서도 Gemini-우선이 맞다는 게 재확인됐다.
+    exclude = set(body.exclude)
+
+    # 2026-08-25: 무료 등급 - Gemini를 아예 안 부르고 코퍼스에서만 뽑는다. API 비용/할당량이
+    # 0이라 상태코드를 나눌 이유도 없다 - 풀이 비어있는 극단적인 경우(코퍼스 파일 손상 등)만
+    # 503으로 알린다.
+    if body.corpus_only:
+        question = question_corpus.pick_question(body.category, body.job, exclude)
+        if question is None:
+            raise HTTPException(status_code=503, detail="질문 코퍼스가 비어 있습니다.")
+        return {"question": question}
+
     try:
         question = generate_personalized_question(
             job=body.job, tech_summary=body.tech_summary, category=body.category, angle_hint=body.angle_hint
         )
-        if question is None:
+        if question is None or question in exclude:
             question = generate_validated_question(job=body.job, context=body.context, category=body.category)
+        if question in exclude:
+            # generate_validated_question도 결국 코퍼스 random.choice로 빠진 것이라 exclude를
+            # 몰랐을 수 있다 - 마지막으로 exclude를 아는 pick_question으로 한 번 더 시도한다.
+            question = question_corpus.pick_question(body.category, body.job, exclude) or question
     except RuntimeError as e:
         # 모델 파일이 없는 경우(아직 학습/배포 안 됨) - 500 대신 명확한 메시지로 알려준다.
         raise HTTPException(status_code=503, detail=str(e))

@@ -5,6 +5,7 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
   Camera,
   CheckCircle2,
   Clock,
@@ -730,7 +731,6 @@ export function MockInterviewPage() {
   const phoneStreamNeedsPreviewRef = useRef(false);
   const phonePairDisconnectRef = useRef<(() => void) | null>(null);
   const phonePairStateRef = useRef<((stage: string, question?: string, elapsedSec?: number) => void) | null>(null);
-  const phoneAutoStartRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const recordingAudioContextRef = useRef<AudioContext | null>(null);
   // 2026-08-12 추가: 마이크 테스트 화면의 막대바 대신 실제 파형(오실로스코프 모양)을
@@ -1000,6 +1000,16 @@ export function MockInterviewPage() {
     "기술 선택 이유", "트러블슈팅/문제 해결 경험", "설계·트레이드오프 판단",
     "성능·품질 개선 경험", "협업 중 기술적 의견 차이 조율", "실무 적용 사례·한계",
   ] as const;
+  // 2026-08-25: "인성면접"/"역량면접"은 카테고리가 2개뿐이라(INTERVIEW_TYPES 참고)
+  // questionCount 5~7개를 고르면 같은 카테고리가 반복 요청되는데, 이때 TECH_QUESTION_ANGLES와
+  // 달리 아무 angle_hint도 안 보내서 세션 리포트에 거의 같은 질문이 두 번 나오는 사례가
+  // 있었다("기차가 산사태로 멈췄을 때..." 질문이 Q2/Q3에 그대로 중복). TECH_QUESTION_ANGLES를
+  // 그대로 재사용하면 2026-08-10에 고친 "기술 관점이 인성면접에 새는" 버그가 재발하므로,
+  // 기술색이 없는 별도 각도 목록을 만들어 카테고리가 실제로 반복될 때만 붙인다.
+  const GENERAL_QUESTION_ANGLES = [
+    "가장 최근 경험", "가장 어려웠던 순간과 극복 과정", "실패했지만 배운 점",
+    "팀/조직 전체 관점에서의 판단", "장기적 성장 관점", "구체적 수치·결과 중심",
+  ] as const;
 
   const buildSessionQuestions = async (): Promise<string[]> => {
     // 2026-08-13: "프로필 불러오기"를 명시적으로 고르고 구독 중(또는 관리자)일 때만
@@ -1024,6 +1034,25 @@ export function MockInterviewPage() {
       { length: categoriesNeeded },
       (_, i) => categoryPool[i % categoryPool.length],
     );
+
+    const questions: string[] = [SELF_INTRO_QUESTION];
+
+    // 2026-08-25: 결제 설계 - 무료 등급은 Gemini를 아예 호출하지 않고 AI Hub 코퍼스에서만
+    // 순차로 뽑는다(유료만 실시간 생성). 순차 호출이라 매번 "지금까지 뽑힌 질문"을 exclude로
+    // 넘길 수 있어서, 코퍼스 안에서 중복 없이 뽑힌다 - 아래 유료 경로(병렬 호출)는 서로의
+    // 결과를 모르는 채로 동시에 요청하기 때문에 이 방식을 못 쓴다.
+    if (!subscribed) {
+      for (const category of categories) {
+        try {
+          const picked = await fetchNextQuestion({ job: effectiveJob, category, exclude: questions, corpusOnly: true });
+          questions.push(picked.question);
+        } catch {
+          questions.push(pickFallbackQuestion(...questions));
+        }
+      }
+      return questions;
+    }
+
     // 2026-08-10 버그 수정: TECH_QUESTION_ANGLES("기술 선택 이유", "트러블슈팅 경험" 등)를
     // 카테고리 상관없이 모든 질문에 무조건 붙이고 있었다 - angle_hint는 Gemini 프롬프트에서
     // "반드시 이 관점에서 만들어라"는 강제 규칙이라, "가치관_자기관리"(인성면접) 같은
@@ -1032,24 +1061,45 @@ export function MockInterviewPage() {
     // 의도(TECH_QUESTION_ANGLES 선언부 주석 참고)대로 "기술_직무역량" 카테고리일 때만
     // 붙이고, 그 외 카테고리는 angle_hint 없이 보내서 Gemini가 기존 다양성 규칙(5번,
     // question_generator.py generate_personalized_question 참고)을 대신 쓰게 한다.
+    // 2026-08-25: 다만 그 "느슨한 다양성 규칙"만으로는 부족해서, 같은 카테고리가 세션 안에서
+    // 두 번 이상 반복될 때(categoriesNeeded > categoryPool.length - 인성/역량면접처럼 카테고리
+    // 풀이 작은데 질문 개수를 5~7개로 고른 경우)는 GENERAL_QUESTION_ANGLES로 매번 다른 각도를
+    // 명시적으로 강제한다(기술색이 없는 각도만 써서 위 2026-08-10 버그가 재발하지 않게 한다).
+    const categoryRepeats = categoriesNeeded > categoryPool.length;
     const results = await Promise.allSettled(
-      categories.map((category, i) =>
-        fetchNextQuestion(
-          effectiveJob,
-          undefined,
-          category,
-          effectiveTechSummary || undefined,
-          category === "기술_직무역량" ? TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length] : undefined,
-        ),
-      ),
+      categories.map((category, i) => {
+        const angleHint =
+          category === "기술_직무역량"
+            ? TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length]
+            : categoryRepeats
+              ? GENERAL_QUESTION_ANGLES[i % GENERAL_QUESTION_ANGLES.length]
+              : undefined;
+        return fetchNextQuestion({
+          job: effectiveJob, category, techSummary: effectiveTechSummary || undefined, angleHint,
+          exclude: [SELF_INTRO_QUESTION],
+        });
+      }),
     );
 
-    const questions: string[] = [SELF_INTRO_QUESTION];
-    for (const r of results) {
+    // 2026-08-25: 텍스트가 완전히 똑같지 않고 앞뒤 공백/개행만 다른 경우(LLM 응답에서 흔함)도
+    // 같은 질문으로 취급해서 걸러낸다 - 순수 includes()는 이런 미세한 공백 차이를 다른
+    // 질문으로 오인해서 중복을 못 걸렀다.
+    const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
       const candidate = r.status === "fulfilled" ? r.value.question : null;
-      if (candidate && !questions.includes(candidate)) {
+      if (candidate && !questions.some((q) => normalize(q) === normalize(candidate))) {
         questions.push(candidate);
-      } else {
+        continue;
+      }
+      // 2026-08-25: 병렬 호출끼리 겹쳤을 때(또는 Gemini 실패) 예전엔 SAMPLE_QUESTIONS(5개짜리
+      // 아주 작은 목록)로 대체했는데, 이제 코퍼스(수천 개)에서 exclude로 지금까지 확정된
+      // 질문을 뺀 실제 질문으로 대체한다 - pickFallbackQuestion은 이 요청마저 실패했을 때의
+      // 최후 보루로만 남긴다.
+      try {
+        const replacement = await fetchNextQuestion({ job: effectiveJob, category: categories[i], exclude: questions, corpusOnly: true });
+        questions.push(replacement.question);
+      } catch {
         questions.push(pickFallbackQuestion(...questions));
       }
     }
@@ -1146,7 +1196,6 @@ export function MockInterviewPage() {
     phonePairDisconnectRef.current?.();
     phonePairDisconnectRef.current = null;
     phonePairStateRef.current = null;
-    phoneAutoStartRef.current = false;
   };
 
   const stopFaceLoop = () => {
@@ -1170,19 +1219,12 @@ export function MockInterviewPage() {
     phoneStreamNeedsPreviewRef.current = true;
     setCameraReady(false);
     setPairingPanelOpen(false);
-    // QR pairing hands the whole interview to the phone camera. It should not
-    // leave the user at a second manual "start" button on the PC.
-    phoneAutoStartRef.current = true;
+    // 폰이 연결됐다고 바로 면접을 시작하면, 마이크가 실제로 소리를 잡는지(파형)와
+    // 얼굴이 잘 인식되는지 확인할 기회 없이 곧장 녹화로 들어간다 - PC 카메라 플로우와
+    // 동일하게 testing-mic 화면에서 사용자가 직접 확인하고 "모의면접 시작하기"를
+    // 눌러야 시작하도록 한다.
     setStage("testing-mic");
   };
-
-  useEffect(() => {
-    if (!phoneAutoStartRef.current || stage !== "testing-mic" || sessionQuestions.length === 0) return;
-    phoneAutoStartRef.current = false;
-    beginInterviewCountdown();
-    // beginInterviewCountdown reads the latest prepared session questions.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, sessionQuestions]);
 
   useEffect(() => {
     phonePairStateRef.current?.(stage, questionTextReady ? question : undefined, stage === "recording" ? elapsedSec : undefined);
@@ -2268,6 +2310,20 @@ export function MockInterviewPage() {
 
           {stage === "device-check" && (
             <>
+              {/* 2026-08-25: "면접 유형/분야/질문 개수를 잘못 골랐을 수도 있다"는 요청 - endSession을
+                  그대로 재사용한다. 여기서는 아직 카메라/마이크 스트림을 하나도 안 잡은 상태라(잡는
+                  건 마이크·카메라 테스트를 눌러야 시작됨) 정리할 스트림이 없어 endSession의 정리
+                  로직이 대부분 no-op이고, interviewMode/selectedRole/selectedInterviewType/
+                  questionCount/questionSource는 건드리지 않아서 시작 화면으로 돌아가도 방금 고른
+                  값이 그대로 남아있다 - 처음부터 다시 고를 필요 없이 잘못된 것만 바꾸면 된다. */}
+              <button
+                className="text-button"
+                onClick={endSession}
+                type="button"
+                style={{ alignSelf: "flex-start", fontSize: 12, color: "#9098a7" }}
+              >
+                <ArrowLeft size={14} /> 이전 단계로
+              </button>
               {sessionQuestions.length === 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                   <LoadingBuddy size={44} />
