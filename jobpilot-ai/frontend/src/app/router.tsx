@@ -28,8 +28,6 @@ import { RequireAdminFaceVerified } from "../features/auth/components/RequireAdm
 import { RequireEmployer } from "../features/employer/components/RequireEmployer";
 import { LocationJobsPage } from "../pages/LocationJobsPage";
 import { StatisticsDashboard } from "../pages/StatisticsDashboard";
-import { QuestionPage } from "../pages/QuestionPage";
-import { CareerTestPage } from "../pages/CareerTestPage";
 import { SkillRelationView } from "../pages/SkillRelationView";
 import { CameraPairPage } from "../pages/CameraPairPage";
 import { SubscriptionResultPage } from "../pages/SubscriptionResultPage";
@@ -82,8 +80,6 @@ export const router = createBrowserRouter([
       { path: "timeline", element: <TimelinePage /> },
       { path: "account", element: <MyPage /> },
       { path: "statistics", element: <StatisticsDashboard /> },
-      { path: "question", element: <QuestionPage /> },
-      { path: "tests/:testKey", element: <CareerTestPage /> },
       { path: "skill-relation", element: <SkillRelationView /> },
       { path: "subscription/success", element: <SubscriptionResultPage /> },
       { path: "subscription/fail", element: <SubscriptionResultPage /> },

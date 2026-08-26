@@ -3,7 +3,6 @@ import {
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
-  ClipboardCheck,
   History,
   LayoutDashboard,
   MapPin,
@@ -51,7 +50,6 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { path: "/capability", label: "역량 관리", icon: Target },
       { path: "/opportunities", label: "성장 기회 추천", icon: Sparkles },
-      { path: "/question", label: "진로검사·글쓰기 도구", icon: ClipboardCheck },
     ],
   },
   {

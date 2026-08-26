@@ -475,8 +475,15 @@ a { color: inherit; text-decoration: none; }
    좁아져도 내용물은 원래 크기 그대로 옆(검색창) 위로 삐져나와 겹쳐 보였다. 1360px부터
    미리 메뉴/검색창/버튼들을 조금씩 줄여서 여유를 만들어주고(위 .desktop-navigation에도
    overflow:hidden을 안전장치로 추가해서, 그래도 안 맞으면 겹치는 대신 깔끔하게 잘리게
-   했다), 1180px부터는 기존처럼 완전히 사이드바 메뉴로 전환된다. */
-@media (max-width: 1360px) {
+   했다), 1180px부터는 기존처럼 완전히 사이드바 메뉴로 전환된다.
+
+   2026-08-26: 그런데도 실제 노트북(1366px 안팎의 흔한 해상도)에서 "AI 모의면접"이
+   overflow:hidden에 잘려서 아예 안 보이는 문제가 재발했다 - 축소 구간(1360~1320px)이
+   겨우 40px라 5개 메뉴 항목 + 검색창 + 버튼들이 다 들어가기엔 너무 좁았다. 압축을
+   더 정교하게 다듬는 대신, 완전히 사이드바로 넘어가는 기준 자체를 흔한 노트북 폭보다
+   위로 올려서(1320 -> 1500) 그 구간에서는 아예 잘릴 걱정 없는 사이드바 메뉴를 쓰게
+   했다 - 압축 구간(1540~1500px)도 같이 끌어올려 기존 간격을 유지했다. */
+@media (max-width: 1540px) {
   .desktop-navigation { gap: 0; }
   .desktop-nav-link { padding: 10px 7px; font-size: 11px; }
   .global-search-inline { grid-template-columns: auto minmax(0, 70px) auto; padding: 7px; }
@@ -485,7 +492,7 @@ a { color: inherit; text-decoration: none; }
   .top-actions { gap: 6px; }
 }
 /* The desktop navigation needs roughly 1,180px once search and action buttons are present. */
-@media (max-width: 1320px) {
+@media (max-width: 1500px) {
   .desktop-navigation, .topbar-account { display: none; }
   .desktop-mega-menu { display: none; }
   .desktop-brand, .menu-button { display: inline-flex; }
@@ -977,7 +984,10 @@ a { color: inherit; text-decoration: none; }
 .auth-brand > div::after { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #fff; color: #142544; content: "잡아드림"; font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1; opacity: 0; transform: translateY(38px); transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .2s ease; }
 .auth-brand:hover > div > strong, .auth-brand:focus-within > div > strong { opacity: 0; transform: translateY(-38px); }
 .auth-brand:hover > div::after, .auth-brand:focus-within > div::after { opacity: 1; transform: translateY(0); }
-@media (max-width: 1320px) { .menu-button { display: grid; } }
+/* 위 데스크톱 내비게이션이 완전히 사이드바로 전환되는 기준(1500px)과 반드시 같이
+   맞춰야 한다 - 안 맞으면 그 사이 폭에서 메뉴도 햄버거 버튼도 둘 다 안 보이는
+   빈 상단바가 생긴다(이 규칙이 위 .menu-button { display:none }보다 나중이라 이겨서). */
+@media (max-width: 1500px) { .menu-button { display: grid; } }
 
 /* Shared polish: non-home routes enter with the same restrained motion as the landing page. */
 .page-transition { animation: page-enter .42s cubic-bezier(.22,.8,.32,1) both; }
