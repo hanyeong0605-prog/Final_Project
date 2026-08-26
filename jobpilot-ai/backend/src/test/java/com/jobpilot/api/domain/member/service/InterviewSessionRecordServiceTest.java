@@ -36,7 +36,7 @@ class InterviewSessionRecordServiceTest {
         return new InterviewSessionRecordRequest(
                 "BACKEND", "chat", "역량면접", 3, 4, 4, null,
                 List.of("논리적으로 설명함"), List.of("두괄식으로 답하면 좋겠음"), List.of("STAR 기법 연습"),
-                List.of(new InterviewQuestionFeedbackDto("협업 경험은?", "구체적이었음", "모범답안 예시")));
+                List.of(new InterviewQuestionFeedbackDto("협업 경험은?", "구체적이었음", "모범답안 예시", null)));
     }
 
     @Test

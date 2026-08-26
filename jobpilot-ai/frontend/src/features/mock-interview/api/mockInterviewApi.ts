@@ -38,6 +38,7 @@ export async function evaluateAnswer(
   transcript: string,
   voiceMetrics: VoiceMetrics | null,
   faceMetrics: FaceMetrics | null,
+  jobPostingId?: number,
 ): Promise<EvaluateReportResponse> {
   const response = await fetch("/ai-api/interview/evaluate", {
     method: "POST",
@@ -47,6 +48,7 @@ export async function evaluateAnswer(
       transcript,
       voice_metrics: voiceMetrics,
       face_metrics: faceMetrics,
+      job_posting_id: jobPostingId,
     }),
   });
 
@@ -63,6 +65,7 @@ export async function evaluateAnswer(
 // answers는 세션 진행 순서 그대로(자기소개 포함 보통 3개) 넘기면 된다.
 export async function evaluateSession(
   answers: { question: string; transcript: string; voiceMetrics: VoiceMetrics | null; faceMetrics: FaceMetrics | null }[],
+  jobPostingId?: number,
 ): Promise<EvaluateSessionResponse> {
   const response = await fetch("/ai-api/interview/evaluate-session", {
     method: "POST",
@@ -74,6 +77,7 @@ export async function evaluateSession(
         voice_metrics: a.voiceMetrics,
         face_metrics: a.faceMetrics,
       })),
+      job_posting_id: jobPostingId,
     }),
   });
 
@@ -103,6 +107,9 @@ export async function evaluateSession(
 // AI Hub 코퍼스에서만 뽑는다(무료 등급 전용 경로). exclude는 세션에서 이미 나온 질문
 // 텍스트 목록 - 코퍼스 폴백/전용 경로에서 중복을 피하는 데 쓴다(router.py NextQuestionRequest
 // 설계 메모 참고). 옵션이 늘어나서 위치 인자 대신 객체 하나로 받는다.
+// 2026-08-26: jobPostingId 추가 - 사용자가 "이 공고로 준비하기"를 선택했을 때만 채워지는
+// 선택값(RAG). corpus_only=true(무료 등급)일 땐 서버가 이 값을 아예 안 보므로 굳이 안
+// 넘겨도 무방하지만, 어차피 없으면 무시되니 그냥 항상 같이 보내도 안전하다.
 export async function fetchNextQuestion(options: {
   job?: string;
   context?: string;
@@ -111,6 +118,7 @@ export async function fetchNextQuestion(options: {
   angleHint?: string;
   exclude?: string[];
   corpusOnly?: boolean;
+  jobPostingId?: number;
 }): Promise<NextQuestionResponse> {
   const response = await fetch("/ai-api/interview/next-question", {
     method: "POST",
@@ -123,6 +131,7 @@ export async function fetchNextQuestion(options: {
       angle_hint: options.angleHint,
       exclude: options.exclude ?? [],
       corpus_only: options.corpusOnly ?? false,
+      job_posting_id: options.jobPostingId,
     }),
   });
 

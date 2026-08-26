@@ -156,14 +156,51 @@ def _voice_metrics_text(voice_metrics: dict | None) -> str:
 
 
 def _face_metrics_text(face_metrics: dict | None) -> str:
+    """2026-08-26: 예전엔 깜빡임 횟수를 "분당 환산"(blinkRatePerMin)해서 넘겼는데, 답변이
+    1분보다 훨씬 짧을 때(대부분 그렇다) 작은 카운트 차이가 크게 부풀려져 보이는 문제가
+    있었다(예: 6초에 1회 차이 -> 분당 10회 차이). 프론트(faceAnalysis.ts)가 이제
+    durationSec/expectedBlinkRange(그 답변 길이만큼 성인 평균 분당 15~20회를 환산한 범위)를
+    같이 보내주므로, "분당 몇 회"가 아니라 "그 답변 길이 동안 몇 회 vs 보통 몇 회"로
+    비교해서 넘긴다 - 표본이 짧을수록 생기는 왜곡을 없앤다.
+
+    gazeOffCenterRatio는 홍채(iris) 랜드마크 기반으로 새로 추가된 실제 시선 이탈 비율이다 -
+    예전에는 이 프롬프트가 "시선 지표"라고 부르면서도 실제로는 시선을 계산하지 않았다."""
     if not face_metrics:
         return "- (얼굴 분석 데이터 없음 - 카메라를 안 썼거나 인식에 실패함)\n"
-    return (
-        f"- 실제 깜빡임 횟수: {face_metrics.get('blinkCount')}회\n"
-        f"- 분당 깜빡임(환산값, 답변이 짧으면 부풀려질 수 있음): "
-        f"{face_metrics.get('blinkRatePerMin')}회/분\n"
-        f"- 고개 움직임 정도(0~100, 상대값이지 각도 아님): {face_metrics.get('headMovement')}\n"
+
+    duration = face_metrics.get("durationSec")
+    blink_count = face_metrics.get("blinkCount")
+    expected = face_metrics.get("expectedBlinkRange") or {}
+    expected_low, expected_high = expected.get("low"), expected.get("high")
+    if duration and expected_low is not None and expected_high is not None:
+        blink_line = (
+            f"- 눈 깜빡임: 답변 {duration}초 동안 {blink_count}회 "
+            f"(같은 길이의 답변에서 일반적으로 예상되는 범위: {expected_low}~{expected_high}회)\n"
+        )
+    else:
+        blink_line = f"- 실제 깜빡임 횟수: {blink_count}회 (답변 길이 정보 없어 비교 불가)\n"
+
+    gaze_ratio = face_metrics.get("gazeOffCenterRatio")
+    gaze_line = (
+        f"- 시선이 카메라 정면에서 벗어나 있던 프레임 비율: {gaze_ratio}%\n"
+        if gaze_ratio is not None
+        else "- (시선 데이터 없음 - 홍채 인식 실패)\n"
     )
+
+    return (
+        blink_line
+        + f"- 고개 움직임 정도(0~100, 상대값이지 각도 아님): {face_metrics.get('headMovement')}\n"
+        + gaze_line
+    )
+
+
+def _job_requirements_block(job_requirements_context: str | None) -> str:
+    """2026-08-26: RAG - 사용자가 특정 공고를 골랐을 때 job_requirement_retrieval이 조립해준
+    텍스트를 그대로 프롬프트 블록으로 감싼다. 없으면 빈 문자열 - 기존과 완전히 동일하게
+    동작한다(이 기능은 선택 사항)."""
+    if not job_requirements_context:
+        return ""
+    return f"{job_requirements_context}\n\n"
 
 
 def generate_report(
@@ -171,6 +208,7 @@ def generate_report(
     transcript: str,
     voice_metrics: dict | None,
     face_metrics: dict | None,
+    job_requirements_context: str | None = None,
 ) -> EvaluationReport:
     """면접 질문, 답변 텍스트, 음성 지표(dict, 없으면 None), 얼굴 지표(dict, 없으면 None)를
     받아 Gemini로 구조화된 종합 평가를 생성한다. 실패하거나 키가 없으면 ok=False에 안내/에러
@@ -179,19 +217,32 @@ def generate_report(
     2026-08-05: 마이크/카메라를 못 쓰는 사용자를 위한 "타이핑으로 답변" 경로가 생기면서
     voice_metrics가 없을 수 있게 됐다(face_metrics는 원래도 카메라 미사용 시 None이었음).
     이 경우 delivery_score(전달력)는 애초에 평가할 근거가 없으므로 null로 받는다 -
-    억지로 숫자를 만들어내지 않는다(감정/긴장도 추정 금지와 같은 원칙)."""
+    억지로 숫자를 만들어내지 않는다(감정/긴장도 추정 금지와 같은 원칙).
+
+    2026-08-26 job_requirements_context 추가: 사용자가 특정 채용공고를 골랐을 때 그 공고의
+    요구사항 텍스트(RAG)가 넘어온다 - 선택 사항이라 None이면 기존과 완전히 동일하게
+    동작한다."""
     if not settings.gemini_api_key:
         return EvaluationReport(ok=False, message=_NO_KEY_MESSAGE)
 
     voice_metrics_text = _voice_metrics_text(voice_metrics)
     face_metrics_text = _face_metrics_text(face_metrics)
+    job_requirements_block = _job_requirements_block(job_requirements_context)
     has_delivery_signal = bool(voice_metrics) or bool(face_metrics)
+    # 2026-08-26: 공고 요구사항이 있으면 content_score(직무 적합성) 판단에 그걸 근거로 쓰라고
+    # 명시한다 - 없으면 기존 문구 그대로(일반적인 직무 적합성 판단).
+    content_score_grounding = (
+        "[지원 공고 요구사항]에 실제로 얼마나 부합하는지를 직무 적합성 판단의 핵심 근거로 삼아라"
+        if job_requirements_block
+        else "답변 내용(직무 적합성/논리성/구체성)을 가장 비중 있게 반영해라"
+    )
 
     prompt = (
         "당신은 채용면접 코치입니다. 아래 정보를 바탕으로 지원자의 답변을 평가해서 정해진 "
         "JSON 형식으로만 응답하세요.\n\n"
         f"[면접 질문]\n{question}\n\n"
         f"[지원자 답변 텍스트]\n{transcript}\n\n"
+        f"{job_requirements_block}"
         "[음성 지표 - 실측값. 심리 상태를 단정하는 근거로 쓰지 말고 경향으로만 언급할 것]\n"
         f"{voice_metrics_text}\n"
         "[얼굴/시선 지표 - 실측값, 마찬가지로 경향으로만 언급할 것]\n"
@@ -205,8 +256,8 @@ def generate_report(
         "작으면(단조로운 톤) '억양 변화가 적어 다소 단조롭게 들릴 수 있다', 변동폭이 크면 "
         "'억양에 강약이 있어 생동감 있게 들린다'처럼 톤의 '변화 패턴'을 근거로 서술해라\n"
         "3. overall_score/content_score는 100점 만점(0~100 정수, 5점 단위로 주는 것을 "
-        "권장 - 과도하게 정밀한 인상을 주지 않기 위함)으로, 답변 내용(직무 적합성/논리성/"
-        "구체성)을 가장 비중 있게 반영해라 - 음성/얼굴 지표는 content_score에 영향을 주지 마라\n"
+        f"권장 - 과도하게 정밀한 인상을 주지 않기 위함)으로, {content_score_grounding} - "
+        "음성/얼굴 지표는 content_score에 영향을 주지 마라\n"
         + (
             "3-1. delivery_score는 100점 만점(0~100 정수, 5점 단위 권장)으로, 음성/얼굴 "
             "지표를 근거로 평가해라\n"
@@ -269,7 +320,9 @@ def generate_report(
         )
 
 
-def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
+def generate_session_report(
+    qa_pairs: list[dict], job_requirements_context: str | None = None
+) -> SessionEvaluationReport:
     """모의면접 세션(질문 여러 개, 보통 3개)을 한 번의 Gemini 호출로 종합 평가한다.
 
     qa_pairs 각 원소: {"question": str, "transcript": str, "voice_metrics": dict|None,
@@ -278,7 +331,11 @@ def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
     2026-08-05: 원래 질문마다 generate_report()를 한 번씩(세션당 최대 3회) 호출했는데,
     "질문 다 받고 한 번에 리포트 쓰는 게 낫지 않냐"는 요청으로 세션 전체를 한 번에 넘겨서
     호출 1회로 줄였다 - 토큰/비용도 아끼고, 개별 답변이 아니라 면접 전체를 놓고 보는
-    종합 평가라는 취지에도 더 맞는다."""
+    종합 평가라는 취지에도 더 맞는다.
+
+    2026-08-26 job_requirements_context 추가: 세션 시작 시 사용자가 고른 공고(있다면)의
+    요구사항 텍스트(RAG) - 질문마다가 아니라 세션 전체에 하나만 있으면 되므로 qa_pairs
+    밖에서 한 번만 받는다. 선택 사항이라 None이면 기존과 완전히 동일하게 동작한다."""
     if not settings.gemini_api_key:
         return SessionEvaluationReport(ok=False, message=_NO_KEY_MESSAGE)
     if not qa_pairs:
@@ -287,6 +344,12 @@ def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
     # 세션 안에서 음성/텍스트 답변 모드가 섞이지는 않지만(한 세션은 처음에 한 번 선택),
     # 혹시 모를 경우를 대비해 하나라도 지표가 있으면 delivery_score를 평가하게 한다.
     has_delivery_signal = any(qa.get("voice_metrics") or qa.get("face_metrics") for qa in qa_pairs)
+    job_requirements_block = _job_requirements_block(job_requirements_context)
+    content_score_grounding = (
+        "[지원 공고 요구사항]에 실제로 얼마나 부합하는지를 직무 적합성 판단의 핵심 근거로 삼아라"
+        if job_requirements_block
+        else "면접 전체의 답변 내용(직무 적합성/논리성/구체성)을 가장 비중 있게 반영해라"
+    )
 
     qa_blocks = []
     for i, qa in enumerate(qa_pairs, start=1):
@@ -303,6 +366,7 @@ def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
         "당신은 채용면접 코치입니다. 아래는 모의면접에서 지원자가 받은 질문 "
         f"{n}개와 각각의 답변입니다. 질문 하나하나가 아니라 면접 전체를 하나의 세트로 "
         "평가해서 정해진 JSON 형식으로만 응답하세요.\n\n"
+        f"{job_requirements_block}"
         f"{qa_text}\n\n"
         "[작성 규칙]\n"
         "1. '긴장도 68%', '자신감이 부족함' 같은 확정적인 심리 판단은 하지 마라 - 음성/얼굴 "
@@ -313,9 +377,8 @@ def generate_session_report(qa_pairs: list[dict]) -> SessionEvaluationReport:
         "작으면(단조로운 톤) '억양 변화가 적어 다소 단조롭게 들릴 수 있다', 변동폭이 크면 "
         "'억양에 강약이 있어 생동감 있게 들린다'처럼 톤의 '변화 패턴'을 근거로 서술해라\n"
         "3. overall_score/content_score는 100점 만점(0~100 정수, 5점 단위로 주는 것을 "
-        "권장 - 과도하게 정밀한 인상을 주지 않기 위함)으로, 면접 전체의 답변 내용(직무 "
-        "적합성/논리성/구체성)을 가장 비중 있게 반영해라 - 음성/얼굴 지표는 content_score에 "
-        "영향을 주지 마라\n"
+        f"권장 - 과도하게 정밀한 인상을 주지 않기 위함)으로, {content_score_grounding} - "
+        "음성/얼굴 지표는 content_score에 영향을 주지 마라\n"
         + (
             "3-1. delivery_score는 100점 만점(0~100 정수, 5점 단위 권장)으로, 음성/얼굴 "
             "지표를 근거로 평가해라\n"

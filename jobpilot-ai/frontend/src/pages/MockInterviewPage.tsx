@@ -6,6 +6,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  Building2,
   Camera,
   CheckCircle2,
   Clock,
@@ -26,9 +27,11 @@ import {
   Volume2,
   VolumeX,
   Waves,
+  X,
 } from "lucide-react";
 import { analyzeAnswer, evaluateSession, fetchNextQuestion, fetchTtsVoices, synthesizeSpeech } from "../features/mock-interview/api/mockInterviewApi";
 import { getCareerProfile } from "../features/profile/api/careerProfileApi";
+import { getJobPostings } from "../features/job-postings/api/jobPostingsApi";
 import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
 import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi";
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
@@ -224,21 +227,26 @@ const metricLabels: {
 // 참고 기준 자체가 없는 지표들 - 카드 아래 이 문구를 공통으로 보여준다.
 const NO_BASELINE_HINT = "비교 기준 없음 - 여러 번 연습해서 평소 값과 비교해 보세요.";
 
-// blinkCount: 녹음하는 동안 실제로 센 깜빡임 횟수(그대로).
-// blinkRatePerMin: 그 횟수를 "1분 동안 이 속도가 유지됐다면"으로 환산한 값 -
-// 답변이 짧으면 실제 횟수보다 훨씬 커 보일 수 있어서(예: 6초에 3회 -> 분당 30회),
-// 반드시 blinkCount와 나란히 보여줘서 오해가 없게 한다.
-const faceMetricLabels: {
-  key: keyof FaceMetrics;
-  label: string;
-  format: (value: number) => string;
-  noBaseline?: boolean;
-  icon: ReactNode;
-}[] = [
-  { key: "blinkCount", label: "실제 깜빡임 횟수", format: (v) => `${v}회`, icon: <Eye /> },
-  { key: "blinkRatePerMin", label: "분당 깜빡임 (환산)", format: (v) => `${v}회/분`, noBaseline: true, icon: <Eye /> },
-  { key: "headMovement", label: "고개 움직임 정도", format: (v) => `${v}/100`, noBaseline: true, icon: <Move /> },
-];
+// 2026-08-26: 원래는 blinkCount를 "분당 환산"(blinkRatePerMin)해서 보여줬는데, 답변이
+// 1분보다 훨씬 짧을 때(대부분 그렇다) 작은 카운트 차이가 크게 부풀려져 보이는 문제가
+// 있었다(예: 6초에 1회 차이 -> 분당 10회 차이). 그래서 "환산"하는 대신 실제 답변 길이
+// 동안의 예상 범위(faceAnalysis.getExpectedBlinkRange, 성인 평균 분당 15~20회를 답변
+// 길이만큼 환산)와 실측치를 나란히 비교하는 문장으로 바꿨다 - "23초 동안 6회 (평균
+// 6~8회)" 식으로, 표본이 짧을수록 생기는 왜곡을 없앤다.
+function blinkComparisonHint(m: FaceMetrics): string {
+  if (m.durationSec <= 0) return NO_BASELINE_HINT;
+  const { low, high } = m.expectedBlinkRange;
+  const rangeText = low === high ? `약 ${low}회` : `${low}~${high}회`;
+  if (m.blinkCount < low) return `같은 길이의 답변에서는 보통 ${rangeText} 정도 깜빡이는데 더 적었어요 - 화면을 응시하거나 집중할 때 흔한 경향이에요.`;
+  if (m.blinkCount > high) return `같은 길이의 답변에서는 보통 ${rangeText} 정도인데 더 잦았어요.`;
+  return `평소 평균 범위(${rangeText}) 안이에요.`;
+}
+
+function gazeHint(ratio: number): string {
+  if (ratio <= 15) return "대체로 카메라(정면)를 응시했어요.";
+  if (ratio <= 40) return "가끔 시선이 옆으로 흔들렸어요.";
+  return "시선이 자주 옆으로 벗어났어요 - 메모나 다른 화면을 많이 본 것일 수 있어요.";
+}
 
 // 표준국어대사전 기준 대표적인 구어체 습관어(필러워드). 어절(공백 기준 토큰) 단위로
 // "정확히 일치"할 때만 센다 - "그"를 부분 문자열로 매칭하면 "그래서"/"그런데"까지
@@ -288,6 +296,7 @@ function SessionReportPanel({
   role,
   interviewMode,
   interviewType,
+  jobPostingId,
 }: {
   answers: { question: string; result: AnswerAnalysis; faceMetrics: FaceMetrics | null }[];
   onEndSession: () => void;
@@ -298,6 +307,9 @@ function SessionReportPanel({
   role: string | null;
   interviewMode: "camera" | "chat";
   interviewType: string | null;
+  // 2026-08-26: RAG - 세션 시작 시 골랐던 공고(있다면)를 종합 평가/모범답안의 근거로도
+  // 재사용한다. 안 골랐으면 undefined - 기존과 동일하게 동작한다.
+  jobPostingId?: number;
 }) {
   const [report, setReport] = useState<SessionEvaluationReport | null>(null);
   // 2026-08-06: 원래는 이 화면에 들어오자마자 자동으로 Gemini를 호출했는데, "처음엔 지표만
@@ -320,6 +332,7 @@ function SessionReportPanel({
         voiceMetrics: a.result.metrics,
         faceMetrics: a.faceMetrics,
       })),
+      jobPostingId,
     )
       .then((res) => {
         setReport(res.report);
@@ -338,10 +351,15 @@ function SessionReportPanel({
             strengths: res.report.strengths,
             improvements: res.report.improvements,
             nextSteps: res.report.next_steps,
-            questions: res.report.questions.map((q) => ({
+            // 2026-08-26: 얼굴 지표(FaceMetrics)를 이전엔 프롬프트 텍스트로만 한 번 쓰고
+            // 버렸다(브라우저 state에만 있다가 새로고침하면 소멸, 이력 추적 불가). questions는
+            // 이미 질문별로 1:1 대응되는 JSON 배열이라 여기에 얼굴 지표를 얹으면 DB
+            // 마이그레이션 없이(questions 컬럼이 원래 JSON) 세션별 기록으로 저장된다.
+            questions: res.report.questions.map((q, i) => ({
               question: q.question,
               feedback: q.feedback,
               modelAnswer: q.model_answer,
+              faceMetrics: answers[i]?.faceMetrics ?? null,
             })),
           }).catch(() => {});
         }
@@ -450,17 +468,42 @@ function SessionReportPanel({
                   </div>
                 </div>
               )}
-              {a.faceMetrics &&
-                faceMetricLabels.map(({ key, label, format, noBaseline, icon }) => (
-                  <div key={key} className="metric-card green" style={{ alignItems: "flex-start" }}>
-                    <span className="metric-icon">{icon}</span>
-                    <div>
-                      <span>{label}</span>
-                      <strong>{format(a.faceMetrics![key] as number)}</strong>
-                      {noBaseline && <small style={{ whiteSpace: "normal" }}>{NO_BASELINE_HINT}</small>}
-                    </div>
+              {a.faceMetrics && (
+                <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                  <span className="metric-icon">
+                    <Eye />
+                  </span>
+                  <div>
+                    <span>눈 깜빡임</span>
+                    <strong>{a.faceMetrics.durationSec}초 동안 {a.faceMetrics.blinkCount}회</strong>
+                    <small style={{ whiteSpace: "normal" }}>{blinkComparisonHint(a.faceMetrics)}</small>
                   </div>
-                ))}
+                </div>
+              )}
+              {a.faceMetrics && (
+                <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                  <span className="metric-icon">
+                    <Move />
+                  </span>
+                  <div>
+                    <span>고개 움직임 정도</span>
+                    <strong>{a.faceMetrics.headMovement}/100</strong>
+                    <small style={{ whiteSpace: "normal" }}>{NO_BASELINE_HINT}</small>
+                  </div>
+                </div>
+              )}
+              {a.faceMetrics && a.faceMetrics.gazeOffCenterRatio !== null && (
+                <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                  <span className="metric-icon">
+                    <Eye />
+                  </span>
+                  <div>
+                    <span>시선이 정면에서 벗어난 비율</span>
+                    <strong>{a.faceMetrics.gazeOffCenterRatio}%</strong>
+                    <small style={{ whiteSpace: "normal" }}>{gazeHint(a.faceMetrics.gazeOffCenterRatio)}</small>
+                  </div>
+                </div>
+              )}
             </div>
 
             {a.result.metrics && <VoiceTimelineChart metrics={a.result.metrics} />}
@@ -670,6 +713,35 @@ export function MockInterviewPage() {
   useEffect(() => {
     void getSubscriptionStatus().then((status) => setSubscribed(status.subscribed)).catch(() => setSubscribed(false));
   }, []);
+
+  // 2026-08-26: RAG - 구독자가 특정 채용공고를 골라두면 그 공고의 요구사항(job_requirements)을
+  // 질문 생성/모범답안/채점의 근거로 같이 반영한다. "프로필 불러오기"(이력)와는 독립적인
+  // 별도 선택 사항이라 둘 다 켜도 되고, 아무것도 안 고르면 지금까지와 완전히 동일하게
+  // 동작한다(하위호환). 무료 등급은 애초에 Gemini를 안 부르니(corpusOnly) 이 값이 있어도
+  // 서버에서 무시된다 - 그래서 아래 UI도 구독자에게만 보여준다.
+  const [selectedJobPosting, setSelectedJobPosting] = useState<{ id: number; title: string; companyName: string } | null>(null);
+  const [jobPostingQuery, setJobPostingQuery] = useState("");
+  const [jobPostingResults, setJobPostingResults] = useState<{ id: number; title: string; companyName: string | null }[]>([]);
+  const [jobPostingSearchLoading, setJobPostingSearchLoading] = useState(false);
+  const jobPostingSearchTimerRef = useRef<number | null>(null);
+
+  const searchJobPostings = (query: string) => {
+    setJobPostingQuery(query);
+    if (jobPostingSearchTimerRef.current !== null) window.clearTimeout(jobPostingSearchTimerRef.current);
+    if (!query.trim()) {
+      setJobPostingResults([]);
+      return;
+    }
+    // 타이핑마다 바로 요청하지 않고 350ms 안에 다음 입력이 없을 때만 검색한다(기존 채용공고
+    // 검색 API를 그대로 재사용 - 새 백엔드 엔드포인트 없음).
+    jobPostingSearchTimerRef.current = window.setTimeout(() => {
+      setJobPostingSearchLoading(true);
+      void getJobPostings({ query, size: 6 })
+        .then((page) => setJobPostingResults(page.content.map((p) => ({ id: p.id, title: p.title, companyName: p.companyName }))))
+        .catch(() => setJobPostingResults([]))
+        .finally(() => setJobPostingSearchLoading(false));
+    }, 350);
+  };
   // 2026-08-06: "분야로 질문 분류 가능하지 않냐"는 요청으로 추가했다 - 처음엔 채용공고
   // 필터(AllJobPostingsPage.tsx roleOptions/백엔드 ROLE_KEYWORDS)의 9개 분류를 그대로
   // 재사용했는데, "모의면접 카드는 5개(백엔드/프론트엔드/풀스택/모바일/데이터·AI·기타)가
@@ -1076,7 +1148,7 @@ export function MockInterviewPage() {
               : undefined;
         return fetchNextQuestion({
           job: effectiveJob, category, techSummary: effectiveTechSummary || undefined, angleHint,
-          exclude: [SELF_INTRO_QUESTION],
+          exclude: [SELF_INTRO_QUESTION], jobPostingId: selectedJobPosting?.id,
         });
       }),
     );
@@ -1708,7 +1780,15 @@ export function MockInterviewPage() {
             ),
           },
         },
-        faceMetrics: { blinkCount: 14, blinkRatePerMin: 22, headMovement: 12, frameCount: 300 },
+        faceMetrics: {
+          blinkCount: 14,
+          blinkRatePerMin: 20,
+          durationSec: 42,
+          expectedBlinkRange: { low: 11, high: 14 },
+          headMovement: 12,
+          gazeOffCenterRatio: 8,
+          frameCount: 300,
+        },
       },
     ]);
     setStage("session-report");
@@ -2180,6 +2260,73 @@ export function MockInterviewPage() {
                 )}
               </div>
 
+              {/* 2026-08-26: RAG - 구독자가 특정 공고를 골라두면 그 공고의 요구사항을 질문/
+                  모범답안/채점 근거로 반영한다. 위 "프로필 불러오기"(이력)와는 독립된 선택
+                  사항이라 둘 다 켜도 되고, 아무것도 안 골라도 지금까지와 완전히 동일하게
+                  동작한다(하위호환). 무료 등급은 애초에 Gemini를 안 부르니(corpusOnly) 이
+                  옵션이 의미가 없어서 구독자에게만 보여준다. */}
+              {subscribed && (
+                <div className="interview-option-group">
+                  <span className="interview-option-label">준비 중인 공고 (선택)</span>
+                  {selectedJobPosting ? (
+                    <div className="interview-job-posting-selected">
+                      <Building2 size={14} />
+                      <span>
+                        <strong>{selectedJobPosting.companyName || "회사명 미상"}</strong> · {selectedJobPosting.title}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => {
+                          setSelectedJobPosting(null);
+                          setJobPostingQuery("");
+                          setJobPostingResults([]);
+                        }}
+                      >
+                        <X size={13} /> 선택 해제
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="interview-job-posting-search">
+                      <input
+                        type="text"
+                        placeholder="회사명 또는 공고 제목으로 검색"
+                        value={jobPostingQuery}
+                        onChange={(event) => searchJobPostings(event.target.value)}
+                      />
+                      {jobPostingQuery.trim() && (
+                        <div className="interview-job-posting-results">
+                          {jobPostingSearchLoading && <p>검색 중...</p>}
+                          {!jobPostingSearchLoading && jobPostingResults.length === 0 && <p>일치하는 공고가 없어요.</p>}
+                          {jobPostingResults.map((posting) => (
+                            <button
+                              key={posting.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedJobPosting({
+                                  id: posting.id,
+                                  title: posting.title,
+                                  companyName: posting.companyName ?? "",
+                                });
+                                setJobPostingQuery("");
+                                setJobPostingResults([]);
+                              }}
+                            >
+                              <strong>{posting.companyName || "회사명 미상"}</strong>
+                              <span>{posting.title}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <p style={{ marginTop: 10, fontSize: 12, color: "#9098a7" }}>
+                    고르면 그 공고의 요구사항을 실제 근거로 반영해서 질문과 모범답안을 만들어요.
+                    안 골라도 지금처럼 이용할 수 있어요.
+                  </p>
+                </div>
+              )}
+
               {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
                   계열 질문(팀 갈등, 강점/약점 등)은 지원자의 경험을 묻는 거라 분야가 달라도
                   질문 자체는 같아도 되지만, 직무(기술) 면접만 분야별로 내용이 달라야 한다는
@@ -2575,6 +2722,7 @@ export function MockInterviewPage() {
           role={selectedRole || null}
           interviewMode={interviewMode}
           interviewType={selectedInterviewType || null}
+          jobPostingId={selectedJobPosting?.id}
         />
       )}
     </>

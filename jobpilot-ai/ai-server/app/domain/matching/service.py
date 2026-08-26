@@ -12,15 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urlparse
 
 import joblib
 import numpy as np
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from app.core.config import settings
+from app.core.db import get_engine
 
 
 MODEL_PATH = Path("/tmp/jobpilot_job_match_model.joblib")
@@ -48,23 +47,8 @@ class TrainedModel:
 _model: TrainedModel | None = None
 
 
-def _database_url() -> str:
-    raw = settings.database_url
-    if raw.startswith("jdbc:"):
-        raw = raw[5:]
-    parsed = urlparse(raw)
-    if parsed.scheme.startswith("mysql"):
-        user = quote_plus(settings.db_username or "root")
-        password = quote_plus(settings.db_password or "")
-        database = parsed.path.lstrip("/") or "jobpilot"
-        host = parsed.hostname or "localhost"
-        port = parsed.port or 3306
-        return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
-    return raw
-
-
 def _load_rows() -> list[dict[str, Any]]:
-    engine = create_engine(_database_url(), pool_pre_ping=True)
+    engine = get_engine()
     # One row per existing member/job match. Evidence rows calculate the same
     # requirement-coverage features that are shown in the UI's evidence matrix.
     statement = text("""

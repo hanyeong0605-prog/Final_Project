@@ -62,7 +62,7 @@ def test_personalized_always_attempted_even_without_info(monkeypatch):
     LoRA보다 나은 Gemini 질문을 받아야 하기 때문에 생긴 요구사항이다."""
     captured = {}
 
-    def fake_personalized(job, tech_summary, category, angle_hint=""):
+    def fake_personalized(job, tech_summary, category, angle_hint="", job_requirements_context=""):
         captured["called"] = True
         captured["job"] = job
         captured["tech_summary"] = tech_summary
