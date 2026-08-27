@@ -261,9 +261,17 @@ def _gemini_polish(question: str) -> str | None:
 
 
 def generate_personalized_question(
-    job: str, tech_summary: str, category: str = "", angle_hint: str = ""
+    job: str, tech_summary: str, category: str = "", angle_hint: str = "", job_requirements_context: str = ""
 ) -> str | None:
     """스펙(목표 직무) 또는 기술/프로젝트 요약이 있는 사용자를 위한 맞춤 질문 생성.
+
+    2026-08-26 job_requirements_context 추가: 사용자가 특정 채용공고를 골랐을 때
+    job_requirement_retrieval.build_job_requirements_context()가 그 공고의 요구사항을
+    조립해서 넘겨준다(RAG) - 선택 사항이라 빈 문자열이면 기존과 완전히 동일하게 동작한다.
+    같은 김에 RAG와 무관하게 있었던 공백도 메웠다: 이 함수는 지금까지 반환값 검증이
+    길이/공백 체크뿐이었다(_gemini_polish의 "모르는 기술 용어를 지어내지 마라" 같은
+    가드레일은 이 경로엔 전혀 안 걸려 있었음, 재시도 경로에만 있었음) - 아래 프롬프트
+    규칙에 그 가드레일을 옮겨왔다.
 
     2026-08-06 설계 메모: generate_question()의 LoRA 모델은 학습 데이터가 전부 "ICT/신입"
     한 종류뿐이라 job을 바꿔 넣어도 실제 질문 내용에 거의 영향이 없다(위 docstring 참고).
@@ -310,6 +318,7 @@ def generate_personalized_question(
         client = genai.Client(api_key=settings.gemini_api_key)
         category_line = f"카테고리: {category}\n" if category else ""
         tech_line = f"기술/프로젝트 요약: {tech_summary}\n" if tech_summary.strip() else ""
+        requirements_line = f"{job_requirements_context.strip()}\n" if job_requirements_context.strip() else ""
         # 2026-08-10: 카테고리 라벨만으로는 "직무면접 vs 역량면접"의 실제 질문 색깔이 잘 안
         # 갈렸다는 피드백으로, 카테고리를 면접 유형으로 역매핑해서 그 유형의 뉘앙스를 규칙에
         # 명시적으로 얹는다(_INTERVIEW_TYPE_EMPHASIS 정의 참고). 인성면접 카테고리는 기존에도
@@ -343,12 +352,31 @@ def generate_personalized_question(
             "트러블슈팅 경험, 트레이드오프 판단, 협업 시 의견 충돌 등)에서 질문해서 다양성을 "
             "유지해라 - 항상 똑같은 패턴의 질문을 반복하지 마라\n"
         )
+        # 2026-08-26: RAG와 무관하게 항상 적용되는 가드레일 - 이전엔 이 함수(1차 시도) 결과에
+        # _gemini_polish 같은 "모르는 용어를 지어내지 마라" 검증이 전혀 안 걸려 있었다(재시도
+        # 경로인 generate_validated_question에만 TF-IDF 검증이 있었음). 사후 필터링 대신
+        # 생성 시점 규칙으로 옮겨왔다.
+        hallucination_guard_rule = (
+            "7) 질문에 구체적인 기술/제품/서비스/API/라이브러리 이름을 넣을 때는, 그게 실제로 "
+            "존재한다고 확신이 서는 것만 써라 - 처음 들어보거나 확신이 안 서는 이름은 절대 "
+            "만들어 쓰지 말고, 그 이름 없이도 통하는 일반적인 표현으로 질문을 만들어라\n"
+        )
+        # 2026-08-26: job_requirements_context가 있을 때만(=사용자가 특정 공고를 골랐을 때만)
+        # 붙는 RAG 규칙 - job_requirements_context 자체가 없으면 이 함수는 기존과 완전히
+        # 동일하게 동작한다.
+        requirements_rule = (
+            "8) 아래 [요구사항] 정보가 주어졌다면, 거기 적힌 실제 기술/조건을 반영한 구체적인 "
+            "질문을 만들어라 - 거기 없는 기술이나 조건을 새로 지어내지 마라\n"
+            if requirements_line
+            else ""
+        )
         prompt = (
             "너는 IT 채용 면접관이다. 아래 지원자 정보를 참고해서, 이 지원자에게 실제로 물어볼 "
             "법한 한국어 면접 질문을 딱 하나만 만들어라.\n"
             f"목표 직무: {job or '미지정'}\n"
             f"{tech_line}"
             f"{category_line}"
+            f"{requirements_line}"
             "규칙:\n"
             f"{focus_rule}"
             "2) 질문 문장 하나만 출력해라 - 설명, 따옴표, 번호, 다른 말은 절대 붙이지 마라\n"
@@ -356,6 +384,8 @@ def generate_personalized_question(
             "4) 존댓말을 써라\n"
             f"{angle_rule}"
             f"{emphasis_rule}"
+            f"{hallucination_guard_rule}"
+            f"{requirements_rule}"
         )
         # 2026-08-06: temperature를 명시적으로 올려서(기본값에 맡기지 않고) 같은 직무/카테고리
         # 조합으로 여러 번 호출해도(세션당 최대 6번, 사용자마다 매번) 문구가 겹치지 않도록
@@ -575,7 +605,9 @@ def generate_personalized_question(
 #     return any_fallback or "질문 생성에 실패했습니다. 다시 시도해 주세요."
 
 
-def generate_validated_question(job: str = DEFAULT_JOB, context: str = "", category: str = "") -> str:
+def generate_validated_question(
+    job: str = DEFAULT_JOB, context: str = "", category: str = "", job_requirements_context: str = ""
+) -> str:
     """router.py에서 generate_personalized_question()(Gemini, 1차 시도)이 실패했을 때 호출되는
     2차 시도 + 안전장치.
 
@@ -597,7 +629,9 @@ def generate_validated_question(job: str = DEFAULT_JOB, context: str = "", categ
     막았어도 "질문이 아예 안 나오는 것"은 못 막는 셈이라 의미가 없다. 두 실패 모드(내용이
     이상함 / 아예 생성이 안 됨) 모두 같은 안전장치 하나로 커버한다."""
     try:
-        candidate = generate_personalized_question(job=job, tech_summary="", category=category)
+        candidate = generate_personalized_question(
+            job=job, tech_summary="", category=category, job_requirements_context=job_requirements_context
+        )
     except Exception:
         candidate = None
 

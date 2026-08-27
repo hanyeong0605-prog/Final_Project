@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Award, CalendarDays, ExternalLink, MapPin, Phone, Users } from "lucide-react";
+import { Award, Bookmark, CalendarDays, ExternalLink, MapPin, Phone, Users } from "lucide-react";
 import { getOpportunity } from "../features/opportunities/api/opportunitiesApi";
+import { getOpportunityInterestIds, toggleOpportunityInterest } from "../features/opportunities/api/opportunityInterestsApi";
 import type { Opportunity } from "../features/opportunities/model/opportunity.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 import { PageHeading } from "../shared/components/PageHeading";
@@ -10,8 +11,25 @@ export function OpportunityDetailPage() {
   const { id = "" } = useParams();
   const [item, setItem] = useState<Opportunity>();
   const [error, setError] = useState(false);
+  // 2026-08-26: 채용공고 상세엔 있던 찜 버튼이 성장 기회 상세엔 없었다 - 목록 카드
+  // (OpportunitiesPage/OpportunityCard)는 이미 이 API로 찜 기능이 있으니 그대로 재사용한다.
+  // useInterests() 컨텍스트는 JOB_POSTING 전용으로 고정돼 있어(interestsApi.ts) 여기 재사용은
+  // 못 하고, OpportunitiesPage와 같은 방식(로컬 state + 낙관적 업데이트)으로 맞췄다.
+  const [interested, setInterested] = useState(false);
 
   useEffect(() => { void getOpportunity(id).then(setItem).catch(() => setError(true)); }, [id]);
+  useEffect(() => {
+    void getOpportunityInterestIds()
+      .then((ids) => setInterested(ids.includes(Number(id))))
+      .catch(() => setInterested(false));
+  }, [id]);
+
+  const toggleBookmark = () => {
+    const next = !interested;
+    setInterested(next);
+    void toggleOpportunityInterest(Number(id), next).catch(() => setInterested(!next));
+  };
+
   if (error) return <DataStatePanel state="error" />;
   if (!item) return <DataStatePanel state="loading" />;
 
@@ -44,6 +62,14 @@ export function OpportunityDetailPage() {
         <Link className="outline-button" to="/opportunities">목록으로</Link>
         <a className="primary-button" href={courseUrl} target="_blank" rel="noreferrer">과정 상세 <ExternalLink size={15} /></a>
         {item.institutionUrl && <a className="outline-button" href={item.institutionUrl} target="_blank" rel="noreferrer">기관 상세 <ExternalLink size={15} /></a>}
+        <button
+          className={interested ? "outline-button job-detail-bookmark active" : "outline-button job-detail-bookmark"}
+          type="button"
+          onClick={toggleBookmark}
+        >
+          <Bookmark size={15} fill={interested ? "currentColor" : "none"} />
+          {interested ? "찜한 성장 기회" : "성장 기회 찜하기"}
+        </button>
       </div>
     </section>
   </>;

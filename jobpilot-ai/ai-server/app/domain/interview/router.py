@@ -17,6 +17,8 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
+from app.domain.interview import question_corpus
+from app.domain.interview.job_requirement_retrieval import build_job_requirements_context
 from app.domain.interview.question_generator import (
     DEFAULT_JOB,
     generate_personalized_question,
@@ -54,6 +56,20 @@ class NextQuestionRequest(BaseModel):
     # generate_personalized_question의 angle_hint 설계 메모 참고). 안 보내면 기존처럼 모델이
     # 알아서 다양성을 챙기는 느슨한 지시만 적용된다.
     angle_hint: str = ""
+    # 2026-08-25: 무료/유료 등급 분기 추가 - 무료 등급은 Gemini를 아예 호출하지 않고
+    # AI Hub 코퍼스(question_corpus.py)에서만 질문을 뽑는다("유료만 실시간 생성, 무료는
+    # 기존 데이터"라는 결제 설계). True면 generate_personalized_question을 건너뛴다.
+    corpus_only: bool = False
+    # 2026-08-25: 세션 안에서 이미 나온 질문 텍스트 목록 - 프론트가 지금까지 확정된 질문들을
+    # 그대로 넘긴다. 무료 등급(순차 호출)에서는 매번 누적된 exclude로 코퍼스 중복을 원천
+    # 차단하고, 유료 등급은 병렬 호출이라 사전에 못 막지만 Gemini가 실패해서 코퍼스로 빠질
+    # 때 최소한 지금까지 확정된 질문과는 안 겹치게 하는 데 쓴다(question_corpus.pick_question
+    # 참고 - random.choice(pool) 하나만 쓰던 것보다 개선).
+    exclude: list[str] = []
+    # 2026-08-26: RAG - 사용자가 "이 공고로 준비하기"를 선택했을 때만 채워진다(선택 사항).
+    # 무료 등급은 애초에 Gemini를 안 부르니(corpus_only) 이 값이 와도 무시된다 - 유료 등급의
+    # generate_personalized_question 프롬프트에만 그 공고의 job_requirements를 근거로 얹는다.
+    job_posting_id: int | None = None
 
 
 @router.post("/next-question")
@@ -68,12 +84,41 @@ def next_question(body: NextQuestionRequest):
     # 들어가 있어서(app/domain/interview/model/은 이미지에서 제외됨), 이 폴백이 없으면
     # 배포 환경에서 LoRA 경로를 타는 요청이 전부 503으로 실패한다 - 품질 이유뿐 아니라
     # 배포 안정성 측면에서도 Gemini-우선이 맞다는 게 재확인됐다.
+    exclude = set(body.exclude)
+
+    # 2026-08-25: 무료 등급 - Gemini를 아예 안 부르고 코퍼스에서만 뽑는다. API 비용/할당량이
+    # 0이라 상태코드를 나눌 이유도 없다 - 풀이 비어있는 극단적인 경우(코퍼스 파일 손상 등)만
+    # 503으로 알린다.
+    if body.corpus_only:
+        question = question_corpus.pick_question(body.category, body.job, exclude)
+        if question is None:
+            raise HTTPException(status_code=503, detail="질문 코퍼스가 비어 있습니다.")
+        return {"question": question}
+
+    # 2026-08-26: 공고를 선택했을 때만 실제로 DB 조회가 일어난다(job_posting_id가 없으면
+    # build_job_requirements_context가 곧바로 None을 반환) - 무료 등급/공고 미선택 사용자는
+    # 이 호출이 있어도 사실상 아무 비용이 없다.
+    job_requirements_context = build_job_requirements_context(body.job_posting_id, body.category) or ""
+
     try:
         question = generate_personalized_question(
-            job=body.job, tech_summary=body.tech_summary, category=body.category, angle_hint=body.angle_hint
+            job=body.job,
+            tech_summary=body.tech_summary,
+            category=body.category,
+            angle_hint=body.angle_hint,
+            job_requirements_context=job_requirements_context,
         )
-        if question is None:
-            question = generate_validated_question(job=body.job, context=body.context, category=body.category)
+        if question is None or question in exclude:
+            question = generate_validated_question(
+                job=body.job,
+                context=body.context,
+                category=body.category,
+                job_requirements_context=job_requirements_context,
+            )
+        if question in exclude:
+            # generate_validated_question도 결국 코퍼스 random.choice로 빠진 것이라 exclude를
+            # 몰랐을 수 있다 - 마지막으로 exclude를 아는 pick_question으로 한 번 더 시도한다.
+            question = question_corpus.pick_question(body.category, body.job, exclude) or question
     except RuntimeError as e:
         # 모델 파일이 없는 경우(아직 학습/배포 안 됨) - 500 대신 명확한 메시지로 알려준다.
         raise HTTPException(status_code=503, detail=str(e))
@@ -161,6 +206,8 @@ class EvaluateRequest(BaseModel):
     # 프론트(faceAnalysis.ts summarizeFaceFrames)가 브라우저에서 계산한 결과. 카메라를 안 썼거나
     # 얼굴 인식에 실패하면 없을 수 있어서 선택값.
     face_metrics: dict | None = None
+    # 2026-08-26: RAG - 질문 생성 때와 같은 공고를 채점 근거로도 재사용한다(선택 사항).
+    job_posting_id: int | None = None
 
 
 @router.post("/evaluate")
@@ -180,6 +227,7 @@ def evaluate(body: EvaluateRequest):
         transcript=body.transcript,
         voice_metrics=body.voice_metrics,
         face_metrics=body.face_metrics,
+        job_requirements_context=build_job_requirements_context(body.job_posting_id),
     )
     return {"report": report.to_dict()}
 
@@ -194,6 +242,10 @@ class SessionAnswer(BaseModel):
 class EvaluateSessionRequest(BaseModel):
     # 보통 3개(자기소개 포함) - 프론트 세션 진행 순서 그대로 담아서 보낸다.
     answers: list[SessionAnswer]
+    # 2026-08-26: RAG - 세션 시작 시 골랐던 공고 하나(있다면)를 세션 전체 채점/모범답안의
+    # 근거로 재사용한다. 질문별이 아니라 세션 전체에 하나만 있으면 되므로 answers 밖의
+    # 세션 레벨 필드다.
+    job_posting_id: int | None = None
 
 
 @router.post("/evaluate-session")
@@ -201,7 +253,10 @@ def evaluate_session(body: EvaluateSessionRequest):
     """모의면접 세션(질문 여러 개)을 한 번에 종합 평가한다 - Gemini 호출 1회로 세션
     전체(자기소개 포함 보통 3개 질문)를 평가해서 총평/강점/개선점/질문별 피드백+모범답안을
     반환한다."""
-    report = generate_session_report([a.model_dump() for a in body.answers])
+    report = generate_session_report(
+        [a.model_dump() for a in body.answers],
+        job_requirements_context=build_job_requirements_context(body.job_posting_id),
+    )
     return {"report": report.to_dict()}
 
 

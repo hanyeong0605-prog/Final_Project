@@ -5,6 +5,37 @@ import { useAuth } from "../features/auth/model/AuthContext";
 import { joinCameraPairing } from "../features/mock-interview/api/cameraPairingApi";
 import { createPeerConnection, openPairingSocket, type PairingSignal } from "../features/mock-interview/lib/cameraPairing";
 
+// PC의 MockInterviewPage stage 값을 그대로 받아오는데, 예전엔 "recording"/"countdown"만
+// 구분하고 나머지(예: testing-mic, preparing 같은 시작 전 단계)를 전부 "면접 진행 중"으로
+// 뭉뚱그려서, 아직 PC에서 "시작하기"도 안 눌렀는데 폰에는 진행 중이라고 뜨는 문제가 있었다.
+function interviewStageLabel(stage: string): string {
+  switch (stage) {
+    case "start":
+    case "device-check":
+    case "preparing":
+    case "testing-mic":
+      return "면접 준비 중 (PC에서 시작하기를 기다리는 중)";
+    case "countdown":
+      return "곧 질문이 시작됩니다";
+    case "get-ready":
+      return "질문 확인 중";
+    case "recording":
+      return "답변 녹화 중";
+    case "break":
+      return "잠시 휴식 중";
+    case "finalizing":
+      return "답변 저장 중";
+    case "analyzing":
+      return "답변 분석 중";
+    case "session-report":
+      return "면접이 종료되었습니다";
+    case "typing":
+      return "PC에서 타이핑으로 진행 중";
+    default:
+      return "면접 진행 중";
+  }
+}
+
 export function CameraPairPage() {
   const { member, loading } = useAuth();
   const [params] = useSearchParams();
@@ -88,7 +119,7 @@ export function CameraPairPage() {
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
       send({ type: "answer", sdp: answer });
-      setStatus("연결되었습니다. PC와 같은 면접이 자동으로 시작됩니다.");
+      setStatus("연결되었습니다. PC에서 마이크·카메라 확인 후 시작하기를 누르면 면접이 시작됩니다.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "카메라 또는 마이크 권한을 얻지 못했습니다.");
     }
@@ -108,18 +139,29 @@ export function CameraPairPage() {
         {!streamRef.current && !error && <LoaderCircle className="spin" size={26} />}
         {/* 2026-08-07: 전면(셀피) 카메라라 화면에 보여줄 때만 좌우 반전(CSS transform)한다.
             실제 전송되는 MediaStream 트랙 데이터는 그대로라 PC 쪽 녹화/분석에는 영향 없다 -
-            "거울처럼 보이게" 하는 화면 표시용 트릭일 뿐이다. */}
+            "거울처럼 보이게" 하는 화면 표시용 트릭일 뿐이다.
+            video 태그는 스트림이 붙기 전에도 ref 바인딩을 위해 항상 마운트해 둬야 한다
+            (streamRef로 조건부 마운트하면 srcObject 대입 시점에 ref가 아직 null이라 영상이
+            영영 안 붙는다) - 대신 display로만 숨겨서, 소스 없는 빈 video에 iOS Safari가
+            기본으로 그려주는 재생 버튼 아이콘이 스트림 붙기 전까지 안 보이게 한다. */}
         <video
           ref={videoRef}
           autoPlay
           muted
           playsInline
-          style={{ width: "100%", borderRadius: 12, background: "#111", marginTop: 12, transform: "scaleX(-1)" }}
+          style={{
+            width: "100%",
+            borderRadius: 12,
+            background: "#111",
+            marginTop: 12,
+            transform: "scaleX(-1)",
+            display: streamRef.current ? "block" : "none",
+          }}
         />
         {streamRef.current && <p style={{ color: "#2e9e5b", fontSize: 13 }}><CheckCircle2 size={15} /> PC에 카메라와 마이크를 전송하고 있습니다.</p>}
         {interviewState && (
           <section style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "#f3f5ff", textAlign: "left" }}>
-            <strong>PC 면접 진행 상태: {interviewState.stage === "recording" ? "답변 녹화 중" : interviewState.stage === "countdown" ? "곧 질문이 시작됩니다" : "면접 진행 중"}</strong>
+            <strong>PC 면접 진행 상태: {interviewStageLabel(interviewState.stage)}</strong>
             {interviewState.question && <p style={{ margin: "8px 0 0", fontSize: 14 }}>{interviewState.question}</p>}
             {interviewState.stage === "recording" && <p style={{ margin: "8px 0 0", color: "#d84343" }}>● 녹화 중 {interviewState.elapsedSec ?? 0}초</p>}
           </section>

@@ -52,7 +52,8 @@ public class SecurityConfig {
                             "/api/v1/auth/email-verifications/**", "/api/v1/health", "/error", "/ws/camera-pair").permitAll();
                     // 2026-08-19: 기업회원 가입/로그인 - 개인회원과 별도 계정 체계라 로그인 전에는
                     // 당연히 permitAll이어야 하고, /me와 채용공고 등록은 인증 필요(anyRequest.authenticated).
-                    authorize.requestMatchers("/api/v1/employer/auth/signup", "/api/v1/employer/auth/login").permitAll();
+                    authorize.requestMatchers("/api/v1/employer/auth/signup", "/api/v1/employer/auth/login",
+                            "/api/v1/employer/auth/login-id-availability").permitAll();
                     authorize.requestMatchers("/api/v1/employer/passwordless/**").permitAll();
                     authorize.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll();
 
@@ -67,8 +68,7 @@ public class SecurityConfig {
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/certifications/catalog", "/api/v1/certifications/catalog/list", "/api/v1/certifications/catalog/fields", "/api/v1/certifications/catalog/*/detail").permitAll();
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/books").permitAll();
 
-                    authorize.requestMatchers("/api/tests/**").permitAll(); // 심리검사테스트 비로그인자도 확인하도록 임시용
-                    authorize.requestMatchers("/api/checks/**", "/api/v1/auth/**").permitAll(); // 맞춤법 검사기 비로그인자도 가능하게 확인용
+                    authorize.requestMatchers("/api/v1/auth/**").permitAll();
 
                     if (developmentAuthenticationEnabled) {
                         authorize.requestMatchers("/api/v1/dev/auth/token", "/api/v1/dev/auth/admin-token").permitAll();

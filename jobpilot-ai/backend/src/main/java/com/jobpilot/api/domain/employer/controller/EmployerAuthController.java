@@ -1,5 +1,6 @@
 package com.jobpilot.api.domain.employer.controller;
 
+import com.jobpilot.api.domain.auth.dto.LoginIdAvailabilityResponse;
 import com.jobpilot.api.domain.employer.dto.EmployerResponse;
 import com.jobpilot.api.domain.employer.dto.EmployerAuthResponse;
 import com.jobpilot.api.domain.employer.dto.EmployerLoginRequest;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +33,11 @@ public class EmployerAuthController {
 
     @PostMapping("/login")
     public EmployerAuthResponse login(@Valid @RequestBody EmployerLoginRequest request) { return service.login(request); }
+
+    @GetMapping("/login-id-availability")
+    public LoginIdAvailabilityResponse loginIdAvailability(@RequestParam String loginId) {
+        return new LoginIdAvailabilityResponse(service.isLoginIdAvailable(loginId));
+    }
 
     @GetMapping("/me")
     public EmployerResponse me(Authentication authentication) {

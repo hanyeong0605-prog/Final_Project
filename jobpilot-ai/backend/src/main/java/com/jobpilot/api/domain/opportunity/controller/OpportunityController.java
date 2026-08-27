@@ -3,12 +3,16 @@ package com.jobpilot.api.domain.opportunity.controller;
 import com.jobpilot.api.domain.opportunity.dto.OpportunityResponse;
 import com.jobpilot.api.domain.opportunity.entity.Opportunity;
 import com.jobpilot.api.domain.opportunity.repository.OpportunityRepository;
+import com.jobpilot.api.domain.interest.entity.UserInterest;
 import com.jobpilot.api.domain.interest.repository.UserInterestRepository;
 import com.jobpilot.api.global.security.AuthenticatedMember;
 import org.springframework.security.core.Authentication;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,10 +35,17 @@ public class OpportunityController {
                 .map(this::toResponse)
                 .toList();
     }
+    // 2026-08-26: 찜한 개수만큼 repository.findById()를 개별 호출하던 N+1을 findAllById
+    // 배치 조회로 바꿨다(InterestService.bookmarkedJobs()와 같은 이유/같은 수정).
     @GetMapping("/bookmarked")
     public List<OpportunityResponse> bookmarked(Authentication auth) {
-        return interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(AuthenticatedMember.id(auth), "OPPORTUNITY").stream()
-                .map(item -> repository.findById(item.getTargetId()).orElse(null)).filter(java.util.Objects::nonNull).map(this::toResponse).toList();
+        List<UserInterest> saved = interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(AuthenticatedMember.id(auth), "OPPORTUNITY");
+        List<Long> targetIds = saved.stream().map(UserInterest::getTargetId).toList();
+        Map<Long, Opportunity> byId = repository.findAllById(targetIds).stream()
+                .collect(Collectors.toMap(Opportunity::getId, Function.identity()));
+        return saved.stream()
+                .map(item -> byId.get(item.getTargetId()))
+                .filter(java.util.Objects::nonNull).map(this::toResponse).toList();
     }
     @GetMapping("/{id}")
     public OpportunityResponse detail(@PathVariable Long id) { return toResponse(repository.findById(id).orElseThrow(() -> new com.jobpilot.api.global.exception.ResourceNotFoundException("훈련과정을 찾을 수 없습니다."))); }
