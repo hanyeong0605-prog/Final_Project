@@ -18,6 +18,9 @@ import com.jobpilot.api.domain.member.repository.MemberRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -43,9 +46,18 @@ public class InterestService {
         return interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(memberId, type).stream().map(UserInterest::getTargetId).toList();
     }
 
+    // 2026-08-26: 원래는 찜한 항목 개수만큼 jobs.findById()를 개별 호출하는 N+1이었다 -
+    // 마이페이지가 찜 버튼을 누를 때마다(interestCount 변경) 이 엔드포인트를 다시 부르는데,
+    // 찜한 공고가 많을수록 그만큼 느려져서 "찜 버튼 반응이 느리다"는 체감으로 이어졌다.
+    // findAllById로 한 번에 배치 조회하고, 원래 찜한 순서(최신순)는 Map에서 다시 매핑해서 유지한다.
     public List<JobPostingListResponse> bookmarkedJobs(Long memberId) {
-        return interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(memberId, JOB).stream()
-                .map(value -> jobs.findById(value.getTargetId()).orElse(null)).filter(java.util.Objects::nonNull)
+        List<UserInterest> saved = interests.findByMemberIdAndTargetTypeOrderByCreatedAtDesc(memberId, JOB);
+        List<Long> targetIds = saved.stream().map(UserInterest::getTargetId).toList();
+        Map<Long, JobPosting> byId = jobs.findAllById(targetIds).stream()
+                .collect(Collectors.toMap(JobPosting::getId, Function.identity()));
+        return saved.stream()
+                .map(value -> byId.get(value.getTargetId()))
+                .filter(java.util.Objects::nonNull)
                 .map(this::jobResponse).toList();
     }
 
@@ -54,9 +66,13 @@ public class InterestService {
         if (request.interested() && existing.isEmpty()) {
             interests.save(new UserInterest(memberId, request.targetType(), request.targetId()));
             if (JOB.equals(request.targetType())) {
-                addJobEvent(memberId, request.targetId());
+                // 2026-08-26: addJobEvent/notifyEmployer가 각자 jobs.findById()를 따로 불러서
+                // 공고 찜 POST 한 번에 같은 행을 두 번 조회하고 있었다 - 한 번만 조회해서 넘긴다.
+                JobPosting job = jobs.findById(request.targetId())
+                        .orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
+                addJobEvent(memberId, job);
                 memberJobEvents.record(memberId, request.targetId(), "BOOKMARK");
-                notifyEmployer(memberId, request.targetId());
+                notifyEmployer(memberId, job);
             }
             if ("OPPORTUNITY".equals(request.targetType())) opportunities.findById(request.targetId()).ifPresent(item -> { if (item.getEventStartAt()!=null) events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId,"OPPORTUNITY",item.getId(),"TRAINING_PERIOD").orElseGet(() -> events.save(PlannerEvent.fromOpportunity(memberId,item.getId(),item.getTitle(),item.getEventStartAt(),item.getEventEndAt()))); });
         } else if (!request.interested()) {
@@ -68,20 +84,18 @@ public class InterestService {
         return new InterestToggleResponse(request.targetId(), request.interested());
     }
 
-    private void notifyEmployer(Long memberId, Long jobId) {
-        JobPosting job = jobs.findById(jobId).orElse(null);
-        if (job == null || job.getEmployerAccountId() == null) return;
+    private void notifyEmployer(Long memberId, JobPosting job) {
+        if (job.getEmployerAccountId() == null) return;
         String nickname = members.findById(memberId).map(value -> value.getNickname()).orElse("일반회원");
-        employerNotifications.save(new EmployerNotification(job.getEmployerAccountId(), memberId, jobId,
+        employerNotifications.save(new EmployerNotification(job.getEmployerAccountId(), memberId, job.getId(),
                 "회원이 내 공고를 찜했습니다.", nickname + "님이 ‘" + job.getTitle() + "’ 공고를 관심 목록에 저장했습니다."));
     }
 
-    private void addJobEvent(Long memberId, Long jobId) {
-        JobPosting job = jobs.findById(jobId).orElseThrow(() -> new ResourceNotFoundException("채용공고를 찾을 수 없습니다."));
+    private void addJobEvent(Long memberId, JobPosting job) {
         if (job.getDeadlineAt() == null && job.getPublishedAt() == null) return;
         LocalDateTime start = job.getPublishedAt() != null ? job.getPublishedAt() : job.getDeadlineAt();
-        events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId, JOB, jobId, "APPLICATION_PERIOD")
-                .orElseGet(() -> events.save(PlannerEvent.fromJobPosting(memberId, jobId,
+        events.findByMemberIdAndSourceTypeAndSourceIdAndEventType(memberId, JOB, job.getId(), "APPLICATION_PERIOD")
+                .orElseGet(() -> events.save(PlannerEvent.fromJobPosting(memberId, job.getId(),
                         (job.getCompanyName() == null ? "" : job.getCompanyName() + " · ") + job.getTitle(),
                         start, job.getDeadlineAt())));
     }

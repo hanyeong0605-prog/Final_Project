@@ -24,6 +24,12 @@ public class JobPostingSearchService {
     private static final String SEARCH_TEXT = "LOWER(CONCAT_WS(' ', "
             + "COALESCE(title, ''), COALESCE(job_name, ''), COALESCE(job_mid_name, ''), "
             + "COALESCE(keywords, ''), COALESCE(description, '')))";
+    // 2026-08-26: 직무(role) 필터 전용 - job_postings.*에 SEARCH_TEXT를 딱 한 번 계산해서
+    // search_text 컬럼으로 얹어둔 서브쿼리. 역할 키워드 조건(최대 81개 LIKE)이 이 컬럼
+    // 하나만 재사용하도록 해서, 행마다 반복 계산되던 비용(특히 description은 MEDIUMTEXT라
+    // 길 수 있음)을 없앤다. 역할 필터가 없는 요청(대부분)은 이 서브쿼리를 아예 안 쓴다.
+    private static final String SEARCHABLE_JOB_POSTINGS_SUBQUERY =
+            "(SELECT job_postings.*, " + SEARCH_TEXT + " AS search_text FROM job_postings) job_postings";
 
     private static final Map<String, List<String>> ROLE_KEYWORDS = Map.of(
             "BACKEND", List.of("backend", "백엔드", "server", "서버", "spring", "django", "fastapi", "node.js", "nodejs"),
@@ -57,9 +63,22 @@ public class JobPostingSearchService {
         int safeSize = Math.min(Math.max(size, 1), MAX_SIZE);
         String normalizedSort = normalizeSort(sort);
         MapSqlParameterSource parameters = new MapSqlParameterSource("status", "ACTIVE");
-        String where = buildWhere(query, roles, experience, location, employmentType, parameters);
+        List<String> selectedRoles = parseRoles(roles);
+        // 2026-08-26: 직무 필터를 고르면 페이지가 얼어붙는다는 리포트를 받고 확인해보니, 아래
+        // SEARCH_TEXT(제목+직무명+키워드+본문 설명을 이어붙여 소문자로 변환)가 역할당
+        // 키워드마다(최대 9개), 역할 개수만큼(최대 9개) 반복돼서 - 최악의 경우 행 하나당 이
+        // 무거운 계산(특히 description은 MEDIUMTEXT라 길 수 있음)을 81번까지 매번 새로
+        // 돌리고 있었다. 게다가 COUNT 쿼리와 본문 SELECT 쿼리 둘 다 이 WHERE를 그대로 써서
+        // 전체 스캔이 2번씩 일어난다. 실사용 데이터(3천 건 이상)에서는 이게 그대로 렉으로
+        // 체감된다 - 사용자가 그 사이에 필터를 여러 번 누르면 응답이 한꺼번에 몰려 돌아와서
+        // "여러 개가 한번에 눌린 것처럼" 보이는 것도 이 지연이 원인으로 보인다.
+        // 근본 수정(FULLTEXT 인덱스 등)은 스키마 변경이 필요해 범위가 커서, 우선 SEARCH_TEXT를
+        // 서브쿼리에서 행마다 "한 번만" 계산해두고 그 별칭을 재사용하도록 바꿔서 반복 계산
+        // 비용만 없앴다 - 역할 필터를 안 쓰면(대부분의 요청) 기존과 동일한 단순 쿼리 그대로다.
+        String from = selectedRoles.isEmpty() ? "job_postings" : SEARCHABLE_JOB_POSTINGS_SUBQUERY;
+        String where = buildWhere(query, selectedRoles, experience, location, employmentType, parameters);
         long totalElements = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_postings" + where, parameters, Long.class);
+                "SELECT COUNT(*) FROM " + from + where, parameters, Long.class);
 
         parameters.addValue("limit", safeSize);
         parameters.addValue("offset", safePage * safeSize);
@@ -70,7 +89,7 @@ public class JobPostingSearchService {
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
                 + "is_rolling_deadline, status, COALESCE(view_count, 0) AS view_count, "
                 + "(SELECT COUNT(*) FROM user_interests interest WHERE interest.target_type = 'JOB_POSTING' AND interest.target_id = job_postings.id) AS bookmark_count "
-                + "FROM job_postings" + where + " ORDER BY " + orderBy(normalizedSort) + " LIMIT :limit OFFSET :offset";
+                + "FROM " + from + where + " ORDER BY " + orderBy(normalizedSort) + " LIMIT :limit OFFSET :offset";
         List<JobPostingListResponse> content = jdbcTemplate.query(sql, parameters, JOB_POSTING_ROW_MAPPER);
         int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeSize);
         return new JobPostingPageResponse(content, safePage, safeSize, totalElements, totalPages, normalizedSort);
@@ -78,7 +97,7 @@ public class JobPostingSearchService {
 
     private String buildWhere(
             String query,
-            String roles,
+            List<String> selectedRoles,
             String experience,
             String location,
             String employmentType,
@@ -105,7 +124,6 @@ public class JobPostingSearchService {
             parameters.addValue("employmentType", employmentType.trim().toLowerCase(Locale.ROOT));
         }
 
-        List<String> selectedRoles = parseRoles(roles);
         if (!selectedRoles.isEmpty()) {
             where.append(" AND (");
             for (int roleIndex = 0; roleIndex < selectedRoles.size(); roleIndex++) {
@@ -116,7 +134,9 @@ public class JobPostingSearchService {
                 for (int keywordIndex = 0; keywordIndex < keywords.size(); keywordIndex++) {
                     if (keywordIndex > 0) where.append(" OR ");
                     String parameterName = "role" + roleIndex + "Keyword" + keywordIndex;
-                    where.append(SEARCH_TEXT).append(" LIKE :").append(parameterName);
+                    // 2026-08-26: SEARCH_TEXT를 매번 다시 계산하지 않고, 서브쿼리(위 search()의
+                    // SEARCHABLE_JOB_POSTINGS_SUBQUERY)가 미리 계산해둔 search_text 컬럼을 그대로 쓴다.
+                    where.append("search_text LIKE :").append(parameterName);
                     parameters.addValue(parameterName, "%" + keywords.get(keywordIndex).toLowerCase(Locale.ROOT) + "%");
                 }
                 where.append(")");

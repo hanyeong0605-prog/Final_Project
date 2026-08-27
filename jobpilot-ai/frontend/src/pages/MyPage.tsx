@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { changeNickname, changePassword, withdraw } from "../features/auth/api/accountApi";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getBookmarkedJobs } from "../features/interests/api/interestsApi";
-import { getBookmarkedOpportunities } from "../features/opportunities/api/opportunityInterestsApi";
+import { getBookmarkedOpportunities, toggleOpportunityInterest } from "../features/opportunities/api/opportunityInterestsApi";
 import { OpportunityCard } from "../features/opportunities/components/OpportunityCard";
 import type { Opportunity } from "../features/opportunities/model/opportunity.types";
 import { useInterests } from "../features/interests/model/InterestContext";
@@ -23,6 +23,15 @@ export function MyPage() {
   const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
   useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
+  // 2026-08-26: onInterest={() => {}}로 아무 동작도 안 하던 버그 - 찜한 성장 기회 목록에서
+  // 버튼을 눌러도 API 호출도 로컬 상태 변경도 없었다. 목록에 이미 있는 항목이니 누르면
+  // "찜 해제"가 맞는 동작이라, 낙관적으로 목록에서 바로 빼고 실패하면 다시 불러와 복구한다.
+  const removeBookmarkedOpportunity = (id: number) => {
+    setOpportunities((current) => current.filter((item) => item.id !== id));
+    void toggleOpportunityInterest(id, false).catch(() => {
+      void getBookmarkedOpportunities().then(setOpportunities).catch(() => {});
+    });
+  };
   useEffect(() => { if (!loading && !member) navigate(`/login?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`, { replace: true }); }, [loading, member, navigate, location.pathname, location.search]);
   const run = async (kind: Exclude<Action, null>, fn: () => Promise<void>, success: string) => { if (submitting) return; setError(""); setMessage(""); setSubmitting(kind); try { await fn(); setMessage(success); setAction(null); } catch (e) { setError(e instanceof Error ? e.message : "요청에 실패했습니다."); } finally { setSubmitting(null); } };
   const nicknameSubmit = (e: FormEvent) => { e.preventDefault(); void run("nickname", async () => updateMember(await changeNickname(nickname.trim())), "닉네임을 변경했습니다."); };
@@ -44,6 +53,6 @@ export function MyPage() {
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.length}개</span></div>
     {jobs.length === 0 ? <section className="panel saved-empty">찜한 채용공고가 없습니다.</section> : <section className="posting-grid">{jobs.map((job) => <JobPostingCard key={job.id} posting={job} />)}</section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 성장 기회</h2></div><span>{opportunities.length}개</span></div>
-    {opportunities.length === 0 ? <section className="panel saved-empty">찜한 훈련과정·성장 기회가 없습니다.</section> : <section className="opportunity-grid">{opportunities.map((item) => <OpportunityCard key={item.id} item={item} interested onInterest={() => {}} />)}</section>}
+    {opportunities.length === 0 ? <section className="panel saved-empty">찜한 훈련과정·성장 기회가 없습니다.</section> : <section className="opportunity-grid">{opportunities.map((item) => <OpportunityCard key={item.id} item={item} interested onInterest={() => removeBookmarkedOpportunity(item.id)} />)}</section>}
   </>;
 }

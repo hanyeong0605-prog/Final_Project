@@ -40,6 +40,15 @@ public class EmployerAuthService {
         this.ntsClient = ntsClient;
     }
 
+    // 2026-08-26: 기업회원 가입 폼에 아이디 중복확인을 추가하면서 필요해진 조회 전용 메서드 -
+    // 개인회원(AuthService.isLoginIdAvailable)과 같은 정규식/응답 형태를 그대로 맞췄다.
+    public boolean isLoginIdAvailable(String loginId) {
+        if (loginId == null || !loginId.matches("^[a-zA-Z0-9._-]{6,80}$")) {
+            throw new IllegalArgumentException("아이디는 영문, 숫자, 마침표, 밑줄, 하이픈으로 된 6~80자여야 합니다.");
+        }
+        return !employers.existsByLoginId(loginId);
+    }
+
     public EmployerResponse signup(EmployerSignupRequest request) {
         if (employers.existsByLoginId(request.loginId())) throw new DuplicateEmployerException("이미 사용 중인 로그인 아이디입니다.");
         String email = normalizeEmail(request.email());
