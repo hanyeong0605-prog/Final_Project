@@ -48,7 +48,8 @@ public class InterviewSessionRecordService {
                 toJson(request.strengths()),
                 toJson(request.improvements()),
                 toJson(request.nextSteps()),
-                toJson(request.questions())));
+                toJson(request.questions()),
+                clean(request.nonverbalFeedback())));
         return detailResponse(saved);
     }
 
@@ -81,6 +82,7 @@ public class InterviewSessionRecordService {
         return new InterviewSessionRecordDetailResponse(r.getId(), r.getRole(), r.getInterviewMode(),
                 r.getInterviewType(), r.getQuestionCount(), r.getOverallScore(), r.getContentScore(),
                 r.getDeliveryScore(), toStringList(r.getStrengths()), toStringList(r.getImprovements()),
-                toStringList(r.getNextSteps()), toQuestionList(r.getQuestions()), r.getCreatedAt());
+                toStringList(r.getNextSteps()), toQuestionList(r.getQuestions()), r.getNonverbalFeedback(),
+                r.getCreatedAt());
     }
 }

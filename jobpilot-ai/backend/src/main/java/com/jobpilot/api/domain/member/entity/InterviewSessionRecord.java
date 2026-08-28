@@ -64,6 +64,12 @@ public class InterviewSessionRecord {
     @JdbcTypeCode(SqlTypes.JSON)
     private JsonNode questions; // [{question, feedback, modelAnswer}, ...]
 
+    // 2026-08-29: 비언어 행동 리뷰(카메라 정면 응시/고개 방향 안정성/화면 중앙 유지/깜빡임의
+    // 관찰 가능한 경향). 카메라를 안 썼거나 분석 신뢰도가 부족하면 ai-server가 null을 주고,
+    // 이 기능 이전에 쌓인 기록도 전부 null이라 nullable이다.
+    @Column(name = "nonverbal_feedback", columnDefinition = "TEXT")
+    private String nonverbalFeedback;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -71,7 +77,8 @@ public class InterviewSessionRecord {
 
     public InterviewSessionRecord(Long memberId, String role, String interviewMode, String interviewType,
             int questionCount, Integer overallScore, Integer contentScore, Integer deliveryScore,
-            JsonNode strengths, JsonNode improvements, JsonNode nextSteps, JsonNode questions) {
+            JsonNode strengths, JsonNode improvements, JsonNode nextSteps, JsonNode questions,
+            String nonverbalFeedback) {
         this.memberId = memberId;
         this.role = role;
         this.interviewMode = interviewMode;
@@ -84,6 +91,7 @@ public class InterviewSessionRecord {
         this.improvements = improvements;
         this.nextSteps = nextSteps;
         this.questions = questions;
+        this.nonverbalFeedback = nonverbalFeedback;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -100,5 +108,6 @@ public class InterviewSessionRecord {
     public JsonNode getImprovements() { return improvements; }
     public JsonNode getNextSteps() { return nextSteps; }
     public JsonNode getQuestions() { return questions; }
+    public String getNonverbalFeedback() { return nonverbalFeedback; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

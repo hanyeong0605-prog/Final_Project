@@ -18,5 +18,8 @@ public record InterviewSessionRecordRequest(
         List<String> strengths,
         List<String> improvements,
         List<String> nextSteps,
-        List<InterviewQuestionFeedbackDto> questions
+        List<InterviewQuestionFeedbackDto> questions,
+        // 2026-08-29: 비언어 행동 리뷰. 카메라 미사용/신뢰도 부족이면 ai-server가 null을 주고,
+        // 이 필드를 모르는 예전 프론트가 보내면 그냥 null로 들어온다(선택 필드).
+        String nonverbalFeedback
 ) {}

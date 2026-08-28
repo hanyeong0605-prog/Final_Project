@@ -36,7 +36,8 @@ class InterviewSessionRecordServiceTest {
         return new InterviewSessionRecordRequest(
                 "BACKEND", "chat", "역량면접", 3, 4, 4, null,
                 List.of("논리적으로 설명함"), List.of("두괄식으로 답하면 좋겠음"), List.of("STAR 기법 연습"),
-                List.of(new InterviewQuestionFeedbackDto("협업 경험은?", "구체적이었음", "모범답안 예시", null)));
+                List.of(new InterviewQuestionFeedbackDto("협업 경험은?", "구체적이었음", "모범답안 예시", null)),
+                "고개 방향이 안정적으로 유지됐습니다.");
     }
 
     @Test
@@ -61,7 +62,7 @@ class InterviewSessionRecordServiceTest {
     void listReturnsSummariesOrderedByRepository() {
         InterviewSessionRecord saved = new InterviewSessionRecord(1L, "BACKEND", "camera", "직무면접", 5,
                 4, 4, 3, objectMapper.valueToTree(List.of("강점1")), objectMapper.valueToTree(List.of()),
-                objectMapper.valueToTree(List.of()), objectMapper.valueToTree(List.of()));
+                objectMapper.valueToTree(List.of()), objectMapper.valueToTree(List.of()), null);
         when(repository.findByMemberIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(saved));
 
         List<InterviewSessionRecordSummaryResponse> result = service().list(1L);
@@ -85,12 +86,47 @@ class InterviewSessionRecordServiceTest {
         // 저장/조회가 깨지면 안 된다.
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         InterviewSessionRecordRequest request = new InterviewSessionRecordRequest(
-                null, "camera", null, 1, null, null, null, null, null, null, null);
+                null, "camera", null, 1, null, null, null, null, null, null, null, null);
 
         InterviewSessionRecordDetailResponse result = service().create(1L, request);
 
         assertThat(result.role()).isNull();
         assertThat(result.strengths()).isEmpty();
         assertThat(result.questions()).isEmpty();
+    }
+
+    // 2026-08-29: 비언어 행동 리뷰 저장/조회. ai-server가 신뢰도 부족/카메라 미사용일 때
+    // null을 주므로 두 경우 다 확인한다.
+    @Test
+    void createStoresAndReturnsNonverbalFeedback() {
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        InterviewSessionRecordDetailResponse result = service().create(1L, request());
+
+        assertThat(result.nonverbalFeedback()).isEqualTo("고개 방향이 안정적으로 유지됐습니다.");
+    }
+
+    @Test
+    void createAcceptsMissingNonverbalFeedback() {
+        // 카메라를 안 썼거나 분석 신뢰도가 부족한 세션 - 저장은 되고 값만 비어 있어야 한다.
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        InterviewSessionRecordRequest request = new InterviewSessionRecordRequest(
+                null, "chat", null, 1, null, null, null, null, null, null, null, "   ");
+
+        assertThat(service().create(1L, request).nonverbalFeedback()).isNull();
+    }
+
+    @Test
+    void detailReturnsNullNonverbalFeedbackForOlderRecords() {
+        // 이 기능 이전에 쌓인 기록은 컬럼이 null이다 - 조회가 깨지지 않아야 한다.
+        InterviewSessionRecord legacy = new InterviewSessionRecord(1L, "BACKEND", "camera", "직무면접", 5,
+                4, 4, 3, objectMapper.valueToTree(List.of("강점1")), objectMapper.valueToTree(List.of()),
+                objectMapper.valueToTree(List.of()), objectMapper.valueToTree(List.of()), null);
+        when(repository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(legacy));
+
+        InterviewSessionRecordDetailResponse result = service().detail(1L, 10L);
+
+        assertThat(result.nonverbalFeedback()).isNull();
+        assertThat(result.strengths()).containsExactly("강점1");
     }
 }

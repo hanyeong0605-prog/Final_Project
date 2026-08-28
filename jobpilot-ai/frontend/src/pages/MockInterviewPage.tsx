@@ -404,6 +404,9 @@ function SessionReportPanel({
               modelAnswer: q.model_answer,
               faceMetrics: answers[i]?.faceMetrics ?? null,
             })),
+            // 2026-08-29: 비언어 행동 리뷰도 타임라인에 남긴다 - 카메라를 안 썼거나 분석
+            // 신뢰도가 부족하면 ai-server가 null을 주고, 백엔드도 nullable로 받는다.
+            nonverbalFeedback: res.report.nonverbal_feedback,
           }).catch(() => {});
         }
       })
