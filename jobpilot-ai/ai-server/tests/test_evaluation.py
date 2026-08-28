@@ -262,3 +262,135 @@ def test_session_report_to_dict_roundtrip():
     d = report.to_dict()
     assert d["ok"] is True
     assert d["questions"] == [{"question": "Q1", "feedback": "피드백1", "model_answer": "모범답안1"}]
+
+
+def test_session_report_exposes_nonverbal_feedback():
+    report = SessionEvaluationReport(ok=True, nonverbal_feedback="정면 응시가 안정적으로 유지됐습니다.")
+    assert report.to_dict()["nonverbal_feedback"] == "정면 응시가 안정적으로 유지됐습니다."
+
+
+def test_insufficient_face_metrics_require_null_nonverbal_feedback(monkeypatch):
+    monkeypatch.setattr(evaluation.settings, "gemini_api_key", "fake-key")
+    captured = {}
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            raise RuntimeError("stop-here")
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    answers = [{"question": "Q1", "transcript": "A1", "voice_metrics": None,
+                "face_metrics": {"confidence": "insufficient", "validFrameRatio": 20}}]
+    with patch("google.genai.Client", FakeClient):
+        generate_session_report(answers)
+
+    assert "nonverbal_feedback는 반드시 null" in captured["prompt"]
+
+
+# ======================================================================================
+# 2026-08-29 비언어 행동 리뷰 - 신뢰도 게이팅, 새 얼굴 지표, 건너뛴 질문 처리
+# ======================================================================================
+
+
+def _capture_session_prompt(answers, monkeypatch) -> str:
+    """generate_session_report를 한 번 부르고 Gemini에 실제로 넘어간 프롬프트를 돌려준다."""
+    monkeypatch.setattr(evaluation.settings, "gemini_api_key", "fake-key")
+    captured = {}
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            raise RuntimeError("stop-here")
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        generate_session_report(answers)
+    return captured["prompt"]
+
+
+_SUFFICIENT_FACE_METRICS = {
+    "confidence": "sufficient",
+    "validFrameRatio": 98,
+    "durationSec": 40,
+    "blinkCount": 12,
+    "expectedBlinkRange": {"low": 10, "high": 13},
+    "headOffCenterRatio": 9,
+    "cameraGazeRatio": 88,
+    "faceCenteredRatio": 95,
+}
+
+
+def test_sufficient_face_metrics_ask_for_nonverbal_feedback(monkeypatch):
+    answers = [{"question": "Q1", "transcript": "A1", "voice_metrics": None,
+                "face_metrics": _SUFFICIENT_FACE_METRICS}]
+
+    prompt = _capture_session_prompt(answers, monkeypatch)
+
+    assert "nonverbal_feedback은" in prompt
+    assert "nonverbal_feedback는 반드시 null" not in prompt
+
+
+def test_nonverbal_rule_forbids_psychological_inference(monkeypatch):
+    """카메라 지표로 긴장/자신감/성격/진실성을 추정하지 말라는 금지어 규칙이 함께 가야 한다
+    (설계 문서의 범위 제외 항목)."""
+    answers = [{"question": "Q1", "transcript": "A1", "voice_metrics": None,
+                "face_metrics": _SUFFICIENT_FACE_METRICS}]
+
+    prompt = _capture_session_prompt(answers, monkeypatch)
+
+    for forbidden in ("긴장", "자신감", "감정", "성격", "진실성"):
+        assert forbidden in prompt
+
+
+def test_face_metrics_block_uses_calibrated_ratios(monkeypatch):
+    """프롬프트에 들어가는 얼굴 지표가 기준 자세 보정 위에서 계산된 값이어야 한다 - 예전
+    headMovement(코끝 2D 이동량)는 무엇과 비교한 값인지 설명할 수 없어서 뺐다."""
+    answers = [{"question": "Q1", "transcript": "A1", "voice_metrics": None,
+                "face_metrics": {**_SUFFICIENT_FACE_METRICS, "headMovement": 12}}]
+
+    prompt = _capture_session_prompt(answers, monkeypatch)
+
+    assert "기준 자세" in prompt
+    assert "9%" in prompt  # headOffCenterRatio
+    assert "88%" in prompt  # cameraGazeRatio
+    assert "95%" in prompt  # faceCenteredRatio
+    assert "분석 신뢰도: sufficient" in prompt
+    assert "고개 움직임 정도" not in prompt
+
+
+def test_missing_face_metrics_still_renders_a_block(monkeypatch):
+    answers = [{"question": "Q1", "transcript": "A1", "voice_metrics": None, "face_metrics": None}]
+
+    prompt = _capture_session_prompt(answers, monkeypatch)
+
+    assert "얼굴 분석 데이터 없음" in prompt
+    assert "nonverbal_feedback는 반드시 null" in prompt
+
+
+def test_skipped_answer_is_marked_as_unanswered(monkeypatch):
+    answers = [
+        {"question": "Q1", "transcript": evaluation.SKIPPED_ANSWER_TRANSCRIPT,
+         "voice_metrics": None, "face_metrics": None},
+    ]
+
+    prompt = _capture_session_prompt(answers, monkeypatch)
+
+    assert evaluation.SKIPPED_ANSWER_TRANSCRIPT in prompt
+    assert "미응답으로 다뤄라" in prompt
+
+
+def test_nonverbal_feedback_is_preserved_as_string_or_null():
+    """파싱 결과가 문자열 또는 None으로 보존되는지 - 빈 문자열은 None으로 접는다."""
+    assert SessionEvaluationReport(ok=True, nonverbal_feedback=None).to_dict()["nonverbal_feedback"] is None
+    assert (
+        SessionEvaluationReport(ok=True, nonverbal_feedback="고개 방향이 안정적이었습니다.").to_dict()[
+            "nonverbal_feedback"
+        ]
+        == "고개 방향이 안정적이었습니다."
+    )
