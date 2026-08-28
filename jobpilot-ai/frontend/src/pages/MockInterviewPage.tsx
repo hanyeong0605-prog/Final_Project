@@ -35,8 +35,8 @@ import { getCareerProfile } from "../features/profile/api/careerProfileApi";
 import { getJobPostings } from "../features/job-postings/api/jobPostingsApi";
 import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
 import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi";
-import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
-import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
+import { FACE_OVAL_INDICES, buildCalibration, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
+import type { FaceCalibration, FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
 import type { InterviewKind, InterviewQuestionSource, InterviewType } from "../features/mock-interview/model/interviewConfig";
 import {
@@ -241,6 +241,10 @@ const metricLabels: {
 // 참고 기준 자체가 없는 지표들 - 카드 아래 이 문구를 공통으로 보여준다.
 const NO_BASELINE_HINT = "비교 기준 없음 - 여러 번 연습해서 평소 값과 비교해 보세요.";
 
+// 기준 자세 보정에 쓸 최근 프레임 상한. 60fps 기준 약 8초치로, 자리를 잡는 동안의 흔들리는
+// 구간은 자연스럽게 밀려나고 최근의 안정된 구간만 남는다.
+const CALIBRATION_SAMPLE_LIMIT = 500;
+
 // 2026-08-26: 원래는 blinkCount를 "분당 환산"(blinkRatePerMin)해서 보여줬는데, 답변이
 // 1분보다 훨씬 짧을 때(대부분 그렇다) 작은 카운트 차이가 크게 부풀려져 보이는 문제가
 // 있었다(예: 6초에 1회 차이 -> 분당 10회 차이). 그래서 "환산"하는 대신 실제 답변 길이
@@ -260,6 +264,31 @@ function gazeHint(ratio: number): string {
   if (ratio <= 15) return "대체로 카메라(정면)를 응시했어요.";
   if (ratio <= 40) return "가끔 시선이 옆으로 흔들렸어요.";
   return "시선이 자주 옆으로 벗어났어요 - 메모나 다른 화면을 많이 본 것일 수 있어요.";
+}
+
+// 2026-08-29: 비언어 지표는 "관찰 가능한 행동"만 말한다 - 긴장/자신감/성격 같은 심리 판독은
+// 하지 않는다(설계 문서의 범위 제외 항목). 아래 문구들도 전부 행동과 연습 방법만 다룬다.
+const FACE_INSUFFICIENT_HINT =
+  "답변이 짧거나 카메라에 얼굴이 충분히 잡히지 않아 수치를 근거로 쓰지 않았어요. 얼굴이 화면 가운데 오도록 카메라를 맞추고, 조명을 밝게 한 뒤 조금 더 길게 답변해 보세요.";
+const FACE_REFERENCE_HINT =
+  "얼굴이 인식되지 않은 구간이 꽤 있어서 참고용으로만 봐주세요.";
+
+function headStabilityHint(ratio: number): string {
+  if (ratio <= 15) return "기준 자세를 대체로 유지했어요.";
+  if (ratio <= 40) return "가끔 고개가 좌우·위아래로 크게 움직였어요.";
+  return "고개가 자주 크게 움직였어요 - 화면 한 곳을 정해두고 말하면 안정적으로 보여요.";
+}
+
+function cameraGazeHint(ratio: number): string {
+  if (ratio >= 70) return "대체로 카메라를 향해 말했어요.";
+  if (ratio >= 40) return "카메라를 보는 시간과 다른 곳을 보는 시간이 비슷했어요.";
+  return "카메라를 보는 시간이 짧았어요 - 화상면접에서는 렌즈를 향해 말하는 연습이 도움이 돼요.";
+}
+
+function faceCenteredHint(ratio: number): string {
+  if (ratio >= 85) return "얼굴이 화면 안에 잘 유지됐어요.";
+  if (ratio >= 60) return "얼굴이 화면 밖으로 자주 치우쳤어요.";
+  return "얼굴이 화면을 자주 벗어났어요 - 카메라 높이와 거리를 먼저 맞춰보세요.";
 }
 
 // 표준국어대사전 기준 대표적인 구어체 습관어(필러워드). 어절(공백 기준 토큰) 단위로
@@ -482,41 +511,79 @@ function SessionReportPanel({
                   </div>
                 </div>
               )}
-              {a.faceMetrics && (
+              {/* 2026-08-29: 신뢰도가 부족하면 수치를 아예 보여주지 않는다 - 근거로 쓸 수
+                  없는 숫자를 띄워놓으면 사용자는 그걸 근거로 받아들인다. */}
+              {a.faceMetrics && a.faceMetrics.confidence === "insufficient" && (
                 <div className="metric-card green" style={{ alignItems: "flex-start" }}>
                   <span className="metric-icon">
                     <Eye />
                   </span>
                   <div>
-                    <span>눈 깜빡임</span>
-                    <strong>{a.faceMetrics.durationSec}초 동안 {a.faceMetrics.blinkCount}회</strong>
-                    <small style={{ whiteSpace: "normal" }}>{blinkComparisonHint(a.faceMetrics)}</small>
+                    <span>비언어 행동 분석</span>
+                    <strong>데이터 부족</strong>
+                    <small style={{ whiteSpace: "normal" }}>{FACE_INSUFFICIENT_HINT}</small>
                   </div>
                 </div>
               )}
-              {a.faceMetrics && (
-                <div className="metric-card green" style={{ alignItems: "flex-start" }}>
-                  <span className="metric-icon">
-                    <Move />
-                  </span>
-                  <div>
-                    <span>고개 움직임 정도</span>
-                    <strong>{a.faceMetrics.headMovement}/100</strong>
-                    <small style={{ whiteSpace: "normal" }}>{NO_BASELINE_HINT}</small>
+              {a.faceMetrics && a.faceMetrics.confidence !== "insufficient" && (
+                <>
+                  <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                    <span className="metric-icon">
+                      <Eye />
+                    </span>
+                    <div>
+                      <span>눈 깜빡임</span>
+                      <strong>{a.faceMetrics.durationSec}초 동안 {a.faceMetrics.blinkCount}회</strong>
+                      <small style={{ whiteSpace: "normal" }}>{blinkComparisonHint(a.faceMetrics)}</small>
+                    </div>
                   </div>
-                </div>
-              )}
-              {a.faceMetrics && a.faceMetrics.gazeOffCenterRatio !== null && (
-                <div className="metric-card green" style={{ alignItems: "flex-start" }}>
-                  <span className="metric-icon">
-                    <Eye />
-                  </span>
-                  <div>
-                    <span>시선이 정면에서 벗어난 비율</span>
-                    <strong>{a.faceMetrics.gazeOffCenterRatio}%</strong>
-                    <small style={{ whiteSpace: "normal" }}>{gazeHint(a.faceMetrics.gazeOffCenterRatio)}</small>
+                  {a.faceMetrics.headOffCenterRatio !== null && (
+                    <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                      <span className="metric-icon">
+                        <Move />
+                      </span>
+                      <div>
+                        <span>고개 방향 안정성</span>
+                        <strong>기준 자세에서 벗어난 시간 {a.faceMetrics.headOffCenterRatio}%</strong>
+                        <small style={{ whiteSpace: "normal" }}>{headStabilityHint(a.faceMetrics.headOffCenterRatio)}</small>
+                      </div>
+                    </div>
+                  )}
+                  {a.faceMetrics.cameraGazeRatio !== null && (
+                    <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                      <span className="metric-icon">
+                        <Eye />
+                      </span>
+                      <div>
+                        <span>카메라 응시</span>
+                        <strong>{a.faceMetrics.cameraGazeRatio}%</strong>
+                        <small style={{ whiteSpace: "normal" }}>{cameraGazeHint(a.faceMetrics.cameraGazeRatio)}</small>
+                      </div>
+                    </div>
+                  )}
+                  <div className="metric-card green" style={{ alignItems: "flex-start" }}>
+                    <span className="metric-icon">
+                      <Move />
+                    </span>
+                    <div>
+                      <span>화면 중앙 유지</span>
+                      <strong>{a.faceMetrics.faceCenteredRatio}%</strong>
+                      <small style={{ whiteSpace: "normal" }}>{faceCenteredHint(a.faceMetrics.faceCenteredRatio)}</small>
+                    </div>
                   </div>
-                </div>
+                  {a.faceMetrics.confidence === "reference" && (
+                    <div className="metric-card orange" style={{ alignItems: "flex-start" }}>
+                      <span className="metric-icon">
+                        <Eye />
+                      </span>
+                      <div>
+                        <span>분석 신뢰도</span>
+                        <strong>참고 (얼굴 인식 {a.faceMetrics.validFrameRatio}%)</strong>
+                        <small style={{ whiteSpace: "normal" }}>{FACE_REFERENCE_HINT}</small>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -845,6 +912,12 @@ export function MockInterviewPage() {
   const rafIdRef = useRef<number | null>(null);
   const faceRafIdRef = useRef<number | null>(null);
   const faceFramesRef = useRef<FaceFrameSample[]>([]);
+  // 2026-08-29: 기기 점검 단계에서 잡는 "이 사람의 평소 정면 자세". 없으면 고개 회전 지표를
+  // 절대 각도로 재게 되는데, 그러면 노트북을 옆에 두고 쓰는 사람은 가만히 있어도 계속
+  // "고개를 돌리고 있다"로 집계된다(faceAnalysis.buildCalibration 참고).
+  const faceCalibrationRef = useRef<FaceCalibration | null>(null);
+  const calibrationSamplesRef = useRef<FaceFrameSample[]>([]);
+  const [faceCalibrated, setFaceCalibrated] = useState(false);
   const isRecordingRef = useRef(false);
   const timerIdRef = useRef<number | null>(null);
   const recordingStopTimerRef = useRef<number | null>(null);
@@ -1308,9 +1381,27 @@ export function MockInterviewPage() {
               }
             }
           }
-          if (isRecordingRef.current) {
+          {
+            // 2026-08-29: 얼굴을 못 잡은 프레임도 샘플로 남긴다 - 그래야 "카메라에 얼굴이
+            // 얼마나 잡혔는가"(validFrameRatio)를 셀 수 있고, 그 값이 분석 신뢰도를 정한다.
             const sample = sampleFrame(detection, now);
-            if (sample) faceFramesRef.current.push(sample);
+            if (isRecordingRef.current) {
+              faceFramesRef.current.push(sample);
+            } else if (faceCalibrationRef.current === null) {
+              // 녹음 전(기기 점검/대기 중)에는 기준 자세를 잡는 데 쓴다. 최근 구간만 보면
+              // 되므로 오래된 샘플은 버린다.
+              const samples = calibrationSamplesRef.current;
+              samples.push(sample);
+              if (samples.length > CALIBRATION_SAMPLE_LIMIT) samples.shift();
+              // 매 프레임 중앙값을 다시 구하는 건 낭비라 몇 프레임에 한 번만 시도한다.
+              if (samples.length % 15 === 0) {
+                const built = buildCalibration(samples);
+                if (built) {
+                  faceCalibrationRef.current = built;
+                  setFaceCalibrated(true);
+                }
+              }
+            }
           }
         }
       } catch {
@@ -1689,7 +1780,11 @@ export function MockInterviewPage() {
       const analysis = await analyzeAnswer(blob, `answer.${extension}`);
       // analyzeAnswer는 실제 녹음 경로에서만 호출되므로(타이핑 경로는 submitTypedAnswer가
       // 별도로 처리) metrics는 항상 채워져 있지만, 타입상 VoiceMetrics | null이라 안전하게 처리한다.
-      const faceMetricsResult = summarizeFaceFrames(faceFramesRef.current, analysis.metrics?.duration_sec ?? 0);
+      const faceMetricsResult = summarizeFaceFrames(
+        faceFramesRef.current,
+        analysis.metrics?.duration_sec ?? 0,
+        faceCalibrationRef.current,
+      );
       handleAnalysisReady(analysis, faceMetricsResult);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "답변 분석에 실패했습니다.");
@@ -1735,6 +1830,8 @@ export function MockInterviewPage() {
           expectedBlinkRange: { low: 11, high: 14 },
           headMovement: 12,
           gazeOffCenterRatio: 8,
+          headOffCenterRatio: 11,
+          validFrameRatio: 97,
           frameCount: 300,
           cameraGazeRatio: 92,
           faceCenteredRatio: 96,
@@ -1853,6 +1950,11 @@ export function MockInterviewPage() {
       timerIdRef.current = null;
     }
     setCameraReady(false);
+    // 2026-08-29: 기준 자세는 이 카메라·이 자세에서만 유효하다 - 세션을 끝내면 버려서
+    // 다음 세션이 남의 자세(또는 지난번 카메라 위치)를 기준으로 재지 않게 한다.
+    faceCalibrationRef.current = null;
+    calibrationSamplesRef.current = [];
+    setFaceCalibrated(false);
     setSessionQuestions([]);
     setSessionIndex(0);
     setSessionAnswers([]);
@@ -2108,6 +2210,14 @@ export function MockInterviewPage() {
                   브라우저 안에서만 프레임을 읽어 얼굴 지표를 계산하고, 서버로는 답변 음성만
                   올라간다) 명시적으로 안내한다. */}
               <span style={{ fontSize: 11, color: "#9098a7" }}>영상은 저장되지 않습니다</span>
+              {/* 2026-08-29: 기준 자세 보정 상태. 보정이 끝나야 고개 회전을 "이 사람의 평소
+                  자세 대비"로 잴 수 있고, 못 잡은 채로 진행하면 결과 신뢰도가 데이터 부족으로
+                  내려간다(faceAnalysis.summarizeFaceFrames 참고). */}
+              <span style={{ fontSize: 11, color: faceCalibrated ? "#3f9c6d" : "#9098a7" }}>
+                {faceCalibrated
+                  ? "기준 자세를 잡았어요 - 이 자세를 기준으로 고개 방향을 비교할게요."
+                  : "정면을 2~3초만 바라봐 주세요 - 평소 자세를 기준으로 잡고 있어요."}
+              </span>
             </>
           )}
 
