@@ -518,3 +518,106 @@ class TestGenerateValidatedQuestion:
 # 
 #         assert result == ["로컬 폴백 질문입니다."]
 #         local.assert_called_once()
+
+
+# ======================================================================================
+# 2026-08-29 실전면접 개편 - 회원 스펙/대조 문맥, 실전 모드 프롬프트
+# ======================================================================================
+
+
+def _capture_prompt(monkeypatch, **kwargs) -> str:
+    """generate_personalized_question을 한 번 호출하고 Gemini에 실제로 넘어간 프롬프트를
+    돌려준다 - 위 테스트들이 반복하던 FakeClient 4중첩을 새 테스트에서는 한 곳에 모았다."""
+    monkeypatch.setattr(question_generator.settings, "gemini_api_key", "fake-key")
+    captured = {}
+
+    class FakeResponse:
+        text = "실제로 그 경험에서 어떤 역할을 맡으셨나요?"
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        generate_personalized_question(**kwargs)
+    return captured["prompt"]
+
+
+def test_real_mode_uses_professional_interviewer_persona(monkeypatch):
+    """실전면접은 "이력과 공고를 미리 검토하고 들어온 면접관" 역할을 준다 - 압박/공격
+    면접관 설정은 설계 문서의 범위 제외 항목이라 쓰지 않는다."""
+    prompt = _capture_prompt(
+        monkeypatch, job="백엔드 개발자", tech_summary="", interview_mode="real"
+    )
+
+    assert "전문 채용 면접관" in prompt
+    assert "압박하거나 몰아세우는 말투" in prompt
+    assert "음성으로 낭독된다" in prompt
+
+
+def test_practice_mode_keeps_original_persona_and_no_real_rules(monkeypatch):
+    """무료 경로는 원래 프롬프트 그대로여야 한다 - 실전 전용 규칙이 새어 들어가면 안 된다."""
+    prompt = _capture_prompt(monkeypatch, job="백엔드 개발자", tech_summary="")
+
+    assert "너는 IT 채용 면접관이다." in prompt
+    assert "음성으로 낭독된다" not in prompt
+
+
+def test_member_spec_context_added_with_no_invention_rule(monkeypatch):
+    """회원 스펙이 주어지면 그 블록과 함께 "여기 없는 경험을 전제하지 마라" 규칙이 붙어야
+    한다 - 행동 질문 슬롯도 Gemini가 만들기 때문에 이 가드가 없으면 지원자가 답할 수 없는
+    질문(있지도 않은 프로젝트를 전제)이 나온다."""
+    prompt = _capture_prompt(
+        monkeypatch,
+        job="백엔드 개발자",
+        tech_summary="",
+        member_spec_context="[회원이 저장한 스펙]\n- 보유 기술: Java",
+        interview_mode="real",
+    )
+
+    assert "- 보유 기술: Java" in prompt
+    assert "거기 없는 " in prompt and "전제하는 질문은 절대 만들지 마라" in prompt
+
+
+def test_gap_context_forbids_treating_unverified_as_missing(monkeypatch):
+    """`스펙에서 확인되지 않음`을 "없다"로 단정하지 말라는 규칙이 함께 가야 한다 - 스펙에
+    입력만 안 했을 뿐 실제로는 보유했을 수 있다."""
+    prompt = _capture_prompt(
+        monkeypatch,
+        job="백엔드 개발자",
+        tech_summary="",
+        gap_context="[대조]\n- 스펙에서 확인되지 않음: Kubernetes 운영",
+        interview_mode="real",
+    )
+
+    assert "스펙에서 확인되지 않음: Kubernetes 운영" in prompt
+    assert "없다고 단정하거나 추궁하지 말고" in prompt
+
+
+def test_asked_questions_added_with_no_repeat_rule(monkeypatch):
+    """이미 나온 질문 목록이 있으면 프롬프트에 들어가고 중복 금지 규칙이 붙어야 한다."""
+    prompt = _capture_prompt(
+        monkeypatch,
+        job="백엔드 개발자",
+        tech_summary="",
+        interview_mode="real",
+        asked_questions=["자기소개를 해주세요.", "   "],
+    )
+
+    assert "이번 세션에서 이미 나온 질문" in prompt
+    assert "- 자기소개를 해주세요." in prompt
+    assert "소재·관점이 겹치는 질문은 만들지 마라" in prompt
+
+
+def test_no_asked_questions_omits_the_block(monkeypatch):
+    """빈 목록이면 그 블록 자체가 안 붙어야 한다 - 무료 경로 프롬프트가 그대로 유지된다."""
+    prompt = _capture_prompt(
+        monkeypatch, job="백엔드 개발자", tech_summary="", asked_questions=[]
+    )
+
+    assert "이번 세션에서 이미 나온 질문" not in prompt

@@ -261,9 +261,32 @@ def _gemini_polish(question: str) -> str | None:
 
 
 def generate_personalized_question(
-    job: str, tech_summary: str, category: str = "", angle_hint: str = "", job_requirements_context: str = ""
+    job: str,
+    tech_summary: str,
+    category: str = "",
+    angle_hint: str = "",
+    job_requirements_context: str = "",
+    member_spec_context: str = "",
+    gap_context: str = "",
+    interview_mode: str = "practice",
+    asked_questions: list[str] | None = None,
 ) -> str | None:
     """스펙(목표 직무) 또는 기술/프로젝트 요약이 있는 사용자를 위한 맞춤 질문 생성.
+
+    2026-08-29 실전면접 개편: member_spec_context/gap_context/interview_mode/asked_questions
+    추가. 새 인자는 전부 기본값이 있어서 안 넘기면 기존과 완전히 동일하게 동작한다.
+
+    - member_spec_context: member_spec_retrieval.build_member_spec_context()가 조립한 회원
+      스펙 블록(`스펙만`/`스펙+회사` 근거). job_requirements_context가 "회사가 뭘 요구하는가"면
+      이건 "지원자가 뭘 갖고 있는가"다.
+    - gap_context: 그 둘을 대조한 블록(`스펙+회사`에서만). "확인된 것"과 "스펙에서 확인되지
+      않은 것"을 구분해서 주는데, 후자를 "없다"로 단정하면 안 된다는 규칙을 함께 건다 -
+      스펙에 입력만 안 했을 뿐 실제로는 갖고 있을 수 있기 때문(설계 문서의 심리 압박 금지).
+    - interview_mode: "real"이면 전문 채용 면접관 역할과 TTS 낭독 제약을 얹는다. 실전면접
+      질문은 화면에 뜨는 동시에 TTS로 읽히므로 길거나 문어체면 그대로 어색하게 들린다.
+    - asked_questions: 세션에서 이미 확정된 질문들. 실전면접은 슬롯별로 병렬 호출이라
+      서로의 결과를 모르는 채 생성되는데(호출부가 확정된 것만 넘겨준다), 최소한 이미 나온
+      것과는 겹치지 말라고 명시할 수 있다 - 사후 중복 판정(호출부)과 이중으로 막는 셈이다.
 
     2026-08-26 job_requirements_context 추가: 사용자가 특정 채용공고를 골랐을 때
     job_requirement_retrieval.build_job_requirements_context()가 그 공고의 요구사항을
@@ -319,6 +342,17 @@ def generate_personalized_question(
         category_line = f"카테고리: {category}\n" if category else ""
         tech_line = f"기술/프로젝트 요약: {tech_summary}\n" if tech_summary.strip() else ""
         requirements_line = f"{job_requirements_context.strip()}\n" if job_requirements_context.strip() else ""
+        member_spec_line = f"{member_spec_context.strip()}\n" if member_spec_context.strip() else ""
+        gap_line = f"{gap_context.strip()}\n" if gap_context.strip() else ""
+        # 이미 나온 질문은 소재만 알면 충분하므로 앞부분만 넣는다 - 전문을 다 넣으면 슬롯이
+        # 10개인 세션에서 프롬프트가 질문 목록으로 뒤덮인다.
+        asked_line = (
+            "[이번 세션에서 이미 나온 질문]\n"
+            + "\n".join(f"- {q.strip()[:60]}" for q in (asked_questions or []) if q.strip())
+            + "\n"
+            if any((q or "").strip() for q in (asked_questions or []))
+            else ""
+        )
         # 2026-08-10: 카테고리 라벨만으로는 "직무면접 vs 역량면접"의 실제 질문 색깔이 잘 안
         # 갈렸다는 피드백으로, 카테고리를 면접 유형으로 역매핑해서 그 유형의 뉘앙스를 규칙에
         # 명시적으로 얹는다(_INTERVIEW_TYPE_EMPHASIS 정의 참고). 인성면접 카테고리는 기존에도
@@ -370,13 +404,54 @@ def generate_personalized_question(
             if requirements_line
             else ""
         )
-        prompt = (
-            "너는 IT 채용 면접관이다. 아래 지원자 정보를 참고해서, 이 지원자에게 실제로 물어볼 "
+        # 2026-08-29: 실전면접(mode=real)은 회원 스펙/공고를 미리 읽고 들어온 면접관 역할을
+        # 준다 - 같은 프롬프트라도 "정보를 참고해서 만들어라"보다 "검토하고 들어왔다"는 설정이
+        # 근거에 붙어 있는 질문을 만들게 하는 데 효과가 크다. 압박·공격 면접관 설정은 쓰지
+        # 않는다(설계 문서의 범위 제외 항목).
+        persona = (
+            "너는 지원자의 이력과 지원 회사 공고를 미리 검토하고 들어온 전문 채용 면접관이다. "
+            "아래 근거를 바탕으로, 이 지원자에게 실제로 물어볼 법한 한국어 면접 질문을 딱 하나만 만들어라.\n"
+            if interview_mode == "real"
+            else "너는 IT 채용 면접관이다. 아래 지원자 정보를 참고해서, 이 지원자에게 실제로 물어볼 "
             "법한 한국어 면접 질문을 딱 하나만 만들어라.\n"
+        )
+        # 회원 스펙이 주어졌을 때만 붙는 규칙 - 근거에 없는 경험을 지어내는 게 이 경로의 가장
+        # 큰 위험이다(행동 질문 슬롯도 Gemini가 만드는데, "협업 경험"을 물으면서 있지도 않은
+        # 프로젝트를 전제해버리면 지원자가 답할 수 없는 질문이 된다).
+        member_spec_rule = (
+            "9) 아래 [회원이 저장한 스펙]에 적힌 내용만 지원자의 경험으로 취급해라 - 거기 없는 "
+            "프로젝트·경력·기술을 지원자가 가진 것처럼 전제하는 질문은 절대 만들지 마라\n"
+            if member_spec_line
+            else ""
+        )
+        gap_rule = (
+            "10) 아래 [대조] 정보에서 `스펙에서 확인되지 않음`은 지원자가 그 역량이 없다는 뜻이 "
+            "아니라 스펙에 적혀 있지 않다는 뜻일 뿐이다 - 없다고 단정하거나 추궁하지 말고, "
+            "경험이 있는지 확인하는 중립적인 질문으로 만들어라\n"
+            if gap_line
+            else ""
+        )
+        real_mode_rule = (
+            "11) 이 질문은 화면에 표시되는 동시에 음성으로 낭독된다 - 한 문장으로 짧고 명확하게, "
+            "소리 내어 읽었을 때 자연스러운 구어체로 만들어라. 압박하거나 몰아세우는 말투, "
+            "지원자를 시험에 들게 하는 표현은 쓰지 마라\n"
+            if interview_mode == "real"
+            else ""
+        )
+        no_repeat_rule = (
+            "12) 아래 [이번 세션에서 이미 나온 질문]과 소재·관점이 겹치는 질문은 만들지 마라\n"
+            if asked_line
+            else ""
+        )
+        prompt = (
+            f"{persona}"
             f"목표 직무: {job or '미지정'}\n"
             f"{tech_line}"
             f"{category_line}"
             f"{requirements_line}"
+            f"{member_spec_line}"
+            f"{gap_line}"
+            f"{asked_line}"
             "규칙:\n"
             f"{focus_rule}"
             "2) 질문 문장 하나만 출력해라 - 설명, 따옴표, 번호, 다른 말은 절대 붙이지 마라\n"
@@ -386,6 +461,10 @@ def generate_personalized_question(
             f"{emphasis_rule}"
             f"{hallucination_guard_rule}"
             f"{requirements_rule}"
+            f"{member_spec_rule}"
+            f"{gap_rule}"
+            f"{real_mode_rule}"
+            f"{no_repeat_rule}"
         )
         # 2026-08-06: temperature를 명시적으로 올려서(기본값에 맡기지 않고) 같은 직무/카테고리
         # 조합으로 여러 번 호출해도(세션당 최대 6번, 사용자마다 매번) 문구가 겹치지 않도록

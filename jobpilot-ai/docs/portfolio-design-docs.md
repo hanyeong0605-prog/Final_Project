@@ -886,7 +886,7 @@ flowchart TD
 |:---:|---|---|:---:|
 | `POST` | `/api/v1/interview/sessions` | 면접 세션 시작 (유형 · 직무 선택) | ✅ |
 | `WS` | `/ws/camera-pair` | 휴대폰 카메라 페어링 시그널링 (SDP · ICE) | ✅ |
-| `POST` | `/ai-api/interview/next-question` | 다음 질문 생성 (LoRA + Gemini) | 🔒 내부 |
+| `POST` | `/ai-api/interview/next-question` | 다음 질문 생성 (무료=코퍼스 / 실전=Gemini+RAG) | 🔒 내부 |
 | `POST` | `/ai-api/interview/analyze-answer` | 답변 분석 → 피드백 · 모범답안 | 🔒 내부 |
 | `POST` | `/ai-api/interview/evaluate-session` | 세션 종합 평가 리포트 | 🔒 내부 |
 | `POST` | `/ai-api/interview/tts` | 질문 음성 합성 | 🔒 내부 |

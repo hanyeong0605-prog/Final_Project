@@ -1,3 +1,5 @@
+.worktrees/
+
 # Local visual-review artifacts generated during assisted UI work.
 /alpha-web-check/
 /video-review-*/

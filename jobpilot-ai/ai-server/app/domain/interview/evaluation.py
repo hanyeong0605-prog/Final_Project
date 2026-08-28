@@ -30,6 +30,11 @@ _NO_KEY_MESSAGE = (
 )
 _PARSE_FAIL_MESSAGE = "AI 종합 평가 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요."
 
+# 2026-08-29: 질문 건너뛰기를 쓰면 프론트가 이 문구를 그대로 답변 텍스트로 기록한다
+# (MockInterviewPage.skipCurrentQuestion). 프롬프트에서 "이건 미응답"이라고 알려줘야 해서
+# 상수로 뽑았다 - 프론트 문구를 바꾸면 여기도 같이 바꿔야 한다.
+SKIPPED_ANSWER_TRANSCRIPT = "(사용자가 이 질문을 건너뛰었습니다)"
+
 # 리스트형 필드(강점/개선점/다음 학습 방향)가 너무 길게 늘어지지 않도록 방어적으로 상한을 둔다.
 _MAX_LIST_ITEMS = 5
 
@@ -89,6 +94,7 @@ class SessionEvaluationReport:
     overall_score: int | None = None
     content_score: int | None = None
     delivery_score: int | None = None
+    nonverbal_feedback: str | None = None
     strengths: list[str] = field(default_factory=list)
     improvements: list[str] = field(default_factory=list)
     next_steps: list[str] = field(default_factory=list)
@@ -101,6 +107,7 @@ class SessionEvaluationReport:
             "overall_score": self.overall_score,
             "content_score": self.content_score,
             "delivery_score": self.delivery_score,
+            "nonverbal_feedback": self.nonverbal_feedback,
             "strengths": self.strengths,
             "improvements": self.improvements,
             "next_steps": self.next_steps,
@@ -180,18 +187,35 @@ def _face_metrics_text(face_metrics: dict | None) -> str:
     else:
         blink_line = f"- 실제 깜빡임 횟수: {blink_count}회 (답변 길이 정보 없어 비교 불가)\n"
 
-    gaze_ratio = face_metrics.get("gazeOffCenterRatio")
+    # 2026-08-29: 프론트가 기준 자세 보정(FaceCalibration) 위에서 계산한 지표로 교체했다.
+    # 예전에 넘기던 headMovement(코끝 2D 이동량)는 카메라 위치와 그 사람의 평소 자세에 따라
+    # 값이 통째로 달라져서 "무엇과 비교한 수치인지" 설명할 수 없었다 - 보조 지표로 격하하고
+    # 프롬프트에서는 뺀다. 대신 세 가지 관찰 가능한 비율과 그 신뢰도를 함께 넘긴다.
+    gaze_ratio = face_metrics.get("cameraGazeRatio")
     gaze_line = (
-        f"- 시선이 카메라 정면에서 벗어나 있던 프레임 비율: {gaze_ratio}%\n"
+        f"- 카메라를 정면으로 응시한 프레임 비율: {gaze_ratio}% (홍채 위치와 고개 방향을 함께 본 근사치)\n"
         if gaze_ratio is not None
         else "- (시선 데이터 없음 - 홍채 인식 실패)\n"
     )
-
-    return (
-        blink_line
-        + f"- 고개 움직임 정도(0~100, 상대값이지 각도 아님): {face_metrics.get('headMovement')}\n"
-        + gaze_line
+    head_ratio = face_metrics.get("headOffCenterRatio")
+    head_line = (
+        f"- 기준 자세(면접 시작 전 정면을 볼 때의 고개 각도) 대비 크게 돌아가 있던 프레임 비율: {head_ratio}%\n"
+        if head_ratio is not None
+        else "- (고개 방향 데이터 없음)\n"
     )
+    centered_line = (
+        f"- 얼굴이 권장 화면 영역 안에 있던 프레임 비율: {face_metrics.get('faceCenteredRatio')}%\n"
+    )
+    # 신뢰도를 같이 알려준다 - "참고" 등급이면 수치를 단정적으로 쓰지 말라는 신호다.
+    confidence = face_metrics.get("confidence")
+    valid_ratio = face_metrics.get("validFrameRatio")
+    confidence_line = (
+        f"- 분석 신뢰도: {confidence} (전체 프레임 중 얼굴이 인식된 비율 {valid_ratio}%)\n"
+        if confidence
+        else ""
+    )
+
+    return blink_line + head_line + gaze_line + centered_line + confidence_line
 
 
 def _job_requirements_block(job_requirements_context: str | None) -> str:
@@ -344,6 +368,10 @@ def generate_session_report(
     # 세션 안에서 음성/텍스트 답변 모드가 섞이지는 않지만(한 세션은 처음에 한 번 선택),
     # 혹시 모를 경우를 대비해 하나라도 지표가 있으면 delivery_score를 평가하게 한다.
     has_delivery_signal = any(qa.get("voice_metrics") or qa.get("face_metrics") for qa in qa_pairs)
+    has_sufficient_face_signal = any(
+        qa.get("face_metrics") and qa["face_metrics"].get("confidence") == "sufficient"
+        for qa in qa_pairs
+    )
     job_requirements_block = _job_requirements_block(job_requirements_context)
     content_score_grounding = (
         "[지원 공고 요구사항]에 실제로 얼마나 부합하는지를 직무 적합성 판단의 핵심 근거로 삼아라"
@@ -390,7 +418,21 @@ def generate_session_report(
         "짧고 구체적인 한국어 문장으로 작성해라(각 문장 60자 내외) - 음성/얼굴 지표가 없으면 "
         "답변 내용만으로 작성하고 말투/표정 관련 언급은 하지 마라\n"
         "5. next_steps(다음에 연습하면 좋을 점)는 2~5개, 실천 가능한 조언으로 작성해라\n"
-        f"6. questions 배열은 반드시 입력받은 순서 그대로 정확히 {n}개를 채워라 - 각 원소는 "
+        + (
+            "5-1. nonverbal_feedback은 카메라 정면 응시, 고개 방향 안정성, 화면 중앙 유지, "
+            "눈 깜빡임의 측정된 경향만 근거로 2~3문장의 실행 가능한 조언을 작성해라. 긴장, "
+            "자신감, 감정, 성격, 진실성은 추정하지 마라\n"
+            if has_sufficient_face_signal
+            else "5-1. 신뢰할 수 있는 얼굴 분석 데이터가 없으므로 nonverbal_feedback는 반드시 null로 출력해라\n"
+        )
+        # 2026-08-29: 질문 건너뛰기는 모든 질문에서 제공되고, 건너뛴 답변은 프론트가 이
+        # 문구를 그대로 기록한다(MockInterviewPage.skipCurrentQuestion). 이걸 알려주지 않으면
+        # 모델이 저 문장 자체를 "답변 내용"으로 보고 성의가 없다는 식의 평가를 만들어낸다.
+        + f'5-2. 답변이 "{SKIPPED_ANSWER_TRANSCRIPT}"인 항목은 지원자가 답하지 않고 넘긴 '
+        "질문이다 - 답변 내용을 평가하지 말고 미응답으로 다뤄라. 그 질문의 feedback에는 다음에 "
+        "이 질문을 만나면 어떻게 접근하면 좋을지만 적고, strengths/improvements에서 성의나 "
+        "태도를 문제 삼지 마라\n"
+        + f"6. questions 배열은 반드시 입력받은 순서 그대로 정확히 {n}개를 채워라 - 각 원소는 "
         "그 질문 하나에 대한 한두 문장짜리 피드백(feedback)과, 그 질문에 실제로 쓸 수 있는 "
         "모범 답안 예시(model_answer, 150자 내외 - 지원자가 이미 언급한 경험/맥락을 살리되 "
         "더 구체적이고 논리적으로 다듬은 버전)로 구성해라\n"
@@ -399,6 +441,7 @@ def generate_session_report(
         '  "overall_score": 0~100 정수,\n'
         '  "content_score": 0~100 정수,\n'
         '  "delivery_score": 0~100 정수 또는 null,\n'
+        '  "nonverbal_feedback": "비언어 행동 리뷰" 또는 null,\n'
         '  "strengths": ["문장", ...],\n'
         '  "improvements": ["문장", ...],\n'
         '  "next_steps": ["문장", ...],\n'
@@ -438,6 +481,7 @@ def generate_session_report(
             overall_score=_clamp_score(data.get("overall_score")),
             content_score=_clamp_score(data.get("content_score")),
             delivery_score=_clamp_score(data.get("delivery_score")),
+            nonverbal_feedback=(str(data.get("nonverbal_feedback") or "").strip() or None),
             strengths=_as_str_list(data.get("strengths")),
             improvements=_as_str_list(data.get("improvements")),
             next_steps=_as_str_list(data.get("next_steps")),

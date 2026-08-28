@@ -24,6 +24,9 @@ export interface InterviewSessionRecordInput {
   improvements: string[];
   nextSteps: string[];
   questions: InterviewQuestionFeedbackInput[];
+  // 2026-08-29: 비언어 행동 리뷰. 카메라를 안 썼거나 분석 신뢰도가 부족하면 ai-server가
+  // null을 주므로 선택 필드다(백엔드 컬럼도 nullable).
+  nonverbalFeedback?: string | null;
 }
 
 export interface InterviewSessionRecordSummary {
@@ -43,4 +46,6 @@ export interface InterviewSessionRecordDetail extends InterviewSessionRecordSumm
   improvements: string[];
   nextSteps: string[];
   questions: InterviewQuestionFeedbackInput[];
+  // 이 기능 이전에 저장된 기록은 null이다.
+  nonverbalFeedback: string | null;
 }
