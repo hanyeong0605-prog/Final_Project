@@ -41,7 +41,7 @@ def _resolve_commit(source_ref: str) -> str:
 
 def _row_count(payload: bytes) -> int:
     decoded = payload.decode("utf-8-sig")
-    return sum(1 for _ in csv.DictReader(io.StringIO(decoded), delimiter="\t"))
+    return sum(1 for row in csv.reader(io.StringIO(decoded), delimiter="\t") if row)
 
 
 def _write_atomic(path: Path, payload: bytes) -> None:

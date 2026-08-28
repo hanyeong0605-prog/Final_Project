@@ -127,7 +127,7 @@ def download_dataset(destination: Path, source_ref: str = "main") -> dict[str, o
         temporary.write_bytes(payload)
         temporary.replace(target)
         decoded = payload.decode("utf-8-sig")
-        parsed_rows = list(csv.DictReader(io.StringIO(decoded), delimiter="\t"))
+        parsed_rows = list(csv.reader(io.StringIO(decoded), delimiter="\t"))
         records[name] = {
             "sha256": hashlib.sha256(payload).hexdigest(),
             "bytes": len(payload),
@@ -222,16 +222,16 @@ class KoteExample:
     labels: tuple[int, ...]
 
 def _parse_labels(raw: str) -> tuple[int, ...]:
-    value = ast.literal_eval(raw)
-    if not isinstance(value, list) or not all(isinstance(item, int) for item in value):
-        raise ValueError("labels must be a list of integers")
-    labels = tuple(sorted(set(value)))
+    parts = [part.strip() for part in raw.split(",") if part.strip()]
+    if not parts or any(not part.isdecimal() for part in parts):
+        raise ValueError("labels must be comma-separated integer indexes")
+    labels = tuple(sorted({int(part) for part in parts}))
     if any(label < 0 or label >= len(KOTE_LABELS) for label in labels):
         raise ValueError("label index must be between 0 and 43")
     return labels
 ```
 
-`load_split` must require the exact `ID`, `text`, and `labels` columns, reject blank IDs/text, and reject duplicate IDs within a split. `validate_dataset` must require 40,000/5,000/5,000 rows for real data, verify IDs do not cross split boundaries, and return per-label counts.
+The official TSV is headerless. `load_split` must require exactly three tab-separated fields in the positional order `ID`, `text`, and comma-separated `labels`; reject blank IDs/text; and reject duplicate IDs within a split. `validate_dataset` must require 40,000/5,000/5,000 rows for real data, verify IDs do not cross split boundaries, and return per-label counts.
 
 - [ ] **Step 4: Run dataset unit tests**
 
