@@ -38,7 +38,12 @@ import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
-import { buildRealInterviewSlots, type InterviewKind, type InterviewQuestionSource } from "../features/mock-interview/model/interviewConfig";
+import type { InterviewKind, InterviewQuestionSource, InterviewType } from "../features/mock-interview/model/interviewConfig";
+import {
+  InterviewQuestionBuildError,
+  SELF_INTRO_QUESTION,
+  buildInterviewQuestions,
+} from "../features/mock-interview/lib/buildInterviewQuestions";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
 import { InterviewSetupPanel } from "../features/mock-interview/components/InterviewSetupPanel";
@@ -48,7 +53,13 @@ import { VoiceTimelineChart } from "../features/mock-interview/components/VoiceT
 // 2026-08-04: KoGPT2+LoRA 질문 생성 모델(ai-server /interview/next-question)이 실제 질문을
 // 만들어준다. 이 배열은 이제 "기본값"이 아니라 폴백용 - 모델 서버가 아직 안 떠 있거나
 // (503) 네트워크 오류가 나면 여기서 하나를 대신 보여준다.
-const SELF_INTRO_QUESTION = "간단하게 자기소개 부탁드립니다.";
+// 2026-08-29: 자기소개 질문 문구는 질문 조립 모듈이 소유한다 - 세션 첫 질문으로 넣는 쪽과
+// 폴백에서 제외하는 쪽이 서로 다른 문자열을 들고 있으면 자기소개가 두 번 나온다.
+const INTERVIEW_TYPE_BY_LABEL: Record<string, InterviewType> = {
+  인성면접: "인성",
+  역량면접: "역량",
+  직무면접: "직무",
+};
 
 const SAMPLE_QUESTIONS = [
   SELF_INTRO_QUESTION,
@@ -1069,183 +1080,44 @@ export function MockInterviewPage() {
     if (!text) return;
     speakQuestionText(text, () => {});
   };
-
-  // 2026-08-05: 세션 시작 시 질문을 한 번에 준비한다 - 실제 면접 관례대로 1번째 질문은
-  // 항상 자기소개로 고정하고(모델이 스스로 자기소개 질문을 규칙적으로 만들어내지는 않아서
-  // 강제로 넣음), 나머지는 ai-server 생성 모델을 병렬로 호출해서 받는다(순차로 하면 질문
-  // 하나당 6~8초씩 걸려서 대기시간이 개수만큼 늘어남). 모델 호출이 실패하면
-  // SAMPLE_QUESTIONS로 폴백한다.
-  // 2026-08-06: 원래 "질문 3개(자기소개+고정 카테고리 2개)"로 하드코딩돼 있었는데, "질문
-  // 개수도 카드로 고르게" 요청으로 questionCount(3/5/7)만큼 나머지 질문을 카테고리를
-  // 순환시키며 생성하도록 일반화했다. 카테고리를 안 넘기면 매번 무작위에 가까운 카테고리가
-  // 나와서, 서로 다른 카테고리를 순서대로 배정해 질문이 겹치는 느낌을 줄인다. 체험판/결제
-  // 등급별로 어떤 카테고리를 줄지는 결제(크레딧) 기능 설계(태스크 #1)에서 정해지는 대로 이
-  // 배열을 등급에 맞게 바꿔 끼우면 된다 - 지금은 고정값.
-  const NON_INTRO_CATEGORIES = [
-    "기술_직무역량", "문제해결_도전경험", "협업_리더십_커뮤니케이션", "가치관_자기관리", "강점_약점",
-  ] as const;
-
-  // 2026-08-07: tech_summary가 "VSCode 확장 프로그램 개발 경험"처럼 짧고 구체적인 한 줄일
-  // 때, 같은 job/tech_summary로 세션 안에서 여러 번(질문 개수만큼) 호출하면 매번 같은
-  // 소재로 질문이 수렴할 수 있다는 우려로 추가 - 질문마다 명시적으로 다른 관점을 지정해서
-  // 보낸다(question_generator.py generate_personalized_question의 angle_hint 설계 메모
-  // 참고). 특히 "직무면접" 유형만 골랐을 때(카테고리 풀이 기술_직무역량 하나뿐이라 매
-  // 질문이 다 이 카테고리를 씀) 효과가 크다.
-  const TECH_QUESTION_ANGLES = [
-    "기술 선택 이유", "트러블슈팅/문제 해결 경험", "설계·트레이드오프 판단",
-    "성능·품질 개선 경험", "협업 중 기술적 의견 차이 조율", "실무 적용 사례·한계",
-  ] as const;
-  // 2026-08-25: "인성면접"/"역량면접"은 카테고리가 2개뿐이라(INTERVIEW_TYPES 참고)
-  // questionCount 5~7개를 고르면 같은 카테고리가 반복 요청되는데, 이때 TECH_QUESTION_ANGLES와
-  // 달리 아무 angle_hint도 안 보내서 세션 리포트에 거의 같은 질문이 두 번 나오는 사례가
-  // 있었다("기차가 산사태로 멈췄을 때..." 질문이 Q2/Q3에 그대로 중복). TECH_QUESTION_ANGLES를
-  // 그대로 재사용하면 2026-08-10에 고친 "기술 관점이 인성면접에 새는" 버그가 재발하므로,
-  // 기술색이 없는 별도 각도 목록을 만들어 카테고리가 실제로 반복될 때만 붙인다.
-  const GENERAL_QUESTION_ANGLES = [
-    "가장 최근 경험", "가장 어려웠던 순간과 극복 과정", "실패했지만 배운 점",
-    "팀/조직 전체 관점에서의 판단", "장기적 성장 관점", "구체적 수치·결과 중심",
-  ] as const;
-
+  // 2026-08-29: 세션 질문 조립은 features/mock-interview/lib/buildInterviewQuestions.ts로
+  // 옮겼다 - 원래 이 자리에 무료/실전 두 흐름이 통째로 들어 있었는데, 컴포넌트 상태와 얽혀
+  // 있어서 "5개짜리 실전 세션에 행동 질문이 몇 개 들어가는가" 같은 걸 확인하려면 화면을
+  // 직접 돌려보는 수밖에 없었다. 여기서는 화면 상태에서 설정값만 뽑아 넘긴다.
   const buildSessionQuestions = async (): Promise<string[]> => {
-    // 2026-08-13: "프로필 불러오기"를 명시적으로 고르고 구독 중(또는 관리자)일 때만
-    // careerJob/careerTechSummary를 실제로 흘려보낸다 - "연습"이거나 비구독자면 프로필이
-    // 있어도 아예 안 쓴다(이 화면의 useSubscriptionGatedProfile 참고). 시작 화면에서
-    // 분야를 직접 골랐다면(selectedRole) 그 라벨이 항상 우선한다 - 이건 "프로필을 불러온
-    // 것"이 아니라 그 자리에서 명시적으로 고른 값이라 연습 모드에서도 그대로 반영된다.
+    // 2026-08-13: "프로필 불러오기"를 명시적으로 고르고 구독 중일 때만 기술 요약을 흘려보낸다.
+    // 실전면접은 근거(source)가 스펙을 포함할 때 서버가 회원 스펙을 직접 읽으므로, 화면에서
+    // 넘기는 기술 요약은 보조 힌트일 뿐이다.
     const useProfile = questionSource === "profile" && subscribed;
     const selectedRoleLabel = INTERVIEW_ROLE_OPTIONS.find(([code]) => code === selectedRole)?.[1];
-    const effectiveJob = selectedRoleLabel || careerJob || undefined;
-    const effectiveTechSummary = interviewKind === "real" && realQuestionSource !== "company"
-      ? careerTechSummary
-      : useProfile ? careerTechSummary : "";
+    const companyEnabled = interviewKind === "real" && realQuestionSource !== "spec";
+    const usesTechSummary = interviewKind === "real" ? realQuestionSource !== "company" : useProfile;
 
-    if (interviewKind === "real") {
-      const companyEnabled = realQuestionSource !== "spec";
-      const questions: string[] = [];
-      for (const slot of buildRealInterviewSlots(questionCount)) {
-        if (slot.kind === "intro") {
-          questions.push(SELF_INTRO_QUESTION);
-          continue;
-        }
-        if (slot.kind === "closing") {
-          const company = companyEnabled ? selectedJobPosting?.companyName?.trim() : "";
-          questions.push(company
-            ? `${company}에 입사하게 된다면 어떤 목표를 이루고 싶은지 말씀해 주세요.`
-            : "입사 후 이루고 싶은 목표와 포부를 말씀해 주세요.");
-          continue;
-        }
-        try {
-          const generated = await fetchNextQuestion({
-            mode: "real",
-            source: realQuestionSource,
-            job: effectiveJob,
-            category: slot.category,
-            techSummary: effectiveTechSummary || undefined,
-            angleHint: slot.angle,
-            exclude: questions,
-            jobPostingId: companyEnabled ? selectedJobPosting?.id : undefined,
-            memberId: member?.id,
-          });
-          const normalized = generated.question.replace(/\s+/g, " ").trim();
-          if (!normalized || questions.some((item) => item.replace(/\s+/g, " ").trim() === normalized)) throw new Error("duplicate");
-          questions.push(generated.question);
-        } catch {
-          const fallback = await fetchNextQuestion({ mode: "practice", job: effectiveJob, category: slot.category, exclude: questions })
-            .then((result) => result.question)
-            .catch(() => pickFallbackQuestion(...questions));
-          questions.push(fallback);
-        }
-      }
-      return questions;
-    }
-
-    // 2026-08-07: 면접 유형(역량/직무/인성)을 골랐으면 그 유형에 속한 카테고리만 순환시킨다 -
-    // 안 고르면("전체") 기존처럼 6개 카테고리 다 순환하는 동작 그대로 유지(하위 호환).
-    const selectedTypeCategories = INTERVIEW_TYPE_OPTIONS.find(
-      ([type]) => type === selectedInterviewType,
-    )?.[1];
-    const categoryPool = selectedTypeCategories ?? NON_INTRO_CATEGORIES;
-
-    const categoriesNeeded = Math.max(0, questionCount - 1);
-    const categories = Array.from(
-      { length: categoriesNeeded },
-      (_, i) => categoryPool[i % categoryPool.length],
+    return buildInterviewQuestions(
+      {
+        kind: interviewKind,
+        questionCount,
+        interviewType: INTERVIEW_TYPE_BY_LABEL[selectedInterviewType ?? ""] ?? "종합",
+        source: realQuestionSource,
+        job: selectedRoleLabel || careerJob || undefined,
+        techSummary: usesTechSummary ? careerTechSummary || undefined : undefined,
+        memberId: member?.id,
+        jobPostingId: companyEnabled ? selectedJobPosting?.id : undefined,
+        companyName: companyEnabled ? selectedJobPosting?.companyName : undefined,
+      },
+      { fetchQuestion: fetchNextQuestion },
     );
+  };
 
-    const questions: string[] = [SELF_INTRO_QUESTION];
-
-    // 2026-08-25: 결제 설계 - 무료 등급은 Gemini를 아예 호출하지 않고 AI Hub 코퍼스에서만
-    // 순차로 뽑는다(유료만 실시간 생성). 순차 호출이라 매번 "지금까지 뽑힌 질문"을 exclude로
-    // 넘길 수 있어서, 코퍼스 안에서 중복 없이 뽑힌다 - 아래 유료 경로(병렬 호출)는 서로의
-    // 결과를 모르는 채로 동시에 요청하기 때문에 이 방식을 못 쓴다.
-    if (!subscribed) {
-      for (const category of categories) {
-        try {
-          const picked = await fetchNextQuestion({ mode: "practice", job: effectiveJob, category, exclude: questions });
-          questions.push(picked.question);
-        } catch {
-          questions.push(pickFallbackQuestion(...questions));
-        }
-      }
-      return questions;
-    }
-
-    // 2026-08-10 버그 수정: TECH_QUESTION_ANGLES("기술 선택 이유", "트러블슈팅 경험" 등)를
-    // 카테고리 상관없이 모든 질문에 무조건 붙이고 있었다 - angle_hint는 Gemini 프롬프트에서
-    // "반드시 이 관점에서 만들어라"는 강제 규칙이라, "가치관_자기관리"(인성면접) 같은
-    // 비기술 카테고리에도 기술 관점이 덮어써져서 인성면접을 골라도 기술 질문이 나오는
-    // 버그가 있었다("인성면접 눌렀는데 왜 기술 스택 질문이 나오냐" 리포트로 발견). 원래
-    // 의도(TECH_QUESTION_ANGLES 선언부 주석 참고)대로 "기술_직무역량" 카테고리일 때만
-    // 붙이고, 그 외 카테고리는 angle_hint 없이 보내서 Gemini가 기존 다양성 규칙(5번,
-    // question_generator.py generate_personalized_question 참고)을 대신 쓰게 한다.
-    // 2026-08-25: 다만 그 "느슨한 다양성 규칙"만으로는 부족해서, 같은 카테고리가 세션 안에서
-    // 두 번 이상 반복될 때(categoriesNeeded > categoryPool.length - 인성/역량면접처럼 카테고리
-    // 풀이 작은데 질문 개수를 5~7개로 고른 경우)는 GENERAL_QUESTION_ANGLES로 매번 다른 각도를
-    // 명시적으로 강제한다(기술색이 없는 각도만 써서 위 2026-08-10 버그가 재발하지 않게 한다).
-    const categoryRepeats = categoriesNeeded > categoryPool.length;
-    const results = await Promise.allSettled(
-      categories.map((category, i) => {
-        const angleHint =
-          category === "기술_직무역량"
-            ? TECH_QUESTION_ANGLES[i % TECH_QUESTION_ANGLES.length]
-            : categoryRepeats
-              ? GENERAL_QUESTION_ANGLES[i % GENERAL_QUESTION_ANGLES.length]
-              : undefined;
-        // 2026-08-29: 구독자의 모의면접(연습)은 지금까지처럼 Gemini로 생성한다 - mode="real"은
-        // "실전면접 화면"이 아니라 "실시간 생성 경로"를 가리키는 서버 계약이다(source 없이
-        // 보내면 RAG 없이 기존 Gemini 프롬프트 그대로). 무료 모의면접을 코퍼스로 고정하는
-        // 설계 문서 요구사항은 위 !subscribed 분기가 이미 담당하고 있다.
-        return fetchNextQuestion({
-          mode: "real",
-          job: effectiveJob, category, techSummary: effectiveTechSummary || undefined, angleHint,
-          exclude: [SELF_INTRO_QUESTION], jobPostingId: selectedJobPosting?.id,
-        });
-      }),
+  // 2026-08-29: 질문을 충분히 확보하지 못했을 때의 공통 처리 - 중복 질문으로 세션을 채우지
+  // 않기로 했으므로(설계 문서 "오류 및 경계 처리") 여기서 멈추고 다시 시도하게 안내한다.
+  const handleQuestionBuildFailure = (reason: unknown) => {
+    setErrorMessage(
+      reason instanceof InterviewQuestionBuildError
+        ? reason.message
+        : "질문을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.",
     );
-
-    // 2026-08-25: 텍스트가 완전히 똑같지 않고 앞뒤 공백/개행만 다른 경우(LLM 응답에서 흔함)도
-    // 같은 질문으로 취급해서 걸러낸다 - 순수 includes()는 이런 미세한 공백 차이를 다른
-    // 질문으로 오인해서 중복을 못 걸렀다.
-    const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i];
-      const candidate = r.status === "fulfilled" ? r.value.question : null;
-      if (candidate && !questions.some((q) => normalize(q) === normalize(candidate))) {
-        questions.push(candidate);
-        continue;
-      }
-      // 2026-08-25: 병렬 호출끼리 겹쳤을 때(또는 Gemini 실패) 예전엔 SAMPLE_QUESTIONS(5개짜리
-      // 아주 작은 목록)로 대체했는데, 이제 코퍼스(수천 개)에서 exclude로 지금까지 확정된
-      // 질문을 뺀 실제 질문으로 대체한다 - pickFallbackQuestion은 이 요청마저 실패했을 때의
-      // 최후 보루로만 남긴다.
-      try {
-        const replacement = await fetchNextQuestion({ mode: "practice", job: effectiveJob, category: categories[i], exclude: questions });
-        questions.push(replacement.question);
-      } catch {
-        questions.push(pickFallbackQuestion(...questions));
-      }
-    }
-    return questions;
+    setStage("error");
   };
 
   // 2026-08-06: 원래 "질문 생성 중..." 화면에서 완전히 다 끝날 때까지 막아놓고 그다음에야
@@ -1262,9 +1134,13 @@ export function MockInterviewPage() {
     setSessionQuestions([]);
     setSessionIndex(0);
     setChatOnlyMode(false);
-    void buildSessionQuestions().then((questions) => {
-      setSessionQuestions(questions);
-    });
+    void buildSessionQuestions()
+      .then((questions) => {
+        setSessionQuestions(questions);
+      })
+      // 2026-08-29: 질문을 다 못 채우면 중복으로 자리를 메우지 않고 에러를 던진다
+      // (buildInterviewQuestions 참고) - 사용자에게 다시 시도할 화면을 보여준다.
+      .catch(handleQuestionBuildFailure);
     setStage("device-check");
   };
 
@@ -1520,12 +1396,14 @@ export function MockInterviewPage() {
     setQuestion("");
     currentQuestionRef.current = "";
     setStage("typing");
-    void buildSessionQuestions().then((questions) => {
-      setSessionQuestions(questions);
-      const first = questions[0] ?? SAMPLE_QUESTIONS[0];
-      currentQuestionRef.current = first;
-      setQuestion(first);
-    });
+    void buildSessionQuestions()
+      .then((questions) => {
+        setSessionQuestions(questions);
+        const first = questions[0] ?? SELF_INTRO_QUESTION;
+        currentQuestionRef.current = first;
+        setQuestion(first);
+      })
+      .catch(handleQuestionBuildFailure);
   };
 
   // 버튼 누르자마자 녹음을 시작하면 말할 준비가 안 된 채로 앞부분이 침묵으로 날아가는

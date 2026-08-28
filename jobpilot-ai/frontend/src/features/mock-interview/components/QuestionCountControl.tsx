@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 
 import {
   normalizeQuestionCountInput,
@@ -17,7 +17,9 @@ import {
 type Props = {
   kind: InterviewKind;
   value: number;
-  onChange: (next: number) => void;
+  /** −/+ 는 함수형 업데이트로 넘긴다 - value prop만 보고 계산하면 같은 렌더 안에서 연속으로
+   *  누른 클릭이 전부 같은 값을 읽어서 한 번만 움직인다(빠른 더블클릭에서 실제로 재현됨). */
+  onChange: Dispatch<SetStateAction<number>>;
   /** "최대 5개까지 선택할 수 있어요" 같은 범위 안내. aria-describedby로 입력창에 묶인다. */
   hint: string;
   inputId?: string;
@@ -35,7 +37,7 @@ export function QuestionCountControl({ kind, value, onChange, hint, inputId = "i
 
   const step = (delta: number) => {
     setDraft(null);
-    onChange(stepQuestionCount(kind, value, delta));
+    onChange((current) => stepQuestionCount(kind, current, delta));
   };
 
   return (

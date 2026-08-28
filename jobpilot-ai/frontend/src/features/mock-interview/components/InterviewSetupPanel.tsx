@@ -1,3 +1,5 @@
+import type { Dispatch, SetStateAction } from "react";
+
 import { QuestionCountControl } from "./QuestionCountControl";
 import { questionCountRange, type InterviewKind, type InterviewQuestionSource } from "../model/interviewConfig";
 
@@ -29,7 +31,8 @@ type Props = {
   onGoToSpec: () => void;
   hasSelectedJobPosting: boolean;
   questionCount: number;
-  onQuestionCountChange: (count: number) => void;
+  /** QuestionCountControl이 −/+ 를 함수형 업데이트로 넘기므로 setState를 그대로 받는다. */
+  onQuestionCountChange: Dispatch<SetStateAction<number>>;
 };
 
 export function InterviewSetupPanel({

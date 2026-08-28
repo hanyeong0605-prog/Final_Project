@@ -378,6 +378,10 @@ a { color: inherit; text-decoration: none; }
 .interview-kind-segment label { cursor: pointer; border-radius: 999px; padding: 11px 18px; color: #707b90; text-align: center; font-size: 13px; font-weight: 800; }
 .interview-kind-segment label.active { background: #fff; color: #486be8; box-shadow: 0 3px 12px #253b7430; }
 .interview-kind-segment input, .interview-option-chip input { position: absolute; opacity: 0; pointer-events: none; }
+/* 2026-08-29: 라디오 자체가 opacity:0이라 키보드로 이동해도 어디에 포커스가 있는지 안 보였다
+   (마우스로는 라벨을 눌러서 문제가 드러나지 않는다) - 라벨에 대신 포커스 링을 그린다. */
+.interview-kind-segment label:has(input:focus-visible),
+.interview-option-chip:has(input:focus-visible) { outline: 2px solid #596ff3; outline-offset: 2px; }
 .interview-question-count-control { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .interview-question-count-control button { width: 42px; height: 42px; border: 1px solid #dce3f0; border-radius: 10px; background: #fff; color: #486be8; font-size: 22px; }
 .interview-question-count-control input { width: 74px; height: 42px; border: 1px solid #cdd7eb; border-radius: 10px; text-align: center; font: 800 16px inherit; }
