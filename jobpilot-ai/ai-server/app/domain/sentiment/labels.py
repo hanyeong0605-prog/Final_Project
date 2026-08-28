@@ -1,9 +1,17 @@
-"""Canonical KOTE label order shared by training and inference.
+"""Canonical KOTE labels and versioned service-display polarity policy.
 
 Artifact outputs are positional, so changing this order would silently attach
-scores to the wrong Korean emotion.  Artifacts must store and verify the same
-sequence before they become READY.
+scores to the wrong Korean emotion. Artifacts must store and verify the same
+sequence before they become READY. Positive/negative/neutral is a JobPilot
+presentation policy and is never described as KOTE's original ground truth.
 """
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal, Mapping
 
 KOTE_LABELS: tuple[str, ...] = (
     "불평/불만",
@@ -51,3 +59,75 @@ KOTE_LABELS: tuple[str, ...] = (
     "기쁨",
     "안심/신뢰",
 )
+
+_DEFAULT_POLICY_PATH = Path(__file__).with_name("polarity-map.v1.json")
+
+
+@dataclass(frozen=True)
+class PolarityPolicy:
+    version: str
+    positive: tuple[str, ...]
+    negative: tuple[str, ...]
+    contextual: tuple[str, ...]
+    neutral: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PolarityScores:
+    label: Literal["POSITIVE", "NEUTRAL", "NEGATIVE", "MIXED"]
+    positive: float
+    neutral: float
+    negative: float
+    policy_version: str
+
+
+def load_polarity_policy(path: Path = _DEFAULT_POLICY_PATH) -> PolarityPolicy:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    policy = PolarityPolicy(
+        version=str(payload["version"]),
+        positive=tuple(payload["positive"]),
+        negative=tuple(payload["negative"]),
+        contextual=tuple(payload["contextual"]),
+        neutral=tuple(payload["neutral"]),
+    )
+    assigned = [*policy.positive, *policy.negative, *policy.contextual, *policy.neutral]
+    if len(assigned) != len(KOTE_LABELS) or len(set(assigned)) != len(KOTE_LABELS):
+        raise ValueError("polarity policy must assign every KOTE label exactly once")
+    if set(assigned) != set(KOTE_LABELS):
+        raise ValueError("polarity policy must assign every KOTE label exactly once")
+    return policy
+
+
+def aggregate_polarity(
+    scores: Mapping[str, float],
+    policy: PolarityPolicy | None = None,
+) -> PolarityScores:
+    unknown = set(scores) - set(KOTE_LABELS)
+    if unknown:
+        raise ValueError(f"unknown KOTE labels: {sorted(unknown)}")
+    if any(value < 0.0 or value > 1.0 for value in scores.values()):
+        raise ValueError("emotion scores must be between 0 and 1")
+
+    selected_policy = policy or load_polarity_policy()
+
+    def highest(labels: tuple[str, ...]) -> float:
+        return max((float(scores.get(label, 0.0)) for label in labels), default=0.0)
+
+    positive = highest(selected_policy.positive)
+    negative = highest(selected_policy.negative)
+    neutral = max(highest(selected_policy.neutral), highest(selected_policy.contextual))
+    if positive >= 0.40 and negative >= 0.40:
+        label: Literal["POSITIVE", "NEUTRAL", "NEGATIVE", "MIXED"] = "MIXED"
+    elif positive > max(neutral, negative):
+        label = "POSITIVE"
+    elif negative > max(neutral, positive):
+        label = "NEGATIVE"
+    else:
+        label = "NEUTRAL"
+    return PolarityScores(
+        label=label,
+        positive=positive,
+        neutral=neutral,
+        negative=negative,
+        policy_version=selected_policy.version,
+    )

@@ -34,6 +34,7 @@ jobpilot-ai/ai-server/
 │  └─ domain/sentiment/
 │     ├─ __init__.py
 │     ├─ labels.py                               # canonical labels and polarity policy loader
+│     ├─ polarity-map.v1.json                    # Docker-shipped presentation mapping
 │     ├─ schemas.py                              # HTTP request/response contracts
 │     ├─ service.py                              # lazy artifact loading and inference
 │     └─ router.py                               # internal sentiment endpoints
@@ -41,7 +42,6 @@ jobpilot-ai/ai-server/
 │  ├─ README.md                                  # reproducible data/train/evaluate commands
 │  ├─ DATA_CARD.md                               # source, license, limitations
 │  ├─ MODEL_CARD.md                              # generated/updated evaluation summary
-│  ├─ polarity-map.v1.json                       # versioned presentation mapping
 │  ├─ download_kote.py                           # official source downloader + manifest
 │  ├─ dataset.py                                 # TSV parsing and validation
 │  ├─ train_baseline.py                          # TF-IDF One-vs-Rest training
@@ -263,7 +263,7 @@ git commit -m "feat: validate KOTE multi-label corpus"
 ### Task 3: Versioned emotion-to-polarity presentation policy
 
 **Files:**
-- Create: `jobpilot-ai/ai-server/ml/sentiment/polarity-map.v1.json`
+- Create: `jobpilot-ai/ai-server/app/domain/sentiment/polarity-map.v1.json`
 - Modify: `jobpilot-ai/ai-server/app/domain/sentiment/labels.py`
 - Create: `jobpilot-ai/ai-server/tests/test_sentiment_labels.py`
 
@@ -317,7 +317,7 @@ Expected: PASS and policy coverage equals all 44 labels.
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add jobpilot-ai/ai-server/ml/sentiment/polarity-map.v1.json jobpilot-ai/ai-server/app/domain/sentiment/labels.py jobpilot-ai/ai-server/tests/test_sentiment_labels.py
+git add jobpilot-ai/ai-server/app/domain/sentiment/polarity-map.v1.json jobpilot-ai/ai-server/app/domain/sentiment/labels.py jobpilot-ai/ai-server/tests/test_sentiment_labels.py
 git commit -m "feat: define sentiment polarity presentation policy"
 ```
 
