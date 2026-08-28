@@ -1,7 +1,7 @@
 // Paste this entire file into https://dbdiagram.io/d
 // Physical schema source: Flyway migrations V1 through V40, with reviewed removals applied (current schema after all ALTER/DROP operations)
 // Target schema after removing confirmed/reviewed legacy structures:
-// education_histories, opportunity_skills, portfolio_documents.
+// education_histories and opportunity_skills.
 // The two Java mappings for job_posting_locations are represented as one physical table.
 
 Project jobpilot_ai {

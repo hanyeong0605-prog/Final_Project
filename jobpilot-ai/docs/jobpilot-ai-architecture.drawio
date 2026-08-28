@@ -194,7 +194,6 @@
         <mxCell id="dm16" value="interest" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="d1"><mxGeometry x="170" y="210" width="140" height="50" as="geometry" /></mxCell>
         <mxCell id="dm17" value="locationjobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="d1"><mxGeometry x="320" y="210" width="140" height="50" as="geometry" /></mxCell>
         <mxCell id="dm18" value="book" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="d1"><mxGeometry x="470" y="210" width="140" height="50" as="geometry" /></mxCell>
-        <mxCell id="dm19" value="projectanalysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="d1"><mxGeometry x="620" y="210" width="140" height="50" as="geometry" /></mxCell>
         <mxCell id="dm20" value="Check" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="d1"><mxGeometry x="770" y="210" width="140" height="50" as="geometry" /></mxCell>
 
         <mxCell id="d_lib" value="주요 라이브러리: Spring Security/JWT · OAuth2 Client/ResourceServer · JPA · Flyway(마이그레이션) · WebSocket · Mail · PDFBox/POI(포트폴리오 렌더링) · jsoup · web-push(VAPID)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;spacingTop=6;" vertex="1" parent="d1">

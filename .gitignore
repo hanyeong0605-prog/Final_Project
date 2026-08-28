@@ -1,1 +1,14 @@
 .worktrees/
+
+# Local visual-review artifacts generated during assisted UI work.
+/alpha-web-check/
+/video-review-*/
+/alphacheck*.png
+/eyecheck*.png
+/firefly-review*.png
+/happybase*.png
+/happycheck*.png
+/발표자료_제작시트.html
+
+# Local scratch directory.
+/tmp/

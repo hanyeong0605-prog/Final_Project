@@ -33,7 +33,7 @@
 3. **Backend(Spring Boot)**가 사실상 메인 게이트웨이 역할 — 대부분의 도메인 API(회원, 이력서, 채용공고, 매칭, 결제 등)를 직접 처리하고, AI 연산이 필요한 부분(모의면접 STT/질문생성, 이력서 AI 분석, 채용공고 매칭 점수 등)은 **서버 간 호출**로 ai-server(`AI_SERVER_BASE_URL`)에 위임
 4. Backend는 관리자 얼굴 인증이 필요할 때 wordcloud-server(`FACE_VERIFICATION_BASE_URL`)를 호출 (DeepFace)
 5. 세 서비스 모두 각자의 드라이버로 같은 **MySQL**에 접근 (Backend: JPA/Flyway, AI Server: SQLAlchemy, Wordcloud: PyMySQL)
-6. 외부 연동: Google Gemini(질문 폴리싱·포트폴리오 내러티브), Google Cloud STT(모의면접 음성인식), Kakao Map(지도), Toss Payments(결제), OAuth2(Google/Kakao/Naver 소셜 로그인), Web Push(VAPID, 마감임박 알림)
+6. 외부 연동: Google Gemini(질문 폴리싱·이력서 지원), Google Cloud STT(모의면접 음성인식), Kakao Map(지도), Toss Payments(결제), OAuth2(Google/Kakao/Naver 소셜 로그인), Web Push(VAPID, 마감임박 알림)
 7. 서버 간 호출은 대부분 공용 비밀키 `INTERNAL_API_KEY`를 `X-Internal-Api-Key` 헤더로 검증 (사용자 JWT가 없는 서버-서버 요청이기 때문)
 
 ---
@@ -188,15 +188,6 @@ STOMP가 아니라 순수 `WebSocketHandler` 방식입니다.
 | GET/PUT | `/api/v1/members/me/resume-ai-consent` | AI 사용 동의 설정 |
 | GET/POST/PUT/DELETE | `/api/v1/members/me/resume-entries` | 이력 타임라인 CRUD |
 
-#### 포트폴리오 / 프로젝트 분석
-| Method | Path | 설명 |
-|---|---|---|
-| POST | `/api/v1/project-analysis/github` | GitHub 저장소 분석 |
-| POST | `/api/v1/project-analysis/portfolio` | 분석 결과로 포트폴리오 생성 |
-| GET | `/api/v1/members/me/portfolio-documents` | 포트폴리오 목록 |
-| GET | `/api/v1/members/me/portfolio-documents/{id}/pptx` | PPTX 다운로드 |
-| GET | `/api/v1/members/me/portfolio-documents/{id}/pdf` | PDF 다운로드 |
-
 #### 모의면접 카메라 페어링
 | Method | Path | 설명 |
 |---|---|---|
@@ -289,7 +280,7 @@ STOMP가 아니라 순수 `WebSocketHandler` 방식입니다.
 
 | 서비스 | 호출 주체 | 용도 |
 |---|---|---|
-| Google Gemini API | Backend, AI Server | 포트폴리오 내러티브 생성, 모의면접 질문 폴리싱 |
+| Google Gemini API | Backend, AI Server | 이력서 지원, 모의면접 질문 폴리싱 |
 | Google Cloud Speech-to-Text | AI Server | 모의면접 답변 STT |
 | Google Cloud TTS | AI Server | 모의면접 질문 음성 합성 |
 | Kakao Map JS SDK | 브라우저(클라이언트 직접) | 지도 기반 채용공고 |
