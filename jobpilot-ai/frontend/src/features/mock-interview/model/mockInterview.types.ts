@@ -65,6 +65,7 @@ export interface SessionEvaluationReport {
   overall_score: number | null;
   content_score: number | null;
   delivery_score: number | null;
+  nonverbal_feedback: string | null;
   strengths: string[];
   improvements: string[];
   next_steps: string[];
