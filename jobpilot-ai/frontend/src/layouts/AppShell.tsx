@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, CircleHelp, Github, LogOut, Menu, Plus, Search, ShieldCheck, UserRound, X } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, LogOut, Menu, Search, ShieldCheck, UserRound, X } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
@@ -177,7 +177,6 @@ export function AppShell() {
           </nav>
 
           <div className="sidebar-bottom">
-            <button className="github-connect"><Github size={18} /><span>GitHub 연결</span><span className="connected-dot" /></button>
             <div className="source-note"><CircleHelp size={15} /><span>추천 결과는 지원 준비도를 안내합니다.<br />최종 지원 전 채용 원문을 확인하세요.</span></div>
           </div>
         </aside>
@@ -203,7 +202,6 @@ export function AppShell() {
             <div className="top-actions">
               <div className="breadcrumb"><span>Job-A-Dream AI</span><ChevronRight size={15} /><strong>{activeItem.label}</strong></div>
               <form className="global-search-inline" onSubmit={submitGlobalSearch}><Search size={16} /><input value={searchTerm} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearchTerm(event.target.value); setSearchOpen(true); }} placeholder="통합검색" aria-label="통합검색" /><button type="submit" aria-label="검색 실행"><ChevronRight size={15} /></button></form>
-              <button className="add-job"><Plus size={17} />공고 직접 등록</button>
               <NotificationBell />
               {member?.role === "ADMIN" && <NavLink to="/admin" className="admin-page-link"><ShieldCheck size={16} />관리자 페이지</NavLink>}
               <div className="topbar-account-menu" ref={accountMenuRef}>
