@@ -38,9 +38,10 @@ import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi
 import { FACE_OVAL_INDICES, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
 import type { AnswerAnalysis, SessionEvaluationReport, TtsVoiceOption, VoiceMetrics } from "../features/mock-interview/model/mockInterview.types";
-import { buildRealInterviewSlots, clampQuestionCount, type InterviewKind, type InterviewQuestionSource } from "../features/mock-interview/model/interviewConfig";
+import { buildRealInterviewSlots, type InterviewKind, type InterviewQuestionSource } from "../features/mock-interview/model/interviewConfig";
 import { PageHeading } from "../shared/components/PageHeading";
 import { RangeGauge } from "../shared/components/RangeGauge";
+import { InterviewSetupPanel } from "../features/mock-interview/components/InterviewSetupPanel";
 import { PhoneCameraPairingPanel } from "../features/mock-interview/components/PhoneCameraPairingPanel";
 import { VoiceTimelineChart } from "../features/mock-interview/components/VoiceTimelineChart";
 
@@ -725,9 +726,16 @@ export function MockInterviewPage() {
   // 기본값은 "연습"이라 아무것도 안 고르면 예전처럼 프로필이 몰래 섞여 들어가는 일이 없다.
   const [questionSource, setQuestionSource] = useState<"practice" | "profile">("practice");
   const [subscribed, setSubscribed] = useState(false);
+  // 2026-08-29: 구독 확인이 끝나기 전에는 실전면접을 고르지도, 시작하지도 못하게 한다
+  // (설계 문서 "오류 및 경계 처리"). subscribed의 초기값이 false라서, 확인 중과 "비구독
+  // 확정"을 구분하지 않으면 구독자에게 잠깐 구독 안내 모달이 뜨는 일이 생긴다.
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
 
   useEffect(() => {
-    void getSubscriptionStatus().then((status) => setSubscribed(status.subscribed)).catch(() => setSubscribed(false));
+    void getSubscriptionStatus()
+      .then((status) => setSubscribed(status.subscribed))
+      .catch(() => setSubscribed(false))
+      .finally(() => setSubscriptionChecked(true));
   }, []);
 
   // 2026-08-26: RAG - 구독자가 특정 채용공고를 골라두면 그 공고의 요구사항(job_requirements)을
@@ -2227,34 +2235,26 @@ export function MockInterviewPage() {
 
           {stage === "start" && (
             <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-              <fieldset className="interview-kind-segment" aria-label="면접 모드">
-                {(["practice", "real"] as const).map((kind) => (
-                  <label key={kind} className={interviewKind === kind ? "active" : ""}>
-                    <input type="radio" name="interview-kind" checked={interviewKind === kind} onChange={() => {
-                      if (kind === "real" && !subscribed) { setSubscribeNoticeOpen(true); return; }
-                      setInterviewKind(kind);
-                      setQuestionCount(kind === "practice" ? 3 : 5);
-                    }} />
-                    {kind === "practice" ? "모의면접" : "실전면접"}
-                  </label>
-                ))}
-              </fieldset>
-
-              {interviewKind === "real" && (
-                <div className="interview-option-group">
-                  <span className="interview-option-label">질문에 사용할 정보</span>
-                  <div className="interview-option-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                    {([['spec', '스펙만'], ['spec_company', '스펙 + 회사'], ['company', '회사']] as const).map(([value, label]) => (
-                      <label key={value} className={`interview-option-chip${realQuestionSource === value ? " active" : ""}`}>
-                        <input type="radio" name="real-source" checked={realQuestionSource === value} onChange={() => setRealQuestionSource(value)} /> {label}
-                      </label>
-                    ))}
-                  </div>
-                  {realQuestionSource !== "company" && !careerJob && !careerTechSummary && (
-                    <p className="account-alert">실전면접에 사용할 스펙이 없습니다. <button type="button" className="text-button" onClick={() => navigate('/capability?tool=profile')}>스펙 입력하기</button></p>
-                  )}
-                </div>
-              )}
+              {/* 2026-08-29: 모드 세그먼트·질문 근거·질문 개수는 InterviewSetupPanel로 뺐다
+                  (설계 문서 "코드 구조" 절). 아래 카메라/채팅 카드, 공고 검색, 목소리 선택은
+                  두 모드가 똑같이 쓰는 블록이라 페이지에 그대로 둔다. */}
+              <InterviewSetupPanel
+                kind={interviewKind}
+                onKindChange={(kind) => {
+                  setInterviewKind(kind);
+                  setQuestionCount(kind === "practice" ? 3 : 5);
+                }}
+                subscribed={subscribed}
+                subscriptionChecked={subscriptionChecked}
+                onSubscriptionRequired={() => setSubscribeNoticeOpen(true)}
+                realSource={realQuestionSource}
+                onRealSourceChange={setRealQuestionSource}
+                hasSpec={Boolean(careerJob || careerTechSummary)}
+                onGoToSpec={() => navigate("/capability?tool=profile")}
+                hasSelectedJobPosting={Boolean(selectedJobPosting)}
+                questionCount={questionCount}
+                onQuestionCountChange={setQuestionCount}
+              />
               {/* 2026-08-06: 카드 모양(아이콘/제목/설명)은 그대로 두고, 카드 안 개별
                   "시작하기" 버튼은 없앤 뒤 카드 자체를 클릭해서 고르는 라디오 방식으로
                   바꿨다 - 선택된 카드는 아래 옵션 칩들과 똑같은 "선택됨(.active)" 파란
@@ -2293,6 +2293,10 @@ export function MockInterviewPage() {
                   면접 유형/분야를 직접 고른다 - 기본값은 그대로 questionSource="practice").
                   이 토글이 맨 위로 올라온 이유: 아래 두 그룹(면접 유형/면접 분야)의 활성화
                   여부가 이 값에 달려있어서, 사용자가 먼저 보고 정할 수 있게 순서를 바꿨다. */}
+              {/* 2026-08-29: 무료 모의면접에서만 보여준다 - 실전면접은 위 "질문에 사용할
+                  정보"(source)가 같은 역할을 하고, 스펙도 서버가 직접 읽는다
+                  (member_spec_retrieval.py). 둘을 같이 두면 어느 쪽이 이겼는지 알 수 없다. */}
+              {interviewKind === "practice" && (
               <div className="interview-option-group">
                 <span className="interview-option-label">질문 기준</span>
                 <div className="interview-option-row">
@@ -2352,6 +2356,7 @@ export function MockInterviewPage() {
                   </p>
                 )}
               </div>
+              )}
 
               {/* 2026-08-26: RAG - 구독자가 특정 공고를 골라두면 그 공고의 요구사항을 질문/
                   모범답안/채점 근거로 반영한다. 위 "프로필 불러오기"(이력)와는 독립된 선택
@@ -2420,6 +2425,10 @@ export function MockInterviewPage() {
                 </div>
               )}
 
+              {/* 2026-08-29: 면접 유형·면접 분야도 무료 모의면접 전용이다 - 실전면접의 질문
+                  카테고리는 사용자가 고르는 게 아니라 buildRealInterviewSlots가 정한다
+                  (자기소개 → RAG 질문들 → 행동 질문 → 입사 후 포부). */}
+              {interviewKind === "practice" && (<>
               {/* 2026-08-07: "역량/직무/인성 면접 유형도 고르게 하자" 요청으로 추가 - 인성/역량
                   계열 질문(팀 갈등, 강점/약점 등)은 지원자의 경험을 묻는 거라 분야가 달라도
                   질문 자체는 같아도 되지만, 직무(기술) 면접만 분야별로 내용이 달라야 한다는
@@ -2485,18 +2494,7 @@ export function MockInterviewPage() {
                   ))}
                 </div>
               </div>
-
-              <div className="interview-option-group">
-                <span className="interview-option-label">질문 개수</span>
-                <div className="interview-question-count-control">
-                  <button type="button" aria-label="질문 수 줄이기" onClick={() => setQuestionCount((value) => clampQuestionCount(interviewKind, value - 1))}>−</button>
-                  <input type="number" min={interviewKind === "practice" ? 2 : 5} max={interviewKind === "practice" ? 5 : 10} value={questionCount}
-                    aria-label="질문 수" onChange={(event) => setQuestionCount(Number(event.target.value))}
-                    onBlur={() => setQuestionCount((value) => clampQuestionCount(interviewKind, value))} />
-                  <button type="button" aria-label="질문 수 늘리기" onClick={() => setQuestionCount((value) => clampQuestionCount(interviewKind, value + 1))}>+</button>
-                </div>
-                <small>{interviewKind === "practice" ? "자기소개 포함 최소 2개, 최대 5개" : "자기소개·입사 후 포부 포함 최소 5개, 최대 10개"}</small>
-              </div>
+              </>)}
 
               {/* 2026-08-06: 클라우드 TTS 키가 설정돼 있을 때만(ttsVoiceOptions가 비어있지
                   않을 때만) 노출한다 - 키가 없는 환경에선 이 선택 자체가 의미 없다(브라우저
@@ -2531,7 +2529,7 @@ export function MockInterviewPage() {
                 className="primary-button"
                 onClick={() => (interviewMode === "camera" ? startSession() : startChatModeSession())}
                 type="button"
-                disabled={interviewKind === "real" && ((realQuestionSource !== "company" && !careerJob && !careerTechSummary) || (realQuestionSource !== "spec" && !selectedJobPosting))}
+                disabled={interviewKind === "real" && (!subscriptionChecked || (realQuestionSource !== "company" && !careerJob && !careerTechSummary) || (realQuestionSource !== "spec" && !selectedJobPosting))}
                 style={{ fontSize: 15, padding: "14px 32px" }}
               >
                 <Sparkles size={18} /> {interviewKind === "practice" ? "모의면접 시작하기" : "실전면접 시작하기"}

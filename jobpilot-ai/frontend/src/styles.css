@@ -373,6 +373,33 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 700px) { .month-day { min-height: 72px; padding: 4px; }.calendar-event { padding: 3px; font-size: 0; }.calendar-event::before { content: ""; display: block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; } }
 .calendar-event.range-start, .calendar-event.single, .calendar-event.week-start { margin-left: 0; border-radius: 5px 0 0 5px; }.calendar-event.range-middle { width: calc(100% + 15px); margin-left: -7px; border-left: 0; border-radius: 0; }.calendar-event.range-end { width: calc(100% + 7px); margin-left: -7px; border-left: 0; border-radius: 0 5px 5px 0; text-align: right; }.calendar-event.range-start:not(.week-end) { width: calc(100% + 8px); }.calendar-event.week-start { width: calc(100% + 8px); margin-left: 0; border-left-width: 3px; border-radius: 5px 0 0 5px; }.calendar-event.week-end { width: calc(100% + 7px); border-radius: 0 5px 5px 0; }.calendar-event.single { width: 100%; border-radius: 5px; }
 .modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; overflow-y: auto; background: #16213999; padding: 28px; }.onboarding-modal { width: min(820px, 100%); max-height: calc(100vh - 56px); overflow-y: auto; border-radius: 16px; background: #fff; box-shadow: 0 24px 80px #14203a4d; padding: 30px; }.onboarding-head h2 { margin: 7px 0 8px; color: #263149; font-size: 22px; }.onboarding-head p { margin: 0 0 22px; color: #7c8798; font-size: 12px; line-height: 1.7; }.career-profile-form { display: grid; gap: 18px; }.form-section { border-top: 1px solid #edf0f4; padding-top: 17px; }.form-section h3 { margin: 0 0 14px; color: #445067; font-size: 13px; }.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }.form-fields label { display: grid; gap: 6px; color: #606b7e; font-size: 10px; font-weight: 800; }.form-fields input, .form-fields select, .form-fields textarea { width: 100%; border: 1px solid #dfe4ec; border-radius: 8px; background: #fff; padding: 10px 11px; color: #344057; font: inherit; resize: vertical; }.form-fields .wide { grid-column: 1 / -1; }.form-actions { display: flex; justify-content: flex-end; gap: 8px; }.skip-onboarding { display: block; margin: 15px auto 0; border: 0; background: transparent; color: #8993a3; font-size: 11px; text-decoration: underline; }.profile-form-panel, .spec-editor { padding: 25px; }.mypage-section-title { display: flex; align-items: end; justify-content: space-between; margin: 27px 0 10px; }.mypage-section-title:first-of-type { margin-top: 0; }.mypage-section-title h2 { margin: 0; color: #39455b; font-size: 15px; }.mypage-section-title p { margin: 4px 0 0; color: #929bab; font-size: 10px; }.spec-title > div { display: grid; }.spec-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 22px; }.spec-summary div { display: grid; gap: 6px; }.spec-summary span { color: #929bab; font-size: 9px; }.spec-summary strong { overflow: hidden; color: #4b566c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+.interview-kind-segment { display: grid; grid-template-columns: 1fr 1fr; width: min(520px, 100%); margin: 0; border: 1px solid #dce3f0; border-radius: 999px; background: #f2f5fb; padding: 4px; }
+.interview-kind-segment label { cursor: pointer; border-radius: 999px; padding: 11px 18px; color: #707b90; text-align: center; font-size: 13px; font-weight: 800; }
+.interview-kind-segment label.active { background: #fff; color: #486be8; box-shadow: 0 3px 12px #253b7430; }
+.interview-kind-segment input, .interview-option-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.interview-question-count-control { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.interview-question-count-control button { width: 42px; height: 42px; border: 1px solid #dce3f0; border-radius: 10px; background: #fff; color: #486be8; font-size: 22px; }
+.interview-question-count-control input { width: 74px; height: 42px; border: 1px solid #cdd7eb; border-radius: 10px; text-align: center; font: 800 16px inherit; }
+/* 2026-08-29: 질문 수 컨트롤(QuestionCountControl)과 범위 안내. 안내는 aria-describedby로
+   입력창에 묶여 있어서 스크린리더도 "최대 몇 개"를 입력창에서 바로 듣는다 - 그래서 시각적
+   위치도 컨트롤 바로 아래로 붙였다. */
+.interview-question-count { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.interview-question-count-hint { color: #9098a7; font-size: 12px; text-align: center; }
+.interview-question-count-control button:disabled { opacity: .4; cursor: not-allowed; }
+/* legend를 쓰는 설정 그룹 - fieldset 기본 테두리/여백만 지우고 평범한 block으로 둔다.
+   flex/grid 컨테이너 안의 legend는 브라우저마다 배치가 달라서 안쪽 row에만 grid를 건다. */
+.interview-fieldset { display: block; width: 100%; max-width: 680px; min-width: 0; margin: 0; border: 0; padding: 0; text-align: center; }
+.interview-fieldset > legend { display: block; width: 100%; padding: 0 0 10px; color: #9098a7; font-size: 12px; font-weight: 700; }
+/* 2026-08-29: 좁은 화면(360px)에서 "스펙 + 회사"처럼 긴 라벨이 3열 칩 안에서 넘치던 걸 막는다 -
+   열 수는 유지하고(세 선택지를 한눈에 비교하는 게 이 컨트롤의 요점) 글자와 여백만 줄인다. */
+@media (max-width: 400px) {
+  .interview-fieldset .interview-option-chip { padding: 11px 6px; font-size: 12px; }
+  .interview-question-count-control button { width: 38px; height: 38px; }
+  .interview-question-count-control input { width: 62px; height: 38px; }
+}
+.modal-card { width: min(440px, 100%); border-radius: 18px; background: #fff; box-shadow: 0 24px 80px #14203a4d; padding: 26px; }
+.modal-card h3 { margin: 0 0 10px; color: #293349; }.modal-card p { margin: 0 0 22px; color: #697489; line-height: 1.7; }
 @media (max-width: 700px) { .modal-backdrop { padding: 0; }.onboarding-modal { max-height: 100vh; min-height: 100vh; border-radius: 0; padding: 22px 18px; }.form-fields, .spec-summary { grid-template-columns: 1fr; }.form-fields .wide { grid-column: auto; } }
 
 /* Desktop navigation and the new home surface */
