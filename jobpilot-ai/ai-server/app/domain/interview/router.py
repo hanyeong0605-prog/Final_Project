@@ -10,6 +10,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
@@ -18,7 +19,15 @@ from app.core.config import settings
 from app.domain.interview.audio_analysis import analyze_voice, transcribe
 from app.domain.interview.evaluation import generate_report, generate_session_report
 from app.domain.interview import question_corpus
-from app.domain.interview.job_requirement_retrieval import build_job_requirements_context
+from app.domain.interview.job_requirement_retrieval import (
+    build_job_requirements_context,
+    fetch_narrowed_requirements,
+)
+from app.domain.interview.member_spec_retrieval import (
+    build_gap_context,
+    build_member_spec_context,
+    fetch_member_spec,
+)
 from app.domain.interview.question_generator import (
     DEFAULT_JOB,
     generate_personalized_question,
@@ -34,7 +43,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# 2026-08-29: 실전면접 근거(source)별로 반드시 있어야 하는 ID. 없으면 400으로 돌려보낸다 -
+# 조용히 근거 없는 질문을 만들어버리면 사용자는 "실전면접인데 왜 내 스펙과 상관없는 질문이
+# 나오냐"는 상태를 원인도 모른 채 겪게 된다(RAG 조회 자체는 fail-open이라 더더욱 안 보인다).
+_SOURCE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "spec": ("member_id",),
+    "company": ("job_posting_id",),
+    "spec_company": ("member_id", "job_posting_id"),
+}
+
+
 class NextQuestionRequest(BaseModel):
+    # 2026-08-29: 무료 모의면접(practice)과 구독자 실전면접(real)을 서버에서도 갈라놓는다.
+    # 기본값이 practice인 건 의도적이다 - 필드가 빠진 요청이 실수로 Gemini 비용을 태우는 것보다
+    # 코퍼스 질문이 나오는 쪽이 안전하다("프론트 값만으로 무료 요청이 Gemini를 호출하지 않도록
+    # 한다"는 설계 문서의 코드 구조 요구사항도 같은 취지).
+    mode: Literal["practice", "real"] = "practice"
+    # 실전면접의 질문 근거. spec=회원 스펙만, company=채용공고만, spec_company=둘을 대조.
+    # None이면 근거 RAG 없이 기존 방식대로 Gemini만 쓴다(mode 도입 전 동작과 동일).
+    source: Literal["spec", "spec_company", "company"] | None = None
+    # source가 spec/spec_company일 때 필수 - 이 회원이 저장해둔 스펙을 읽는다
+    # (member_spec_retrieval.fetch_member_spec).
+    member_id: int | None = None
     job: str = DEFAULT_JOB
     # 이전 답변 텍스트(선택) - question_generator.py 상단 설계 메모 참고: 지금 학습 데이터엔
     # 진짜 세션 문맥이 없어서 효과는 제한적이지만, 나중에 문맥형 학습으로 갈 걸 대비해 받아둔다.
@@ -59,6 +89,9 @@ class NextQuestionRequest(BaseModel):
     # 2026-08-25: 무료/유료 등급 분기 추가 - 무료 등급은 Gemini를 아예 호출하지 않고
     # AI Hub 코퍼스(question_corpus.py)에서만 질문을 뽑는다("유료만 실시간 생성, 무료는
     # 기존 데이터"라는 결제 설계). True면 generate_personalized_question을 건너뛴다.
+    # 2026-08-29: mode로 대체됐다 - 새 클라이언트는 mode="practice"를 보낸다. 이 필드는 mode를
+    # 모르는 예전 클라이언트가 무료 요청임을 알리는 별칭으로만 남겨둔다(제거하면 그런 요청이
+    # 실전 경로로 흘러들어가 Gemini를 호출하게 되므로 지우지 않는다).
     corpus_only: bool = False
     # 2026-08-25: 세션 안에서 이미 나온 질문 텍스트 목록 - 프론트가 지금까지 확정된 질문들을
     # 그대로 넘긴다. 무료 등급(순차 호출)에서는 매번 누적된 exclude로 코퍼스 중복을 원천
@@ -89,16 +122,48 @@ def next_question(body: NextQuestionRequest):
     # 2026-08-25: 무료 등급 - Gemini를 아예 안 부르고 코퍼스에서만 뽑는다. API 비용/할당량이
     # 0이라 상태코드를 나눌 이유도 없다 - 풀이 비어있는 극단적인 경우(코퍼스 파일 손상 등)만
     # 503으로 알린다.
-    if body.corpus_only:
+    # 2026-08-29: 판단 기준이 corpus_only(불리언)에서 mode로 바뀌었다. corpus_only는 mode를
+    # 모르는 예전 클라이언트를 위한 별칭으로 남겨둔다 - 둘 중 하나라도 무료를 가리키면 무료다.
+    # 이 분기가 함수 맨 앞에 있는 게 핵심이다: 무료 요청은 아래 Gemini/RAG 코드에 도달할 수
+    # 없고, 그래서 프론트가 뭘 더 보내든(job_posting_id, member_id 등) 비용이 발생하지 않는다.
+    if body.mode == "practice" or body.corpus_only:
         question = question_corpus.pick_question(body.category, body.job, exclude)
         if question is None:
             raise HTTPException(status_code=503, detail="질문 코퍼스가 비어 있습니다.")
         return {"question": question}
 
+    # 2026-08-29: 실전면접 - 근거(source)에 필요한 ID가 빠졌으면 여기서 400으로 끊는다.
+    # RAG 조회는 전부 fail-open이라 ID가 없어도 조용히 빈 문맥으로 넘어가버리는데, 그러면
+    # "실전면접인데 내 스펙이 하나도 안 반영된 질문"이 나오고 원인을 알 방법이 없다.
+    if body.source:
+        missing = [
+            field for field in _SOURCE_REQUIRED_FIELDS[body.source] if getattr(body, field) is None
+        ]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"source={body.source} 요청에는 {', '.join(missing)}이(가) 필요합니다.",
+            )
+
+    # 근거로 고른 것만 조회한다 - `스펙만`인데 공고를 읽거나 그 반대가 되면 안 된다.
     # 2026-08-26: 공고를 선택했을 때만 실제로 DB 조회가 일어난다(job_posting_id가 없으면
-    # build_job_requirements_context가 곧바로 None을 반환) - 무료 등급/공고 미선택 사용자는
-    # 이 호출이 있어도 사실상 아무 비용이 없다.
-    job_requirements_context = build_job_requirements_context(body.job_posting_id, body.category) or ""
+    # build_job_requirements_context가 곧바로 None을 반환) - 공고 미선택 사용자는 이 호출이
+    # 있어도 사실상 아무 비용이 없다.
+    member_spec = None
+    member_spec_context = ""
+    gap_context = ""
+    job_requirements_context = ""
+    if body.source in ("spec", "spec_company"):
+        # 스펙은 한 번만 읽어서 문맥 조립과 대조에 같이 쓴다(같은 요청에서 두 번 조회 방지).
+        member_spec = fetch_member_spec(body.member_id)
+        member_spec_context = build_member_spec_context(body.member_id, body.category, spec=member_spec) or ""
+    if body.source in ("company", "spec_company", None):
+        # source가 None인 건 mode 도입 전부터 있던 흐름(공고만 고르고 시작)이라 그대로 둔다.
+        job_requirements_context = build_job_requirements_context(body.job_posting_id, body.category) or ""
+    if body.source == "spec_company":
+        gap_context = build_gap_context(
+            member_spec, fetch_narrowed_requirements(body.job_posting_id, body.category)
+        ) or ""
 
     try:
         question = generate_personalized_question(
@@ -107,6 +172,10 @@ def next_question(body: NextQuestionRequest):
             category=body.category,
             angle_hint=body.angle_hint,
             job_requirements_context=job_requirements_context,
+            member_spec_context=member_spec_context,
+            gap_context=gap_context,
+            interview_mode=body.mode,
+            asked_questions=body.exclude,
         )
         if question is None or question in exclude:
             question = generate_validated_question(

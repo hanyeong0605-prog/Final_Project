@@ -1,4 +1,5 @@
 import type { FaceMetrics } from "../lib/faceAnalysis";
+import type { InterviewKind, InterviewQuestionSource } from "../model/interviewConfig";
 import type {
   AnswerAnalysis,
   EvaluateReportResponse,
@@ -108,30 +109,40 @@ export async function evaluateSession(
 // 텍스트 목록 - 코퍼스 폴백/전용 경로에서 중복을 피하는 데 쓴다(router.py NextQuestionRequest
 // 설계 메모 참고). 옵션이 늘어나서 위치 인자 대신 객체 하나로 받는다.
 // 2026-08-26: jobPostingId 추가 - 사용자가 "이 공고로 준비하기"를 선택했을 때만 채워지는
-// 선택값(RAG). corpus_only=true(무료 등급)일 땐 서버가 이 값을 아예 안 보므로 굳이 안
-// 넘겨도 무방하지만, 어차피 없으면 무시되니 그냥 항상 같이 보내도 안전하다.
+// 선택값(RAG). 무료 경로일 땐 서버가 이 값을 아예 안 보므로 굳이 안 넘겨도 무방하지만,
+// 어차피 없으면 무시되니 그냥 항상 같이 보내도 안전하다.
+// 2026-08-29: corpusOnly(불리언) 대신 mode/source를 명시적으로 보낸다 - ai-server가 무료
+// 경로와 실전 경로를 서버에서도 갈라놓기 때문에(router.py NextQuestionRequest 참고), 어느
+// 경로인지는 프론트가 매번 정해서 알려줘야 한다. mode를 필수로 둔 건 의도적이다: 서버는
+// mode가 없으면 무료로 간주하므로, 안 적으면 실전 요청이 조용히 코퍼스 질문으로 바뀐다.
+// source는 실전에서 질문 근거를 고르는 값이고(spec/spec_company/company), 근거에 필요한
+// ID(memberId/jobPostingId)가 빠지면 서버가 400으로 돌려준다.
 export async function fetchNextQuestion(options: {
+  mode: InterviewKind;
+  source?: InterviewQuestionSource;
   job?: string;
   context?: string;
   category?: string;
   techSummary?: string;
   angleHint?: string;
   exclude?: string[];
-  corpusOnly?: boolean;
   jobPostingId?: number;
+  memberId?: number;
 }): Promise<NextQuestionResponse> {
   const response = await fetch("/ai-api/interview/next-question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      mode: options.mode,
+      source: options.source,
       job: options.job,
       context: options.context,
       category: options.category,
       tech_summary: options.techSummary,
       angle_hint: options.angleHint,
       exclude: options.exclude ?? [],
-      corpus_only: options.corpusOnly ?? false,
       job_posting_id: options.jobPostingId,
+      member_id: options.memberId,
     }),
   });
 
