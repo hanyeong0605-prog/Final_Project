@@ -1856,7 +1856,14 @@ export function MockInterviewPage() {
     // 2026-08-05: question "state"가 아니라 currentQuestionRef.current를 쓴다 - 위 ref
     // 선언부 주석 참고(state를 쓰면 녹음 파이프라인의 오래된 클로저 때문에 한 질문 밀려서
     // 저장되는 버그가 있었다).
-    setSessionAnswers((prev) => [...prev, { question: currentQuestionRef.current, result: analysis, faceMetrics: faceMetricsResult }]);
+    // 2026-08-29 버그 수정: currentQuestionRef.current를 업데이터 "안에서" 읽고 있었다.
+    // setState 업데이터는 호출 시점이 아니라 다음 렌더에서 실행되는데, 이 함수는 바로 아래에서
+    // 같은 ref를 다음 질문으로 덮어쓴다 - 그래서 텍스트/채팅 모드처럼 ref 갱신이 동기적으로
+    // 일어나는 경로에서는 답변이 전부 "다음 질문" 이름으로 저장되고 마지막 질문이 중복됐다
+    // (채팅 모드에서 질문 3개를 건너뛰면 자기소개 답변이 사라지고 마지막 질문이 두 번 나왔다).
+    // 카메라 모드는 ref 갱신이 카운트다운 뒤라 우연히 드러나지 않았을 뿐 같은 구조였다.
+    const answeredQuestion = currentQuestionRef.current;
+    setSessionAnswers((prev) => [...prev, { question: answeredQuestion, result: analysis, faceMetrics: faceMetricsResult }]);
     setTypedAnswer("");
 
     if (isLastQuestion) {

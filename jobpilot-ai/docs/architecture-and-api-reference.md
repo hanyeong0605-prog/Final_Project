@@ -256,7 +256,7 @@ STOMP가 아니라 순수 `WebSocketHandler` 방식입니다.
 |---|---|---|---|
 | crawler | POST | `/crawler/wanted/run` | 원티드 크롤링 실행 (백그라운드 시 내부키 필요) |
 | crawler | GET | `/crawler/wanted/status` | 크롤링 상태 조회 |
-| interview | POST | `/interview/next-question` | 다음 면접 질문 생성 (Gemini 우선, LoRA 폴백) |
+| interview | POST | `/interview/next-question` | 다음 면접 질문 생성 (`mode=practice`면 코퍼스만, `mode=real`이면 Gemini+RAG - mock-interview-tech-reference.md 참고) |
 | interview | POST | `/interview/analyze-answer` | 음성 업로드 → STT + 음성 특징 분석 |
 | interview | POST | `/interview/evaluate` | 단일 문답 AI 평가 |
 | interview | POST | `/interview/evaluate-session` | 세션 전체 통합 평가 |
