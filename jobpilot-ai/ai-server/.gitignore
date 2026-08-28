@@ -12,3 +12,9 @@ app/domain/interview/model/
 # (delivery_score_dataset.csv는 그대로 커밋 대상 - CSV라 용량 작고, 어디까지 모았는지
 # 팀이 같이 볼 수 있는 게 나음)
 ml/delivery_score_model_experimental.joblib
+
+# KOTE 원문과 학습 산출물은 재현 스크립트로 다시 만들며 Git/Docker 이미지에 넣지 않는다.
+ml/sentiment/data/
+ml/sentiment/artifacts/
+ml/sentiment/reports/*.json
+ml/sentiment/reports/*.csv
