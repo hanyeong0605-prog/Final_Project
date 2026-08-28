@@ -31,7 +31,7 @@ public class AdminMemberDeletionService {
         }
         String[] memberTables = {
                 "notification_logs", "push_subscriptions", "member_daily_visits", "member_job_events",
-                "member_oauth_accounts", "member_consents", "portfolio_documents", "resume_documents",
+                "member_oauth_accounts", "member_consents", "resume_documents",
                 "resume_entries", "member_resume_save_states", "interview_session_records", "planner_events",
                 "user_interests", "certificate_bookmarks", "credit_transactions", "payments",
                 "subscription_payments", "subscriptions", "credit_balances", "job_matches", "projects",

@@ -25,8 +25,7 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
 
     # 모의면접 질문생성(question_generator.py) 결과 검수용. 없어도 기능은 동작한다 -
-    # 검수를 그냥 건너뛰고 로컬 모델 결과를 그대로 쓴다 (fail-open). 백엔드 GitHubProjectAnalysis
-    # 기능이 쓰는 것과 같은 키를 재사용해도 된다.
+    # 검수를 그냥 건너뛰고 로컬 모델 결과를 그대로 쓴다 (fail-open).
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash-lite"
 

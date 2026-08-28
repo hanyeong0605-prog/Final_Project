@@ -3,6 +3,7 @@
 .npm-cache/
 **/dist/
 **/target/
+backend/${project.build.directory}/
 **/.venv/
 **/__pycache__/
 **/runtime-cache/
