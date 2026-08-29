@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { Crown } from "lucide-react";
-import { cancelSubscription, checkoutSubscription, getSubscriptionPlan, getSubscriptionStatus } from "../api/subscriptionApi";
+import { cancelSubscription, checkoutSubscription, getSubscriptionPlans, getSubscriptionStatus } from "../api/subscriptionApi";
 import type { SubscriptionPlan, SubscriptionStatus } from "../model/subscription.types";
 import { useAuth } from "../../auth/model/AuthContext";
 
-// 2026-08-10: 구독 기능 - 처음엔 토스 자동결제(빌링) 카드 등록창(requestBillingAuth)으로
-// 만들었는데, 그 API는 테스트 환경에서도 별도 계약이 필요해서 막혔다("테스트 결제만 되면
-// 된다" 피드백) - 그래서 계약 없이 문서 테스트 키로 바로 되는 일반 결제창(requestPayment)
-// 방식으로 바꿨다. 대신 카드가 저장되지 않아서 "구독하기"를 누르면 매번 결제창이 뜬다 -
-// 진짜 무음 자동결제가 아니라 "달마다 다시 결제해야 연장되는" 방식이다(SubscriptionService
-// 참고).
+// 2026-08-10: 처음엔 토스 자동결제(빌링) 카드 등록창(requestBillingAuth)으로 만들었는데,
+// 그 API는 테스트 환경에서도 별도 계약이 필요해서 막혔다("테스트 결제만 되면 된다" 피드백) -
+// 그래서 계약 없이 문서 테스트 키로 바로 되는 일반 결제창(requestPayment) 방식으로 바꿨다.
+//
+// 2026-08-29: 그 제약 때문에 "구독"이 실제로는 1개월 단발 결제였고, 잠기는 기능도 실전면접
+// 하나뿐이라 월정액의 명분이 약했다. 산 만큼 쓰는 이용권(1회/5회/10회)으로 바꿨다 -
+// 자동결제가 없다는 점이 이용권에서는 전혀 이상하지 않고, 유효기간도 두지 않는다.
 declare global {
   interface Window {
     TossPayments?: (clientKey: string) => {
@@ -20,22 +21,27 @@ declare global {
 
 export function SubscriptionSection() {
   const { member } = useAuth();
-  const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
   useEffect(() => {
-    void Promise.all([getSubscriptionPlan(), getSubscriptionStatus()])
+    void Promise.all([getSubscriptionPlans(), getSubscriptionStatus()])
       .then(([p, s]) => {
-        setPlan(p);
+        setPlans(p);
+        // 기본값은 가운데 상품(5회권) - 회당 단가와 부담이 균형점이다.
+        setSelectedPlanId(p[Math.min(1, p.length - 1)]?.planId ?? null);
         setStatus(s);
       })
-      .catch(() => setError("구독 정보를 불러오지 못했습니다."));
+      .catch(() => setError("이용권 정보를 불러오지 못했습니다."));
   }, []);
 
-  const handleSubscribe = async () => {
-    if (!plan) return;
+  const selectedPlan = plans.find((p) => p.planId === selectedPlanId) ?? null;
+
+  const handlePurchase = async () => {
+    if (!selectedPlan) return;
     const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
     if (!clientKey || !window.TossPayments) {
       setError("결제 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.");
@@ -44,7 +50,7 @@ export function SubscriptionSection() {
     setError("");
     setIsBusy(true);
     try {
-      const order = await checkoutSubscription();
+      const order = await checkoutSubscription(selectedPlan.planId);
       const tossPayments = window.TossPayments(clientKey);
       await tossPayments.requestPayment("카드", {
         amount: order.amount,
@@ -66,37 +72,33 @@ export function SubscriptionSection() {
   };
 
   const handleCancel = async () => {
-    if (!confirm("구독을 해지할까요? 해지 즉시 프리미엄 기능 이용이 중단됩니다.")) return;
+    if (!confirm("남은 이용권을 모두 버리고 해지할까요? 이 동작은 되돌릴 수 없습니다.")) return;
     setError("");
     setIsBusy(true);
     try {
       const s = await cancelSubscription();
       setStatus(s);
     } catch {
-      setError("구독 해지 중 오류가 발생했습니다.");
+      setError("해지 중 오류가 발생했습니다.");
     } finally {
       setIsBusy(false);
     }
   };
 
-  const isSubscribed = status?.subscribed ?? false;
+  const remaining = status?.remainingSessions ?? 0;
   // 2026-08-13: admin=true는 "관리자라 결제 없이 무제한 이용 중"인 placeholder 상태에서만
-  // 온다(SubscriptionService.toResponse는 실제 구독이면 항상 admin:false로 내려준다) -
-  // 그래서 이 값으로 "관리자가 아직 테스트 결제를 해본 적 없는 상태"를 구분할 수 있다.
-  // 관리자가 실제로 구독해지/구독하기 버튼을 눌러 테스트해볼 수 있도록, placeholder일 때는
-  // 진짜 구독 중이 아닌 것처럼 구독하기 버튼도 함께 보여준다.
+  // 온다(SubscriptionService.toResponse는 실제 이용권이면 항상 admin:false로 내려준다).
   const isAdminPlaceholder = status?.admin ?? false;
-  const hasRealSubscription = isSubscribed && !isAdminPlaceholder;
 
   return (
     <section className="panel subscription-section">
       <div className="panel-title">
         <div>
-          <h2><Crown size={16} style={{ verticalAlign: "-3px", marginRight: "6px" }} />구독</h2>
-          <p>모의면접 AI 분석 등 유료 기능을 무제한으로 이용합니다.</p>
+          <h2><Crown size={16} style={{ verticalAlign: "-3px", marginRight: "6px" }} />실전면접 이용권</h2>
+          <p>산 만큼 쓰는 횟수제예요. 유효기간이 없어서 남은 횟수는 그대로 유지됩니다.</p>
         </div>
-        <span className={`subscription-badge${isSubscribed ? " active" : ""}`}>
-          {hasRealSubscription ? "구독 중" : isAdminPlaceholder ? "관리자(무제한)" : "미구독"}
+        <span className={`subscription-badge${remaining > 0 || isAdminPlaceholder ? " active" : ""}`}>
+          {isAdminPlaceholder ? "관리자(무제한)" : `${remaining}회 남음`}
         </span>
       </div>
 
@@ -104,34 +106,50 @@ export function SubscriptionSection() {
 
       {isAdminPlaceholder && (
         <p className="account-alert" style={{ marginBottom: 12 }}>
-          관리자 계정은 결제 없이 모든 기능을 이용할 수 있어요. 아래 버튼으로 실제 구독하기·구독
-          해지 흐름을 테스트해볼 수 있습니다(토스 테스트 키로 진행되어 실제 결제는 되지 않아요).
+          관리자 계정은 결제 없이 모든 기능을 이용할 수 있어요. 아래에서 실제 구매 흐름을
+          테스트해볼 수 있습니다(토스 테스트 키로 진행되어 실제 결제는 되지 않아요).
         </p>
       )}
 
-      {hasRealSubscription ? (
-        <>
-          <div className="subscription-summary">
-            <div><span>요금제</span><strong>{status?.displayName}</strong></div>
-            <div><span>월 결제 금액</span><strong>{status?.priceWon.toLocaleString()}원</strong></div>
-            <div><span>이용 만료일</span><strong>{status?.currentPeriodEnd?.slice(0, 10) ?? "-"}</strong></div>
-          </div>
-          <button className="danger-button" disabled={isBusy} onClick={() => void handleCancel()}>
-            {isBusy ? "처리 중..." : "구독 해지"}
+      {!isAdminPlaceholder && (
+        <p className="account-alert" style={{ marginBottom: 12 }}>
+          매달 <strong>무료 1회</strong>가 지급돼요. 모의면접(코퍼스 질문)은 이용권 없이 계속 이용할 수 있습니다.
+        </p>
+      )}
+
+      <div className="interview-option-row" style={{ marginBottom: 14 }}>
+        {plans.map((plan) => (
+          <button
+            key={plan.planId}
+            type="button"
+            className={`interview-option-chip${selectedPlanId === plan.planId ? " active" : ""}`}
+            style={{ flexDirection: "column", gap: 2, padding: "12px 10px" }}
+            onClick={() => setSelectedPlanId(plan.planId)}
+          >
+            <strong>{plan.sessions}회</strong>
+            <span style={{ fontSize: 12 }}>{plan.priceWon.toLocaleString()}원</span>
+            <span style={{ fontSize: 11, opacity: 0.75 }}>회당 {Math.round(plan.priceWon / plan.sessions).toLocaleString()}원</span>
           </button>
-        </>
-      ) : (
-        <>
-          {plan && (
-            <div className="subscription-summary">
-              <div><span>요금제</span><strong>{plan.displayName}</strong></div>
-              <div><span>월 결제 금액</span><strong>{plan.priceWon.toLocaleString()}원</strong></div>
-            </div>
-          )}
-          <button className="primary-button" disabled={!plan || isBusy} onClick={() => void handleSubscribe()}>
-            {isBusy ? "결제창 여는 중..." : isAdminPlaceholder ? "구독하기(테스트)" : "구독하기"}
-          </button>
-        </>
+        ))}
+      </div>
+
+      <button className="primary-button" disabled={!selectedPlan || isBusy} onClick={() => void handlePurchase()}>
+        {isBusy
+          ? "결제창 여는 중..."
+          : selectedPlan
+            ? `${selectedPlan.sessions}회 이용권 구매 (${selectedPlan.priceWon.toLocaleString()}원)`
+            : "이용권 구매"}
+      </button>
+
+      {remaining > 0 && !isAdminPlaceholder && (
+        <button
+          className="danger-button"
+          style={{ marginTop: 10 }}
+          disabled={isBusy}
+          onClick={() => void handleCancel()}
+        >
+          {isBusy ? "처리 중..." : "이용권 해지"}
+        </button>
       )}
     </section>
   );

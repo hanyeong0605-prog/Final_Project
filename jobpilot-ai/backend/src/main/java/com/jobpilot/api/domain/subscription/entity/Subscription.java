@@ -48,6 +48,16 @@ public class Subscription {
     @Column(name = "next_billing_at")
     private LocalDateTime nextBillingAt;
 
+    // 2026-08-29: 이용권(횟수) 전환 - 아래 두 필드가 실제 이용 자격을 결정한다.
+    // status/currentPeriod*/nextBillingAt은 기간 구독 시절의 흔적이라 더는 자격 판정에
+    // 쓰지 않는다(결제 이력과의 호환을 위해 컬럼만 남겨둔다).
+    @Column(name = "remaining_sessions", nullable = false)
+    private int remainingSessions;
+
+    /** 무료 월 1회를 지급한 달(yyyy-MM). 별도 카운터 테이블 없이 "월 1회"를 만드는 장치. */
+    @Column(name = "free_granted_month", length = 7)
+    private String freeGrantedMonth;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -68,18 +78,47 @@ public class Subscription {
         this.createdAt = LocalDateTime.now();
     }
 
-    /** 결제 성공 직후 호출 - 신규 구독/재구독/수동 연장 모두 이 경로를 탄다(항상 지금부터 1개월). */
-    public void activate(String planId, int priceWon) {
+    /**
+     * 결제 성공 직후 호출 - 산 만큼 횟수를 더한다(기존 잔여분은 유지된다).
+     *
+     * 2026-08-29: 예전에는 "지금부터 1개월"로 기간을 잡았는데, 이용권에는 유효기간을 두지
+     * 않기로 했다 - 산 걸 계속 쓸 수 있는 쪽이 단순하고, 만료 자동해지 스케줄러
+     * (SubscriptionService.expireOverdueSubscriptions)가 잔여 횟수가 남은 이용권을
+     * 해지해버리는 사고도 막는다. nextBillingAt을 null로 두면 그 스케줄러의 조회 조건
+     * (findByStatusAndNextBillingAtLessThanEqual)에 애초에 걸리지 않는다.
+     */
+    public void addSessions(String planId, int priceWon, int sessions) {
         this.planId = planId;
         this.priceWon = priceWon;
         this.status = SubscriptionStatus.ACTIVE;
+        this.remainingSessions += sessions;
         this.currentPeriodStart = LocalDateTime.now();
-        this.currentPeriodEnd = this.currentPeriodStart.plusMonths(1);
-        this.nextBillingAt = this.currentPeriodEnd;
+        this.currentPeriodEnd = null;
+        this.nextBillingAt = null;
         this.canceledAt = null;
     }
 
-    /** 사용자가 직접 해지, 또는 결제 기간이 지나도록 재결제가 없으면 스케줄러가 호출 - 즉시 해지. */
+    /**
+     * 이번 달 무료 1회를 아직 안 받았으면 지급한다. 지급했으면 true.
+     *
+     * 무료 사용자도 실전면접이 뭔지 한 번은 써봐야 이용권을 살 마음이 생긴다. 매달 1회씩
+     * 주면 다시 돌아올 이유도 생긴다.
+     */
+    public boolean grantMonthlyFreeIfEligible(String month) {
+        if (month.equals(this.freeGrantedMonth)) return false;
+        this.freeGrantedMonth = month;
+        this.remainingSessions += 1;
+        return true;
+    }
+
+    /** 실전면접 한 세션을 차감한다. 남은 횟수가 없으면 false(호출부가 구매를 안내한다). */
+    public boolean consumeSession() {
+        if (this.remainingSessions <= 0) return false;
+        this.remainingSessions -= 1;
+        return true;
+    }
+
+    /** 사용자가 직접 해지 - 이용권에는 정기결제가 없어서 실질적으로는 잔여 횟수를 버리는 것이다. */
     public void cancel() {
         this.status = SubscriptionStatus.CANCELED;
         this.canceledAt = LocalDateTime.now();
@@ -98,4 +137,6 @@ public class Subscription {
     public LocalDateTime getNextBillingAt() { return nextBillingAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getCanceledAt() { return canceledAt; }
+    public int getRemainingSessions() { return remainingSessions; }
+    public String getFreeGrantedMonth() { return freeGrantedMonth; }
 }

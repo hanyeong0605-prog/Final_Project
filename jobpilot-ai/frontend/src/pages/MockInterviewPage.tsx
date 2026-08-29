@@ -33,7 +33,7 @@ import { analyzeAnswer, evaluateSession, fetchNextQuestion, fetchTtsVoices, synt
 import { useAuth } from "../features/auth/model/AuthContext";
 import { getCareerProfile } from "../features/profile/api/careerProfileApi";
 import { getJobPostings } from "../features/job-postings/api/jobPostingsApi";
-import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
+import { consumeInterviewSession, getSubscriptionStatus, notifyInterviewPassChanged } from "../features/subscription/api/subscriptionApi";
 import { saveInterviewSessionRecord } from "../features/timeline/api/timelineApi";
 import { FACE_OVAL_INDICES, buildCalibration, loadFaceLandmarker, sampleFrame, summarizeFaceFrames } from "../features/mock-interview/lib/faceAnalysis";
 import type { FaceCalibration, FaceFrameSample, FaceMetrics } from "../features/mock-interview/lib/faceAnalysis";
@@ -801,6 +801,9 @@ export function MockInterviewPage() {
   const [careerJob, setCareerJob] = useState("");
   const [careerTechSummary, setCareerTechSummary] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  // 2026-08-29: 이용권(횟수) 전환 - subscribed는 "지금 쓸 수 있는가"고, 실제 남은 횟수는
+  // 이 값이다. 세션을 시작해 질문 조립에 성공하면 서버가 1 차감하고 새 잔액을 돌려준다.
+  const [remainingSessions, setRemainingSessions] = useState(0);
   // 2026-08-29: 구독 확인이 끝나기 전에는 실전면접을 고르지도, 시작하지도 못하게 한다
   // (설계 문서 "오류 및 경계 처리"). subscribed의 초기값이 false라서, 확인 중과 "비구독
   // 확정"을 구분하지 않으면 구독자에게 잠깐 구독 안내 모달이 뜨는 일이 생긴다.
@@ -808,7 +811,10 @@ export function MockInterviewPage() {
 
   useEffect(() => {
     void getSubscriptionStatus()
-      .then((status) => setSubscribed(status.subscribed))
+      .then((status) => {
+        setSubscribed(status.subscribed);
+        setRemainingSessions(status.remainingSessions);
+      })
       .catch(() => setSubscribed(false))
       .finally(() => setSubscriptionChecked(true));
   }, []);
@@ -1175,7 +1181,7 @@ export function MockInterviewPage() {
     const companyEnabled = interviewKind === "real" && realQuestionSource !== "spec";
     const usesTechSummary = interviewKind === "real" && realQuestionSource !== "company";
 
-    return buildInterviewQuestions(
+    const questions = await buildInterviewQuestions(
       {
         kind: interviewKind,
         questionCount,
@@ -1189,13 +1195,28 @@ export function MockInterviewPage() {
       },
       { fetchQuestion: fetchNextQuestion },
     );
+
+    // 2026-08-29: 이용권 차감은 질문 조립이 성공한 "직후"다. 시작 버튼 시점에 차감하면
+    // Gemini가 전부 실패해 질문을 못 만들었는데도 횟수가 날아가고, 세션이 끝날 때 차감하면
+    // 질문 생성 비용은 이미 다 나갔는데 중간에 나간 사용자가 공짜가 된다.
+    // 무료 모의면접(코퍼스)은 차감하지 않는다.
+    if (interviewKind === "real") {
+      const status = await consumeInterviewSession();
+      setSubscribed(status.subscribed);
+      setRemainingSessions(status.remainingSessions);
+      // 사이드바 배지(AppShell)도 같은 숫자를 들고 있으므로 바뀐 걸 알려준다.
+      notifyInterviewPassChanged();
+    }
+    return questions;
   };
 
   // 2026-08-29: 질문을 충분히 확보하지 못했을 때의 공통 처리 - 중복 질문으로 세션을 채우지
   // 않기로 했으므로(설계 문서 "오류 및 경계 처리") 여기서 멈추고 다시 시도하게 안내한다.
   const handleQuestionBuildFailure = (reason: unknown) => {
+    // 2026-08-29: 이용권 차감 실패("남은 실전면접 횟수가 없습니다")처럼 서버가 사용자에게
+    // 그대로 보여줄 문구를 주는 경우가 있어서, 메시지가 있으면 그대로 쓴다.
     setErrorMessage(
-      reason instanceof InterviewQuestionBuildError
+      reason instanceof Error && reason.message
         ? reason.message
         : "질문을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.",
     );
@@ -2250,6 +2271,7 @@ export function MockInterviewPage() {
                 }}
                 subscribed={subscribed}
                 subscriptionChecked={subscriptionChecked}
+                remainingSessions={remainingSessions}
                 onSubscriptionRequired={() => setSubscribeNoticeOpen(true)}
                 realSource={realQuestionSource}
                 onRealSourceChange={setRealQuestionSource}
@@ -2759,11 +2781,15 @@ export function MockInterviewPage() {
       {subscribeNoticeOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setSubscribeNoticeOpen(false)}>
           <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="subscription-interview-title" onMouseDown={(event) => event.stopPropagation()}>
-            <h3 id="subscription-interview-title">구독 회원 전용 서비스</h3>
-            <p>실전면접은 스펙과 채용공고를 반영해 맞춤 질문을 생성하는 구독 회원 전용 기능입니다.</p>
+            <h3 id="subscription-interview-title">이용권이 필요해요</h3>
+            <p>
+              실전면접은 스펙과 채용공고를 반영해 맞춤 질문을 만드는 기능이라 이용권 1회가 필요합니다.
+              매달 무료 1회가 지급되고, 이번 달 무료 횟수는 이미 사용하셨어요. 모의면접은 이용권 없이
+              계속 이용할 수 있습니다.
+            </p>
             <div className="form-actions">
               <button type="button" className="outline-button" onClick={() => setSubscribeNoticeOpen(false)}>닫기</button>
-              <button type="button" className="primary-button" onClick={() => navigate('/account')}>구독하러 가기</button>
+              <button type="button" className="primary-button" onClick={() => navigate('/account')}>이용권 구매하기</button>
             </div>
           </div>
         </div>

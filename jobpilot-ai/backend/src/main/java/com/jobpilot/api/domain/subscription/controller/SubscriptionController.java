@@ -1,5 +1,6 @@
 package com.jobpilot.api.domain.subscription.controller;
 
+import com.jobpilot.api.domain.subscription.dto.SubscriptionCheckoutRequest;
 import com.jobpilot.api.domain.subscription.dto.SubscriptionCheckoutResponse;
 import com.jobpilot.api.domain.subscription.dto.SubscriptionConfirmRequest;
 import com.jobpilot.api.domain.subscription.dto.SubscriptionPlanResponse;
@@ -7,6 +8,7 @@ import com.jobpilot.api.domain.subscription.dto.SubscriptionStatusResponse;
 import com.jobpilot.api.domain.subscription.service.SubscriptionService;
 import com.jobpilot.api.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,9 +23,10 @@ public class SubscriptionController {
         this.subscriptionService = subscriptionService;
     }
 
-    @GetMapping("/plan")
-    public SubscriptionPlanResponse plan() {
-        return subscriptionService.getPlan();
+    // 2026-08-29: 이용권 상품이 1회/5회/10회 세 개로 늘어서 목록으로 내려준다.
+    @GetMapping("/plans")
+    public List<SubscriptionPlanResponse> plans() {
+        return subscriptionService.getPlans();
     }
 
     @GetMapping
@@ -32,8 +35,14 @@ public class SubscriptionController {
     }
 
     @PostMapping("/checkout")
-    public SubscriptionCheckoutResponse checkout(Authentication auth) {
-        return subscriptionService.checkout(AuthenticatedMember.id(auth));
+    public SubscriptionCheckoutResponse checkout(Authentication auth, @RequestBody(required = false) SubscriptionCheckoutRequest request) {
+        return subscriptionService.checkout(AuthenticatedMember.id(auth), request == null ? null : request.planId());
+    }
+
+    /** 실전면접 세션 하나를 차감한다 - 프론트가 질문 조립에 성공한 직후 호출한다. */
+    @PostMapping("/consume")
+    public SubscriptionStatusResponse consume(Authentication auth) {
+        return subscriptionService.consumeSession(AuthenticatedMember.id(auth));
     }
 
     @PostMapping("/confirm")

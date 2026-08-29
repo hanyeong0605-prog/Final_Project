@@ -19,10 +19,13 @@ const REAL_SOURCE_OPTIONS: [InterviewQuestionSource, string][] = [
 type Props = {
   kind: InterviewKind;
   onKindChange: (kind: InterviewKind) => void;
-  /** 구독 여부. 확인이 끝나기 전(subscriptionChecked=false)에는 실전을 고를 수 없다. */
+  /** 실전면접을 지금 쓸 수 있는지(이용권 잔여 > 0 또는 관리자). 확인이 끝나기 전
+   *  (subscriptionChecked=false)에는 실전을 고를 수 없다. */
   subscribed: boolean;
   subscriptionChecked: boolean;
-  /** 비구독자가 실전을 눌렀을 때. 설정값은 그대로 두고 안내 모달만 연다. */
+  /** 남은 이용권 횟수 - 실전 모드에서 안내로 보여준다. */
+  remainingSessions?: number;
+  /** 이용권이 없는 사용자가 실전을 눌렀을 때. 설정값은 그대로 두고 안내 모달만 연다. */
   onSubscriptionRequired: () => void;
   realSource: InterviewQuestionSource;
   onRealSourceChange: (source: InterviewQuestionSource) => void;
@@ -40,6 +43,7 @@ export function InterviewSetupPanel({
   onKindChange,
   subscribed,
   subscriptionChecked,
+  remainingSessions,
   onSubscriptionRequired,
   realSource,
   onRealSourceChange,
@@ -109,6 +113,13 @@ export function InterviewSetupPanel({
           )}
           {needsCompany && (
             <p className="account-alert">아래 &quot;준비 중인 공고&quot;에서 회사를 하나 골라주세요.</p>
+          )}
+          {/* 2026-08-29: 이용권은 시작해서 질문이 만들어진 뒤에 1회 차감된다 - 시작 전에
+              몇 회 남았는지 보여줘야 사용자가 예상할 수 있다. */}
+          {remainingSessions !== undefined && (
+            <p className="interview-question-count-hint">
+              이용권 {remainingSessions}회 남음 · 시작하면 1회가 차감돼요
+            </p>
           )}
         </fieldset>
       )}
