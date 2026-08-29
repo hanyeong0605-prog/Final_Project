@@ -1,0 +1,13 @@
+{
+  "model_version": "kote-baseline-20260828T184120Z",
+  "model_type": "tfidf-logistic-ovr",
+  "source_commit": "cafd2c3f54a6f4b25ac74eaa02a2e76c3ef8c977",
+  "trained_at": "2026-08-28T18:41:20.450887+00:00",
+  "label_count": 44,
+  "sklearn_version": "1.5.2",
+  "split_counts": {
+    "train": 40000,
+    "validation": 5000
+  },
+  "threshold_selection": "validation-label-f1-v1"
+}

@@ -9,6 +9,7 @@ presentation policy and is never described as KOTE's original ground truth.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Mapping
@@ -105,7 +106,7 @@ def aggregate_polarity(
     unknown = set(scores) - set(KOTE_LABELS)
     if unknown:
         raise ValueError(f"unknown KOTE labels: {sorted(unknown)}")
-    if any(value < 0.0 or value > 1.0 for value in scores.values()):
+    if any(not math.isfinite(value) or value < 0.0 or value > 1.0 for value in scores.values()):
         raise ValueError("emotion scores must be between 0 and 1")
 
     selected_policy = policy or load_polarity_policy()
@@ -116,7 +117,9 @@ def aggregate_polarity(
     positive = highest(selected_policy.positive)
     negative = highest(selected_policy.negative)
     neutral = max(highest(selected_policy.neutral), highest(selected_policy.contextual))
-    if positive >= 0.40 and negative >= 0.40:
+    # Independent one-vs-rest scores are commonly high at the same time. MIXED therefore
+    # requires a small margin, instead of collapsing every text with two scores over .40.
+    if positive >= 0.40 and negative >= 0.40 and abs(positive - negative) < 0.10:
         label: Literal["POSITIVE", "NEUTRAL", "NEGATIVE", "MIXED"] = "MIXED"
     elif positive > max(neutral, negative):
         label = "POSITIVE"

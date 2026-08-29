@@ -1,0 +1,13 @@
+import { deleteJson, getJson, postJson, putJson } from "../../../api/httpClient";
+export type Board="FREE"|"QNA";
+export type Post={id:number;author:string;boardType:Board;title:string;body:string;serviceFeedback:boolean;privatePost:boolean;views:number;likes:number;liked:boolean;mine:boolean;createdAt:string};
+export type Comment={id:number;author:string;parentId?:number;body:string;likes:number;liked:boolean;mine:boolean;createdAt:string};
+export type Input={boardType:Board;title:string;body:string;serviceFeedback:boolean;privatePost:boolean};
+const b="/api/v1/community";
+export const list=(t:Board,q="",sort="RECENT")=>getJson<Post[]>(`${b}/posts?boardType=${t}&size=100&query=${encodeURIComponent(q)}&sort=${sort}`);
+export const detail=(id:number)=>getJson<Post>(`${b}/posts/${id}`);
+export const create=(i:Input)=>postJson<Post>(`${b}/posts`,i);export const update=(id:number,i:Input)=>putJson<Post>(`${b}/posts/${id}`,i);export const remove=(id:number)=>deleteJson(`${b}/posts/${id}`);
+export const like=(id:number)=>postJson<{liked:boolean}>(`${b}/posts/${id}/like`,{});export const comments=(id:number)=>getJson<Comment[]>(`${b}/posts/${id}/comments`);
+export const comment=(id:number,body:string,parentId?:number)=>postJson<Comment>(`${b}/posts/${id}/comments`,{body,parentId});export const updateComment=(id:number,body:string)=>putJson<Comment>(`${b}/comments/${id}`,{body,parentId:null});
+export const removeComment=(id:number)=>deleteJson(`${b}/comments/${id}`);export const likeComment=(id:number)=>postJson<{liked:boolean}>(`${b}/comments/${id}/like`,{});
+export const report=(targetType:"POST"|"COMMENT",targetId:number,reason:string)=>postJson<void>(`${b}/reports`,{targetType,targetId,reason});

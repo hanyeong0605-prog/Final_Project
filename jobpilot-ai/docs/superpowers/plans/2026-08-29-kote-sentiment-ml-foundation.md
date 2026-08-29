@@ -12,6 +12,27 @@
 
 ## Global Constraints
 
+### 실행 체크포인트 — 2026-08-29 재개
+
+- Task 1~3: 기존 커밋 62d3ad2 / aec5ac1 / e1dc3e3에 반영됨.
+- Task 4: 공식 학습 40,000건·검증 5,000건 기준 모델 생성 완료.
+  모델 버전 kote-baseline-20260828T184120Z, artifact는 Git 제외 경로에 보관.
+- Task 5: 테스트 5,000건 평가 완료. Macro-F1 0.491157, Micro-F1 0.568767.
+  JSON/CSV/Markdown 보고서와 MODEL_CARD.md 생성. 이 값을 일반 정확도라고 표현하지 않음.
+- Task 6: Transformer 경로 및 GPU 학습 미구현. 모델 비교·운영 선정도 미완료.
+- Task 7~8: 기준 모델 추론 서비스·내부 API 구현. 모델 부재/손상 fail-clear,
+  인증키·입력 제한·배치 순서·실제 artifact 추론 테스트 통과.
+  Transformer가 없어도 독립 검증할 수 있어 이 작업들을 먼저 진행함.
+- Task 9: README 작성, 기존 Docker 컨텍스트의 ml 제외 확인.
+  볼륨 연결·CI 추가·운영 빌드·메모리 측정은 미완료.
+- 회귀 검증: tests/에서 187 passed, 기존 ffmpeg 통합 테스트 1 deselected.
+  ffmpeg 단독 권한 확장 실행은 승인 시스템 사용량 제한으로 거절되어 미검증.
+  기존 Pydantic Config 경고 1건 유지. compileall과 git diff --check 통과.
+- 이번 재개분은 작업공간에 저장되어 있으며 아직 커밋/푸시/배포하지 않음.
+- 기존 사용자 변경 application-local.yml, jobpilot-schema.dbml 및 이미지/도구 파일은 유지.
+- 극성 값은 독립 점수이며 합계 1이 아님. 후속 UI에서 백분율로 직접 표시하지 않을 것.
+
+
 - Work only on branch `김한영브뤤취학원` and preserve unrelated local changes.
 - KOTE is `PUBLIC_RESEARCH`; synthetic company/review data is never training ground truth without human validation.
 - Preserve KOTE's official 40,000/5,000/5,000 train/validation/test split.

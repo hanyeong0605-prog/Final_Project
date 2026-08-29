@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     # 백엔드 POST /api/v1/job-postings/ingest 호출 인증용 (InternalApiKeyFilter 참고).
     # 루트 .env의 INTERNAL_API_KEY와 같은 값이어야 한다.
     internal_api_key: str = ""
+    # Optional read-only artifact mount. No model => only sentiment returns unavailable.
+    sentiment_model_dir: str = "/models/sentiment"
 
     # 모의면접 질문생성(question_generator.py) 결과 검수용. 없어도 기능은 동작한다 -
     # 검수를 그냥 건너뛰고 로컬 모델 결과를 그대로 쓴다 (fail-open).

@@ -2,7 +2,14 @@
 .venv
 __pycache__
 *.pyc
-ml
+ml/**
+!ml/sentiment/
+!ml/sentiment/artifacts/
+!ml/sentiment/artifacts/kote-baseline-v1/
+!ml/sentiment/artifacts/kote-baseline-v1/model.joblib
+!ml/sentiment/artifacts/kote-baseline-v1/labels.json
+!ml/sentiment/artifacts/kote-baseline-v1/metadata.json
+!ml/sentiment/artifacts/kote-baseline-v1/thresholds.json
 app.zip
 tests
 .git

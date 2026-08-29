@@ -11,6 +11,7 @@ from app.domain.interview.router import router as interview_router
 from app.domain.matching.router import router as matching_router
 from app.domain.resume.router import router as resume_router
 from app.domain.timeline.router import router as timeline_router
+from app.domain.sentiment.router import router as sentiment_router
 
 
 @asynccontextmanager
@@ -43,6 +44,7 @@ app.include_router(assistant_router, prefix="/assistant", tags=["assistant"])
 app.include_router(timeline_router, prefix="/timeline", tags=["timeline"])
 app.include_router(certificate_router, prefix="/certificates", tags=["certificates"])
 app.include_router(matching_router, prefix="/matching", tags=["matching"])
+app.include_router(sentiment_router, prefix="/sentiment", tags=["sentiment"])
 
 
 @app.get("/health")

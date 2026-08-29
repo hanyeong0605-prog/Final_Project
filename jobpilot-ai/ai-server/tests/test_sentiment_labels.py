@@ -19,7 +19,7 @@ def test_default_policy_covers_every_kote_label_exactly_once():
     assert len(assigned) == 44
     assert len(set(assigned)) == 44
     assert set(assigned) == set(KOTE_LABELS)
-    assert policy.version == "kote-polarity-v1"
+    assert policy.version == "kote-polarity-v1.1"
 
 
 def test_policy_rejects_duplicate_and_missing_labels(tmp_path):
@@ -72,3 +72,16 @@ def test_unknown_score_label_is_rejected():
 
     with pytest.raises(ValueError, match="unknown KOTE labels"):
         aggregate_polarity({"만족": 0.9})
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -0.1, 1.1])
+def test_nonfinite_or_out_of_range_score_is_rejected(value):
+    from app.domain.sentiment.labels import aggregate_polarity
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        aggregate_polarity({"기쁨": value})
+
+
+def test_high_independent_scores_use_margin_for_mixed():
+    from app.domain.sentiment.labels import aggregate_polarity
+    assert aggregate_polarity({"기쁨": .80, "화남/분노": .75}).label == "MIXED"
+    assert aggregate_polarity({"기쁨": .80, "화남/분노": .60}).label == "POSITIVE"

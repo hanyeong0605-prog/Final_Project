@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 
     && pip install --no-cache-dir "setuptools<81" wheel \
     && pip install --no-cache-dir --no-build-isolation -r requirements.txt
 COPY app ./app
+# Immutable, evaluated KOTE artifact. Raw/public datasets and training reports remain excluded.
+COPY ml/sentiment/artifacts/kote-baseline-v1 /models/sentiment
+ENV SENTIMENT_MODEL_DIR=/models/sentiment
 
 EXPOSE 8001
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

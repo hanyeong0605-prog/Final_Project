@@ -96,6 +96,14 @@ app:
   ai-server:
     # 스프링이 크롤링을 트리거할 때 부르는 ai-server 주소. AiServerCrawlClient 참고.
     base-url: ${AI_SERVER_BASE_URL:http://localhost:8001}
+  sentiment:
+    worker:
+      enabled: ${APP_SENTIMENT_WORKER_ENABLED:false}
+  review-demo:
+    # One-shot idempotent import. Enable only after V43 is applied; stable keys prevent duplicates.
+    seed-enabled: ${APP_REVIEW_DEMO_SEED_ENABLED:false}
+    # Optional approved presentation account; 0 keeps demo data unowned.
+    employer-id: ${APP_REVIEW_DEMO_EMPLOYER_ID:0}
   face-verification:
     # Internal only: the browser never calls this service directly.
     base-url: ${FACE_VERIFICATION_BASE_URL:http://localhost:8000}

@@ -10,6 +10,7 @@ import {
   Sparkles,
   Target,
   UserRound,
+  MessageSquareText,
 } from "lucide-react";
 
 export interface NavigationItem {
@@ -42,6 +43,7 @@ export const navigationGroups: NavigationGroup[] = [
       { path: "/job-postings", label: "전체 채용공고", icon: BriefcaseBusiness },
       { path: "/locationjobs", label: "우리 동네 채용공고", icon: MapPin },
       { path: "/jobs", label: "맞춤 채용공고", icon: Target },
+      { path: "/company-reviews", label: "가상기업 리뷰", icon: MessageSquareText },
     ],
   },
   {
@@ -61,6 +63,7 @@ export const navigationGroups: NavigationGroup[] = [
     ],
   },
   { path: "/account", label: "마이페이지", icon: UserRound },
+  { path: "/community", label: "커뮤니티", icon: MessageSquareText },
 ];
 
 export const utilityNavigationItems: NavigationItem[] = [

@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, LayoutDashboard, LogOut, Menu, UserRound, X } from "lucide-react";
+import { BriefcaseBusiness, LayoutDashboard, LogOut, Menu, UserRound, X, MessageSquareText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
@@ -7,6 +7,7 @@ import { EmployerNotificationBell } from "../features/employer/components/Employ
 const employerNavigation = [
   { path: "/employer/dashboard", label: "대시보드", icon: LayoutDashboard },
   { path: "/employer/postings", label: "공고 관리", icon: BriefcaseBusiness },
+  { path: "/employer/reviews", label: "공고 리뷰 분석", icon: MessageSquareText },
 ];
 
 export function EmployerShell() {

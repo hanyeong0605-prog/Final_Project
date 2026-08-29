@@ -31,6 +31,8 @@ jobs:
               - 'jobpilot-ai/frontend/**'
             backend:
               - 'jobpilot-ai/backend/**'
+            ai-server:
+              - 'jobpilot-ai/ai-server/**'
       - uses: actions/setup-node@v4
         if: steps.filter.outputs.frontend == 'true'
         with:
@@ -52,6 +54,12 @@ jobs:
         if: steps.filter.outputs.backend == 'true'
         working-directory: jobpilot-ai/backend
         run: mvn -B test
+      - name: Build AI image and verify packaged sentiment model
+        if: steps.filter.outputs.ai-server == 'true'
+        working-directory: jobpilot-ai/ai-server
+        run: |
+          docker build -t jobpilot-ai-verify .
+          docker run --rm jobpilot-ai-verify python -c "from app.domain.sentiment.service import get_sentiment_service; assert get_sentiment_service().status().state == 'READY'"
 
   deploy:
     name: Update EC2 containers
@@ -103,22 +111,25 @@ jobs:
               sudo docker image prune --force
             fi
 
+            # The backend workers call the sentiment API as soon as they start,
+            # so make the compatible AI API ready before migrating/restarting
+            # the backend. The queue still retries transient rollout failures.
+            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(ai-server/|docker-compose.prod.yml$)'; then
+                $COMPOSE build ai-server
+                $COMPOSE up -d --no-deps ai-server
+            fi
+
+            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
+                $COMPOSE build backend
+                $COMPOSE up -d --no-deps backend
+            fi
+
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
                 $COMPOSE build frontend
                 $COMPOSE up -d --no-deps frontend
             fi
 
-            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/backend/'; then
-                $COMPOSE build backend
-                $COMPOSE up -d --no-deps backend
-            fi
-
-            # AI와 워드클라우드는 자기 소스 폴더가 변경된 경우에만 건드린다.
-            # frontend/backend 또는 Compose 파일만 바뀐 배포에서는 절대 재빌드·재기동하지 않는다.
-            if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ai-server/'; then
-                $COMPOSE build ai-server
-                $COMPOSE up -d --no-deps ai-server
-            fi
+            # Wordcloud is independent and is only rebuilt for its own source.
 
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/ml-project/'; then
                 $COMPOSE build wordcloud-server
