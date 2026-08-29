@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Bookmark, BriefcaseBusiness, Building2, CalendarDays, Eye, ExternalLink, MapPin, Target } from "lucide-react";
+import { ArrowLeft, Bookmark, BriefcaseBusiness, Building2, CalendarDays, Eye, ExternalLink, Landmark, MapPin, Target } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { getJobPosting } from "../features/job-postings/api/jobPostingsApi";
 import type { JobPostingDetail } from "../features/job-postings/model/jobPosting.types";
@@ -8,6 +8,7 @@ import { JobMatchDrawer } from "../features/jobs/components/JobMatchDrawer";
 import type { JobMatch } from "../features/jobs/model/job.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 import { useInterests } from "../features/interests/model/InterestContext";
+import { CompanyFinanceSection } from "../features/company-finance/components/CompanyFinanceSection";
 
 function hasText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -101,6 +102,7 @@ export function JobPostingDetailPage() {
       </div>}
       <div className="job-detail-actions">
         <a className="primary-button job-source-link" href={posting.sourceUrl} target="_blank" rel="noreferrer">공고 원문 보기<ExternalLink size={15} /></a>
+        <a className="outline-button job-detail-finance" href="#company-finance" onClick={(event) => { event.preventDefault(); document.getElementById("company-finance")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><Landmark size={15} />기업 재무 분석</a>
         <button className="outline-button job-detail-match" type="button" onClick={() => void openMatch()} disabled={matching}><Target size={15} />{matching ? "매칭 분석 중..." : "내 역량과 매칭"}</button>
         <button className={interested ? "outline-button job-detail-bookmark active" : "outline-button job-detail-bookmark"} type="button" onClick={() => void toggleInterest(posting.id)}><Bookmark size={15} fill={interested ? "currentColor" : "none"} />{interested ? "찜한 공고" : "공고 찜하기"}</button>
       </div>
@@ -109,6 +111,8 @@ export function JobPostingDetailPage() {
     </section>
 
     {images.length > 0 && <section className="job-detail-section"><div className="job-detail-section-heading"><span className="eyebrow">COMPANY IMAGES</span><h2>공고 이미지</h2></div><div className="job-image-gallery">{images.map((url) => <img key={url} src={url} alt={`${posting.companyName ?? "회사"} 공고 이미지`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />)}</div></section>}
+
+    <CompanyFinanceSection postingId={posting.id} />
 
     {(hasText(posting.description) || details.length > 0) && <div className="job-detail-layout">
       {hasText(posting.description) && <section className="job-detail-section job-description"><div className="job-detail-section-heading"><span className="eyebrow">JOB DESCRIPTION</span><h2>공고 상세</h2></div><p>{posting.description}</p></section>}
