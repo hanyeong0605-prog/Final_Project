@@ -69,6 +69,7 @@
 - Create: `backend/src/main/java/com/jobpilot/api/domain/companyfinance/client/OpenDartHttpClient.java`
 - Create: `backend/src/main/java/com/jobpilot/api/domain/companyfinance/service/DartCorporationSyncService.java`
 - Create: `backend/src/main/java/com/jobpilot/api/domain/companyfinance/service/CompanyFinancialSyncService.java`
+- Create: `backend/src/main/java/com/jobpilot/api/domain/companyfinance/service/CompanyFinanceCrawlFollowUpService.java`
 - Create: `backend/src/main/java/com/jobpilot/api/domain/companyfinance/service/FinancialMetricCalculator.java`
 - Test: `backend/src/test/java/com/jobpilot/api/domain/companyfinance/client/OpenDartHttpClientTest.java`
 - Test: `backend/src/test/java/com/jobpilot/api/domain/companyfinance/service/FinancialMetricCalculatorTest.java`
@@ -77,6 +78,7 @@
 - `OpenDartClient.downloadCorporations()` returns DART corporate-code rows.
 - `OpenDartClient.fetchAnnualStatements(String corpCode, int businessYear, String fsDiv)` returns typed account rows with receipt/report provenance.
 - `FinancialMetricCalculator.calculate(CompanyFinancialYear year, CompanyFinancialYear priorYear)` returns nullable, denominator-safe metrics.
+- `CompanyFinanceCrawlFollowUpService.processCompletedRun(long crawlRunId)` enqueues only distinct new or stale company identities after the 06:00 crawl has completed.
 
 - [ ] Write a failing HTTP client test using a local mock response: verify the key is sent in a request but excluded from exception text and logs.
 - [ ] Write failing calculator tests for growth, margin, debt ratio, missing prior-year values, and zero equity.
@@ -84,6 +86,8 @@
 - [ ] Add `dart.api-key: ${DART_API_KEY:}` and timeouts; fail closed with a configuration error if the key is absent.
 - [ ] Implement ZIP/XML corporation parsing and JSON annual-statement parsing; select consolidated statements first and separate statements only if consolidated data is absent.
 - [ ] Persist annual raw values and calculated metrics with receipt number, report code, and `fs_div`.
+- [ ] Write a failing follow-up test proving two new postings from the same company trigger one match/sync candidate, while a company with current confirmed financial data triggers none.
+- [ ] Implement post-crawl candidate selection, idempotency keyed by source-company identity, retry-safe status transitions, and DART request batching. Invoke it only from the completed crawl-run path, never from the 06:00 scheduler start event.
 - [ ] Run focused tests, then all backend tests, and commit this task.
 
 ### Task 4: Expose cached company finance analysis for a job posting
@@ -96,7 +100,7 @@
 - Test: `backend/src/test/java/com/jobpilot/api/domain/companyfinance/controller/CompanyFinanceControllerTest.java`
 
 **Interfaces:**
-- `GET /api/v1/job-postings/{id}/company-finance` returns status `READY`, `FINANCIALS_ONLY`, `UNMATCHED`, or `DATA_INSUFFICIENT`.
+- `GET /api/v1/job-postings/{id}/company-finance` returns status `READY`, `FINANCIALS_ONLY`, `UNMATCHED`, `FINANCIALS_NOT_FOUND`, `DATA_INSUFFICIENT`, or `TEMPORARILY_UNAVAILABLE`.
 - Response contains annual chart series, forecast only when persisted, hiring metrics, source metadata, and no secrets.
 
 - [ ] Write a failing service test for a confirmed match with three annual statements returning chart series and `FINANCIALS_ONLY`.
@@ -165,7 +169,7 @@
 - Hero `기업 재무 분석` button scrolls to `#company-finance` only after analysis data is available.
 
 - [ ] Write a failing component test for `READY`: it must render the outlook heading, probability, exact evidence text, and data basis.
-- [ ] Write failing tests for `UNMATCHED` and `FINANCIALS_ONLY`: no artificial forecast score may render.
+- [ ] Write failing tests for `UNMATCHED`, `FINANCIALS_NOT_FOUND`, `DATA_INSUFFICIENT`, and `TEMPORARILY_UNAVAILABLE`: no artificial forecast score or zero-valued chart may render.
 - [ ] Run the test and confirm missing component failure.
 - [ ] Implement typed API client and section using existing outline button/card styles, Lucide icons, semantic headings, and responsive chart labels.
 - [ ] Add an anchor button to the existing job-detail hero and place the section after images, before the job description.
