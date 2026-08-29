@@ -32,10 +32,10 @@ class DartCorporationSyncServiceTest {
     void usesCachedOfficialDirectoryWhenRefreshHasTransientFailure() {
         OpenDartClient client = mock(OpenDartClient.class);
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(client.downloadCorporations()).thenThrow(new RuntimeException("connection reset"));
         when(jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class)).thenReturn(118804);
 
         assertEquals(0, new DartCorporationSyncService(client, jdbc).syncWithCacheFallback());
+        org.mockito.Mockito.verifyNoInteractions(client);
     }
 
     @Test

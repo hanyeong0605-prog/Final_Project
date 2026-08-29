@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.jobpilot.api.domain.companyfinance.client.OpenDartClient;
 import com.jobpilot.api.domain.companyfinance.client.OpenDartFinancialSnapshot;
 import com.jobpilot.api.domain.companyfinance.client.OpenDartNoDataException;
+import org.springframework.web.client.ResourceAccessException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -46,5 +47,21 @@ class CompanyFinancialSyncServiceTest {
         assertEquals(0, service.syncConfirmedCompanies(2024, 2024));
         org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
                 () -> service.syncConfirmedCompanies(2025, 2025));
+    }
+
+    @Test
+    void retriesTransientNetworkFailureAndKeepsBatchProgress() {
+        OpenDartClient client = mock(OpenDartClient.class);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<String>>any()))
+                .thenReturn(List.of("00126380"));
+        when(client.fetchAnnualConsolidatedStatement("00126380", 2025))
+                .thenThrow(new ResourceAccessException("reset"))
+                .thenThrow(new ResourceAccessException("reset"))
+                .thenReturn(new OpenDartFinancialSnapshot(1200L, 100L, 70L, 2000L, 700L, 1300L, 90L));
+
+        assertEquals(1, new CompanyFinancialSyncService(client, jdbc).syncConfirmedCompanies(2025, 2025));
+        org.mockito.Mockito.verify(client, org.mockito.Mockito.times(3))
+                .fetchAnnualConsolidatedStatement("00126380", 2025);
     }
 }

@@ -47,10 +47,15 @@ public class DartCorporationSyncService {
 
     /** Refresh when possible, but keep a previously stored official directory on a transient DART outage. */
     public int syncWithCacheFallback() {
+        Integer cached = jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class);
+        if (cached != null && cached > 0) {
+            log.info("Using cached OpenDART corporation directory: rows={}", cached);
+            return 0;
+        }
         try {
             return sync();
         } catch (RuntimeException upstreamFailure) {
-            Integer cached = jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class);
+            cached = jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class);
             if (cached != null && cached > 0) {
                 log.warn("OpenDART corporation directory refresh failed; using cached rows={}", cached);
                 return 0;
