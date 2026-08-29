@@ -150,7 +150,11 @@ jobs:
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || \
               printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
                 $COMPOSE build backend
-                $COMPOSE up -d --no-deps backend
+                if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
+                  $COMPOSE up -d --no-deps --force-recreate backend
+                else
+                  $COMPOSE up -d --no-deps backend
+                fi
             fi
 
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
@@ -189,7 +193,20 @@ jobs:
             fi
 
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
-              $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete' || true
+              DART_SYNC_COMPLETE=false
+              for attempt in $(seq 1 240); do
+                if $COMPOSE logs --since=30m backend | grep -q 'DART financial sync complete'; then
+                  DART_SYNC_COMPLETE=true
+                  break
+                fi
+                sleep 5
+              done
+              if [ "$DART_SYNC_COMPLETE" != 'true' ]; then
+                $COMPOSE logs --tail=200 backend
+                echo "DART financial sync did not complete within 1200 seconds." >&2
+                exit 1
+              fi
+              $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete'
             fi
 
             if [ '${{ inputs.company_growth_report || false }}' = 'true' ]; then
