@@ -1,0 +1,33 @@
+package com.jobpilot.api.domain.companyfinance.client;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+
+class OpenDartFinancialStatementParserTest {
+    @Test
+    void extractsCoreAccountsFromAnnualDartResponse() throws Exception {
+        String response = """
+                {"status":"000","list":[
+                  {"account_nm":"매출액","thstrm_amount":"1,200"},
+                  {"account_nm":"영업이익","thstrm_amount":"-50"},
+                  {"account_nm":"당기순이익","thstrm_amount":"30"},
+                  {"account_nm":"자산총계","thstrm_amount":"2,000"},
+                  {"account_nm":"부채총계","thstrm_amount":"700"},
+                  {"account_nm":"자본총계","thstrm_amount":"1,300"},
+                  {"account_nm":"영업활동으로 인한 현금흐름","thstrm_amount":"90"}
+                ]}
+                """;
+
+        var result = new OpenDartFinancialStatementParser(new ObjectMapper()).parse(response);
+
+        assertEquals(1200L, result.revenue());
+        assertEquals(-50L, result.operatingIncome());
+        assertEquals(30L, result.netIncome());
+        assertEquals(2000L, result.totalAssets());
+        assertEquals(700L, result.totalLiabilities());
+        assertEquals(1300L, result.totalEquity());
+        assertEquals(90L, result.operatingCashFlow());
+    }
+}
