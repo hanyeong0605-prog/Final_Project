@@ -51,3 +51,17 @@ Windows 임시 폴더 권한 충돌 시 새로운 작업공간 임시 경로를 
 원본 데이터와 모델은 .gitignore와 기존 .dockerignore(ml 제외)로 배포에서 제외한다.
 기존 전체 수집에는 폐지된 generate_question 참조가 남아 있으며, 오디오 테스트는
 ffmpeg 실행 환경이 필요하다. 이것을 감정분석 테스트 통과와 혼동하지 않는다.
+
+## 직장 도메인 후보 데이터
+
+KOTE의 일반 댓글 도메인 한계를 점검하기 위한 자체 창작 문장 후보는 다음 명령으로
+재생성한다. 생성 파일은 원본 학습 데이터와 마찬가지로 Git에 포함하지 않는다.
+
+```powershell
+.\.venv\Scripts\python.exe -m ml.sentiment.workplace_dataset `
+  --output ml/sentiment/data/workplace/workplace-candidates-v1.jsonl
+```
+
+현재 v1은 긍정·중립·부정·혼합 각 60건, 총 240건이다. 모든 초기 행은
+`UNVERIFIED`이며 사람 검수 전에는 최종 평가나 정확도 주장에 사용할 수 없다.
+검수 기준과 항목 정의는 `WORKPLACE_DATA_CARD.md`를 따른다.
