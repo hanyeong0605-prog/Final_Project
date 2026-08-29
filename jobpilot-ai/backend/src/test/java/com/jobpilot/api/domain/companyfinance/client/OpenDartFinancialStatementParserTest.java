@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.companyfinance.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -29,5 +30,16 @@ class OpenDartFinancialStatementParserTest {
         assertEquals(700L, result.totalLiabilities());
         assertEquals(1300L, result.totalEquity());
         assertEquals(90L, result.operatingCashFlow());
+    }
+
+    @Test
+    void distinguishesExpectedNoDataFromAuthenticationOrRateLimitFailures() {
+        var parser = new OpenDartFinancialStatementParser(new ObjectMapper());
+
+        assertThrows(OpenDartNoDataException.class,
+                () -> parser.parse("{\"status\":\"013\",\"message\":\"no data\"}"));
+        var failure = assertThrows(java.io.IOException.class,
+                () -> parser.parse("{\"status\":\"020\",\"message\":\"request limit\"}"));
+        org.assertj.core.api.Assertions.assertThat(failure.getMessage()).contains("status=020");
     }
 }

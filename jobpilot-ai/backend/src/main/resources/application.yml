@@ -78,6 +78,8 @@ dart:
   base-url: ${DART_BASE_URL:https://opendart.fss.or.kr}
   backfill-on-start: ${DART_BACKFILL_ON_START:false}
   financial-sync-on-start: ${DART_FINANCIAL_SYNC_ON_START:false}
+  # Seven completed years produce multiple leakage-safe t-2..t -> t+1 training rows.
+  financial-years-back: ${DART_FINANCIAL_YEARS_BACK:7}
   # Enable once only after a held-out-validated artifact is mounted in the AI server.
   prediction-sync-on-start: ${DART_PREDICTION_SYNC_ON_START:false}
 

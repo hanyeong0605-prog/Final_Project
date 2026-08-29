@@ -47,6 +47,8 @@ public class OpenDartClient {
                 .retrieve().body(String.class);
         try {
             return parser.parse(body == null ? "" : body);
+        } catch (OpenDartNoDataException noData) {
+            throw noData;
         } catch (Exception error) {
             throw new IllegalStateException("DART financial statement response could not be parsed", error);
         }

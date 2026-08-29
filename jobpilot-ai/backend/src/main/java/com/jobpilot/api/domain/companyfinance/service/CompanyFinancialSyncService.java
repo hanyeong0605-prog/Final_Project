@@ -2,6 +2,7 @@ package com.jobpilot.api.domain.companyfinance.service;
 
 import com.jobpilot.api.domain.companyfinance.client.OpenDartClient;
 import com.jobpilot.api.domain.companyfinance.client.OpenDartFinancialSnapshot;
+import com.jobpilot.api.domain.companyfinance.client.OpenDartNoDataException;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -51,7 +52,7 @@ public class CompanyFinancialSyncService {
         OpenDartFinancialSnapshot snapshot;
         try {
             snapshot = client.fetchAnnualConsolidatedStatement(corpCode, businessYear);
-        } catch (RuntimeException noStatementAvailable) {
+        } catch (OpenDartNoDataException noStatementAvailable) {
             return 0;
         }
         jdbc.update(UPSERT_FINANCIAL_YEAR,

@@ -24,3 +24,8 @@ ml/sentiment/artifacts/*
 !ml/sentiment/artifacts/kote-baseline-v1/thresholds.json
 ml/sentiment/reports/*.json
 ml/sentiment/reports/*.csv
+
+# DART company-year source rows and trained growth artifacts contain runtime data.
+# Rebuild them from the database and mount only a held-out-validated artifact.
+ml/data/company-finance/
+ml/artifacts/company-growth*/

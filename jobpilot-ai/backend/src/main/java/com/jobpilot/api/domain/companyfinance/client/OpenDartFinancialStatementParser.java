@@ -15,8 +15,13 @@ public class OpenDartFinancialStatementParser {
 
     public OpenDartFinancialSnapshot parse(String responseBody) throws IOException {
         JsonNode root = objectMapper.readTree(responseBody);
-        if (!"000".equals(root.path("status").asText())) {
-            throw new IOException("OpenDART financial statement request did not return data");
+        String status = root.path("status").asText();
+        if ("013".equals(status)) {
+            throw new OpenDartNoDataException();
+        }
+        if (!"000".equals(status)) {
+            // Do not silently turn invalid keys, rate limits, or upstream failures into missing data.
+            throw new IOException("OpenDART financial statement request failed with status=" + status);
         }
         Long revenue = null, operatingIncome = null, netIncome = null, totalAssets = null,
                 totalLiabilities = null, totalEquity = null, operatingCashFlow = null;

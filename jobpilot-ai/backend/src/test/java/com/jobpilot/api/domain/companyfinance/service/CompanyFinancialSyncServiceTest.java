@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.jobpilot.api.domain.companyfinance.client.OpenDartClient;
 import com.jobpilot.api.domain.companyfinance.client.OpenDartFinancialSnapshot;
+import com.jobpilot.api.domain.companyfinance.client.OpenDartNoDataException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,5 +31,20 @@ class CompanyFinancialSyncServiceTest {
         assertEquals(1, stored);
         verify(jdbc).update(anyString(), eq("00126380"), eq(2025), eq("11011"), eq("CFS"),
                 eq(1200L), eq(100L), eq(70L), eq(2000L), eq(700L), eq(1300L), eq(90L));
+    }
+
+    @Test
+    void skipsOnlyNoDataAndPropagatesOperationalDartFailures() {
+        OpenDartClient client = mock(OpenDartClient.class);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<String>>any()))
+                .thenReturn(List.of("00126380"));
+        when(client.fetchAnnualConsolidatedStatement("00126380", 2024)).thenThrow(new OpenDartNoDataException());
+        when(client.fetchAnnualConsolidatedStatement("00126380", 2025)).thenThrow(new IllegalStateException("status=020"));
+
+        var service = new CompanyFinancialSyncService(client, jdbc);
+        assertEquals(0, service.syncConfirmedCompanies(2024, 2024));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> service.syncConfirmedCompanies(2025, 2025));
     }
 }
