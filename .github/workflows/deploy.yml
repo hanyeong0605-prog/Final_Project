@@ -130,6 +130,21 @@ jobs:
             if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(ai-server/|docker-compose.prod.yml$)'; then
                 $COMPOSE build ai-server
                 $COMPOSE up -d --no-deps ai-server
+                AI_HEALTHY=false
+                for attempt in $(seq 1 24); do
+                  AI_CONTAINER="$($COMPOSE ps -q ai-server)"
+                  if [ -n "$AI_CONTAINER" ] && \
+                    [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$AI_CONTAINER")" = "healthy" ]; then
+                    AI_HEALTHY=true
+                    break
+                  fi
+                  sleep 5
+                done
+                if [ "$AI_HEALTHY" != 'true' ]; then
+                  $COMPOSE logs --tail=120 ai-server
+                  echo "AI server did not become healthy within 120 seconds." >&2
+                  exit 1
+                fi
             fi
 
             if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then

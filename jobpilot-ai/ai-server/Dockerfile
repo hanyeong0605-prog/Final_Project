@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 
     && pip install --no-cache-dir "setuptools<81" wheel \
     && pip install --no-cache-dir --no-build-isolation -r requirements.txt
 COPY app ./app
+# Runtime inference plus the one-shot dataset/training report use these modules.
+# Raw datasets, reports, and unrelated experimental ML files remain excluded by .dockerignore.
+COPY ml/__init__.py ml/company_finance_dataset.py ml/company_growth_model.py ml/train_company_growth_model.py ./ml/
 # Immutable, evaluated KOTE artifact. Raw/public datasets and training reports remain excluded.
 COPY ml/sentiment/artifacts/kote-baseline-v1 /models/sentiment
 ENV SENTIMENT_MODEL_DIR=/models/sentiment
