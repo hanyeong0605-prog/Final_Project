@@ -66,7 +66,8 @@ public class CompanyReviewService {
         if (reviews.existsByCompanyIdAndAuthorMemberIdAndVisibilityNot(companyId, memberId, "DELETED"))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "회사별 리뷰는 하나만 작성할 수 있습니다.");
         var review = CompanyReview.byMember(companyId, request.jobPostingId(), memberId, member.getNickname(),
-                request.rating(), request.title(), request.pros(), request.cons(), request.body());
+                request.department(),request.employmentStatus(),request.tenureMonths(),request.rating(), request.title(),
+                request.pros(), request.cons(), request.body(),request.managementMessage());
         // No network inside this transaction. PENDING is persisted even when AI is unavailable.
         return ReviewResponse.from(reviews.save(review), memberId);
     }
@@ -77,7 +78,7 @@ public class CompanyReviewService {
         // Moving an existing review to another posting would change ranking/ownership history.
         if (!Objects.equals(r.getJobPostingId(), request.jobPostingId()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "리뷰의 공고 연결은 변경할 수 없습니다.");
-        r.edit(memberId, request.rating(), request.title(), request.pros(), request.cons(), request.body());
+        r.edit(memberId,request.department(),request.employmentStatus(),request.tenureMonths(),request.rating(),request.title(),request.pros(),request.cons(),request.body(),request.managementMessage());
         return ReviewResponse.from(r, memberId);
     }
 

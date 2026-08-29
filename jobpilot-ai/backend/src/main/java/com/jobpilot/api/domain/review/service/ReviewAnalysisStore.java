@@ -25,12 +25,13 @@ public class ReviewAnalysisStore {
                 WHERE analysis_state='PROCESSING' AND analysis_attempts>=5 AND next_analysis_at<=CURRENT_TIMESTAMP
                 """);
         var candidates = jdbc.query("""
-                SELECT id,version,content_hash,title,pros,cons,body,analysis_attempts FROM company_reviews
+                SELECT id,version,content_hash,title,pros,cons,body,management_message,analysis_attempts FROM company_reviews
                 WHERE visibility='PUBLIC' AND analysis_state IN ('PENDING','FAILED','PROCESSING')
                   AND analysis_attempts < 5 AND next_analysis_at <= CURRENT_TIMESTAMP
                 ORDER BY next_analysis_at,id LIMIT 1
                 """, (rs, row) -> new Work(rs.getLong("id"), rs.getLong("version"), rs.getString("content_hash"),
-                String.join("\n", rs.getString("title"), rs.getString("pros"), rs.getString("cons"), rs.getString("body")),
+                String.join("\n", rs.getString("title"), rs.getString("pros"), rs.getString("cons"), rs.getString("body"),
+                    rs.getString("management_message") == null ? "" : rs.getString("management_message")),
                 rs.getInt("analysis_attempts") + 1));
         if (candidates.isEmpty()) return Optional.empty();
         Work work = candidates.getFirst();
