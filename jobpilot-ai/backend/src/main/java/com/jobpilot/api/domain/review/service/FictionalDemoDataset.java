@@ -4,18 +4,18 @@ import java.util.List;
 
 /** Curated, deterministic portfolio data. Names and copy are original and explicitly fictional. */
 final class FictionalDemoDataset {
-    static final int VERSION = 2;
+    static final int VERSION = 3;
     static final List<String> NAMES = List.of(
-        "코드리버","브릭웨이브","메트릭하우스","클라우드포지","프레임웍스","데이터브릿지","스택플로우","루프라인","바이너리웍스","테크그로브",
-        "페이퍼크레인","오더스프링","카트레이어","페이브릿지","리테일메이커스","셀러포트","바스켓랩","커머스코어","딜리버리노트","마켓시프트",
-        "모션클라우드","루트파일럿","플릿메이트","트랙버스","로드센스","카고링크","웨이포인트랩","포워드체인","라스트마일웍스","패스파인더모빌리티",
-        "케어노트","메디플로우","바이탈링크","클리닉브릿지","헬스루프","웰니스포트","메디컬인사이트","케어스택","라이프시그널","바이오메트릭스랩",
-        "런웨이브","클래스브릿지","스터디포지","러닝메이트","스킬트랙","캠퍼스클라우드","튜터링크","에듀메트릭","커리어스프링","노트플로우",
-        "그린메트릭","에너지루프","솔라브릿지","클라이밋웍스","에코시그널","카본트랙","어스데이터랩","그리드플로우","리뉴어블포지","환경인사이트",
-        "핀브릿지","레저플로우","리스크메트릭","페이먼트웍스","크레딧루프","인보이스랩","파이낸스포트","세이프월렛","캐시플로우랩","뱅킹스택",
-        "콘텐츠포지","미디어루프","스토리메트릭","크리에이터브릿지","스트림웍스","오디오플로우","비디오스택","팬덤링크","퍼블리싱랩","컬처클라우드",
-        "팩토리메트릭","로봇브릿지","머신플로우","인더스트리포지","센서스택","프로덕션랩","스마트워크셀","비전매뉴팩처링","오토메이션링크","플랜트인사이트",
-        "워크브릿지","피플메트릭","팀플로우","오피스포지","프로젝트루프","협업스택","태스크메이트","워크인사이트","비즈니스클라우드","오퍼레이션랩");
+        "코드리버","모노스테이지","오후두시","노스핀테크","마일스톤웍스","플레인큐브","데이터정원","아크앤비트","웍스테이션제로","펄스나인",
+        "담다마켓","오렌지카트","셀픽","바잉데이","주식회사 소소상점","픽앤패킹","모아바구니","상상유통","프라이스룸","오늘의상회",
+        "라이트레일","고고밴드","길찾는사람들","모빌릭","세이프로드","트럭온","도착예정","파킹버드","로지스퀘어","바른이동",
+        "마음온도","닥터옆","건강한걸음","메디버스","숨케어","하루약속","웰체크","클리닉247","바이오스코프","케어메이트",
+        "배움상자","오름클래스","교실밖","스터디메이트","스킬업데이","모두의실험실","튜터빌리지","문제은행연구소","커리어씨앗","노트앤펜",
+        "푸른발자국","와트세이브","해담에너지","내일의기후","에코스캔","제로카본","지구데이터","전력지도","햇빛공작소","맑은내일연구소",
+        "핀세이프","잔돈생활","리스크가드","페이먼츠247","크레딧가든","장부친구","머니포켓","안심결제","월급날","파이낸셜키친",
+        "페이지온","소리상점","스토리캐비닛","크리에이터스룸","라이브데크","오디오픽","필름메이커스","팬스테이션","문장과사람들","컬처박스",
+        "정밀공방","로보티즈랩","메이크웰","공장사람들","센서룸","생산의기술","워크셀원","비전팩토리","자동화상회","플랜트닥터",
+        "일하는사이","피플앤컬처","팀버스","오피스메이트","프로젝트살롱","함께일하기","오늘할일","워크다이어리","비즈니스룸","운영의정석");
 
     static final List<Sector> SECTORS = List.of(
         new Sector("IT/소프트웨어","B2B SaaS","기업의 핵심 업무를 자동화하는 클라우드 소프트웨어","서울 성동구","서울특별시 성동구 아차산로 00","37.5446","127.0560"),
@@ -41,18 +41,37 @@ final class FictionalDemoDataset {
         new Role("Product Manager","서비스 기획자","프로덕트","3~7년",List.of("SQL","REST API","HTML"),"고객 문제를 발견하고 개발·디자인과 함께 제품 우선순위를 결정합니다.","디지털 제품 기획과 출시 경험 3년 이상"),
         new Role("Security Engineer","보안 엔지니어","정보보안","3~7년",List.of("Linux","Python","AWS","Docker","Kubernetes"),"서비스와 클라우드 전반의 위협을 탐지하고 보안 기준을 자동화합니다.","애플리케이션 또는 클라우드 보안 실무 경험"));
 
-    static String description(String company, Sector s, Role r) {
-        return "[가상기업 안내]\n"+company+"은(는) 포트폴리오 시연을 위해 창작한 가상기업이며 실제 채용을 진행하지 않습니다.\n\n"+
-            "[회사 및 팀 소개]\n"+company+"은(는) "+s.product+"입니다. 제품팀은 고객 인터뷰, 데이터, 운영 피드백을 함께 검토하며 분기 목표를 정합니다. 이번 포지션은 기능 개발만이 아니라 설계 논의와 운영 개선에도 참여합니다.\n\n"+
+    private static final List<String> STAGES = List.of(
+        "첫 유료 고객군을 확보하고 제품 안정성을 높이는 단계", "국내 고객 기반을 넓히며 운영 체계를 정비하는 단계",
+        "누적된 레거시를 개선하면서 신규 제품군을 준비하는 단계", "시장 검증을 마치고 조직과 트래픽이 빠르게 성장하는 단계",
+        "핵심 제품의 수익성을 높이고 해외 진출을 실험하는 단계");
+    private static final List<String> WORK_MODES = List.of(
+        "주 2회 원격근무와 08~11시 선택 출근제", "주 1회 원격근무와 코어타임 11~16시",
+        "오피스 중심 근무와 월 4회 선택 원격근무", "격주 금요일 전사 원격근무와 09~11시 선택 출근제",
+        "팀 단위 자율 출근제와 분기별 집중근무 주간");
+    private static final List<String> TEAM_PRACTICES = List.of(
+        "2주 단위 스프린트와 격주 회고", "칸반 기반 상시 배포와 월간 운영 회고", "6주 제품 사이클과 2주 정비 기간",
+        "주간 고객 피드백 리뷰와 월간 기술 부채 데이", "분기 OKR과 직무별 기술 챕터");
+    private static final List<String> EXTRA_BENEFITS = List.of(
+        "점심 식대와 야간 교통비 지원", "입사 1주년 리프레시 휴가 3일", "가족 건강검진 또는 운동비 선택 지원",
+        "업무 관련 구독 서비스와 외국어 학습비 지원", "분기별 팀 문화비와 사내 동호회비 지원");
+
+    static String description(int index, String company, Sector s, Role r) {
+        String stage=STAGES.get(index%STAGES.size()), workMode=WORK_MODES.get((index*3)%WORK_MODES.size());
+        String practice=TEAM_PRACTICES.get((index*7)%TEAM_PRACTICES.size()), benefit=EXTRA_BENEFITS.get((index*2)%EXTRA_BENEFITS.size());
+        int headcount=35+(index*17)%265, openings=1+(index%3);
+        return "[가상기업 안내]\n"+company+"는 포트폴리오 시연을 위해 창작한 가상기업이며 실제 채용을 진행하지 않습니다.\n\n"+
+            "[회사 및 팀 소개]\n"+company+"는 "+s.product+"입니다. 제품팀은 고객 인터뷰, 데이터, 운영 피드백을 함께 검토하며 분기 목표를 정합니다. 이번 포지션은 기능 개발만이 아니라 설계 논의와 운영 개선에도 참여합니다.\n\n"+
+            "현재 구성원은 약 "+headcount+"명이며, "+stage+"입니다. 팀은 "+practice+" 방식으로 일하고 이번 채용 인원은 "+openings+"명입니다.\n\n"+
             "[주요 업무]\n- "+r.work+"\n- 신규 기능 기획 단계에서 기술 가능성과 운영 비용 검토\n- 장애 원인 분석, 성능 개선, 재발 방지 문서화\n- 동료와의 코드 리뷰 및 기술 의사결정 기록\n- 제품·디자인·운영 조직과 릴리스 범위 조율\n\n"+
             "[자격 요건]\n- "+r.experience+"\n- "+String.join(", ",r.skills.subList(0,Math.min(3,r.skills.size())))+" 활용 경험\n- RDB 설계 또는 데이터 흐름을 설명할 수 있는 분\n- Git 기반 협업과 코드 리뷰 경험\n- 문제와 해결 결과를 문서로 남길 수 있는 분\n\n"+
             "[우대 사항]\n- 대용량 트래픽 또는 비동기 처리 경험\n- AWS 등 클라우드 환경 운영 경험\n- 테스트 자동화와 관측 가능성 개선 경험\n- 작은 기능이라도 기획부터 운영까지 책임진 경험\n\n"+
-            "[업무 환경과 복지]\n- 선택 출근제(08~11시)와 주 2회 원격근무\n- 맥북 프로 또는 동급 장비와 4K 모니터 제공\n- 연 120만원 교육·도서·컨퍼런스 비용 지원\n- 건강검진, 경조휴가, 리프레시 휴가 지원\n- 월 1회 기술 공유회와 분기별 팀 회고 운영\n\n"+
+            "[업무 환경과 복지]\n- "+workMode+"\n- 맥북 프로 또는 동급 장비와 4K 모니터 제공\n- 연 "+(80+(index%5)*20)+"만원 교육·도서·컨퍼런스 비용 지원\n- 건강검진, 경조휴가, 리프레시 휴가 지원\n- "+benefit+"\n- "+practice+" 운영\n\n"+
             "[채용 절차]\n서류 검토 → 직무 과제 또는 코딩 테스트 → 1차 직무 인터뷰 → 2차 협업 인터뷰 → 처우 협의\n과제는 예상 소요시간과 평가 기준을 사전에 안내하며 제출 결과는 채용 목적 외에 사용하지 않습니다.\n\n"+
             "[근무 조건]\n- 근무지: "+s.address+"\n- 고용 형태: 정규직(수습 3개월)\n- 소속: "+r.department+"팀\n\n※ 본 공고의 회사·인물·조건은 모두 창작된 가상 데이터입니다.";
     }
 
-    static Review review(int posting, int ordinal, String company, Role role) {
+    static Review review(int posting, int ordinal, String company, Sector sector, Role role) {
         int[][] ratings={{4,4,3,2,3},{5,4,4,3,2},{4,3,3,2,4}};
         int rating=ratings[posting%3][ordinal]; boolean former=ordinal!=0&&ordinal!=3; int months=10+((posting*7+ordinal*11)%38);
         String[] titles={"성장 기회는 많지만 운영 체계는 더 필요해요","동료와 코드리뷰 문화가 가장 좋았습니다","제품에는 공감하지만 우선순위 변경이 잦아요","일하는 방식이 팀 리더에 따라 달라집니다","빠르게 경험을 쌓기 좋은 대신 업무 밀도가 높아요"};
@@ -69,11 +88,36 @@ final class FictionalDemoDataset {
             "- 제도는 잘 갖춰져 있지만 적용 방식이 리더 성향에 따라 달랐습니다.\n- 장애 회고에서 액션 아이템이 나와도 담당 일정이 없으면 오래 미뤄졌습니다.\n- 연봉 인상 기준을 더 구체적으로 공개할 필요가 있습니다.",
             "- 업무 속도가 빨라 충분한 학습 없이 새 영역을 맡을 때가 있습니다.\n- 운영 자동화보다 사람의 숙련도에 의존하는 과정이 남아 있습니다.\n- 회의가 겹치는 날에는 집중 시간을 확보하기 어려웠습니다."};
         String[] asks={"온콜 담당·보상·에스컬레이션 기준을 먼저 정리해 주세요.","평가 결과뿐 아니라 기대 수준과 개선 피드백을 분기 중에도 공유해 주세요.","새 프로젝트 수를 늘리기 전에 기존 서비스의 기술 부채 일정을 보장해 주세요.","팀마다 다르게 적용되는 유연근무와 원격근무 기준을 명확히 해 주세요.","핵심 업무의 담당자와 의사결정 기록을 남겨 특정 인력 의존도를 낮춰 주세요."};
-        return new Review(rating,titles[ordinal],pros[ordinal],cons[ordinal],asks[ordinal],role.department,former?"FORMER":"CURRENT",months,former?"퇴사":"재직");
+        String context=switch(posting%5){
+            case 0 -> "입사 초기에는 "+role.skills.get(0)+" 기반 서비스의 배포 과정을 따라가며 도메인 구조를 익혔습니다.";
+            case 1 -> sector.category+" 고객의 실제 문의를 개발팀이 함께 검토해 기능의 목적을 이해하기 쉬웠습니다.";
+            case 2 -> "분기 목표가 바뀐 시기에는 담당했던 기능의 범위를 다시 조정하는 경험도 있었습니다.";
+            case 3 -> role.department+"팀과 운영 조직 사이의 협업이 업무 만족도에 가장 큰 영향을 주었습니다.";
+            default -> "공고에 안내된 "+role.title+" 역할과 실제 담당 범위는 대체로 일치했습니다.";
+        };
+        String contextualPro=switch(posting%3){
+            case 0 -> "\n- "+sector.category+" 도메인의 실제 사용자 흐름을 배울 수 있었습니다.";
+            case 1 -> "\n- "+role.skills.get(0)+" 관련 기술 선택의 배경을 팀 문서에서 확인할 수 있었습니다.";
+            default -> "\n- "+company+"의 제품 지표를 직무 목표와 연결해 설명해 주었습니다.";
+        };
+        String contextualCon=switch(posting%4){
+            case 0 -> "\n- "+sector.industry+" 특성상 긴급 요청이 생기면 계획한 개선 업무가 뒤로 밀렸습니다.";
+            case 1 -> "\n- "+role.department+"팀의 채용 속도가 업무 증가 속도를 따라가지 못한 시기가 있었습니다.";
+            case 2 -> "\n- "+role.skills.get(0)+" 경험이 특정 구성원에게 집중되어 리뷰 대기시간이 길어지기도 했습니다.";
+            default -> "\n- "+company+"만의 평가·승진 기준은 아직 더 구체화할 필요가 있습니다.";
+        };
+        String body=context+" "+company+"에서 "+role.jobName+"로 근무하며 "+role.work+" 개인의 재량은 있었지만 일정이 촉박할 때는 운영 개선보다 출시가 우선되기도 했습니다.";
+        return new Review(rating,titles[ordinal],pros[ordinal]+contextualPro,cons[ordinal]+contextualCon,body,asks[ordinal],role.department,former?"FORMER":"CURRENT",months,former?"퇴사":"재직");
     }
 
     record Sector(String industry,String category,String product,String location,String address,String latitude,String longitude) {}
     record Role(String title,String jobName,String department,String experience,List<String> skills,String work,String experienceRequirement) {}
-    record Review(int rating,String title,String pros,String cons,String managementMessage,String department,String status,int tenureMonths,String statusLabel) {}
+    static String salary(int index, Role role) {
+        int base=switch(role.department){case "AI 연구개발","정보보안","플랫폼" -> 5200; case "개발","데이터" -> 4800; default -> 4300;};
+        int min=base+(index%4)*200, max=min+1800+(index%3)*300;
+        return min+"만원~"+max+"만원 (경력에 따라 협의)";
+    }
+
+    record Review(int rating,String title,String pros,String cons,String body,String managementMessage,String department,String status,int tenureMonths,String statusLabel) {}
     private FictionalDemoDataset() {}
 }

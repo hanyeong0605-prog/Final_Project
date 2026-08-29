@@ -44,7 +44,7 @@ public class FictionalDemoSeeder implements ApplicationRunner {
         jdbc.update("""
             INSERT INTO portfolio_demo_dataset_versions(dataset_name,dataset_version,description)
             VALUES (?,?,?) ON DUPLICATE KEY UPDATE dataset_version=VALUES(dataset_version),installed_at=CURRENT_TIMESTAMP,description=VALUES(description)
-            """,DATASET,FictionalDemoDataset.VERSION,"현실형 가상회사·공고 100건과 상세 합성 리뷰 500건");
+            """,DATASET,FictionalDemoDataset.VERSION,"브랜드·근무조건·공고·리뷰 표현을 분산한 가상회사 100곳과 리뷰 500건");
     }
 
     private void removeOldSyntheticReviews() {
@@ -67,7 +67,7 @@ public class FictionalDemoSeeder implements ApplicationRunner {
             ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),industry=VALUES(industry),location=VALUES(location),reviews_enabled=TRUE
             """,companyKey,name,companyDescription,sector.industry(),sector.location());
         long companyId=jdbc.queryForObject("SELECT id FROM review_companies WHERE seed_key=? AND source_type='FICTIONAL_DEMO'",Long.class,companyKey);
-        String description=FictionalDemoDataset.description(name,sector,role), skills=String.join(",",role.skills());
+        String description=FictionalDemoDataset.description(index,name,sector,role), skills=String.join(",",role.skills());
         LocalDateTime published=LocalDateTime.now().minusDays(3L+(index%21)),deadline=LocalDateTime.now().plusDays(25L+(index%45));
         String raw="{\"fictional\":true,\"datasetVersion\":2,\"notice\":\"포트폴리오용 완전 창작 공고\"}";
         jdbc.update("""
@@ -82,7 +82,7 @@ public class FictionalDemoSeeder implements ApplicationRunner {
               is_rolling_deadline=FALSE,status='ACTIVE',fetched_at=CURRENT_TIMESTAMP,source_updated_at=CURRENT_TIMESTAMP,
               crawl_status='COMPLETED',crawled_at=CURRENT_TIMESTAMP,raw_payload=VALUES(raw_payload)
             """,postingKey,companyKey,role.title(),name,description,"PENDING",sector.location(),"정규직",role.experience(),false,
-            sector.industry(),role.department(),role.jobName(),"면접 후 협의",skills,published,deadline,raw);
+            sector.industry(),role.department(),role.jobName(),FictionalDemoDataset.salary(index,role),skills,published,deadline,raw);
         long postingId=jdbc.queryForObject("SELECT id FROM job_postings WHERE source_provider='FICTIONAL_DEMO' AND external_job_id=?",Long.class,postingKey);
         jdbc.update("UPDATE job_postings SET source_url=? WHERE id=?",publicUrl+"/job-postings/"+postingId,postingId);
         jdbc.update("INSERT INTO review_company_postings(job_posting_id,company_id) VALUES (?,?) ON DUPLICATE KEY UPDATE company_id=VALUES(company_id)",postingId,companyId);
@@ -118,15 +118,14 @@ public class FictionalDemoSeeder implements ApplicationRunner {
     }
     private void installReviews(long postingId,long companyId,int index,String company,FictionalDemoDataset.Role role){
         for(int ordinal=0;ordinal<5;ordinal++){
-            var review=FictionalDemoDataset.review(index,ordinal,company,role);
-            String body=role.jobName()+"로 근무하며 "+role.work()+" 공고에 적힌 역할과 실제 업무는 대체로 비슷했지만 팀의 운영 성숙도에는 차이가 있었습니다.";
-            String hash=SentimentAiClient.contentHash(String.join("\n",review.title(),review.pros(),review.cons(),body,review.managementMessage()));
+            var review=FictionalDemoDataset.review(index,ordinal,company,FictionalDemoDataset.SECTORS.get(index/10),role);
+            String hash=SentimentAiClient.contentHash(String.join("\n",review.title(),review.pros(),review.cons(),review.body(),review.managementMessage()));
             jdbc.update("""
                 INSERT INTO company_reviews(company_id,job_posting_id,seed_key,source_type,display_author,department,employment_status,tenure_months,
                   rating,title,pros,cons,body,management_message,content_hash,analysis_state,next_analysis_at,created_at,updated_at)
                 VALUES (?,? ,?,'SYNTHETIC_DEMO',?,?,?,?,?,?,?,?,?,?,?,'PENDING',CURRENT_TIMESTAMP,DATE_SUB(CURRENT_TIMESTAMP,INTERVAL ? DAY),CURRENT_TIMESTAMP)
                 """,companyId,postingId,"DEMO-REVIEW-V2-%03d-%d".formatted(index+1,ordinal+1),"가상 리뷰어 %03d-%d".formatted(index+1,ordinal+1),
-                review.department(),review.status(),review.tenureMonths(),review.rating(),review.title(),review.pros(),review.cons(),body,review.managementMessage(),hash,ordinal*23+index%17);
+                review.department(),review.status(),review.tenureMonths(),review.rating(),review.title(),review.pros(),review.cons(),review.body(),review.managementMessage(),hash,ordinal*23+index%17);
         }
     }
 
