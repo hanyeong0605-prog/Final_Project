@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { confirmSubscriptionPayment } from "../features/subscription/api/subscriptionApi";
+import { confirmSubscriptionPayment, notifyInterviewPassChanged } from "../features/subscription/api/subscriptionApi";
 import { PageHeading } from "../shared/components/PageHeading";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 
@@ -30,7 +30,11 @@ export function SubscriptionResultPage() {
       return;
     }
     confirmSubscriptionPayment(paymentKey, orderId, amount)
-      .then(() => setStatus("done"))
+      .then(() => {
+        setStatus("done");
+        // 구매 직후 사이드바 배지가 즉시 새 잔여 횟수를 보여주도록 알린다.
+        notifyInterviewPassChanged();
+      })
       .catch((e) => {
         setStatus("error");
         setMessage(e instanceof Error ? e.message : "구독 확정에 실패했습니다.");

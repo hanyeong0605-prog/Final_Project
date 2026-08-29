@@ -12,4 +12,5 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     // 매일 스케줄러가 "오늘까지 다음 결제일이 도래한 활성 구독"을 찾을 때 쓴다.
     List<Subscription> findByStatusAndNextBillingAtLessThanEqual(SubscriptionStatus status, LocalDateTime now);
+
 }

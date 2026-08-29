@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, CircleHelp, LogOut, Menu, Search, ShieldCheck, UserRound, X } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/model/AuthContext";
-import { getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
+import { INTERVIEW_PASS_CHANGED_EVENT, getSubscriptionStatus } from "../features/subscription/api/subscriptionApi";
 import { navigationGroups, navigationItems, type NavigationGroup } from "../shared/constants/navigation";
 import { OnboardingModal } from "../features/profile/components/OnboardingModal";
 import { SiteAssistantWidget } from "../features/assistant/components/SiteAssistantWidget";
@@ -94,11 +94,21 @@ export function AppShell() {
     ?? navigationItems.find((item) => location.pathname.startsWith(`${item.path}/`))
     ?? navigationItems[0];
   const { member, logout } = useAuth();
-  const [subscribed, setSubscribed] = useState(false);
+  // 2026-08-29: 구독(기간) → 이용권(횟수) 전환 - 배지에 남은 횟수를 보여준다.
+  const [remainingSessions, setRemainingSessions] = useState(0);
   const hideSiteAssistant = location.pathname.startsWith("/resume");
 
   useEffect(() => {
-    void getSubscriptionStatus().then((status) => setSubscribed(status.subscribed)).catch(() => setSubscribed(false));
+    // 2026-08-29: 마운트 때 한 번만 조회하면, 모의면접에서 이용권을 쓰거나 결제를 마쳐도
+    // 사이드바 배지가 옛 숫자를 그대로 들고 있는다(브라우저에서 실제로 재현됨 - 0회가 됐는데
+    // "이용권 1회"로 남아 있었다). 잔여 횟수가 바뀌면 이벤트로 알려주고 여기서 다시 읽는다.
+    const refresh = () =>
+      void getSubscriptionStatus()
+        .then((status) => setRemainingSessions(status.remainingSessions))
+        .catch(() => setRemainingSessions(0));
+    refresh();
+    window.addEventListener(INTERVIEW_PASS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(INTERVIEW_PASS_CHANGED_EVENT, refresh);
   }, []);
 
   useEffect(() => {
@@ -155,7 +165,7 @@ export function AppShell() {
 
           <div className="profile-card">
             <div className="avatar">{member?.nickname?.slice(0, 1) ?? "J"}</div>
-            <div><strong>{member?.nickname}{member?.role === "ADMIN" ? <span className="subscription-badge active sidebar-subscription-badge">관리자</span> : subscribed && <span className="subscription-badge active sidebar-subscription-badge">구독중</span>}</strong><span>{member?.email}</span></div>
+            <div><strong>{member?.nickname}{member?.role === "ADMIN" ? <span className="subscription-badge active sidebar-subscription-badge">관리자</span> : remainingSessions > 0 && <span className="subscription-badge active sidebar-subscription-badge">이용권 {remainingSessions}회</span>}</strong><span>{member?.email}</span></div>
             <button aria-label="로그아웃" title="로그아웃" onClick={logout}><LogOut size={17} /></button>
           </div>
 
