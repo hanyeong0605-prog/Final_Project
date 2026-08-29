@@ -165,6 +165,18 @@ a { color: inherit; text-decoration: none; }
 .filter-select { position: relative; min-width: 112px; padding-right: 8px; }
 .filter-select select { position: relative; z-index: 1; width: 100%; appearance: none; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: inherit; font-weight: inherit; }
 .filter-select svg { pointer-events: none; color: #8a95a7; }
+.styled-select { position: relative; min-width: 132px; }
+.styled-select-trigger { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #dde4ef; border-radius: 11px; background: #fff; padding: 0 12px 0 14px; color: #4e5a70; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.styled-select-trigger:hover { border-color: #b8c6f5; background: #fafbff; }
+.styled-select.open .styled-select-trigger, .styled-select-trigger:focus-visible { border-color: #7895f2; box-shadow: 0 0 0 3px #708cf21f; outline: none; }
+.styled-select-trigger svg { flex: none; color: #8290a8; transition: transform .18s ease; }
+.styled-select.open .styled-select-trigger svg { transform: rotate(180deg); }
+.styled-select-menu { position: absolute; z-index: 40; top: calc(100% + 7px); left: 0; min-width: max(100%, 170px); overflow: hidden; border: 1px solid #dce4f2; border-radius: 13px; background: #fff; padding: 6px; box-shadow: 0 18px 45px #1e315426; animation: styled-select-in .14s ease-out; }
+.styled-select-menu button { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-radius: 8px; background: transparent; padding: 0 10px; color: #536078; font: inherit; font-size: 11px; font-weight: 700; text-align: left; white-space: nowrap; cursor: pointer; }
+.styled-select-menu button:hover, .styled-select-menu button:focus-visible { background: #f1f5ff; color: #4664d8; outline: none; }
+.styled-select-menu button[aria-selected="true"] { background: #eaf0ff; color: #4563d6; font-weight: 900; }
+.styled-select-menu svg { color: #5675e6; }
+@keyframes styled-select-in { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .sort-select { margin-left: auto; }
 .role-filter { position: relative; }
 .role-filter-menu { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: min(420px, calc(100vw - 36px)); border: 1px solid #dce3ef; border-radius: 13px; background: #fff; box-shadow: 0 18px 45px #1e315426; padding: 17px; }
@@ -285,7 +297,8 @@ a { color: inherit; text-decoration: none; }
 .auth-page { display: grid; min-height: 100vh; place-items: center; background: radial-gradient(circle at 20% 10%, #e9edff, transparent 35%), #f5f7fb; padding: 28px 18px; }
 .auth-card { width: min(440px, 100%); border: 1px solid #e1e6ef; border-radius: 18px; background: #fff; box-shadow: 0 20px 55px #24345f14; padding: 34px; }
 .auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; }
-.auth-brand .brand-mark { width: 220px; height: 44px; border-radius: 0; background: transparent url('/brand/job-a-dream-wordmark-blue.png') center / contain no-repeat; box-shadow: none; color: transparent; font-size: 0; }
+.auth-brand .brand-mark { width: 220px; height: 44px; border-radius: 0; background: transparent url('/brand/job-a-dream-wordmark-blue.png') center / contain no-repeat; box-shadow: none; color: transparent; font-size: 0; transition: background-image .18s ease; }
+.auth-brand:hover .brand-mark, .auth-brand:focus-within .brand-mark { background-image: url('/brand/job-a-dream-wordmark-ko.png'); }
 .auth-brand > div { display: none; }
 .auth-brand strong, .auth-brand small { display: block; }
 .auth-brand strong { color: #1c2640; font-size: 16px; }
@@ -355,6 +368,19 @@ a { color: inherit; text-decoration: none; }
 .keypad-confirm { width: 100%; margin-top: 14px; }
 .keypad-confirm:disabled { cursor: not-allowed; opacity: .55; }
 .auth-loading { display: grid; min-height: 100vh; place-items: center; color: #69758a; font-size: 12px; }
+.site-loading { display: grid; width: min(520px, calc(100vw - 40px)); justify-items: center; gap: 9px; color: #74829a; font-size: 11px; font-weight: 700; letter-spacing: -.02em; text-align: center; }
+.site-loading video { display: block; width: 100%; max-height: 330px; border-radius: 20px; object-fit: contain; }
+.site-loading.compact { width: min(360px, 100%); }
+.site-loading.compact video { max-height: 220px; border-radius: 16px; }
+.employer-brand .brand-identity { min-width: 155px; width: 155px; }
+.employer-brand .brand-identity span { border-left: 0; padding-left: 0; color: inherit; font-size: inherit; font-weight: inherit; letter-spacing: inherit; }
+.employer-brand .brand-wordmark-image { width: 155px; }
+@media (max-width: 800px) {
+  .employer-brand .brand-identity { display: grid !important; min-width: 125px; width: 125px; }
+  .employer-brand .brand-name { display: block !important; }
+  .employer-brand .brand-name-ko { display: flex !important; }
+  .employer-brand .brand-wordmark-image { width: 125px; }
+}
 /* 2026-08-19: 기업회원 마이페이지 - 채용공고 등록/수정 폼. account-panel과 같은 톤으로
    2열 그리드에, 제목/설명/체크박스는 전체 폭을 쓰게 한다. */
 .employer-posting-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -419,7 +445,7 @@ a { color: inherit; text-decoration: none; }
 .brand-identity { position: relative; display: grid; min-width: 270px; height: 60px; overflow: hidden; }
 .brand-name { position: relative; grid-area: 1 / 1; align-self: center; width: 100%; height: 60px; color: #151515; font-size: 25px; font-weight: 800; letter-spacing: -1.1px; line-height: 60px; transition: opacity .22s ease, transform .36s cubic-bezier(.2,.8,.2,1); }
 .brand-name-en { opacity: 1; transform: translateY(0); white-space: nowrap; }
-.brand-name-ko { display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(60px); color: #5B92F3; font-size: 42px; letter-spacing: -2px; line-height: 1; }
+.brand-name-ko { display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(60px); color: #5B92F3; line-height: 1; }
 .brand-wordmark-image { display: block; width: 270px; height: 60px; object-fit: contain; transform: scale(1.05); transform-origin: center; }
 .brand-tagline { display: none; }
 .brand-link:hover .brand-name-en, .brand-link:focus-visible .brand-name-en { opacity: 0; transform: translateY(-60px); }
