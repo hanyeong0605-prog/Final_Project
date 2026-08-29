@@ -20,6 +20,10 @@ public class OpenDartRequestUriFactory {
         return URI.create(baseUrl + "/api/fnlttSinglAcntAll.json?" + query);
     }
 
+    public URI corporationDirectoryUri(String apiKey) {
+        return URI.create(baseUrl + "/api/corpCode.xml?crtfc_key=" + encode(apiKey));
+    }
+
     private String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
