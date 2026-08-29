@@ -800,12 +800,6 @@ export function MockInterviewPage() {
   // 없음). 조회 자체가 실패해도(비로그인 등) 그냥 빈 값 취급하고 넘어간다.
   const [careerJob, setCareerJob] = useState("");
   const [careerTechSummary, setCareerTechSummary] = useState("");
-  // 2026-08-13: "프로필 불러오기는 구독자 기준이어야 하고, 연습이냐 프로필 불러오기냐를
-  // 사용자가 직접 선택하게 해달라"는 요청으로 추가 - 이전엔 "면접 분야"에서 "선택 안 함"을
-  // 고르면(기본값) 프로필이 있으면 조용히 자동 적용됐는데, 이제는 명시적으로 "프로필
-  // 불러오기"를 골라야만 적용되고, 그마저도 구독 중(또는 관리자)일 때만 실제로 반영된다.
-  // 기본값은 "연습"이라 아무것도 안 고르면 예전처럼 프로필이 몰래 섞여 들어가는 일이 없다.
-  const [questionSource, setQuestionSource] = useState<"practice" | "profile">("practice");
   const [subscribed, setSubscribed] = useState(false);
   // 2026-08-29: 구독 확인이 끝나기 전에는 실전면접을 고르지도, 시작하지도 못하게 한다
   // (설계 문서 "오류 및 경계 처리"). subscribed의 초기값이 false라서, 확인 중과 "비구독
@@ -879,6 +873,9 @@ export function MockInterviewPage() {
   // 2026-08-06: 카메라/채팅 카드를 클릭해서 고르는 라디오 방식으로 바꾸면서 다시 추가 -
   // 실제 시작은 맨 아래 단일 "모의면접 시작하기" 버튼이 이 값을 보고 분기한다.
   const [interviewMode, setInterviewMode] = useState<"camera" | "chat">("camera");
+  // 무료 모의면접은 목표 직무가 있어야 그 분야 질문을 뽑을 수 있다 - 다섯 분야 중 하나가
+  // 실제로 골라졌는지만 본다("" = 예전 "선택 안 함" 값은 고른 것으로 치지 않는다).
+  const practiceRoleChosen = INTERVIEW_ROLE_OPTIONS.some(([code]) => code === selectedRole);
   // 2026-08-06: "질문 몇 개로 할지도 카드로 고르게" 요청 - 자기소개 1개는 항상 고정이고
   // 나머지 (개수-1)개를 카테고리를 돌려가며 생성한다(buildSessionQuestions 참고).
   const [questionCount, setQuestionCount] = useState<number>(3);
@@ -1003,8 +1000,18 @@ export function MockInterviewPage() {
   useEffect(() => {
     getCareerProfile()
       .then((profile) => {
-        setCareerJob(profile?.targetRole?.trim() || "");
+        const targetRole = profile?.targetRole?.trim() || "";
+        setCareerJob(targetRole);
         setCareerTechSummary(profile?.technicalSummary?.trim() || "");
+        // 2026-08-29: 목표 직무가 있으면 "면접 분야"의 기본 선택값으로 채운다 - 설계 문서상
+        // 무료 모의면접은 목표 직무를 자동으로 불러오되 사용자가 다른 직무로 바꿀 수 있어야
+        // 한다. 예전처럼 별도 "프로필 불러오기" 토글을 눌러야 반영되거나, 반영되면 분야
+        // 선택이 잠기는 방식이 아니다. 딥링크(?role=)로 이미 정해져 온 경우는 그쪽이 우선이라
+        // 건드리지 않는다(prev !== null이면 그대로 둔다).
+        const matched = INTERVIEW_ROLE_OPTIONS.find(
+          ([code, label]) => code === targetRole || label === targetRole || label.startsWith(targetRole),
+        );
+        if (targetRole && matched) setSelectedRole((prev) => (prev === null ? matched[0] : prev));
       })
       .catch(() => {
         setCareerJob("");
@@ -1161,13 +1168,12 @@ export function MockInterviewPage() {
   // 있어서 "5개짜리 실전 세션에 행동 질문이 몇 개 들어가는가" 같은 걸 확인하려면 화면을
   // 직접 돌려보는 수밖에 없었다. 여기서는 화면 상태에서 설정값만 뽑아 넘긴다.
   const buildSessionQuestions = async (): Promise<string[]> => {
-    // 2026-08-13: "프로필 불러오기"를 명시적으로 고르고 구독 중일 때만 기술 요약을 흘려보낸다.
-    // 실전면접은 근거(source)가 스펙을 포함할 때 서버가 회원 스펙을 직접 읽으므로, 화면에서
-    // 넘기는 기술 요약은 보조 힌트일 뿐이다.
-    const useProfile = questionSource === "profile" && subscribed;
+    // 2026-08-29: 무료 모의면접은 목표 직무만 쓴다 - 기술 요약/프로젝트/공고는 넘기지 않는다
+    // (설계 문서 "무료 모의면접" 절). 실전면접에서만, 그것도 근거가 스펙을 포함할 때만 기술
+    // 요약을 보조 힌트로 넘긴다 - 실제 스펙은 서버가 member_spec_retrieval로 직접 읽는다.
     const selectedRoleLabel = INTERVIEW_ROLE_OPTIONS.find(([code]) => code === selectedRole)?.[1];
     const companyEnabled = interviewKind === "real" && realQuestionSource !== "spec";
-    const usesTechSummary = interviewKind === "real" ? realQuestionSource !== "company" : useProfile;
+    const usesTechSummary = interviewKind === "real" && realQuestionSource !== "company";
 
     return buildInterviewQuestions(
       {
@@ -2284,84 +2290,15 @@ export function MockInterviewPage() {
                 </button>
               </div>
 
-              {/* 2026-08-19: "연습(범용 질문) 없애고 프로필 불러오기는 따로 만들어서, 프로필을
-                  불러오면 실제 면접처럼 면접 유형/면접 분야를 비활성화해달라"는 요청으로 개편.
-                  예전엔 "연습"/"프로필 불러오기" 두 칩 중 하나를 고르는 그룹이었는데, 이제
-                  "프로필 불러오기" 하나만 있는 토글이다(안 누르면 기존 "연습"과 동일하게
-                  면접 유형/분야를 직접 고른다 - 기본값은 그대로 questionSource="practice").
-                  이 토글이 맨 위로 올라온 이유: 아래 두 그룹(면접 유형/면접 분야)의 활성화
-                  여부가 이 값에 달려있어서, 사용자가 먼저 보고 정할 수 있게 순서를 바꿨다. */}
-              {/* 2026-08-29: 무료 모의면접에서만 보여준다 - 실전면접은 위 "질문에 사용할
-                  정보"(source)가 같은 역할을 하고, 스펙도 서버가 직접 읽는다
-                  (member_spec_retrieval.py). 둘을 같이 두면 어느 쪽이 이겼는지 알 수 없다. */}
-              {interviewKind === "practice" && (
-              <div className="interview-option-group">
-                <span className="interview-option-label">질문 기준</span>
-                <div className="interview-option-row">
-                  <button
-                    type="button"
-                    className={`interview-option-chip${questionSource === "profile" ? " active" : ""}`}
-                    onClick={() => {
-                      const next = questionSource === "profile" ? "practice" : "profile";
-                      setQuestionSource(next);
-                      // 프로필 불러오기를 켜는 순간, 그 자리에서 직접 고른 면접 유형/분야는
-                      // 초기화한다 - 안 그러면 buildSessionQuestions에서 이 값들이 프로필의
-                      // job/techSummary보다 우선해버려서 "프로필 불러오기"가 무의미해진다.
-                      if (next === "profile") {
-                        setSelectedInterviewType(null);
-                        setSelectedRole(null);
-                      }
-                    }}
-                  >
-                    프로필 불러오기
-                  </button>
-                </div>
-                {questionSource === "profile" && (
-                  <p style={{ marginTop: 10, fontSize: 12, color: "#9098a7" }}>
-                    실제 면접처럼 면접 유형·분야를 직접 고르지 않고, 마이페이지에 입력한 목표
-                    직무·기술 요약을 그대로 반영해서 질문을 만들어요.
-                  </p>
-                )}
-                {questionSource === "profile" && !subscribed && (
-                  <p className="account-alert" style={{ marginTop: 10 }}>
-                    프로필 맞춤 질문은 구독자 전용 기능이에요. 구독하면 마이페이지에 입력해둔
-                    목표 직무·기술 요약을 반영한 질문을 받을 수 있어요.{" "}
-                    <Link to="/account" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>
-                      맞춤 모의면접 보기
-                    </Link>
-                  </p>
-                )}
-                {questionSource === "profile" && subscribed && !careerJob && !careerTechSummary && (
-                  <p className="account-alert" style={{ marginTop: 10 }}>
-                    아직 프로필에 입력된 목표 직무·기술 요약이 없어요.{" "}
-                    <Link to="/profile">프로필 작성하기</Link>
-                  </p>
-                )}
-                {/* 2026-08-19: "프로필 불러오기가 된 건지 어떻게 아냐, 구독자는 불러와졌으면
-                    '프로필을 불러왔어요!' 식으로 알려줘야 한다"는 요청으로 추가 - 구독 중이고
-                    실제로 반영할 프로필 데이터(목표 직무 또는 기술 요약)가 있을 때만 보여준다
-                    (subscribed && !careerJob && !careerTechSummary 분기와 상호 배타적). */}
-                {questionSource === "profile" && subscribed && (careerJob || careerTechSummary) && (
-                  <p className="account-alert" style={{ marginTop: 10 }}>
-                    프로필을 불러왔어요! 마이페이지에 입력한 목표 직무·기술 요약을 반영해서
-                    질문을 만들게요.
-                    {careerJob && (
-                      <>
-                        {" "}
-                        (목표 직무: <strong>{careerJob}</strong>)
-                      </>
-                    )}
-                  </p>
-                )}
-              </div>
-              )}
 
-              {/* 2026-08-26: RAG - 구독자가 특정 공고를 골라두면 그 공고의 요구사항을 질문/
-                  모범답안/채점 근거로 반영한다. 위 "프로필 불러오기"(이력)와는 독립된 선택
-                  사항이라 둘 다 켜도 되고, 아무것도 안 골라도 지금까지와 완전히 동일하게
-                  동작한다(하위호환). 무료 등급은 애초에 Gemini를 안 부르니(corpusOnly) 이
-                  옵션이 의미가 없어서 구독자에게만 보여준다. */}
-              {subscribed && (
+              {/* 2026-08-26: RAG - 특정 공고를 골라두면 그 공고의 요구사항을 질문/모범답안/
+                  채점 근거로 반영한다.
+                  2026-08-29: 실전면접에서만 보여준다. 무료 모의면접은 코퍼스에서만 질문을
+                  뽑고 공고 요구사항을 아예 조회하지 않아서(설계 문서 "무료 모의면접" 절,
+                  buildInterviewQuestions의 practice 경로는 job_posting_id를 보내지도 않는다),
+                  여기 두면 사용자가 회사를 골라놓고 반영되기를 기대하는데 실제로는 아무 일도
+                  일어나지 않는 컨트롤이 된다. */}
+              {interviewKind === "real" && subscribed && (
                 <div className="interview-option-group">
                   <span className="interview-option-label">준비 중인 공고 (선택)</span>
                   {selectedJobPosting ? (
@@ -2433,14 +2370,13 @@ export function MockInterviewPage() {
                   게 핵심 아이디어. "전체"(선택 안 함)는 기존처럼 6개 카테고리를 다 순환한다.
                   2026-08-19: "프로필 불러오기" 중엔 실제 면접처럼 유형을 직접 못 고르게
                   비활성화한다(위 토글 참고). */}
-              <div className={`interview-option-group${questionSource === "profile" ? " interview-option-group-disabled" : ""}`}>
+              <div className="interview-option-group">
                 <span className="interview-option-label">
-                  면접 유형{questionSource === "profile" && <span style={{ fontWeight: 400, color: "#9098a7" }}> (프로필 기준으로 자동 결정)</span>}
+                  면접 유형
                 </span>
                 <div className="interview-option-row">
                   <button
                     type="button"
-                    disabled={questionSource === "profile"}
                     className={`interview-option-chip${selectedInterviewType === "" ? " active" : ""}`}
                     onClick={() => setSelectedInterviewType("")}
                   >
@@ -2450,7 +2386,6 @@ export function MockInterviewPage() {
                     <button
                       key={type}
                       type="button"
-                      disabled={questionSource === "profile"}
                       className={`interview-option-chip${selectedInterviewType === type ? " active" : ""}`}
                       onClick={() => setSelectedInterviewType(type)}
                     >
@@ -2464,26 +2399,19 @@ export function MockInterviewPage() {
                   라디오버튼처럼 클릭하는 카드(칩) 형태로 해달라는 요청으로 select를 버튼
                   그룹으로 바꿨다. 2026-08-19: "프로필 불러오기" 중엔 위 면접 유형과 같은
                   이유로 비활성화한다. */}
-              <div className={`interview-option-group${questionSource === "profile" ? " interview-option-group-disabled" : ""}`}>
+              <div className="interview-option-group">
                 <span className="interview-option-label">
-                  면접 분야{questionSource === "profile" && <span style={{ fontWeight: 400, color: "#9098a7" }}> (프로필 기준으로 자동 결정)</span>}
+                  면접 분야
                 </span>
-                {/* 2026-08-07: 선택 안 함 + 분야 5개 = 6개라 auto-fit이 5+1로 어색하게
-                    쪼개졌다 - 3열로 고정해서 3+3으로 깔끔하게 떨어지게 했다. */}
+                {/* 2026-08-29: "선택 안 함" 칩을 뺐다 - 무료 모의면접은 목표 직무가 있어야
+                    그 분야 질문을 뽑을 수 있어서, 다섯 개 중 하나는 반드시 정해져야 한다
+                    (설계 문서 "무료 모의면접" 절). 프로필에 목표 직무가 있으면 위 조회에서
+                    이미 골라져 있고, 없으면 아래 시작 버튼이 잠긴 채 안내가 뜬다. */}
                 <div className="interview-option-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                  <button
-                    type="button"
-                    disabled={questionSource === "profile"}
-                    className={`interview-option-chip${selectedRole === "" ? " active" : ""}`}
-                    onClick={() => setSelectedRole("")}
-                  >
-                    선택 안 함
-                  </button>
                   {INTERVIEW_ROLE_OPTIONS.map(([code, label]) => (
                     <button
                       key={code}
                       type="button"
-                      disabled={questionSource === "profile"}
                       className={`interview-option-chip${selectedRole === code ? " active" : ""}`}
                       onClick={() => setSelectedRole(code)}
                     >
@@ -2523,11 +2451,28 @@ export function MockInterviewPage() {
                 </div>
               )}
 
+              {/* 2026-08-29: 무료 모의면접은 목표 직무가 정해져야 시작할 수 있다. 프로필에
+                  목표 직무가 있으면 위에서 이미 골라져 있으므로, 이 안내는 프로필이 비었거나
+                  프로필 값이 다섯 분야 중 어디에도 안 맞을 때만 뜬다. */}
+              {interviewKind === "practice" && !practiceRoleChosen && (
+                <p className="account-alert">
+                  면접 분야를 하나 골라주세요. 마이페이지에 목표 직무를 입력해두면 다음부터 자동으로 선택돼요.{" "}
+                  <button type="button" className="text-button" onClick={() => navigate("/capability?tool=profile")}>
+                    목표 직무 입력하기
+                  </button>
+                </p>
+              )}
               <button
                 className="primary-button"
                 onClick={() => (interviewMode === "camera" ? startSession() : startChatModeSession())}
                 type="button"
-                disabled={interviewKind === "real" && (!subscriptionChecked || (realQuestionSource !== "company" && !careerJob && !careerTechSummary) || (realQuestionSource !== "spec" && !selectedJobPosting))}
+                disabled={
+                  interviewKind === "practice"
+                    ? !practiceRoleChosen
+                    : !subscriptionChecked
+                      || (realQuestionSource !== "company" && !careerJob && !careerTechSummary)
+                      || (realQuestionSource !== "spec" && !selectedJobPosting)
+                }
                 style={{ fontSize: 15, padding: "14px 32px" }}
               >
                 <Sparkles size={18} /> {interviewKind === "practice" ? "모의면접 시작하기" : "실전면접 시작하기"}
@@ -2547,7 +2492,7 @@ export function MockInterviewPage() {
                   그대로 재사용한다. 여기서는 아직 카메라/마이크 스트림을 하나도 안 잡은 상태라(잡는
                   건 마이크·카메라 테스트를 눌러야 시작됨) 정리할 스트림이 없어 endSession의 정리
                   로직이 대부분 no-op이고, interviewMode/selectedRole/selectedInterviewType/
-                  questionCount/questionSource는 건드리지 않아서 시작 화면으로 돌아가도 방금 고른
+                  questionCount는 건드리지 않아서 시작 화면으로 돌아가도 방금 고른
                   값이 그대로 남아있다 - 처음부터 다시 고를 필요 없이 잘못된 것만 바꾸면 된다. */}
               <button
                 className="text-button"
