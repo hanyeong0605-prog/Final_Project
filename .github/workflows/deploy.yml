@@ -147,7 +147,8 @@ jobs:
                 fi
             fi
 
-            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
+            if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || \
+              printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
                 $COMPOSE build backend
                 $COMPOSE up -d --no-deps backend
             fi
@@ -185,6 +186,10 @@ jobs:
               $COMPOSE logs --tail=120 backend
               echo "Backend did not become healthy within 1200 seconds." >&2
               exit 1
+            fi
+
+            if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
+              $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete' || true
             fi
 
             if [ '${{ inputs.company_growth_report || false }}' = 'true' ]; then
