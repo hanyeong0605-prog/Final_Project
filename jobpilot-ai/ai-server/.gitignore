@@ -12,3 +12,15 @@ app/domain/interview/model/
 # (delivery_score_dataset.csv는 그대로 커밋 대상 - CSV라 용량 작고, 어디까지 모았는지
 # 팀이 같이 볼 수 있는 게 나음)
 ml/delivery_score_model_experimental.joblib
+
+# KOTE 원문과 임의 실험 산출물은 제외한다. 운영에서 평가를 통과한 baseline-v1만
+# 정확한 모델 버전을 Docker에 넣기 위해 명시적으로 추적한다.
+ml/sentiment/data/
+ml/sentiment/artifacts/*
+!ml/sentiment/artifacts/kote-baseline-v1/
+!ml/sentiment/artifacts/kote-baseline-v1/model.joblib
+!ml/sentiment/artifacts/kote-baseline-v1/labels.json
+!ml/sentiment/artifacts/kote-baseline-v1/metadata.json
+!ml/sentiment/artifacts/kote-baseline-v1/thresholds.json
+ml/sentiment/reports/*.json
+ml/sentiment/reports/*.csv

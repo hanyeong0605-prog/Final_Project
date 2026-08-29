@@ -75,7 +75,7 @@ jobs:
       - run: mvn --batch-mode test
 
   ai-server:
-    name: AI server syntax check
+    name: AI server tests and model image
     needs: changes
     if: needs.changes.outputs.ai-server == 'true'
     runs-on: ubuntu-latest
@@ -84,10 +84,9 @@ jobs:
         working-directory: jobpilot-ai/ai-server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: PYTHONPYCACHEPREFIX="$RUNNER_TEMP/pycache" python -m compileall -q app
+      - run: docker build -t jobpilot-ai-test .
+      - name: Verify packaged sentiment model
+        run: docker run --rm jobpilot-ai-test python -c "from app.domain.sentiment.service import get_sentiment_service; assert get_sentiment_service().status().state == 'READY'"
 
   wordcloud-image:
     name: Wordcloud Docker build

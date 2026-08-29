@@ -38,6 +38,8 @@ import { AdminFaceReferencePage } from "../pages/AdminFaceReferencePage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
+import { EmployerReviewAnalysisPage } from "../pages/EmployerReviewAnalysisPage";
+import { CommunityPage } from "../pages/CommunityPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -52,6 +54,7 @@ export const router = createBrowserRouter([
       { index: true, element: <EmployerHomePage /> },
       { path: "dashboard", element: <EmployerDashboardPage /> },
       { path: "postings", element: <EmployerMyPage /> },
+      { path: "reviews", element: <EmployerReviewAnalysisPage /> },
       { path: "account", element: <EmployerAccountPage /> },
     ],
   },
@@ -69,6 +72,7 @@ export const router = createBrowserRouter([
       { path: "jobs", element: <JobMatchesPage /> },
       { path: "job-postings", element: <AllJobPostingsPage /> },
       { path: "job-postings/:id", element: <JobPostingDetailPage /> },
+      { path: "community", element: <CommunityPage /> },
       { path: "locationjobs", element: <LocationJobsPage /> },
       { path: "opportunities", element: <OpportunitiesPage /> },
       { path: "opportunities/:id", element: <OpportunityDetailPage /> },

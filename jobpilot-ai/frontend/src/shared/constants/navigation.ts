@@ -10,6 +10,7 @@ import {
   Sparkles,
   Target,
   UserRound,
+  MessageSquareText,
 } from "lucide-react";
 
 export interface NavigationItem {
@@ -61,6 +62,7 @@ export const navigationGroups: NavigationGroup[] = [
     ],
   },
   { path: "/account", label: "마이페이지", icon: UserRound },
+  { path: "/community", label: "커뮤니티", icon: MessageSquareText },
 ];
 
 export const utilityNavigationItems: NavigationItem[] = [
