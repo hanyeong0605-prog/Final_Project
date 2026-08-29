@@ -106,11 +106,6 @@ app:
   sentiment:
     worker:
       enabled: ${APP_SENTIMENT_WORKER_ENABLED:false}
-  review-demo:
-    # One-shot idempotent import. Enable only after V43 is applied; stable keys prevent duplicates.
-    seed-enabled: ${APP_REVIEW_DEMO_SEED_ENABLED:false}
-    # Optional approved presentation account; 0 keeps demo data unowned.
-    employer-id: ${APP_REVIEW_DEMO_EMPLOYER_ID:0}
   face-verification:
     # Internal only: the browser never calls this service directly.
     base-url: ${FACE_VERIFICATION_BASE_URL:http://localhost:8000}

@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { IctStatisticsPanel } from "../features/statistics/components/IctStatisticsPanel";
 import { HomeJobCarousels } from "../features/job-postings/components/HomeJobCarousels";
 import { WordCloudSection } from "../features/word-cloud/components/WordCloudSection";
-import { HomeReviewRankings } from "../features/reviews/components/HomeReviewRankings";
 
 const quickLinks = [
   { to: "/jobs", icon: BriefcaseBusiness, title: "맞춤 채용공고", body: "내 역량과 공고 요구사항을 비교해 지원 준비도를 확인하세요." },
@@ -54,8 +53,6 @@ export function HomePage() {
     </section>
 
     <HomeJobCarousels />
-    <HomeReviewRankings />
-
     <section className="home-market-layout">
       <div className="home-stat-card" data-scroll-reveal>
         <div className="home-section-heading"><div><span className="eyebrow">ICT INSIGHTS</span><h2>ICT 취업 준비 인사이트</h2></div><Link to="/statistics">통계 자세히 보기 <ArrowRight size={15} /></Link></div>
