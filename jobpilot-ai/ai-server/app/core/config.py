@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
     # Optional read-only artifact mount. No model => only sentiment returns unavailable.
     sentiment_model_dir: str = "/models/sentiment"
+    # Optional validated DART growth artifact. An absent/unvalidated model fails closed.
+    company_growth_model_dir: str = "/models/company-growth"
 
     # 모의면접 질문생성(question_generator.py) 결과 검수용. 없어도 기능은 동작한다 -
     # 검수를 그냥 건너뛰고 로컬 모델 결과를 그대로 쓴다 (fail-open).

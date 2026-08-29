@@ -38,6 +38,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY_BACKEND:-}
       # Community posts and comments are analyzed asynchronously by this worker.
       APP_SENTIMENT_WORKER_ENABLED: ${APP_SENTIMENT_WORKER_ENABLED:-true}
+      DART_PREDICTION_SYNC_ON_START: ${DART_PREDICTION_SYNC_ON_START:-false}
       ADMIN_FACE_REFERENCE_DIR: /app/admin_photos
     volumes:
       - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos
@@ -57,9 +58,12 @@ services:
     env_file:
       - ${ENV_FILE:?Set ENV_FILE to the absolute path of the server environment file}
     environment:
+      COMPANY_GROWTH_MODEL_DIR: /models/company-growth
       BACKEND_BASE_URL: http://backend:9000
       GEMINI_API_KEY: ${GEMINI_API_KEY_AI:-}
       SENTIMENT_MODEL_DIR: /models/sentiment
+    volumes:
+      - ${COMPANY_GROWTH_MODEL_HOST_DIR:-/srv/jobpilot/models/company-growth}:/models/company-growth:ro
     expose:
       - "8001"
     healthcheck:
