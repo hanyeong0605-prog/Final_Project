@@ -6,9 +6,12 @@ import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class DartCorporationSyncService {
+    private static final Logger log = LoggerFactory.getLogger(DartCorporationSyncService.class);
     private static final String UPSERT = """
             INSERT INTO dart_corporations (corp_code, corp_name, corp_eng_name, stock_code, modify_date)
             VALUES (?, ?, ?, ?, ?)
@@ -40,6 +43,20 @@ public class DartCorporationSyncService {
             @Override public int getBatchSize() { return corporations.size(); }
         });
         return corporations.size();
+    }
+
+    /** Refresh when possible, but keep a previously stored official directory on a transient DART outage. */
+    public int syncWithCacheFallback() {
+        try {
+            return sync();
+        } catch (RuntimeException upstreamFailure) {
+            Integer cached = jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class);
+            if (cached != null && cached > 0) {
+                log.warn("OpenDART corporation directory refresh failed; using cached rows={}", cached);
+                return 0;
+            }
+            throw upstreamFailure;
+        }
     }
 
     private String blankToNull(String value) {

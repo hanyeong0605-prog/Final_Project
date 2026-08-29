@@ -36,7 +36,7 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        int corporations = corporationSync.sync();
+        int corporations = corporationSync.syncWithCacheFallback();
         CompanyMatchReport report = companyBackfill.backfillExistingPostings();
         log.info("DART backfill complete: corporations={}, distinctCompanies={}, confirmed={}, candidates={}, unmatched={}",
                 corporations, report.distinctCompanies(), report.confirmed(), report.candidates(), report.unmatched());
