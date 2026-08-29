@@ -88,7 +88,17 @@ ls backend/src/main/resources/db/migration/V47__dart_company_finance.sql
 
 ## 4. 실제 매칭 결과 확인 (가장 먼저 할 일)
 
-현재 문서 작성 시점에는 숫자 결과가 대화에 전달되지 않아 **매칭 수치는 미측정**이다. 임의 수치를 보고하면 안 된다.
+2026-08-29 10:37:56 KST 서버 로그로 측정한 결과는 다음과 같다.
+
+| 항목 | 기업 수 | 비율 |
+| --- | ---: | ---: |
+| DART 법인목록 | 118,804 | - |
+| 프로젝트 고유 회사 | 1,727 | 100.0% |
+| 확정 매칭 (`CONFIRMED`) | 494 | 28.6% |
+| 후보 (`CANDIDATE`) | 929 | 53.8% |
+| 미매칭 (`UNMATCHED`) | 304 | 17.6% |
+
+재무제표·예측에 사용할 수 있는 대상은 **확정 매칭 494개**뿐이다. 후보 929개는 이름이 부분적으로만 유사하므로 자동 승격하지 않는다. 후보를 무리하게 포함하면 다른 법인의 재무제표를 보여주는 치명적인 오매칭이 생긴다.
 
 서버에서 아래 명령을 실행한다.
 
@@ -99,7 +109,7 @@ sudo env ENV_FILE=/etc/jobpilot/jobpilot.env docker compose \
   -f docker-compose.prod.yml logs --since 60m backend | grep "DART backfill complete"
 ```
 
-정상 예시 형식:
+정상 로그 형식:
 
 ```text
 DART backfill complete: corporations=..., distinctCompanies=..., confirmed=..., candidates=..., unmatched=...
