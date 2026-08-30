@@ -25,6 +25,20 @@ public class CompanyFinancialSyncService {
               AND corporations.stock_code IS NOT NULL
               AND corporations.stock_code <> ''
             """;
+    /*
+     * fnlttMultiAcnt returns a stock code with each row, so it is efficient for
+     * listed corporations. It cannot identify unlisted corporations in its
+     * response, however. Those confirmed DART matches must use the single
+     * corporation endpoint instead of being silently excluded from the dataset.
+     */
+    private static final String CONFIRMED_UNLISTED_CORPORATIONS = """
+            SELECT DISTINCT matches.corp_code
+            FROM company_dart_matches matches
+            JOIN dart_corporations corporations ON corporations.corp_code = matches.corp_code
+            WHERE matches.match_status = 'CONFIRMED'
+              AND matches.corp_code IS NOT NULL
+              AND (corporations.stock_code IS NULL OR corporations.stock_code = '')
+            """;
     private static final String UPSERT_FINANCIAL_YEAR = """
             INSERT INTO company_financial_years (
                 corp_code, business_year, report_code, fs_div, revenue, operating_income, net_income,
@@ -47,6 +61,7 @@ public class CompanyFinancialSyncService {
     public int syncConfirmedCompanies(int firstYear, int lastYear) {
         List<CorporationReference> corporations = jdbc.query(CONFIRMED_LISTED_CORPORATIONS,
                 (rs, rowNum) -> new CorporationReference(rs.getString(1), rs.getString(2)));
+        List<String> unlistedCorporations = jdbc.queryForList(CONFIRMED_UNLISTED_CORPORATIONS, String.class);
         int stored = 0;
         for (int year = firstYear; year <= lastYear; year++) {
             for (int start = 0; start < corporations.size(); start += 100) {
@@ -60,6 +75,15 @@ public class CompanyFinancialSyncService {
                         storeAnnualStatement(corporation.corpCode(), year, snapshot);
                         stored++;
                     }
+                }
+            }
+        }
+        for (String corpCode : unlistedCorporations) {
+            for (int year = firstYear; year <= lastYear; year++) {
+                OpenDartFinancialSnapshot snapshot = fetchSingleWithRetry(corpCode, year);
+                if (snapshot != null) {
+                    storeAnnualStatement(corpCode, year, snapshot);
+                    stored++;
                 }
             }
         }
@@ -100,6 +124,27 @@ public class CompanyFinancialSyncService {
                         throw networkFailure;
                     }
                 }
+            }
+        }
+        throw lastFailure;
+    }
+
+    private OpenDartFinancialSnapshot fetchSingleWithRetry(String corpCode, int businessYear) {
+        ResourceAccessException lastFailure = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                // Spread the one-corporation fallback requests across the DART
+                // quota while still keeping the explicit one-shot backfill bounded.
+                Thread.sleep(120L);
+                return client.fetchAnnualConsolidatedStatement(corpCode, businessYear);
+            } catch (OpenDartNoDataException noStatementAvailable) {
+                return null;
+            } catch (ResourceAccessException networkFailure) {
+                lastFailure = networkFailure;
+                if (attempt < 3) continue;
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("DART unlisted-company sync was interrupted", interrupted);
             }
         }
         throw lastFailure;
