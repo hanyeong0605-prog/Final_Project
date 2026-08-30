@@ -88,7 +88,14 @@ public class JobPostingSearchService {
                 + "title, source_url, location, employment_type, "
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
                 + "is_rolling_deadline, status, COALESCE(view_count, 0) AS view_count, "
-                + "(SELECT COUNT(*) FROM user_interests interest WHERE interest.target_type = 'JOB_POSTING' AND interest.target_id = job_postings.id) AS bookmark_count "
+                + "(SELECT COUNT(*) FROM user_interests interest WHERE interest.target_type = 'JOB_POSTING' AND interest.target_id = job_postings.id) AS bookmark_count, "
+                + "EXISTS (SELECT 1 FROM company_dart_matches finance_match "
+                + "JOIN company_financial_years financial ON financial.corp_code = finance_match.corp_code "
+                + "WHERE finance_match.source_provider = job_postings.source_provider "
+                + "AND finance_match.source_company_id = COALESCE(job_postings.source_company_id, '') "
+                + "AND finance_match.match_status = 'CONFIRMED' "
+                + "AND finance_match.normalized_company_name = LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(job_postings.company_name, ''), '주식회사', ''), '(주)', ''), '㈜', ''), '[^[:alnum:]가-힣]', '')) "
+                + "AND financial.report_code = '11011') AS has_financials "
                 + "FROM " + from + where + " ORDER BY " + orderBy(normalizedSort) + " LIMIT :limit OFFSET :offset";
         List<JobPostingListResponse> content = jdbcTemplate.query(sql, parameters, JOB_POSTING_ROW_MAPPER);
         int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeSize);
@@ -183,7 +190,7 @@ public class JobPostingSearchService {
                     resultSet.getString("employment_type"), resultSet.getString("experience_type"), resultSet.getString("job_name"),
                     resultSet.getString("salary"), resultSet.getString("keywords"), date(resultSet, "published_at"),
                     date(resultSet, "deadline_at"), resultSet.getBoolean("is_rolling_deadline"), resultSet.getString("status"),
-                    resultSet.getLong("view_count"), resultSet.getLong("bookmark_count"));
+                    resultSet.getLong("view_count"), resultSet.getLong("bookmark_count"), resultSet.getBoolean("has_financials"));
 
     private static LocalDateTime date(ResultSet resultSet, String column) throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);

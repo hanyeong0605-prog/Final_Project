@@ -12,10 +12,18 @@ interface StyledSelectProps<Value extends string> {
   options: readonly StyledSelectOption<Value>[];
   onChange: (value: Value) => void;
   className?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function StyledSelect<Value extends string>({ label, value, options, onChange, className = "" }: StyledSelectProps<Value>) {
-  const [open, setOpen] = useState(false);
+export function StyledSelect<Value extends string>({ label, value, options, onChange, className = "", open: controlledOpen, onOpenChange }: StyledSelectProps<Value>) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean | ((current: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(open) : next;
+    if (controlledOpen === undefined) setInternalOpen(resolved);
+    onOpenChange?.(resolved);
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? options[0];
 
