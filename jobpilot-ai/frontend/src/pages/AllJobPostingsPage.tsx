@@ -169,7 +169,7 @@ export function AllJobPostingsPage() {
     {status === "error" && <DataStatePanel state="error" />}
     {status === "ready" && postings.length === 0 && <DataStatePanel state="empty" emptyTitle="조건에 맞는 채용공고가 없습니다" emptyBody="직무·경력·지역 조건을 조금 넓혀서 다시 찾아보세요." />}
     {status === "ready" && postings.length > 0 && <>
-      <div className="list-heading"><strong>총 {result?.totalElements.toLocaleString()}개 중 {first.toLocaleString()}–{last.toLocaleString()}</strong><div className="posting-list-guides"><span className="finance-guide"><Landmark size={12} />DART 재무 배지 = 재무제표 있음</span><span>{sortLabel[filters.sort]}</span></div></div>
+      <div className="list-heading"><strong>총 {result?.totalElements.toLocaleString()}개 중 {first.toLocaleString()}–{last.toLocaleString()}</strong><div className="posting-list-guides"><span className="finance-guide"><Landmark size={12} />카드에서 재무 연결 상태 확인</span><span>{sortLabel[filters.sort]}</span></div></div>
       <section className="posting-grid">{postings.map((posting) => <JobPostingCard key={posting.id} posting={posting} />)}</section>
       {pages.length > 0 && <nav className="posting-pagination" aria-label="채용공고 페이지"><button type="button" disabled={page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>이전</button>{pages.map((item) => <button key={item} type="button" className={item === page ? "active" : ""} onClick={() => setPage(item)} aria-current={item === page ? "page" : undefined}>{item + 1}</button>)}<button type="button" disabled={page + 1 >= (result?.totalPages ?? 0)} onClick={() => setPage((current) => current + 1)}>다음</button></nav>}
     </>}

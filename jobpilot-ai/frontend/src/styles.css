@@ -261,7 +261,9 @@ a { color: inherit; text-decoration: none; }
 .posting-company-identity img { width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid #e2e7ef; border-radius: 7px; background: #fff; object-fit: contain; }
 .posting-company-identity svg { box-sizing: content-box; flex: 0 0 17px; border: 1px solid #e2e7ef; border-radius: 7px; background: #f7f8fb; color: #8995a8; padding: 6px; }
 .posting-company-identity .company-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.posting-finance-badge { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; border: 1px solid #b9d8ce; border-radius: 999px; background: #effaf6; color: #247b62; padding: 4px 7px; font-size: 9px; font-weight: 900; white-space: nowrap; }
+.posting-finance-badge { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; border: 1px solid; border-radius: 999px; padding: 4px 7px; font-size: 9px; font-weight: 900; white-space: nowrap; }
+.posting-finance-badge.available { border-color: #b9d8ce; background: #effaf6; color: #247b62; }
+.posting-finance-badge.unavailable { border-color: #e1e5ec; background: #f7f8fa; color: #8a94a3; }
 .posting-finance-badge + .bookmark { margin-left: 7px; }
 .posting-list-guides { display: flex; align-items: center; gap: 13px; }
 .posting-list-guides .finance-guide { display: inline-flex; align-items: center; gap: 4px; color: #3c806c; font-weight: 800; }
