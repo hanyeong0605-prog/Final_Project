@@ -25,4 +25,13 @@ class CompanyDartMatchingServiceTest {
         assertEquals(CompanyMatchStatus.CANDIDATE, result.status());
         assertEquals(null, result.corpCode());
     }
+
+    @Test
+    void confirmsAnExactEnglishAliasRatherThanTreatingItAsANameCandidate() {
+        var result = service.match("EA Korea", List.of(
+                new DartCorporationCandidate("01777777", "일렉트로닉아츠코리아", "Electronic Arts Korea (EA Korea)")));
+
+        assertEquals(CompanyMatchStatus.CONFIRMED, result.status());
+        assertEquals("01777777", result.corpCode());
+    }
 }

@@ -12,17 +12,21 @@ public class CompanyDartMatchingService {
     }
 
     public CompanyMatchDecision match(String companyName, List<DartCorporationCandidate> corporations) {
-        String normalizedName = normalizer.normalize(companyName);
-        if (normalizedName.isEmpty()) return new CompanyMatchDecision(CompanyMatchStatus.UNMATCHED, null);
+        var companyAliases = normalizer.aliases(companyName);
+        if (companyAliases.isEmpty()) return new CompanyMatchDecision(CompanyMatchStatus.UNMATCHED, null);
 
         for (DartCorporationCandidate corporation : corporations) {
-            if (normalizedName.equals(normalizer.normalize(corporation.corpName()))) {
+            var corporationAliases = normalizer.aliases(corporation.corpName());
+            corporationAliases.addAll(normalizer.aliases(corporation.corpEngName()));
+            if (corporationAliases.stream().anyMatch(companyAliases::contains)) {
                 return new CompanyMatchDecision(CompanyMatchStatus.CONFIRMED, corporation.corpCode());
             }
         }
         for (DartCorporationCandidate corporation : corporations) {
-            String candidateName = normalizer.normalize(corporation.corpName());
-            if (!candidateName.isEmpty() && (candidateName.contains(normalizedName) || normalizedName.contains(candidateName))) {
+            var corporationAliases = normalizer.aliases(corporation.corpName());
+            corporationAliases.addAll(normalizer.aliases(corporation.corpEngName()));
+            if (corporationAliases.stream().anyMatch(candidate -> companyAliases.stream()
+                    .anyMatch(company -> candidate.contains(company) || company.contains(candidate)))) {
                 return new CompanyMatchDecision(CompanyMatchStatus.CANDIDATE, null);
             }
         }
