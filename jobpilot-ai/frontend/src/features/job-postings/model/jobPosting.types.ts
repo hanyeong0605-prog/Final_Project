@@ -18,6 +18,7 @@ export interface JobPosting {
   status: string;
   viewCount?: number;
   bookmarkCount?: number;
+  hasFinancials: boolean;
 }
 
 export type JobPostingSort = "deadline_asc" | "deadline_desc" | "recent" | "popular";

@@ -1,4 +1,4 @@
-import { Bookmark, BriefcaseBusiness, Building2, CalendarDays, MapPin } from "lucide-react";
+import { Bookmark, BriefcaseBusiness, Building2, CalendarDays, Landmark, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInterests } from "../../interests/model/InterestContext";
@@ -38,6 +38,12 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
           : <Building2 size={17} />}
         {hasText(posting.companyName) && <span className="company-name">{posting.companyName}</span>}
       </div>
+      <span
+        className={posting.hasFinancials ? "posting-finance-badge available" : "posting-finance-badge unavailable"}
+        title={posting.hasFinancials ? "DART 재무제표가 연결된 기업입니다" : "현재 연결된 DART 재무제표가 없습니다"}
+      >
+        <Landmark size={12} />{posting.hasFinancials ? "DART 재무 있음" : "재무 미연결"}
+      </span>
       <button className={interested ? "bookmark active" : "bookmark"} onClick={(event) => { event.stopPropagation(); void toggleInterest(posting.id); }} aria-label="관심 공고 등록"><Bookmark size={19} fill={interested ? "currentColor" : "none"} /></button>
     </div>
     <div className="posting-card-main">
