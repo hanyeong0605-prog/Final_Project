@@ -1,8 +1,7 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { EmployerShell } from "../layouts/EmployerShell";
 import { DashboardPage } from "../pages/DashboardPage";
-import { JobMatchesPage } from "../pages/JobMatchesPage";
 import { OpportunitiesPage } from "../pages/OpportunitiesPage";
 import { OpportunityDetailPage } from "../pages/OpportunityDetailPage";
 import { PlannerPage } from "../pages/PlannerPage";
@@ -67,7 +66,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "dashboard", element: <DashboardPage /> },
-      { path: "jobs", element: <JobMatchesPage /> },
+      { path: "jobs", element: <Navigate to="/dashboard" replace /> },
       { path: "job-postings", element: <AllJobPostingsPage /> },
       { path: "job-postings/:id", element: <JobPostingDetailPage /> },
       { path: "community", element: <CommunityPage /> },

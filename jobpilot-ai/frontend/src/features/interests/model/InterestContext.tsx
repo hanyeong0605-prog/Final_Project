@@ -22,14 +22,16 @@ export function InterestProvider({ children }: PropsWithChildren) {
   }, [member]);
 
   const toggleInterest = useCallback(async (targetId: number) => {
-    const alreadyInterested = interestIds.includes(targetId);
-    const next = alreadyInterested
-      ? interestIds.filter((id) => id !== targetId)
-      : [...interestIds, targetId];
-    setInterestIds(next);
+    let previous: number[] = [];
+    let alreadyInterested = false;
+    setInterestIds((current) => {
+      previous = current;
+      alreadyInterested = current.includes(targetId);
+      return alreadyInterested ? current.filter((id) => id !== targetId) : [...current, targetId];
+    });
     try { await requestInterestToggle(targetId, !alreadyInterested); }
-    catch (error) { setInterestIds(interestIds); throw error; }
-  }, [interestIds]);
+    catch (error) { setInterestIds(previous); throw error; }
+  }, []);
 
   const value = useMemo<InterestContextValue>(() => ({
     interestCount: interestIds.length,

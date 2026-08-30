@@ -17,7 +17,7 @@ import { SavedCapabilityList } from "./CapabilityManagementPage";
 
 type Action = "nickname" | "password" | "withdraw" | null;
 export function MyPage() {
-  const { member, loading, updateMember, logout } = useAuth(); const { interestCount } = useInterests(); const navigate = useNavigate(); const location = useLocation();
+  const { member, loading, updateMember, logout } = useAuth(); const { interestCount, interestIds } = useInterests(); const navigate = useNavigate(); const location = useLocation();
   const [action, setAction] = useState<Action>(null); const [nickname, setNickname] = useState(member?.nickname ?? "");
   const [passwords, setPasswords] = useState({ current: "", next: "" }); const [withdrawPassword, setWithdrawPassword] = useState("");
   const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -50,8 +50,8 @@ export function MyPage() {
     <PushNotificationSection />
     <div className="mypage-section-title spec-title"><div><h2>나의 스펙정보</h2><p>역량 관리에 저장한 스펙정보를 조회합니다.</p></div><button className="outline-button" onClick={() => navigate("/capability?tool=profile")}><Target size={16} />스펙정보 입력하기</button></div>
     <section className="panel mypage-capability-view"><SavedCapabilityList readOnly /></section>
-    <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.length}개</span></div>
-    {jobs.length === 0 ? <section className="panel saved-empty">찜한 채용공고가 없습니다.</section> : <section className="posting-grid">{jobs.map((job) => <JobPostingCard key={job.id} posting={job} />)}</section>}
+    <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.filter((job) => interestIds.includes(job.id)).length}개</span></div>
+    {jobs.filter((job) => interestIds.includes(job.id)).length === 0 ? <section className="panel saved-empty">찜한 채용공고가 없습니다.</section> : <section className="posting-grid">{jobs.filter((job) => interestIds.includes(job.id)).map((job) => <JobPostingCard key={job.id} posting={job} />)}</section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 성장 기회</h2></div><span>{opportunities.length}개</span></div>
     {opportunities.length === 0 ? <section className="panel saved-empty">찜한 훈련과정·성장 기회가 없습니다.</section> : <section className="opportunity-grid">{opportunities.map((item) => <OpportunityCard key={item.id} item={item} interested onInterest={() => removeBookmarkedOpportunity(item.id)} />)}</section>}
   </>;

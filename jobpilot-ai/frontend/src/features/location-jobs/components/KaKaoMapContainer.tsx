@@ -31,6 +31,7 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const markerJobsRef = useRef<Map<any, LocationJob>>(new Map());
   const clustererRef = useRef<any>(null);
   const clusterOverlayRef = useRef<any>(null);
+  const clusterCloseTimerRef = useRef<number | null>(null);
   const overlayRef = useRef<any>(null);
   const centerLockedRef = useRef(isCenterLocked);
   const onCenterChangedRef = useRef(onCenterChanged);
@@ -244,29 +245,51 @@ export const KakaoMapContainer: React.FC<Props> = ({
       styles: [{ width: "42px", height: "42px", background: "#5B92F3", border: "3px solid #fff", borderRadius: "50%", color: "#fff", textAlign: "center", fontWeight: "800", fontSize: "14px", lineHeight: "36px", boxShadow: "0 5px 14px rgba(43, 82, 153, .3)" }],
     });
     window.kakao.maps.event.addListener(clusterer, "clusterover", (cluster: any) => {
+      if (clusterCloseTimerRef.current !== null) window.clearTimeout(clusterCloseTimerRef.current);
       const clusteredJobs = cluster.getMarkers().map((marker: any) => markerJobsRef.current.get(marker)).filter(Boolean) as LocationJob[];
       if (clusteredJobs.length < 2 || !clusterOverlayRef.current) return;
       clusterOverlayRef.current.setContent(createClusterOverlayContent(clusteredJobs));
       clusterOverlayRef.current.setPosition(cluster.getCenter());
       clusterOverlayRef.current.setMap(map);
     });
-    window.kakao.maps.event.addListener(clusterer, "clusterout", () => clusterOverlayRef.current?.setMap(null));
+    window.kakao.maps.event.addListener(clusterer, "clusterclick", (cluster: any) => {
+      const clusteredJobs = cluster.getMarkers().map((marker: any) => markerJobsRef.current.get(marker)).filter(Boolean) as LocationJob[];
+      if (clusteredJobs.length < 2 || !clusterOverlayRef.current) return;
+      clusterOverlayRef.current.setContent(createClusterOverlayContent(clusteredJobs));
+      clusterOverlayRef.current.setPosition(cluster.getCenter());
+      clusterOverlayRef.current.setMap(map);
+    });
+    window.kakao.maps.event.addListener(clusterer, "clusterout", () => {
+      clusterCloseTimerRef.current = window.setTimeout(() => clusterOverlayRef.current?.setMap(null), 500);
+    });
     clustererRef.current = clusterer;
   };
 
   const createClusterOverlayContent = (clusteredJobs: LocationJob[]) => {
     const panel = document.createElement("section");
     panel.className = "location-cluster-preview";
+    panel.addEventListener("pointerenter", () => {
+      if (clusterCloseTimerRef.current !== null) window.clearTimeout(clusterCloseTimerRef.current);
+    });
+    panel.addEventListener("pointerleave", () => {
+      clusterCloseTimerRef.current = window.setTimeout(() => clusterOverlayRef.current?.setMap(null), 350);
+    });
     const heading = document.createElement("strong");
     heading.textContent = `이 위치의 채용공고 ${clusteredJobs.length}개`;
     panel.appendChild(heading);
     clusteredJobs.slice(0, 8).forEach((job) => {
-      const row = document.createElement("div");
+      const row = document.createElement("button");
+      row.type = "button";
       const company = document.createElement("b");
       const detail = document.createElement("span");
       company.textContent = job.companyName || job.company_name || job.company || "기업명 미지정";
       detail.textContent = [job.title || job.jobTitle || "채용 공고", job.address || job.locationText || job.location].filter(Boolean).join(" · ");
       row.append(company, detail);
+      row.addEventListener("click", () => {
+        onSelectJob(job);
+        const targetId = job.jobPostingId || job.id;
+        if (targetId) navigate(`/job-postings/${targetId}`);
+      });
       panel.appendChild(row);
     });
     if (clusteredJobs.length > 8) {
