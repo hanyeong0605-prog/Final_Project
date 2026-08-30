@@ -12,7 +12,8 @@ const dateKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date
 const isRecruiting = (event: PlannerEvent) => event.sourceType === "JOB_POSTING" || event.eventType === "APPLICATION_PERIOD";
 const sourceHref = (event: PlannerEvent) => {
   if (event.sourceType === "JOB_POSTING" && event.sourceId) return `/job-postings/${event.sourceId}`;
-  if (event.sourceType === "CERTIFICATE") return "/profile";
+  if (event.sourceType === "CERTIFICATE") return "/account";
+  if (event.sourceType === "OPPORTUNITY" && event.sourceId) return `/opportunities/${event.sourceId}`;
   return null;
 };
 
@@ -37,7 +38,7 @@ export function PlannerPage() {
   const openEdit = (event: PlannerEvent) => { setEditingId(event.id); setForm({ eventType: event.eventType, title: event.title, startsAt: localValue(event.startsAt), endsAt: localValue(event.endsAt) || null, allDay: event.allDay }); setError(""); setFormOpen(true); };
   const submit = async (e: FormEvent) => { e.preventDefault(); setError(""); try { const input = { ...form, endsAt: form.endsAt || null }; if (editingId) await updatePlannerEvent(editingId, input); else await createPlannerEvent(input); setFormOpen(false); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "일정 저장에 실패했습니다."); } };
   const remove = async (id: number) => { if (!confirm("이 일정을 삭제할까요?")) return; try { await deletePlannerEvent(id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "일정 삭제에 실패했습니다."); } };
-  const eventKind = (event: PlannerEvent) => { if (isRecruiting(event)) return "채용 일정"; if (event.eventType === "INTERVIEW") return "면접"; if (event.eventType === "STUDY") return "학습"; if (event.eventType === "CERTIFICATE" || event.sourceType === "CERTIFICATE") return "자격증"; if (event.eventType === "APPLICATION") return "입사 지원"; return "개인 일정"; };
+  const eventKind = (event: PlannerEvent) => { if (isRecruiting(event)) return "채용 일정"; if (event.sourceType === "OPPORTUNITY" || event.eventType === "TRAINING_PERIOD") return "고용24 훈련"; if (event.eventType === "INTERVIEW") return "면접"; if (event.eventType === "STUDY") return "학습"; if (event.eventType === "CERTIFICATE" || event.sourceType === "CERTIFICATE") return "자격증 시험"; if (event.eventType === "APPLICATION") return "입사 지원"; return "개인 일정"; };
   const renderEvent = (event: PlannerEvent) => <article key={event.id} className={`planner-event ${event.tone}${selectedEventId === event.id ? " selected" : ""}`} onClick={() => setSelectedEventId(event.id)}><span>{event.time}</span><div><small className="planner-event-kind">{eventKind(event)}</small><strong>{event.title}</strong><p>{isRecruiting(event) ? "찜한 공고의 지원 기간입니다." : event.body}</p></div>{event.editable ? <div className="event-actions"><button title="수정" onClick={(e) => { e.stopPropagation(); openEdit(event); }}><Pencil size={15} /></button><button title="삭제" onClick={(e) => { e.stopPropagation(); void remove(event.id); }}><Trash2 size={15} /></button></div> : sourceHref(event) ? <Link className="planner-detail-link" to={sourceHref(event) ?? "/planner"} onClick={(e) => e.stopPropagation()}>상세 보기<ExternalLink size={13} /></Link> : <small>자동 일정</small>}</article>;
   const recruitmentEvents = events.filter(isRecruiting); const otherEvents = events.filter((event) => !isRecruiting(event));
 

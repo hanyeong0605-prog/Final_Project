@@ -14,15 +14,18 @@ import { SubscriptionSection } from "../features/subscription/components/Subscri
 import { PushNotificationSection } from "../features/push-notifications/components/PushNotificationSection";
 import { PageHeading } from "../shared/components/PageHeading";
 import { SavedCapabilityList } from "./CapabilityManagementPage";
+import { getCertificateBookmarks, removeCertificateBookmark, type QnetQualification } from "../features/profile/api/memberCertificatesApi";
+import { CertificateDetailModal } from "../features/profile/components/CertificateDetailModal";
 
 type Action = "nickname" | "password" | "withdraw" | null;
 export function MyPage() {
   const { member, loading, updateMember, logout } = useAuth(); const { interestCount, interestIds } = useInterests(); const navigate = useNavigate(); const location = useLocation();
   const [action, setAction] = useState<Action>(null); const [nickname, setNickname] = useState(member?.nickname ?? "");
   const [passwords, setPasswords] = useState({ current: "", next: "" }); const [withdrawPassword, setWithdrawPassword] = useState("");
-  const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]); const [certificateBookmarks, setCertificateBookmarks] = useState<QnetQualification[]>([]); const [certificateDetail, setCertificateDetail] = useState<QnetQualification | null>(null);
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
   useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
+  useEffect(() => { void getCertificateBookmarks().then(setCertificateBookmarks).catch(() => setCertificateBookmarks([])); }, []);
   // 2026-08-26: onInterest={() => {}}로 아무 동작도 안 하던 버그 - 찜한 성장 기회 목록에서
   // 버튼을 눌러도 API 호출도 로컬 상태 변경도 없었다. 목록에 이미 있는 항목이니 누르면
   // "찜 해제"가 맞는 동작이라, 낙관적으로 목록에서 바로 빼고 실패하면 다시 불러와 복구한다.
@@ -50,9 +53,12 @@ export function MyPage() {
     <PushNotificationSection />
     <div className="mypage-section-title spec-title"><div><h2>나의 스펙정보</h2><p>역량 관리에 저장한 스펙정보를 조회합니다.</p></div><button className="outline-button" onClick={() => navigate("/capability?tool=profile")}><Target size={16} />스펙정보 입력하기</button></div>
     <section className="panel mypage-capability-view"><SavedCapabilityList readOnly /></section>
+    <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 자격증</h2></div><span>{certificateBookmarks.length}개</span></div>
+    {certificateBookmarks.length === 0 ? <section className="panel saved-empty">찜한 자격증이 없습니다.</section> : <section className="certificate-opportunity-grid">{certificateBookmarks.map((item) => <article className="certificate-opportunity-card" key={item.code}><div><strong>{item.name}</strong><span>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</span></div><div className="certificate-opportunity-actions"><button type="button" className="certificate-opportunity-detail" onClick={() => setCertificateDetail(item)}>시험 일정</button><button type="button" className="bookmark active" aria-label="자격증 찜 해제" onClick={() => void removeCertificateBookmark(item.code).then(setCertificateBookmarks)}><Bookmark size={17} fill="currentColor" /></button></div></article>)}</section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.filter((job) => interestIds.includes(job.id)).length}개</span></div>
     {jobs.filter((job) => interestIds.includes(job.id)).length === 0 ? <section className="panel saved-empty">찜한 채용공고가 없습니다.</section> : <section className="posting-grid">{jobs.filter((job) => interestIds.includes(job.id)).map((job) => <JobPostingCard key={job.id} posting={job} />)}</section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 성장 기회</h2></div><span>{opportunities.length}개</span></div>
     {opportunities.length === 0 ? <section className="panel saved-empty">찜한 훈련과정·성장 기회가 없습니다.</section> : <section className="opportunity-grid">{opportunities.map((item) => <OpportunityCard key={item.id} item={item} interested onInterest={() => removeBookmarkedOpportunity(item.id)} />)}</section>}
+    {certificateDetail && <CertificateDetailModal item={certificateDetail} onClose={() => setCertificateDetail(null)} />}
   </>;
 }
