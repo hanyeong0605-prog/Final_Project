@@ -94,7 +94,9 @@ jobs:
           port: 22
           # CPU-only AI images can take several minutes on the small EC2 host.
           # The default drone-ssh command limit interrupts a healthy build.
-          command_timeout: 30m
+          # A first full-company financial recovery can involve 500+ corporations
+          # across seven fiscal years. Leave enough time for DART's rate limits.
+          command_timeout: 70m
           envs: REPO_READ_TOKEN
           script: |
             set -eu
@@ -203,7 +205,7 @@ jobs:
 
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
               DART_SYNC_COMPLETE=false
-              for attempt in $(seq 1 240); do
+              for attempt in $(seq 1 840); do
                 if $COMPOSE logs --since=30m backend | grep -q 'DART financial sync complete'; then
                   DART_SYNC_COMPLETE=true
                   break
@@ -212,7 +214,7 @@ jobs:
               done
               if [ "$DART_SYNC_COMPLETE" != 'true' ]; then
                 $COMPOSE logs --tail=200 backend
-                echo "DART financial sync did not complete within 1200 seconds." >&2
+                echo "DART financial sync did not complete within 4200 seconds." >&2
                 exit 1
               fi
               $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete'

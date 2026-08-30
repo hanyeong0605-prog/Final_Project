@@ -1,7 +1,9 @@
 package com.jobpilot.api.domain.companyfinance.service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,8 +31,16 @@ public class CompanyDartBackfillService {
                 """, (rs, row) -> new CompanySource(rs.getString(1), rs.getString(2), rs.getString(3)));
         List<DartCorporationCandidate> corporations = jdbc.query(
                 "SELECT corp_code, corp_name, corp_eng_name FROM dart_corporations", (rs, row) -> new DartCorporationCandidate(rs.getString(1), rs.getString(2), rs.getString(3)));
+        Set<String> alreadyMatched = new HashSet<>(jdbc.queryForList("""
+                SELECT CONCAT(source_provider, '§', source_company_id, '§', normalized_company_name)
+                FROM company_dart_matches
+                """, String.class));
         List<CompanyMatchStatus> statuses = new ArrayList<>();
         for (CompanySource company : companies) {
+            String key = key(company);
+            // A complete directory scan is intentionally performed once per company. Repeating it for
+            // every restart turns a 1,600-company backfill into a 20-minute no-op and blocks finance sync.
+            if (alreadyMatched.contains(key)) continue;
             CompanyMatchDecision decision = matchingService.match(company.companyName(), corporations);
             statuses.add(decision.status());
             jdbc.update("""
@@ -43,5 +53,9 @@ public class CompanyDartBackfillService {
                     decision.status() == CompanyMatchStatus.CONFIRMED ? 1.0 : 0.0, decision.status().name());
         }
         return CompanyMatchReport.from(statuses);
+    }
+
+    private String key(CompanySource company) {
+        return company.sourceProvider() + "§" + company.sourceCompanyId() + "§" + normalizer.normalize(company.companyName());
     }
 }
