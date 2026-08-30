@@ -5,12 +5,15 @@ import com.jobpilot.api.domain.companyfinance.client.PublicCompanyFinancialClien
 import com.jobpilot.api.domain.companyfinance.client.PublicCompanyFinancialSnapshot;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /** Adds only missing DART annual years; it never overwrites a DART statement. */
 @Service
 public class PublicCompanyFinancialSyncService {
+    private static final Logger log = LoggerFactory.getLogger(PublicCompanyFinancialSyncService.class);
     private final JdbcTemplate jdbc;
     private final OpenDartClient dart;
     private final PublicCompanyFinancialClient publicFinance;
@@ -25,19 +28,30 @@ public class PublicCompanyFinancialSyncService {
                 WHERE m.match_status='CONFIRMED' AND m.corp_code IS NOT NULL
                 """, String.class);
         int stored = 0;
+        int registrationResolved = 0;
+        int missingDartYears = 0;
+        int apiRecords = 0;
         for (String corpCode : corpCodes) {
             Optional<String> registration = registrationNumber(corpCode);
             if (registration.isEmpty()) continue;
+            registrationResolved++;
             for (int year = fromYear; year <= toYear; year++) {
                 Integer dartRows = jdbc.queryForObject("""
                         SELECT COUNT(*) FROM company_financial_years
                         WHERE corp_code=? AND business_year=? AND report_code='11011' AND data_source='DART'
                         """, Integer.class, corpCode, year);
                 if (dartRows != null && dartRows > 0) continue;
+                missingDartYears++;
                 Optional<PublicCompanyFinancialSnapshot> snapshot = publicFinance.fetchSummary(registration.get(), year);
-                if (snapshot.isPresent()) { store(corpCode, year, snapshot.get()); stored++; }
+                if (snapshot.isPresent()) {
+                    apiRecords++;
+                    store(corpCode, year, snapshot.get());
+                    stored++;
+                }
             }
         }
+        log.info("Public finance fallback diagnostics: confirmedCorporations={}, registrationResolved={}, missingDartYears={}, apiRecords={}, storedAnnualStatements={}",
+                corpCodes.size(), registrationResolved, missingDartYears, apiRecords, stored);
         return stored;
     }
 
