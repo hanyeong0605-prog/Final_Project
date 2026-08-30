@@ -30,6 +30,7 @@ export interface JobPostingSearchParams {
   experience?: JobExperienceFilter;
   location?: string;
   employmentType?: string;
+  financialsOnly?: boolean;
   sort?: JobPostingSort;
   page?: number;
   size?: number;
