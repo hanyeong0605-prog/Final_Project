@@ -204,20 +204,24 @@ jobs:
             fi
 
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
-              DART_SYNC_COMPLETE=false
+              FINANCE_SYNC_COMPLETE=false
               for attempt in $(seq 1 840); do
-                if $COMPOSE logs --since=30m backend | grep -q 'DART financial sync complete'; then
-                  DART_SYNC_COMPLETE=true
+                # The DART log is emitted before the public-data fallback starts.
+                # Do not train/recreate the backend yet: doing so interrupts the
+                # fallback midway and leaves the prediction pool artificially small.
+                if $COMPOSE logs --since=70m backend | grep -q 'DART financial sync complete' && \
+                  $COMPOSE logs --since=70m backend | grep -q 'Public finance fallback sync complete'; then
+                  FINANCE_SYNC_COMPLETE=true
                   break
                 fi
                 sleep 5
               done
-              if [ "$DART_SYNC_COMPLETE" != 'true' ]; then
-                $COMPOSE logs --tail=200 backend
-                echo "DART financial sync did not complete within 4200 seconds." >&2
+              if [ "$FINANCE_SYNC_COMPLETE" != 'true' ]; then
+                $COMPOSE logs --tail=300 backend
+                echo "DART/public financial sync did not complete within 4200 seconds." >&2
                 exit 1
               fi
-              $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete'
+              $COMPOSE logs --since=70m backend | grep -E 'DART backfill complete|DART financial sync complete|Public finance fallback sync complete'
             fi
 
             if [ '${{ inputs.company_growth_report || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
