@@ -32,6 +32,12 @@ export function CertificateDetailModal({ item, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [item.code]);
 
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
   return <div className="profile-modal-backdrop" role="presentation" onMouseDown={onClose}>
     <section className="profile-select-modal certificate-detail-modal" role="dialog" aria-modal="true" aria-labelledby="certificate-detail-title" onMouseDown={(event) => event.stopPropagation()}>
       <header>

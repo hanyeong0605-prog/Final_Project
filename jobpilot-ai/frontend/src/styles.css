@@ -871,7 +871,7 @@ a { color: inherit; text-decoration: none; }
 .certificate-modal-select:hover { text-decoration: underline; }
 .certificate-modal-detail { flex: none; width: auto; border: 0; border-left: 1px solid #edf0f5; background: #f8faff; padding: 12px 14px; color: #6477de; font: inherit; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .certificate-modal-detail:hover { background: #eef1ff; }
-.certificate-detail-modal { width: min(560px, 100%); }.certificate-detail-body { margin-top: 18px; }
+.certificate-detail-modal { width: min(620px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 48px)); overflow: hidden; border: 1px solid #e3e8f1; border-radius: 20px; background: #fff; box-shadow: 0 28px 90px #101a3066; }.certificate-detail-body { max-height: calc(100vh - 190px); margin-top: 18px; overflow-y: auto; padding-right: 8px; }
 .certificate-detail-fee { display: flex; justify-content: space-between; align-items: center; border: 1px solid #dfe5f4; border-radius: 10px; background: #f8faff; padding: 12px 14px; margin-bottom: 14px; }.certificate-detail-fee strong { color: #445068; font-size: 12px; }.certificate-detail-fee span { color: #536cf1; font-size: 12px; font-weight: 800; }
 .certificate-round-list { display: grid; gap: 10px; max-height: 360px; overflow-y: auto; }
 .certificate-round-card { border: 1px solid #e3e8f2; border-radius: 12px; background: #fff; padding: 13px 14px; }.certificate-round-card > strong { display: block; margin-bottom: 8px; color: #2d3951; font-size: 12px; }

@@ -5,6 +5,7 @@ import com.jobpilot.api.domain.planner.dto.PlannerEventResponse;
 import com.jobpilot.api.domain.planner.entity.PlannerEvent;
 import com.jobpilot.api.domain.planner.repository.PlannerEventRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
+import com.jobpilot.api.domain.member.service.CertificateBookmarkService;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -16,11 +17,13 @@ import org.springframework.stereotype.Service;
 public class PlannerEventService {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("MM.dd HH:mm");
     private final PlannerEventRepository repository;
+    private final CertificateBookmarkService certificateBookmarks;
 
-    public PlannerEventService(PlannerEventRepository repository) { this.repository = repository; }
+    public PlannerEventService(PlannerEventRepository repository, CertificateBookmarkService certificateBookmarks) { this.repository = repository; this.certificateBookmarks = certificateBookmarks; }
 
     public List<PlannerEventResponse> find(Long memberId, LocalDate from, LocalDate to) {
         if (to.isBefore(from)) throw new IllegalArgumentException("종료일은 시작일보다 빠를 수 없습니다.");
+        certificateBookmarks.syncPlannerEvents(memberId);
         return repository.findOverlapping(
                 memberId, from.atStartOfDay(), to.plusDays(1).atStartOfDay()).stream().map(this::response).toList();
     }

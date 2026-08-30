@@ -133,11 +133,6 @@ export function CertificateOpportunitySection({ initialQuery = "" }: { initialQu
         ? <p className="skill-empty">스펙정보의 목표 직무분야를 설정하면 맞춤 자격증을 추천해 드려요.</p>
         : <div className="certificate-opportunity-grid">{recommended.map((item) => renderCard(item, true))}</div>}
 
-      <h3 className="certificate-opportunity-subtitle"><Bookmark size={16} /> 찜한 자격증</h3>
-      {bookmarks.length === 0
-        ? <p className="skill-empty">아직 찜한 자격증이 없습니다. 위 "자격증 종목 찾아보기"에서 추가해 보세요.</p>
-        : <div className="certificate-opportunity-grid">{bookmarks.map((item) => renderCard(item))}</div>}
-
       <h3 className="certificate-opportunity-subtitle"><List size={16} /> 전체 자격증 목록</h3>
       {allItems.length === 0 && !loadingCatalogue
         ? <p className="skill-empty">해당 조건의 자격증이 없습니다.</p>

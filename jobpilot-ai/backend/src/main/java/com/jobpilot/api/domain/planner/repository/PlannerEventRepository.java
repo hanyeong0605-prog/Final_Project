@@ -16,4 +16,6 @@ public interface PlannerEventRepository extends JpaRepository<PlannerEvent, Long
     Optional<PlannerEvent> findByIdAndMemberId(Long id, Long memberId);
     Optional<PlannerEvent> findByMemberIdAndSourceTypeAndSourceIdAndEventType(
             Long memberId, String sourceType, Long sourceId, String eventType);
+    void deleteByMemberIdAndSourceTypeAndSourceId(Long memberId, String sourceType, Long sourceId);
+    boolean existsByMemberIdAndSourceTypeAndSourceId(Long memberId, String sourceType, Long sourceId);
 }
