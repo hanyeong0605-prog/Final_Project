@@ -233,7 +233,10 @@ jobs:
                 # The artifact is first created in /tmp. A failed training command
                 # stops the script before this point, so an unvalidated model cannot
                 # replace the currently mounted production artifact.
-                MODEL_DIR="$(sudo docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/models/company-growth\"}}{{.Source}}{{end}}{{end}}' "$AI_CONTAINER")"
+                # Training writes metadata even when evaluation fails. Promotion
+                # must fail closed before touching the mounted production model.
+                sudo docker exec "$AI_CONTAINER" python -c "import json; assert json.load(open('$ARTIFACT/metadata.json', encoding='utf-8'))['validated'] is True, 'held-out validation did not pass'"
+                MODEL_DIR="$(sudo docker inspect --format '{{range .Mounts}}{{if eq .Destination "/models/company-growth"}}{{.Source}}{{end}}{{end}}' "$AI_CONTAINER")"
                 if [ -z "$MODEL_DIR" ]; then
                   echo 'Unable to resolve the host model volume.' >&2
                   exit 1
