@@ -38,6 +38,12 @@ public class CertificateBookmarkService {
         return repository.findByMemberIdOrderByIdDesc(memberId).stream().map(this::toResponse).toList();
     }
 
+    public void syncPlannerEvents(Long memberId) {
+        repository.findByMemberIdOrderByIdDesc(memberId).stream()
+                .filter(bookmark -> !plannerEvents.existsByMemberIdAndSourceTypeAndSourceId(memberId, "CERTIFICATE", bookmark.getId()))
+                .forEach(bookmark -> syncExamSchedule(memberId, bookmark));
+    }
+
     public List<QnetQualificationResponse> add(Long memberId, CertificateBookmarkRequest request) {
         if (repository.findByMemberIdAndJmcd(memberId, request.jmcd()).isEmpty()) {
             if (repository.findByMemberIdOrderByIdDesc(memberId).size() >= MAX_BOOKMARKS) {
