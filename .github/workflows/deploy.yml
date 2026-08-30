@@ -160,7 +160,15 @@ jobs:
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || \
               [ '${{ inputs.company_growth_publish || false }}' = 'true' ] || \
               printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
-                $COMPOSE build backend
+                # A manual finance recovery must execute the exact source just
+                # checked out above. Docker's cached Maven package layer can
+                # otherwise retain a previous backend JAR even though Git is at
+                # a newer main commit, hiding diagnostics and fixes.
+                if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
+                  $COMPOSE build --no-cache backend
+                else
+                  $COMPOSE build backend
+                fi
                 if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
                   $COMPOSE up -d --no-deps --force-recreate backend
                 else
