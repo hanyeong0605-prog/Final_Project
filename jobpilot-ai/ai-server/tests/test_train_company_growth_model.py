@@ -33,6 +33,8 @@ def test_time_cutoff_is_excluded_from_training_and_metadata_is_saved(tmp_path):
     assert metadata["holdout_years"] == [2023]
     assert metadata["feature_names"] == FEATURE_COLUMNS
     assert metadata["validated"] is True
+    assert all(0.1 <= value["decision_threshold"] <= 0.9
+               for value in metadata["classification"].values())
     assert (output / "model.joblib").is_file()
     assert (output / "metadata.json").is_file()
 

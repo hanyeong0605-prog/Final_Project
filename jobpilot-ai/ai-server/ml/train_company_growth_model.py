@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.compose import ColumnTransformer
@@ -39,6 +40,30 @@ def _probability(model: Pipeline, frame: pd.DataFrame) -> list[float]:
     return probabilities[:, classes.index(1)].tolist()
 
 
+def _classifier() -> Pipeline:
+    return Pipeline([("features", _preprocessor()), ("model", RandomForestClassifier(
+        n_estimators=250, min_samples_leaf=2, class_weight="balanced", random_state=42, n_jobs=-1))])
+
+
+def _temporal_decision_threshold(train: pd.DataFrame, target: str) -> float:
+    """Choose a cutoff on the latest training year, never on the final holdout."""
+    years = sorted(int(value) for value in train.base_year.unique())
+    if len(years) < 2:
+        return 0.5
+    tuning_train = train[train.base_year < years[-1]]
+    tuning_validation = train[train.base_year == years[-1]]
+    if tuning_train.empty or tuning_validation.empty or tuning_train[target].nunique() < 2:
+        return 0.5
+    model = _classifier()
+    model.fit(tuning_train[FEATURE_COLUMNS], tuning_train[target].astype(int))
+    probabilities = np.asarray(_probability(model, tuning_validation[FEATURE_COLUMNS]))
+    truth = tuning_validation[target].astype(int)
+    candidates = np.linspace(0.10, 0.90, 33)
+    scored = [(float(f1_score(truth, probabilities >= threshold, zero_division=0)), float(threshold))
+              for threshold in candidates]
+    return max(scored, key=lambda item: (item[0], -abs(item[1] - 0.5)))[1]
+
+
 def train_and_evaluate(dataset: pd.DataFrame, cutoff_year: int, output_dir: Path | None = None) -> dict[str, Any]:
     required = {"corp_code", "base_year", *FEATURE_COLUMNS, "next_revenue_growth", *TARGETS}
     missing = required.difference(dataset.columns)
@@ -58,15 +83,16 @@ def train_and_evaluate(dataset: pd.DataFrame, cutoff_year: int, output_dir: Path
     classifiers: dict[str, Pipeline] = {}
     classification_metrics: dict[str, dict[str, float]] = {}
     for target in TARGETS:
-        model = Pipeline([("features", _preprocessor()), ("model", RandomForestClassifier(
-            n_estimators=250, min_samples_leaf=2, class_weight="balanced", random_state=42, n_jobs=-1))])
+        decision_threshold = _temporal_decision_threshold(train, target)
+        model = _classifier()
         model.fit(train[FEATURE_COLUMNS], train[target].astype(int))
-        predicted = model.predict(holdout[FEATURE_COLUMNS])
         probability = _probability(model, holdout[FEATURE_COLUMNS])
+        predicted = np.asarray(probability) >= decision_threshold
         truth = holdout[target].astype(int)
         classification_metrics[target] = {
             "f1": float(f1_score(truth, predicted, zero_division=0)),
             "brier": float(brier_score_loss(truth, probability)),
+            "decision_threshold": decision_threshold,
         }
         classifiers[target] = model
 
