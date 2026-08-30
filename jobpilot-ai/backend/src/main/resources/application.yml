@@ -83,6 +83,11 @@ dart:
   # Enable once only after a held-out-validated artifact is mounted in the AI server.
   prediction-sync-on-start: ${DART_PREDICTION_SYNC_ON_START:false}
 
+public-finance:
+  # Financial Services Commission summary statements supplement missing DART years only.
+  service-key: ${DATA_GO_KR_SERVICE_KEY:}
+  base-url: ${DATA_GO_KR_FINANCE_BASE_URL:http://apis.data.go.kr/1160100/service/GetFinaStatInfoService_V2}
+
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

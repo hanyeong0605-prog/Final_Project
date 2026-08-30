@@ -3,6 +3,8 @@ package com.jobpilot.api.domain.companyfinance.client;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -15,6 +17,7 @@ public class OpenDartClient {
     private final OpenDartCorporationZipParser corporationZipParser;
     private final OpenDartRequestUriFactory uriFactory;
     private final String apiKey;
+    private final ObjectMapper json = new ObjectMapper();
 
     public OpenDartClient(
             OpenDartFinancialStatementParser parser,
@@ -66,6 +69,19 @@ public class OpenDartClient {
             throw noData;
         } catch (Exception error) {
             throw new IllegalStateException("DART multiple-company statement response could not be parsed", error);
+        }
+    }
+
+    /** DART is the authoritative bridge from its corporation code to the public API's crno. */
+    public Optional<String> fetchCorporateRegistrationNumber(String corpCode) {
+        if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("DART API key is not configured");
+        String body = restClient.get().uri(uriFactory.companyProfileUri(apiKey, corpCode)).retrieve().body(String.class);
+        try {
+            var node = json.readTree(body == null ? "" : body);
+            String value = node.path("jurir_no").asText("").trim();
+            return value.isBlank() ? Optional.empty() : Optional.of(value);
+        } catch (Exception error) {
+            throw new IllegalStateException("DART company profile response could not be parsed", error);
         }
     }
 }
