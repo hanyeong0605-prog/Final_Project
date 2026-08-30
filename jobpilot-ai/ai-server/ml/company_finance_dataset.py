@@ -18,8 +18,7 @@ from app.core.db import get_engine
 
 FEATURE_COLUMNS = [
     "revenue_growth_1y", "revenue_growth_3y", "operating_margin",
-    "operating_margin_change", "debt_ratio", "debt_ratio_change",
-    "operating_cashflow_ratio", "cashflow_ratio_change", "profitable",
+    "operating_margin_change", "debt_ratio", "debt_ratio_change", "profitable",
     "size_bucket",
 ]
 LABEL_COLUMNS = ["next_revenue_growth", "next_revenue_positive", "next_profitability_improved", "next_stability_risk"]
@@ -65,9 +64,6 @@ def build_company_year_dataset(financial_rows: Iterable[Mapping[str, Any]]) -> p
             current_debt = _ratio(current.get("total_liabilities"), current.get("total_equity"))
             prior_debt = _ratio(prior.get("total_liabilities"), prior.get("total_equity"))
             next_debt = _ratio(following.get("total_liabilities"), following.get("total_equity"))
-            current_cash = _ratio(current.get("operating_cash_flow"), current.get("revenue"))
-            prior_cash = _ratio(prior.get("operating_cash_flow"), prior.get("revenue"))
-            next_cash = _ratio(following.get("operating_cash_flow"), following.get("revenue"))
             next_growth = _growth(following.get("revenue"), current.get("revenue"))
             values = {
                 "corp_code": corp_code,
@@ -78,15 +74,15 @@ def build_company_year_dataset(financial_rows: Iterable[Mapping[str, Any]]) -> p
                 "operating_margin_change": None if current_margin is None or prior_margin is None else current_margin - prior_margin,
                 "debt_ratio": current_debt,
                 "debt_ratio_change": None if current_debt is None or prior_debt is None else current_debt - prior_debt,
-                "operating_cashflow_ratio": current_cash,
-                "cashflow_ratio_change": None if current_cash is None or prior_cash is None else current_cash - prior_cash,
                 "profitable": int((current.get("net_income") or 0) > 0),
                 "size_bucket": _size_bucket(current.get("total_assets")),
                 "next_revenue_growth": next_growth,
                 "next_revenue_positive": None if next_growth is None else int(next_growth > 0),
                 "next_profitability_improved": None if next_margin is None or current_margin is None else int(next_margin > current_margin),
-                "next_stability_risk": None if next_debt is None or current_debt is None or next_cash is None else int(
-                    next_debt > current_debt * 1.2 or next_cash < 0 or (current_cash is not None and next_cash < current_cash * 0.7)
+                # The multi-company major-account API exposes BS/IS, not CF.
+                # Stability therefore means material leverage deterioration or a next-year loss.
+                "next_stability_risk": None if next_debt is None or current_debt is None else int(
+                    next_debt > current_debt * 1.2 or (following.get("net_income") or 0) < 0
                 ),
             }
             if all(values[column] is not None for column in FEATURE_COLUMNS + LABEL_COLUMNS):

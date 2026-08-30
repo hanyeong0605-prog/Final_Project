@@ -26,14 +26,16 @@ public class OpenDartFinancialStatementParser {
     public Map<String, OpenDartFinancialSnapshot> parseMultiple(String responseBody) throws IOException {
         JsonNode root = objectMapper.readTree(responseBody);
         validateStatus(root);
+        // fnlttMultiAcnt accepts corp_code values but its official response does not return
+        // corp_code. stock_code is the only stable company identifier in each list row.
         Map<String, Accounts> grouped = new LinkedHashMap<>();
         for (JsonNode account : root.path("list")) {
             if (!"CFS".equals(account.path("fs_div").asText())) continue;
-            String corpCode = account.path("corp_code").asText();
-            if (!corpCode.isBlank()) grouped.computeIfAbsent(corpCode, ignored -> new Accounts()).accept(account);
+            String stockCode = account.path("stock_code").asText();
+            if (!stockCode.isBlank()) grouped.computeIfAbsent(stockCode, ignored -> new Accounts()).accept(account);
         }
         Map<String, OpenDartFinancialSnapshot> result = new LinkedHashMap<>();
-        grouped.forEach((corpCode, accounts) -> result.put(corpCode, accounts.snapshot()));
+        grouped.forEach((stockCode, accounts) -> result.put(stockCode, accounts.snapshot()));
         return result;
     }
 

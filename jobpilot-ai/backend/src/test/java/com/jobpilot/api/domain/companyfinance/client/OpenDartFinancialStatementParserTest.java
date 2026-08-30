@@ -47,20 +47,20 @@ class OpenDartFinancialStatementParserTest {
     void groupsMultipleCorporationAccountsAndUsesConsolidatedStatementsOnly() throws Exception {
         String response = """
                 {"status":"000","list":[
-                  {"corp_code":"00126380","fs_div":"CFS","account_nm":"매출액","thstrm_amount":"1,200"},
-                  {"corp_code":"00126380","fs_div":"OFS","account_nm":"매출액","thstrm_amount":"999"},
-                  {"corp_code":"00126380","fs_div":"CFS","account_nm":"영업이익","thstrm_amount":"100"},
-                  {"corp_code":"00164779","fs_div":"CFS","account_nm":"수익(매출액)","thstrm_amount":"2,500"},
-                  {"corp_code":"00164779","fs_div":"CFS","account_nm":"부채총계","thstrm_amount":"800"}
+                  {"stock_code":"005930","fs_div":"CFS","account_nm":"매출액","thstrm_amount":"1,200"},
+                  {"stock_code":"005930","fs_div":"OFS","account_nm":"매출액","thstrm_amount":"999"},
+                  {"stock_code":"005930","fs_div":"CFS","account_nm":"영업이익","thstrm_amount":"100"},
+                  {"stock_code":"000660","fs_div":"CFS","account_nm":"수익(매출액)","thstrm_amount":"2,500"},
+                  {"stock_code":"000660","fs_div":"CFS","account_nm":"부채총계","thstrm_amount":"800"}
                 ]}
                 """;
 
         var result = new OpenDartFinancialStatementParser(new ObjectMapper()).parseMultiple(response);
 
         assertEquals(2, result.size());
-        assertEquals(1200L, result.get("00126380").revenue());
-        assertEquals(100L, result.get("00126380").operatingIncome());
-        assertEquals(2500L, result.get("00164779").revenue());
-        assertEquals(800L, result.get("00164779").totalLiabilities());
+        assertEquals(1200L, result.get("005930").revenue());
+        assertEquals(100L, result.get("005930").operatingIncome());
+        assertEquals(2500L, result.get("000660").revenue());
+        assertEquals(800L, result.get("000660").totalLiabilities());
     }
 }
