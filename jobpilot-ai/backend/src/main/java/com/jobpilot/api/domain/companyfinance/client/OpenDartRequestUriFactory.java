@@ -25,6 +25,10 @@ public class OpenDartRequestUriFactory {
         return URI.create(baseUrl + "/api/corpCode.xml?crtfc_key=" + encode(apiKey));
     }
 
+    public URI companyProfileUri(String apiKey, String corpCode) {
+        return URI.create(baseUrl + "/api/company.json?crtfc_key=" + encode(apiKey) + "&corp_code=" + encode(corpCode));
+    }
+
     public URI multipleAnnualStatementsUri(String apiKey, List<String> corpCodes, int businessYear) {
         if (corpCodes.isEmpty() || corpCodes.size() > 100) {
             throw new IllegalArgumentException("OpenDART multiple-company request requires 1..100 corporations");

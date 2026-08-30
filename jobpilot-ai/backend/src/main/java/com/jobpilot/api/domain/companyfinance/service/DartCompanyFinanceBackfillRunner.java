@@ -16,17 +16,20 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
     private final DartCorporationSyncService corporationSync;
     private final CompanyDartBackfillService companyBackfill;
     private final CompanyFinancialSyncService financialSync;
+    private final PublicCompanyFinancialSyncService publicFinancialSync;
     private final boolean financialSyncOnStart;
     private final int financialYearsBack;
 
     public DartCompanyFinanceBackfillRunner(DartCorporationSyncService corporationSync,
                                             CompanyDartBackfillService companyBackfill,
                                             CompanyFinancialSyncService financialSync,
+                                            PublicCompanyFinancialSyncService publicFinancialSync,
                                             @Value("${dart.financial-sync-on-start:false}") boolean financialSyncOnStart,
                                             @Value("${dart.financial-years-back:7}") int financialYearsBack) {
         this.corporationSync = corporationSync;
         this.companyBackfill = companyBackfill;
         this.financialSync = financialSync;
+        this.publicFinancialSync = publicFinancialSync;
         this.financialSyncOnStart = financialSyncOnStart;
         if (financialYearsBack < 4) {
             throw new IllegalArgumentException("dart.financial-years-back must be at least 4 for ML labels");
@@ -44,6 +47,8 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
             int currentYear = java.time.Year.now().getValue();
             int storedYears = financialSync.syncConfirmedCompanies(currentYear - financialYearsBack, currentYear - 1);
             log.info("DART financial sync complete: storedAnnualStatements={}", storedYears);
+            int publicStoredYears = publicFinancialSync.syncMissingAnnualYears(currentYear - financialYearsBack, currentYear - 1);
+            log.info("Public finance fallback sync complete: storedAnnualStatements={}", publicStoredYears);
         }
     }
 }
