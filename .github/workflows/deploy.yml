@@ -19,6 +19,11 @@ on:
         required: false
         default: false
         type: boolean
+      company_growth_publish:
+        description: 'Train, validate, publish the company-growth model, then generate production predictions'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: production-deploy
@@ -111,6 +116,9 @@ jobs:
             export ENV_FILE=/etc/jobpilot/jobpilot.env
             export DART_BACKFILL_ON_START='${{ inputs.dart_backfill || false }}'
             export DART_FINANCIAL_SYNC_ON_START='${{ inputs.dart_backfill || false }}'
+            # Predictions are deliberately opt-in: a model is promoted only after the
+            # training command exits successfully with validated=true metadata.
+            export DART_PREDICTION_SYNC_ON_START='${{ inputs.company_growth_publish || false }}'
             # This branch is the production deployment branch.  Keep Flyway
             # enabled so a backend release and its versioned DB migration are
             # always applied together before Hibernate validates the schema.
@@ -148,9 +156,10 @@ jobs:
             fi
 
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || \
+              [ '${{ inputs.company_growth_publish || false }}' = 'true' ] || \
               printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
                 $COMPOSE build backend
-                if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
+                if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
                   $COMPOSE up -d --no-deps --force-recreate backend
                 else
                   $COMPOSE up -d --no-deps backend
@@ -209,7 +218,7 @@ jobs:
               $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete'
             fi
 
-            if [ '${{ inputs.company_growth_report || false }}' = 'true' ]; then
+            if [ '${{ inputs.company_growth_report || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
               AI_CONTAINER="$($COMPOSE ps -q ai-server)"
               REPORT_ID='${{ github.run_id }}'
               DATASET="/tmp/company-years-$REPORT_ID.csv"
@@ -219,4 +228,60 @@ jobs:
               # Train on 2021-2023 and reserve the latest complete base year (2024)
               # as a strictly future holdout. This keeps more history in the small dataset.
               sudo docker exec "$AI_CONTAINER" python -m ml.train_company_growth_model --dataset "$DATASET" --cutoff-year 2024 --output "$ARTIFACT"
+
+              if [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
+                # The artifact is first created in /tmp. A failed training command
+                # stops the script before this point, so an unvalidated model cannot
+                # replace the currently mounted production artifact.
+                MODEL_DIR="$(sudo docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/models/company-growth\"}}{{.Source}}{{end}}{{end}}' "$AI_CONTAINER")"
+                if [ -z "$MODEL_DIR" ]; then
+                  echo 'Unable to resolve the host model volume.' >&2
+                  exit 1
+                fi
+                STAGING_DIR="${MODEL_DIR}.staging-$REPORT_ID"
+                BACKUP_DIR="${MODEL_DIR}.previous-$REPORT_ID"
+                sudo install -d -m 0755 "$STAGING_DIR"
+                sudo docker cp "$AI_CONTAINER:$ARTIFACT/." "$STAGING_DIR"
+                sudo test -s "$STAGING_DIR/model.joblib"
+                sudo test -s "$STAGING_DIR/metadata.json"
+                sudo mv "$MODEL_DIR" "$BACKUP_DIR"
+                sudo mv "$STAGING_DIR" "$MODEL_DIR"
+
+                # Reload the read-only model volume before asking Spring to persist
+                # predictions. The AI service refuses artifacts without validated=true.
+                $COMPOSE up -d --no-deps --force-recreate ai-server
+                AI_READY=false
+                for attempt in $(seq 1 24); do
+                  AI_CONTAINER="$($COMPOSE ps -q ai-server)"
+                  if [ -n "$AI_CONTAINER" ] && \
+                    sudo docker exec "$AI_CONTAINER" python -c "import json,urllib.request; s=json.load(urllib.request.urlopen('http://localhost:8001/company-finance/health'))['state']; assert s == 'READY', s"; then
+                    AI_READY=true
+                    break
+                  fi
+                  sleep 5
+                done
+                if [ "$AI_READY" != 'true' ]; then
+                  echo 'Published model did not become READY; previous artifact is retained at:' "$BACKUP_DIR" >&2
+                  exit 1
+                fi
+                # The earlier backend restart may have happened before the model
+                # promotion. Recreate it now so the one-shot prediction runner
+                # calls the READY AI service and persists fresh results.
+                $COMPOSE up -d --no-deps --force-recreate backend
+                PREDICTION_SYNC_COMPLETE=false
+                for attempt in $(seq 1 120); do
+                  if $COMPOSE logs --since=10m backend | grep -q 'DART validated growth prediction sync complete'; then
+                    PREDICTION_SYNC_COMPLETE=true
+                    break
+                  fi
+                  sleep 5
+                done
+                if [ "$PREDICTION_SYNC_COMPLETE" != 'true' ]; then
+                  $COMPOSE logs --tail=200 backend
+                  echo 'Company growth prediction sync did not complete within 600 seconds.' >&2
+                  exit 1
+                fi
+                $COMPOSE logs --since=10m backend | grep 'DART validated growth prediction sync complete'
+                echo "COMPANY_GROWTH_MODEL_PUBLISHED=$MODEL_DIR"
+              fi
             fi
