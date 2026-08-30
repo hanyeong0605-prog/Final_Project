@@ -64,6 +64,24 @@ class CompanyFinancialSyncServiceTest {
                 .fetchMultipleAnnualStatements(List.of("00126380"), 2025);
     }
 
+    @Test
+    void storesConfirmedUnlistedCorporationWithSingleCompanyDartEndpoint() {
+        OpenDartClient client = mock(OpenDartClient.class);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.RowMapper.class)))
+                .thenReturn(List.of());
+        when(jdbc.queryForList(anyString(), eq(String.class))).thenReturn(List.of("00999999"));
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(client.fetchAnnualConsolidatedStatement("00999999", 2025)).thenReturn(
+                new OpenDartFinancialSnapshot(900L, 80L, 55L, 1500L, 400L, 1100L, null));
+
+        int stored = new CompanyFinancialSyncService(client, jdbc).syncConfirmedCompanies(2025, 2025);
+
+        assertEquals(1, stored);
+        verify(jdbc).update(anyString(), eq("00999999"), eq(2025), eq("11011"), eq("CFS"),
+                eq(900L), eq(80L), eq(55L), eq(1500L), eq(400L), eq(1100L), eq(null));
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void mockListedCorporation(JdbcTemplate jdbc) {
         when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.RowMapper.class)))
@@ -72,7 +90,8 @@ class CompanyFinancialSyncServiceTest {
                     java.sql.ResultSet resultSet = mock(java.sql.ResultSet.class);
                     when(resultSet.getString(1)).thenReturn("00126380");
                     when(resultSet.getString(2)).thenReturn("005930");
-                    return List.of(mapper.mapRow(resultSet, 0));
-                });
+                return List.of(mapper.mapRow(resultSet, 0));
+        });
+        when(jdbc.queryForList(anyString(), eq(String.class))).thenReturn(List.of());
     }
 }
