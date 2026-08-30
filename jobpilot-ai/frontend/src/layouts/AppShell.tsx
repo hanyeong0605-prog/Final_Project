@@ -79,6 +79,8 @@ export function AppShell() {
   const [searchTerm, setSearchTerm] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const searchPanelRef = useRef<HTMLElement>(null);
+  const searchInlineRef = useRef<HTMLFormElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const activeItem = navigationItems.find((item) => item.path === location.pathname)
@@ -123,6 +125,17 @@ export function AppShell() {
       document.removeEventListener("mousedown", closeOnOutsidePress);
       document.removeEventListener("keydown", closeOnEscape);
     };
+  }, []);
+
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!searchPanelRef.current?.contains(target) && !searchInlineRef.current?.contains(target)) setSearchOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setSearchOpen(false); };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.removeEventListener("pointerdown", closeOutside); document.removeEventListener("keydown", closeOnEscape); };
   }, []);
 
   const closeMenu = () => setMenuOpen(false);
@@ -202,7 +215,7 @@ export function AppShell() {
 
             <div className="top-actions">
               <div className="breadcrumb"><span>Job-A-Dream AI</span><ChevronRight size={15} /><strong>{activeItem.label}</strong></div>
-              <form className="global-search-inline" onSubmit={submitGlobalSearch}><Search size={16} /><input value={searchTerm} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearchTerm(event.target.value); setSearchOpen(true); }} placeholder="통합검색" aria-label="통합검색" /><button type="submit" aria-label="검색 실행"><ChevronRight size={15} /></button></form>
+              <form ref={searchInlineRef} className="global-search-inline" onSubmit={submitGlobalSearch}><Search size={16} /><input value={searchTerm} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearchTerm(event.target.value); setSearchOpen(true); }} placeholder="통합검색" aria-label="통합검색" /><button type="submit" aria-label="검색 실행"><ChevronRight size={15} /></button></form>
               <NotificationBell />
               {member?.role === "ADMIN" && <NavLink to="/admin" className="admin-page-link"><ShieldCheck size={16} />관리자 페이지</NavLink>}
               <div className="topbar-account-menu" ref={accountMenuRef}>
@@ -226,7 +239,7 @@ export function AppShell() {
                 </div>
               </section>;
             })()}
-            {searchOpen && <section className="global-search-panel" aria-label="통합검색">
+            {searchOpen && <section ref={searchPanelRef} className="global-search-panel" aria-label="통합검색">
               <form onSubmit={submitGlobalSearch}>
                 <Search size={19} /><input autoFocus value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="메뉴, 기능 또는 채용공고 키워드를 검색하세요" /><button type="button" onClick={() => setSearchOpen(false)} aria-label="통합검색 닫기"><X size={18} /></button>
               </form>

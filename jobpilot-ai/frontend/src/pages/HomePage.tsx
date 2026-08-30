@@ -6,7 +6,7 @@ import { HomeJobCarousels } from "../features/job-postings/components/HomeJobCar
 import { WordCloudSection } from "../features/word-cloud/components/WordCloudSection";
 
 const quickLinks = [
-  { to: "/jobs", icon: BriefcaseBusiness, title: "맞춤 채용공고", body: "내 역량과 공고 요구사항을 비교해 지원 준비도를 확인하세요." },
+  { to: "/dashboard", icon: BriefcaseBusiness, title: "맞춤 채용 분석", body: "내 역량과 공고 요구사항을 비교해 지원 준비도를 확인하세요." },
   { to: "/profile", icon: Target, title: "역량 프로필", body: "기술, 학력, 자격증을 등록하고 부족한 역량을 찾아보세요." },
   { to: "/mock-interview", icon: Mic, title: "AI 모의면접", body: "질문·음성·표정 분석으로 실제 면접처럼 연습하세요." },
 ];
@@ -37,7 +37,7 @@ export function HomePage() {
         <span className="eyebrow">CAREER ACTION PLATFORM</span>
         <h1>다음 커리어를 향한<br /><em>가장 현실적인 준비.</em></h1>
         <p>Job-A-Dream과 함께 내 역량을 채용공고 요구사항과 비교하고,<br />지금 할 수 있는 지원부터 다음 성장 행동까지 준비해 보세요.</p>
-        <div className="home-hero-actions"><Link to="/jobs" className="primary-button">맞춤 채용공고 보기 <ArrowRight size={17} /></Link><Link to="/mock-interview" className="home-secondary-link">AI 모의면접 시작</Link></div>
+        <div className="home-hero-actions"><Link to="/dashboard" className="primary-button">맞춤 채용 분석 보기 <ArrowRight size={17} /></Link><Link to="/mock-interview" className="home-secondary-link">AI 모의면접 시작</Link></div>
       </div>
       <aside className="home-hero-summary">
         <span>오늘의 커리어 액션</span>

@@ -42,7 +42,6 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { path: "/job-postings", label: "전체 채용공고", icon: BriefcaseBusiness },
       { path: "/locationjobs", label: "우리 동네 채용공고", icon: MapPin },
-      { path: "/jobs", label: "맞춤 채용공고", icon: Target },
     ],
   },
   {
