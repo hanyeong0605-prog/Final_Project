@@ -1,3 +1,5 @@
+import { LoadingScreen } from "./LoadingScreen";
+
 interface DataStatePanelProps {
   state: "loading" | "empty" | "error";
   emptyTitle?: string;
@@ -11,6 +13,7 @@ const content = {
 } as const;
 
 export function DataStatePanel({ state, emptyTitle, emptyBody }: DataStatePanelProps) {
+  if (state === "loading") return <section className="data-state-panel loading"><LoadingScreen label="데이터를 불러오는 중입니다" compact /></section>;
   const [defaultTitle, defaultBody] = content[state];
   return (
     <section className={`data-state-panel ${state}`} role={state === "error" ? "alert" : "status"}>

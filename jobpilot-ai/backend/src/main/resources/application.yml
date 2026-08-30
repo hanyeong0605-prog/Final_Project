@@ -78,6 +78,10 @@ dart:
   base-url: ${DART_BASE_URL:https://opendart.fss.or.kr}
   backfill-on-start: ${DART_BACKFILL_ON_START:false}
   financial-sync-on-start: ${DART_FINANCIAL_SYNC_ON_START:false}
+  # Seven completed years produce multiple leakage-safe t-2..t -> t+1 training rows.
+  financial-years-back: ${DART_FINANCIAL_YEARS_BACK:7}
+  # Enable once only after a held-out-validated artifact is mounted in the AI server.
+  prediction-sync-on-start: ${DART_PREDICTION_SYNC_ON_START:false}
 
 app:
   cors:
@@ -106,11 +110,6 @@ app:
   sentiment:
     worker:
       enabled: ${APP_SENTIMENT_WORKER_ENABLED:false}
-  review-demo:
-    # One-shot idempotent import. Enable only after V43 is applied; stable keys prevent duplicates.
-    seed-enabled: ${APP_REVIEW_DEMO_SEED_ENABLED:false}
-    # Optional approved presentation account; 0 keeps demo data unowned.
-    employer-id: ${APP_REVIEW_DEMO_EMPLOYER_ID:0}
   face-verification:
     # Internal only: the browser never calls this service directly.
     base-url: ${FACE_VERIFICATION_BASE_URL:http://localhost:8000}

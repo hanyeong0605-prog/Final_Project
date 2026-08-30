@@ -2,13 +2,18 @@ package com.jobpilot.api.domain.companyfinance.service;
 
 import com.jobpilot.api.domain.companyfinance.client.OpenDartClient;
 import com.jobpilot.api.domain.companyfinance.client.OpenDartFinancialSnapshot;
+import com.jobpilot.api.domain.companyfinance.client.OpenDartNoDataException;
 import java.util.List;
+import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.client.ResourceAccessException;
 
 @Service
 public class CompanyFinancialSyncService {
+    private static final Logger log = LoggerFactory.getLogger(CompanyFinancialSyncService.class);
     private static final String ANNUAL_REPORT_CODE = "11011";
     private static final String CFS = "CFS";
     private static final String CONFIRMED_CORPORATIONS = """
@@ -35,29 +40,58 @@ public class CompanyFinancialSyncService {
         this.jdbc = jdbc;
     }
 
-    @Transactional
     public int syncConfirmedCompanies(int firstYear, int lastYear) {
         List<String> corpCodes = jdbc.query(CONFIRMED_CORPORATIONS, (rs, rowNum) -> rs.getString(1));
         int stored = 0;
-        for (String corpCode : corpCodes) {
-            for (int year = firstYear; year <= lastYear; year++) {
-                stored += syncAnnualStatement(corpCode, year);
+        for (int year = firstYear; year <= lastYear; year++) {
+            for (int start = 0; start < corpCodes.size(); start += 100) {
+                List<String> batch = corpCodes.subList(start, Math.min(start + 100, corpCodes.size()));
+                Map<String, OpenDartFinancialSnapshot> snapshots = fetchBatchWithRetry(batch, year);
+                for (var entry : snapshots.entrySet()) {
+                    storeAnnualStatement(entry.getKey(), year, entry.getValue());
+                    stored++;
+                }
             }
         }
         return stored;
     }
 
-    private int syncAnnualStatement(String corpCode, int businessYear) {
-        OpenDartFinancialSnapshot snapshot;
+    private Map<String, OpenDartFinancialSnapshot> fetchBatchWithRetry(List<String> corpCodes, int businessYear) {
         try {
-            snapshot = client.fetchAnnualConsolidatedStatement(corpCode, businessYear);
-        } catch (RuntimeException noStatementAvailable) {
-            return 0;
+            return fetchMultipleWithRetry(corpCodes, businessYear);
+        } catch (OpenDartNoDataException noStatementAvailable) {
+            return Map.of();
+        } catch (ResourceAccessException transientNetworkFailure) {
+            log.warn("OpenDART multiple-company network failure after retries: batchSize={}, year={}",
+                    corpCodes.size(), businessYear);
+            return Map.of();
         }
+    }
+
+    private void storeAnnualStatement(String corpCode, int businessYear, OpenDartFinancialSnapshot snapshot) {
         jdbc.update(UPSERT_FINANCIAL_YEAR,
                 corpCode, businessYear, ANNUAL_REPORT_CODE, CFS,
                 snapshot.revenue(), snapshot.operatingIncome(), snapshot.netIncome(), snapshot.totalAssets(),
                 snapshot.totalLiabilities(), snapshot.totalEquity(), snapshot.operatingCashFlow());
-        return 1;
+    }
+
+    private Map<String, OpenDartFinancialSnapshot> fetchMultipleWithRetry(List<String> corpCodes, int businessYear) {
+        ResourceAccessException lastFailure = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return client.fetchMultipleAnnualStatements(corpCodes, businessYear);
+            } catch (ResourceAccessException networkFailure) {
+                lastFailure = networkFailure;
+                if (attempt < 3) {
+                    try {
+                        Thread.sleep(attempt * 1000L);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw networkFailure;
+                    }
+                }
+            }
+        }
+        throw lastFailure;
     }
 }

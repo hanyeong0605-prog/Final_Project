@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * KOTE로 직접 학습한 내부 모델 호출 경계. 회사 리뷰와 커뮤니티는 이 추론만 공유하고
+ * KOTE로 직접 학습한 내부 모델 호출 경계. 게시판 글과 댓글은 이 추론을 공유하고
  * 저장 대상, 조회 권한, 통계는 각각 분리한다. 점수는 독립값이지 합계 100% 비율이 아니다.
  * 호출은 콘텐츠 저장 트랜잭션 밖에서 실행하고 실패 시 PENDING/FAILED를 유지해야 한다.
  * Optional.empty()를 중립 감정으로 바꾸거나 별점으로 분석 결과를 만들어서는 안 된다.
@@ -63,7 +63,7 @@ public class SentimentAiClient {
                     .retrieve().body(Analysis.class);
             return valid(result, contentHash(normalized)) ? Optional.of(result) : Optional.empty();
         } catch (org.springframework.web.client.RestClientException ex) {
-            // Do not log original reviews, internal keys or upstream response bodies.
+            // Do not log original community content, internal keys or upstream response bodies.
             return Optional.empty();
         }
     }

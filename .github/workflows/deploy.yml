@@ -8,6 +8,17 @@ on:
       - 'jobpilot-ai/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
+    inputs:
+      dart_backfill:
+        description: 'Run one-shot OpenDART company matching and seven-year financial backfill'
+        required: false
+        default: false
+        type: boolean
+      company_growth_report:
+        description: 'Build a temporary company-growth dataset and print held-out metrics'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: production-deploy
@@ -98,6 +109,8 @@ jobs:
 
             cd /opt/jobpilot/jobpilot-ai
             export ENV_FILE=/etc/jobpilot/jobpilot.env
+            export DART_BACKFILL_ON_START='${{ inputs.dart_backfill || false }}'
+            export DART_FINANCIAL_SYNC_ON_START='${{ inputs.dart_backfill || false }}'
             # This branch is the production deployment branch.  Keep Flyway
             # enabled so a backend release and its versioned DB migration are
             # always applied together before Hibernate validates the schema.
@@ -117,11 +130,31 @@ jobs:
             if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(ai-server/|docker-compose.prod.yml$)'; then
                 $COMPOSE build ai-server
                 $COMPOSE up -d --no-deps ai-server
+                AI_HEALTHY=false
+                for attempt in $(seq 1 24); do
+                  AI_CONTAINER="$($COMPOSE ps -q ai-server)"
+                  if [ -n "$AI_CONTAINER" ] && \
+                    [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$AI_CONTAINER")" = "healthy" ]; then
+                    AI_HEALTHY=true
+                    break
+                  fi
+                  sleep 5
+                done
+                if [ "$AI_HEALTHY" != 'true' ]; then
+                  $COMPOSE logs --tail=120 ai-server
+                  echo "AI server did not become healthy within 120 seconds." >&2
+                  exit 1
+                fi
             fi
 
-            if printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
+            if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || \
+              printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
                 $COMPOSE build backend
-                $COMPOSE up -d --no-deps backend
+                if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
+                  $COMPOSE up -d --no-deps --force-recreate backend
+                else
+                  $COMPOSE up -d --no-deps backend
+                fi
             fi
 
             if printf '%s\n' "$CHANGED_FILES" | grep -q '^jobpilot-ai/frontend/'; then
@@ -141,16 +174,47 @@ jobs:
             # through host Nginx here is not reliable: the host proxy may be
             # independently reconfigured for TLS and return a 404 even while
             # the backend is healthy.
-            for attempt in $(seq 1 24); do
+            BACKEND_HEALTHY=false
+            for attempt in $(seq 1 240); do
               BACKEND_CONTAINER="$($COMPOSE ps -q backend)"
               if [ -n "$BACKEND_CONTAINER" ] && \
                 [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$BACKEND_CONTAINER")" = "healthy" ]; then
-                exit 0
+                BACKEND_HEALTHY=true
+                break
               fi
               sleep 5
             done
 
-            $COMPOSE ps
-            $COMPOSE logs --tail=120 backend
-            echo "Backend did not become healthy within 120 seconds." >&2
-            exit 1
+            if [ "$BACKEND_HEALTHY" != 'true' ]; then
+              $COMPOSE ps
+              $COMPOSE logs --tail=120 backend
+              echo "Backend did not become healthy within 1200 seconds." >&2
+              exit 1
+            fi
+
+            if [ '${{ inputs.dart_backfill || false }}' = 'true' ]; then
+              DART_SYNC_COMPLETE=false
+              for attempt in $(seq 1 240); do
+                if $COMPOSE logs --since=30m backend | grep -q 'DART financial sync complete'; then
+                  DART_SYNC_COMPLETE=true
+                  break
+                fi
+                sleep 5
+              done
+              if [ "$DART_SYNC_COMPLETE" != 'true' ]; then
+                $COMPOSE logs --tail=200 backend
+                echo "DART financial sync did not complete within 1200 seconds." >&2
+                exit 1
+              fi
+              $COMPOSE logs --since=30m backend | grep -E 'DART backfill complete|DART financial sync complete'
+            fi
+
+            if [ '${{ inputs.company_growth_report || false }}' = 'true' ]; then
+              AI_CONTAINER="$($COMPOSE ps -q ai-server)"
+              REPORT_ID='${{ github.run_id }}'
+              DATASET="/tmp/company-years-$REPORT_ID.csv"
+              ARTIFACT="/tmp/company-growth-$REPORT_ID"
+              sudo docker exec "$AI_CONTAINER" python -m ml.company_finance_dataset --output "$DATASET"
+              sudo docker exec "$AI_CONTAINER" python -c "import pandas as pd; d=pd.read_csv('$DATASET'); print('COMPANY_GROWTH_DATASET_ROWS='+str(len(d))); print('COMPANIES='+str(d.corp_code.nunique())); print('BASE_YEAR_COUNTS'); print(d.groupby('base_year').size().to_string()); print('LABEL_RATES'); print(d[['next_revenue_positive','next_profitability_improved','next_stability_risk']].mean().to_string()); print('SAMPLE_ROWS'); print(d.head(10).to_string(index=False))"
+              sudo docker exec "$AI_CONTAINER" python -m ml.train_company_growth_model --dataset "$DATASET" --cutoff-year 2023 --output "$ARTIFACT"
+            fi

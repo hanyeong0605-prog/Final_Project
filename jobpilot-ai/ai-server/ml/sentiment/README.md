@@ -7,7 +7,7 @@
 
 공식 데이터 다운로드, 헤더 없는 TSV 검증, TF-IDF 다중 라벨 학습,
 검증 기반 임계값 선택, 테스트 평가, 인증된 FastAPI 추론 API.
-Transformer, 리뷰 DB/화면, 기업 대시보드, 관리자 게시판 분석은 후속 작업이다.
+학습된 모델은 게시판 글·댓글 분석과 관리자 감정 통계에 사용한다.
 
 ## PowerShell
 
@@ -37,8 +37,8 @@ INTERNAL_API_KEY는 기존 Spring과 AI 서버의 공유 키를 사용하며 로
 - 모델 부재·손상은 분석 요청에 503. 서버의 기존 루트 health와 다른 기능을 막지 않는다.
 - 모델 변경 후 worker를 재시작한다. 자동 다운로드, HTTP 재학습, 원문 DB 저장은 하지 않는다.
 
-회사가 아닌 게시판 글도 같은 추론 엔진을 이용할 수 있지만, 이후 Backend에서
-COMPANY_REVIEW / COMMUNITY_POST / COMMUNITY_COMMENT 집계와 권한을 분리해야 한다.
+Backend는 게시판 글과 댓글을 각각 COMMUNITY_POST / COMMUNITY_COMMENT 문맥으로
+분석하고, 관리자 페이지에서 통계와 미리보기를 제공한다.
 응답 polarity 값은 서로 독립적이며 합계 100% 차트용 비율이 아니다.
 
 ## 검증
@@ -51,17 +51,3 @@ Windows 임시 폴더 권한 충돌 시 새로운 작업공간 임시 경로를 
 원본 데이터와 모델은 .gitignore와 기존 .dockerignore(ml 제외)로 배포에서 제외한다.
 기존 전체 수집에는 폐지된 generate_question 참조가 남아 있으며, 오디오 테스트는
 ffmpeg 실행 환경이 필요하다. 이것을 감정분석 테스트 통과와 혼동하지 않는다.
-
-## 직장 도메인 후보 데이터
-
-KOTE의 일반 댓글 도메인 한계를 점검하기 위한 자체 창작 문장 후보는 다음 명령으로
-재생성한다. 생성 파일은 원본 학습 데이터와 마찬가지로 Git에 포함하지 않는다.
-
-```powershell
-.\.venv\Scripts\python.exe -m ml.sentiment.workplace_dataset `
-  --output ml/sentiment/data/workplace/workplace-candidates-v1.jsonl
-```
-
-현재 v1은 긍정·중립·부정·혼합 각 60건, 총 240건이다. 모든 초기 행은
-`UNVERIFIED`이며 사람 검수 전에는 최종 평가나 정확도 주장에 사용할 수 없다.
-검수 기준과 항목 정의는 `WORKPLACE_DATA_CARD.md`를 따른다.

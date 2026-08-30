@@ -27,4 +27,25 @@ class DartCorporationSyncServiceTest {
         assertEquals(1, synced);
         verify(jdbc).batchUpdate(any(String.class), any(org.springframework.jdbc.core.BatchPreparedStatementSetter.class));
     }
+
+    @Test
+    void usesCachedOfficialDirectoryWhenRefreshHasTransientFailure() {
+        OpenDartClient client = mock(OpenDartClient.class);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class)).thenReturn(118804);
+
+        assertEquals(0, new DartCorporationSyncService(client, jdbc).syncWithCacheFallback());
+        org.mockito.Mockito.verifyNoInteractions(client);
+    }
+
+    @Test
+    void failsWhenRefreshFailsAndThereIsNoCachedDirectory() {
+        OpenDartClient client = mock(OpenDartClient.class);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(client.downloadCorporations()).thenThrow(new RuntimeException("connection reset"));
+        when(jdbc.queryForObject("SELECT COUNT(*) FROM dart_corporations", Integer.class)).thenReturn(0);
+
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                () -> new DartCorporationSyncService(client, jdbc).syncWithCacheFallback());
+    }
 }

@@ -17,26 +17,32 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
     private final CompanyDartBackfillService companyBackfill;
     private final CompanyFinancialSyncService financialSync;
     private final boolean financialSyncOnStart;
+    private final int financialYearsBack;
 
     public DartCompanyFinanceBackfillRunner(DartCorporationSyncService corporationSync,
                                             CompanyDartBackfillService companyBackfill,
                                             CompanyFinancialSyncService financialSync,
-                                            @Value("${dart.financial-sync-on-start:false}") boolean financialSyncOnStart) {
+                                            @Value("${dart.financial-sync-on-start:false}") boolean financialSyncOnStart,
+                                            @Value("${dart.financial-years-back:7}") int financialYearsBack) {
         this.corporationSync = corporationSync;
         this.companyBackfill = companyBackfill;
         this.financialSync = financialSync;
         this.financialSyncOnStart = financialSyncOnStart;
+        if (financialYearsBack < 4) {
+            throw new IllegalArgumentException("dart.financial-years-back must be at least 4 for ML labels");
+        }
+        this.financialYearsBack = financialYearsBack;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        int corporations = corporationSync.sync();
+        int corporations = corporationSync.syncWithCacheFallback();
         CompanyMatchReport report = companyBackfill.backfillExistingPostings();
         log.info("DART backfill complete: corporations={}, distinctCompanies={}, confirmed={}, candidates={}, unmatched={}",
                 corporations, report.distinctCompanies(), report.confirmed(), report.candidates(), report.unmatched());
         if (financialSyncOnStart) {
             int currentYear = java.time.Year.now().getValue();
-            int storedYears = financialSync.syncConfirmedCompanies(currentYear - 3, currentYear - 1);
+            int storedYears = financialSync.syncConfirmedCompanies(currentYear - financialYearsBack, currentYear - 1);
             log.info("DART financial sync complete: storedAnnualStatements={}", storedYears);
         }
     }

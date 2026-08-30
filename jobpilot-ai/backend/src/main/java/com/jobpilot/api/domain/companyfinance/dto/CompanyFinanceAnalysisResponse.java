@@ -25,11 +25,14 @@ public record CompanyFinanceAnalysisResponse(
     ) {}
 
     public record Forecast(
+            int baseYear,
             String outlook,
             String confidence,
             Double growthProbability,
             Double profitabilityImprovementProbability,
             Double stabilityRiskProbability,
-            String modelVersion
+            String modelVersion,
+            List<String> evidence,
+            String generatedAt
     ) {}
 }

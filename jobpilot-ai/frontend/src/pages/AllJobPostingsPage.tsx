@@ -6,6 +6,7 @@ import { JobPostingCard } from "../features/job-postings/components/JobPostingCa
 import type { JobExperienceFilter, JobPostingPage, JobPostingSearchParams, JobPostingSort } from "../features/job-postings/model/jobPosting.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 import { PageHeading } from "../shared/components/PageHeading";
+import { StyledSelect } from "../shared/components/StyledSelect";
 
 const PAGE_SIZE = 24;
 
@@ -16,6 +17,10 @@ const roleOptions = [
 ] as const;
 
 const roleName = (value: string) => roleOptions.find(([key]) => key === value)?.[1] ?? value;
+const experienceOptions = [{ value: "", label: "경력 전체" }, { value: "ENTRY", label: "신입 가능" }, { value: "EXPERIENCED", label: "경력" }] as const;
+const locationOptions = ["", "서울", "경기", "인천", "부산", "대전", "대구", "광주", "울산", "세종", "제주"].map((value) => ({ value, label: value || "지역 전체" }));
+const employmentOptions = [{ value: "", label: "고용 형태 전체" }, { value: "regular", label: "정규직" }, { value: "contract", label: "계약직" }, { value: "intern", label: "인턴" }] as const;
+const sortOptions: readonly { value: JobPostingSort; label: string }[] = [{ value: "deadline_asc", label: "마감 임박순" }, { value: "popular", label: "인기순 (조회·찜)" }, { value: "deadline_desc", label: "마감일 늦은순" }, { value: "recent", label: "최근 수집순" }];
 const sortLabel: Record<JobPostingSort, string> = {
   deadline_asc: "마감 임박순",
   deadline_desc: "마감일 늦은순",
@@ -138,10 +143,10 @@ export function AllJobPostingsPage() {
         </div>}
       </div>
 
-      <label className="filter-select"><span className="sr-only">경력</span><select value={filters.experience} onChange={(event) => updateFilter("experience", event.target.value as JobExperienceFilter)}><option value="">경력 전체</option><option value="ENTRY">신입 가능</option><option value="EXPERIENCED">경력</option></select><ChevronDown size={15} /></label>
-      <label className="filter-select"><span className="sr-only">지역</span><select value={filters.location} onChange={(event) => updateFilter("location", event.target.value)}><option value="">지역 전체</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대전">대전</option><option value="대구">대구</option><option value="광주">광주</option><option value="울산">울산</option><option value="세종">세종</option><option value="제주">제주</option></select><ChevronDown size={15} /></label>
-      <label className="filter-select"><span className="sr-only">고용 형태</span><select value={filters.employmentType} onChange={(event) => updateFilter("employmentType", event.target.value)}><option value="">고용 형태 전체</option><option value="regular">정규직</option><option value="contract">계약직</option><option value="intern">인턴</option></select><ChevronDown size={15} /></label>
-      <label className="filter-select sort-select"><span className="sr-only">정렬</span><select value={filters.sort} onChange={(event) => updateFilter("sort", event.target.value as JobPostingSort)}><option value="deadline_asc">마감 임박순</option><option value="popular">인기순 (조회·찜)</option><option value="deadline_desc">마감일 늦은순</option><option value="recent">최근 수집순</option></select><ChevronDown size={15} /></label>
+      <StyledSelect label="경력" value={filters.experience} options={experienceOptions} onChange={(value) => updateFilter("experience", value)} />
+      <StyledSelect label="지역" value={filters.location} options={locationOptions} onChange={(value) => updateFilter("location", value)} />
+      <StyledSelect label="고용 형태" value={filters.employmentType} options={employmentOptions} onChange={(value) => updateFilter("employmentType", value)} />
+      <StyledSelect label="정렬" className="sort-select" value={filters.sort} options={sortOptions} onChange={(value) => updateFilter("sort", value)} />
     </section>
 
     {filters.roles.length > 0 && <div className="selected-filter-chips">{filters.roles.map((role) => <button key={role} type="button" onClick={() => { setFilters((current) => ({ ...current, roles: current.roles.filter((item) => item !== role) })); setPage(0); }}>{roleName(role)}<X size={13} /></button>)}<button type="button" className="clear-filter-chip" onClick={clearRoles}>직무 초기화</button></div>}

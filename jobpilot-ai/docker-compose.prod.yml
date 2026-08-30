@@ -36,10 +36,12 @@ services:
       AI_SERVER_BASE_URL: http://ai-server:8001
       FACE_VERIFICATION_BASE_URL: http://wordcloud-server:8000
       GEMINI_API_KEY: ${GEMINI_API_KEY_BACKEND:-}
-      # The model image and V43/V44 migrations are deployed atomically from main.
+      # Community posts and comments are analyzed asynchronously by this worker.
       APP_SENTIMENT_WORKER_ENABLED: ${APP_SENTIMENT_WORKER_ENABLED:-true}
-      APP_REVIEW_DEMO_SEED_ENABLED: ${APP_REVIEW_DEMO_SEED_ENABLED:-true}
-      APP_REVIEW_DEMO_EMPLOYER_ID: ${APP_REVIEW_DEMO_EMPLOYER_ID:-0}
+      DART_BACKFILL_ON_START: ${DART_BACKFILL_ON_START:-false}
+      DART_FINANCIAL_SYNC_ON_START: ${DART_FINANCIAL_SYNC_ON_START:-false}
+      DART_FINANCIAL_YEARS_BACK: ${DART_FINANCIAL_YEARS_BACK:-7}
+      DART_PREDICTION_SYNC_ON_START: ${DART_PREDICTION_SYNC_ON_START:-false}
       ADMIN_FACE_REFERENCE_DIR: /app/admin_photos
     volumes:
       - ${ADMIN_FACE_PHOTOS_DIR:-/srv/jobpilot/admin-face-photos}:/app/admin_photos
@@ -59,9 +61,12 @@ services:
     env_file:
       - ${ENV_FILE:?Set ENV_FILE to the absolute path of the server environment file}
     environment:
+      COMPANY_GROWTH_MODEL_DIR: /models/company-growth
       BACKEND_BASE_URL: http://backend:9000
       GEMINI_API_KEY: ${GEMINI_API_KEY_AI:-}
       SENTIMENT_MODEL_DIR: /models/sentiment
+    volumes:
+      - ${COMPANY_GROWTH_MODEL_HOST_DIR:-/srv/jobpilot/models/company-growth}:/models/company-growth:ro
     expose:
       - "8001"
     healthcheck:

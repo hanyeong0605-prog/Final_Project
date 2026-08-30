@@ -3,6 +3,10 @@
 __pycache__
 *.pyc
 ml/**
+!ml/__init__.py
+!ml/company_finance_dataset.py
+!ml/company_growth_model.py
+!ml/train_company_growth_model.py
 !ml/sentiment/
 !ml/sentiment/artifacts/
 !ml/sentiment/artifacts/kote-baseline-v1/

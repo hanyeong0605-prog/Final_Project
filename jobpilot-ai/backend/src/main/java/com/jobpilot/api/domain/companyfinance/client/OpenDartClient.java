@@ -2,6 +2,7 @@ package com.jobpilot.api.domain.companyfinance.client;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -47,8 +48,24 @@ public class OpenDartClient {
                 .retrieve().body(String.class);
         try {
             return parser.parse(body == null ? "" : body);
+        } catch (OpenDartNoDataException noData) {
+            throw noData;
         } catch (Exception error) {
             throw new IllegalStateException("DART financial statement response could not be parsed", error);
+        }
+    }
+
+    public Map<String, OpenDartFinancialSnapshot> fetchMultipleAnnualStatements(List<String> corpCodes,
+                                                                                 int businessYear) {
+        if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("DART API key is not configured");
+        String body = restClient.get().uri(uriFactory.multipleAnnualStatementsUri(apiKey, corpCodes, businessYear))
+                .retrieve().body(String.class);
+        try {
+            return parser.parseMultiple(body == null ? "" : body);
+        } catch (OpenDartNoDataException noData) {
+            throw noData;
+        } catch (Exception error) {
+            throw new IllegalStateException("DART multiple-company statement response could not be parsed", error);
         }
     }
 }

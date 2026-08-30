@@ -38,7 +38,6 @@ import { AdminFaceReferencePage } from "../pages/AdminFaceReferencePage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
-import { EmployerReviewAnalysisPage } from "../pages/EmployerReviewAnalysisPage";
 import { CommunityPage } from "../pages/CommunityPage";
 
 export const router = createBrowserRouter([
@@ -54,7 +53,6 @@ export const router = createBrowserRouter([
       { index: true, element: <EmployerHomePage /> },
       { path: "dashboard", element: <EmployerDashboardPage /> },
       { path: "postings", element: <EmployerMyPage /> },
-      { path: "reviews", element: <EmployerReviewAnalysisPage /> },
       { path: "account", element: <EmployerAccountPage /> },
     ],
   },

@@ -8,6 +8,7 @@ import { OnboardingModal } from "../features/profile/components/OnboardingModal"
 import { SiteAssistantWidget } from "../features/assistant/components/SiteAssistantWidget";
 import { SiteAssistantWidgetProvider } from "../features/assistant/model/SiteAssistantWidgetContext";
 import { NotificationBell } from "../features/notifications/components/NotificationBell";
+import { BrandLogo } from "../shared/components/BrandLogo";
 
 function isGroupActive(group: NavigationGroup, pathname: string) {
   if (group.path) return pathname === group.path;
@@ -20,16 +21,6 @@ const megaMenuCopy: Record<string, string> = {
   "역량 관리": "프로필부터 이력서, 진로 탐색까지 커리어 준비를 한곳에서 관리하세요.",
   "AI 모의면접": "실전 질문으로 연습하고, 기록을 통해 다음 면접을 더 잘 준비하세요.",
 };
-
-function BrandIdentity({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className={`brand-identity${compact ? " compact" : ""}`}>
-      <span className="brand-name brand-name-en"><img className="brand-wordmark-image" src="/brand/job-a-dream-wordmark-blue.png" alt="Job A Dream" /></span>
-      <span className="brand-name brand-name-ko">잡아드림</span>
-      {!compact && <small className="brand-tagline">career action coach</small>}
-    </span>
-  );
-}
 
 function AnimatedBrand() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -75,7 +66,7 @@ function AnimatedBrand() {
           preload="auto"
         />
       </span>
-      <BrandIdentity />
+      <BrandLogo />
     </Link>
   );
 }
@@ -158,7 +149,7 @@ export function AppShell() {
         <aside className={`sidebar ${menuOpen ? "open" : ""}`} aria-label="모바일 메뉴">
           <div className="brand mobile-sidebar-brand">
             <Link to="/" className="brand-link" onClick={closeMenu}>
-              <BrandIdentity compact />
+              <BrandLogo compact />
             </Link>
             <button className="mobile-close" onClick={closeMenu} aria-label="메뉴 닫기"><X size={19} /></button>
           </div>
@@ -195,7 +186,7 @@ export function AppShell() {
           <header className={`topbar${location.pathname === "/" ? " home-topbar" : ""}`} onMouseLeave={() => setOpenDesktopMenu(null)}>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기"><Menu size={28} strokeWidth={2.5} /></button>
             <AnimatedBrand />
-            <Link to="/" className="mobile-brand brand-link"><BrandIdentity compact /></Link>
+            <Link to="/" className="mobile-brand brand-link"><BrandLogo compact /></Link>
 
             <nav className="desktop-navigation" aria-label="주요 메뉴">
               {navigationGroups.map((group) => {

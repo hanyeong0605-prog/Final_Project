@@ -1,13 +1,13 @@
-import { BriefcaseBusiness, LayoutDashboard, LogOut, Menu, UserRound, X, MessageSquareText } from "lucide-react";
+import { BriefcaseBusiness, LayoutDashboard, LogOut, Menu, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
 import { EmployerNotificationBell } from "../features/employer/components/EmployerNotificationBell";
+import { BrandLogo } from "../shared/components/BrandLogo";
 
 const employerNavigation = [
   { path: "/employer/dashboard", label: "대시보드", icon: LayoutDashboard },
   { path: "/employer/postings", label: "공고 관리", icon: BriefcaseBusiness },
-  { path: "/employer/reviews", label: "공고 리뷰 분석", icon: MessageSquareText },
 ];
 
 export function EmployerShell() {
@@ -43,8 +43,8 @@ export function EmployerShell() {
       {mobileOpen && <button className="employer-mobile-backdrop" aria-label="메뉴 닫기" onClick={() => setMobileOpen(false)} />}
       <header className="employer-topbar">
         <button className="employer-menu-button" aria-label="메뉴 열기" onClick={() => setMobileOpen(true)}><Menu /></button>
-        <Link className="employer-brand" to="/employer">
-          <img src="/brand/job-a-dream-wordmark-blue.png" alt="Job A Dream" />
+        <Link className="employer-brand brand-link" to="/employer">
+          <BrandLogo compact />
           <span>RECRUITER</span>
         </Link>
         <nav className={mobileOpen ? "open" : ""} aria-label="기업회원 메뉴">
