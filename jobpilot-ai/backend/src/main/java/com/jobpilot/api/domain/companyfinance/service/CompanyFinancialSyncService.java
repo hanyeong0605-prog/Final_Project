@@ -16,10 +16,14 @@ public class CompanyFinancialSyncService {
     private static final Logger log = LoggerFactory.getLogger(CompanyFinancialSyncService.class);
     private static final String ANNUAL_REPORT_CODE = "11011";
     private static final String CFS = "CFS";
-    private static final String CONFIRMED_CORPORATIONS = """
-            SELECT DISTINCT corp_code
-            FROM company_dart_matches
-            WHERE match_status = 'CONFIRMED' AND corp_code IS NOT NULL
+    private static final String CONFIRMED_LISTED_CORPORATIONS = """
+            SELECT DISTINCT matches.corp_code, corporations.stock_code
+            FROM company_dart_matches matches
+            JOIN dart_corporations corporations ON corporations.corp_code = matches.corp_code
+            WHERE matches.match_status = 'CONFIRMED'
+              AND matches.corp_code IS NOT NULL
+              AND corporations.stock_code IS NOT NULL
+              AND corporations.stock_code <> ''
             """;
     private static final String UPSERT_FINANCIAL_YEAR = """
             INSERT INTO company_financial_years (
@@ -41,15 +45,21 @@ public class CompanyFinancialSyncService {
     }
 
     public int syncConfirmedCompanies(int firstYear, int lastYear) {
-        List<String> corpCodes = jdbc.query(CONFIRMED_CORPORATIONS, (rs, rowNum) -> rs.getString(1));
+        List<CorporationReference> corporations = jdbc.query(CONFIRMED_LISTED_CORPORATIONS,
+                (rs, rowNum) -> new CorporationReference(rs.getString(1), rs.getString(2)));
         int stored = 0;
         for (int year = firstYear; year <= lastYear; year++) {
-            for (int start = 0; start < corpCodes.size(); start += 100) {
-                List<String> batch = corpCodes.subList(start, Math.min(start + 100, corpCodes.size()));
-                Map<String, OpenDartFinancialSnapshot> snapshots = fetchBatchWithRetry(batch, year);
-                for (var entry : snapshots.entrySet()) {
-                    storeAnnualStatement(entry.getKey(), year, entry.getValue());
-                    stored++;
+            for (int start = 0; start < corporations.size(); start += 100) {
+                List<CorporationReference> batch = corporations.subList(
+                        start, Math.min(start + 100, corporations.size()));
+                List<String> corpCodes = batch.stream().map(CorporationReference::corpCode).toList();
+                Map<String, OpenDartFinancialSnapshot> byStockCode = fetchBatchWithRetry(corpCodes, year);
+                for (CorporationReference corporation : batch) {
+                    OpenDartFinancialSnapshot snapshot = byStockCode.get(corporation.stockCode());
+                    if (snapshot != null) {
+                        storeAnnualStatement(corporation.corpCode(), year, snapshot);
+                        stored++;
+                    }
                 }
             }
         }
@@ -94,4 +104,6 @@ public class CompanyFinancialSyncService {
         }
         throw lastFailure;
     }
+
+    private record CorporationReference(String corpCode, String stockCode) {}
 }

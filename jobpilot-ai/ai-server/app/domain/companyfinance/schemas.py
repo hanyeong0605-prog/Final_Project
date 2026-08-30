@@ -14,8 +14,6 @@ class GrowthFeatures(Contract):
     operating_margin_change: float
     debt_ratio: float
     debt_ratio_change: float
-    operating_cashflow_ratio: float
-    cashflow_ratio_change: float
     profitable: int = Field(ge=0, le=1)
     size_bucket: Literal["SMALL", "MEDIUM", "LARGE", "UNKNOWN"]
 

@@ -72,14 +72,12 @@ public class CompanyGrowthPredictionService {
         YearRow oldest=rows.get(0), prior=rows.get(1), current=rows.get(2);
         Double margin=ratio(current.operatingIncome,current.revenue), priorMargin=ratio(prior.operatingIncome,prior.revenue);
         Double debt=ratio(current.liabilities,current.equity), priorDebt=ratio(prior.liabilities,prior.equity);
-        Double cash=ratio(current.cash,current.revenue), priorCash=ratio(prior.cash,prior.revenue);
         Double growth1=growth(current.revenue,prior.revenue), growth3=growth(current.revenue,oldest.revenue);
-        if (java.util.Arrays.asList(margin,priorMargin,debt,priorDebt,cash,priorCash,growth1,growth3).contains(null)) return null;
+        if (java.util.Arrays.asList(margin,priorMargin,debt,priorDebt,growth1,growth3).contains(null)) return null;
         Map<String,Object> result=new LinkedHashMap<>();
         result.put("revenueGrowth1Y",growth1);result.put("revenueGrowth3Y",growth3);
         result.put("operatingMargin",margin);result.put("operatingMarginChange",margin-priorMargin);
         result.put("debtRatio",debt);result.put("debtRatioChange",debt-priorDebt);
-        result.put("operatingCashflowRatio",cash);result.put("cashflowRatioChange",cash-priorCash);
         result.put("profitable",current.netIncome!=null&&current.netIncome>0?1:0);
         result.put("sizeBucket",current.assets==null?"UNKNOWN":current.assets>=1_000_000_000_000L?"LARGE":current.assets>=100_000_000_000L?"MEDIUM":"SMALL");
         return result;
@@ -87,10 +85,11 @@ public class CompanyGrowthPredictionService {
 
     private List<String> evidence(Map<String,Object> feature) {
         List<String> result=new ArrayList<>();
-        double growth=(double)feature.get("revenueGrowth1Y"), margin=(double)feature.get("operatingMargin"), cash=(double)feature.get("operatingCashflowRatio");
+        double growth=(double)feature.get("revenueGrowth1Y"), margin=(double)feature.get("operatingMargin");
+        double debtChange=(double)feature.get("debtRatioChange");
         result.add(growth>=0?"최근 매출이 전년보다 증가했습니다.":"최근 매출이 전년보다 감소했습니다.");
         result.add(margin>=0?"최근 영업이익률이 흑자입니다.":"최근 영업이익률이 적자입니다.");
-        result.add(cash>=0?"영업활동 현금흐름이 양수입니다.":"영업활동 현금흐름이 음수입니다.");
+        result.add(debtChange<=0?"부채비율이 전년보다 개선되었습니다.":"부채비율이 전년보다 높아졌습니다.");
         return result;
     }
 

@@ -216,5 +216,7 @@ jobs:
               ARTIFACT="/tmp/company-growth-$REPORT_ID"
               sudo docker exec "$AI_CONTAINER" python -m ml.company_finance_dataset --output "$DATASET"
               sudo docker exec "$AI_CONTAINER" python -c "import pandas as pd; d=pd.read_csv('$DATASET'); print('COMPANY_GROWTH_DATASET_ROWS='+str(len(d))); print('COMPANIES='+str(d.corp_code.nunique())); print('BASE_YEAR_COUNTS'); print(d.groupby('base_year').size().to_string()); print('LABEL_RATES'); print(d[['next_revenue_positive','next_profitability_improved','next_stability_risk']].mean().to_string()); print('SAMPLE_ROWS'); print(d.head(10).to_string(index=False))"
-              sudo docker exec "$AI_CONTAINER" python -m ml.train_company_growth_model --dataset "$DATASET" --cutoff-year 2023 --output "$ARTIFACT"
+              # Train on 2021-2023 and reserve the latest complete base year (2024)
+              # as a strictly future holdout. This keeps more history in the small dataset.
+              sudo docker exec "$AI_CONTAINER" python -m ml.train_company_growth_model --dataset "$DATASET" --cutoff-year 2024 --output "$ARTIFACT"
             fi
