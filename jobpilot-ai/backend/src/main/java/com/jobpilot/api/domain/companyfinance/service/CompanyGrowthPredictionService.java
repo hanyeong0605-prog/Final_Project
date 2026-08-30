@@ -60,7 +60,7 @@ public class CompanyGrowthPredictionService {
                       confidence=VALUES(confidence),evidence=VALUES(evidence),feature_snapshot=VALUES(feature_snapshot),
                       generated_at=CURRENT_TIMESTAMP
                     """, corpCode, rows.get(2).year, value.modelVersion(), value.growthProbability(),
-                    value.profitabilityImprovementProbability(), value.stabilityRiskProbability(), value.outlook(),
+                    value.profitabilityImprovementProbability(), stabilityRiskSignal(features), value.outlook(),
                     value.confidence(), json.writeValueAsString(evidence), json.writeValueAsString(features));
             return true;
         } catch (Exception ignored) {
@@ -91,6 +91,14 @@ public class CompanyGrowthPredictionService {
         result.add(margin>=0?"최근 영업이익률이 흑자입니다.":"최근 영업이익률이 적자입니다.");
         result.add(debtChange<=0?"부채비율이 전년보다 개선되었습니다.":"부채비율이 전년보다 높아졌습니다.");
         return result;
+    }
+
+    /** A transparent signal, not an unvalidated ML probability. */
+    private double stabilityRiskSignal(Map<String, Object> feature) {
+        double debt=(double) feature.get("debtRatio");
+        double debtChange=(double) feature.get("debtRatioChange");
+        boolean profitable=(int) feature.get("profitable") == 1;
+        return (!profitable || debtChange > 0.20 || debt >= 2.0) ? 1.0 : 0.0;
     }
 
     private static Double number(Object value){return value==null?null:((Number)value).doubleValue();}

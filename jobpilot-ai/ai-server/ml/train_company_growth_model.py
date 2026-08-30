@@ -21,7 +21,10 @@ from ml.company_finance_dataset import FEATURE_COLUMNS
 
 
 NUMERIC_FEATURES = [column for column in FEATURE_COLUMNS if column != "size_bucket"]
-TARGETS = ["next_revenue_positive", "next_profitability_improved", "next_stability_risk"]
+# The DART sample is sufficient for revenue and profitability validation.
+# Stability events are too sparse for a held-out ML classifier, so they remain
+# an explainable financial signal in Spring rather than a misleading ML output.
+TARGETS = ["next_revenue_positive", "next_profitability_improved"]
 
 
 def _preprocessor() -> ColumnTransformer:

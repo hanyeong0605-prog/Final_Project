@@ -51,7 +51,7 @@ public class CompanyGrowthModelClient {
                 || value.modelVersion().isBlank() || !java.util.Set.of("POSITIVE", "CAUTION", "NEGATIVE").contains(value.outlook())
                 || !java.util.Set.of("HIGH", "MEDIUM", "LOW").contains(value.confidence())) return false;
         return score(value.growthProbability()) && score(value.profitabilityImprovementProbability())
-                && score(value.stabilityRiskProbability()) && value.expectedRevenueGrowth() != null
+                && value.expectedRevenueGrowth() != null
                 && Double.isFinite(value.expectedRevenueGrowth());
     }
 
