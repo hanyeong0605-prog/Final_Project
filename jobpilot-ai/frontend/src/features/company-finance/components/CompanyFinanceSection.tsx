@@ -55,6 +55,14 @@ function confidenceLabel(value: string) {
   return labels[value.toUpperCase()] ?? value;
 }
 
+export function forecastMetricLabels(riskStatus: "주의" | "양호") {
+  return {
+    growth: "매출 성장 가능성",
+    profitability: "수익성 개선 가능성",
+    risk: `${riskStatus}: 재무 위험 가능성 신호`,
+  };
+}
+
 function FinanceChart({ title, rows, field, tone = "blue" }: {
   title: string;
   rows: CompanyFinancialYear[];
@@ -79,10 +87,12 @@ function ForecastCard({ data }: { data: CompanyFinanceAnalysis }) {
     <div><span className="eyebrow">MODEL STATUS</span><h3>검증된 성장 전망 준비 중</h3><p>현재는 DART 재무 사실만 제공합니다. 평가 기준을 통과한 저장 모델 결과가 있을 때만 전망을 표시합니다.</p></div>
   </article>;
   const outlookClass = forecast.outlook.toLowerCase();
+  const riskStatus = forecast.stabilityRiskProbability >= .5 ? "주의" : "양호";
+  const labels = forecastMetricLabels(riskStatus);
   return <article className={`company-finance-forecast ${outlookClass}`}>
     <span className="company-finance-icon"><Sparkles size={20} /></span>
-    <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK · {forecast.modelVersion}</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 데이터로 계산한 저장 결과이며 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
-    <div className="company-finance-probabilities"><span><b>{Math.round(forecast.growthProbability * 100)}%</b>매출 성장</span><span><b>{Math.round(forecast.profitabilityImprovementProbability * 100)}%</b>수익성 개선</span><span><b>{forecast.stabilityRiskProbability >= .5 ? "주의" : "양호"}</b>재무 위험 신호</span></div>
+    <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK · {forecast.modelVersion}</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 재무 데이터로 계산한 ML 예측 지표이며, 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
+    <div className="company-finance-probabilities"><span><b>{Math.round(forecast.growthProbability * 100)}%</b>{labels.growth}</span><span><b>{Math.round(forecast.profitabilityImprovementProbability * 100)}%</b>{labels.profitability}</span><span><b>{labels.risk.split(":")[0]}</b>{labels.risk.substring(labels.risk.indexOf(":") + 2)}</span></div>
   </article>;
 }
 
