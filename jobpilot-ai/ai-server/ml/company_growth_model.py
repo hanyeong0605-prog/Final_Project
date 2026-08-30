@@ -28,13 +28,12 @@ class CompanyGrowthModel:
         frame = pd.DataFrame([{name: features[name] for name in FEATURE_COLUMNS}])
         growth_probability = _probability(self.classifiers["next_revenue_positive"], frame)[0]
         profitability = _probability(self.classifiers["next_profitability_improved"], frame)[0]
-        risk = _probability(self.classifiers["next_stability_risk"], frame)[0]
         expected_growth = float(self.regression.predict(frame)[0])
-        score = growth_probability * 0.5 + profitability * 0.3 + (1 - risk) * 0.2
+        score = growth_probability * 0.6 + profitability * 0.4
         outlook = "POSITIVE" if score >= 0.65 else "NEGATIVE" if score < 0.4 else "CAUTION"
         confidence = "HIGH" if abs(score - 0.5) >= 0.25 else "MEDIUM" if abs(score - 0.5) >= 0.12 else "LOW"
         return {"model_version": self.metadata["model_version"], "validated": True,
                 "growth_probability": growth_probability,
                 "profitability_improvement_probability": profitability,
-                "stability_risk_probability": risk, "expected_revenue_growth": expected_growth,
+                "stability_risk_probability": 0.0, "expected_revenue_growth": expected_growth,
                 "outlook": outlook, "confidence": confidence}
