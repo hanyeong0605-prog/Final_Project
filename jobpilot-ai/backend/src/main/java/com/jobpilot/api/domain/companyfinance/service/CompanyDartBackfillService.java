@@ -28,7 +28,7 @@ public class CompanyDartBackfillService {
                 GROUP BY source_provider, COALESCE(source_company_id, ''), company_name
                 """, (rs, row) -> new CompanySource(rs.getString(1), rs.getString(2), rs.getString(3)));
         List<DartCorporationCandidate> corporations = jdbc.query(
-                "SELECT corp_code, corp_name FROM dart_corporations", (rs, row) -> new DartCorporationCandidate(rs.getString(1), rs.getString(2)));
+                "SELECT corp_code, corp_name, corp_eng_name FROM dart_corporations", (rs, row) -> new DartCorporationCandidate(rs.getString(1), rs.getString(2), rs.getString(3)));
         List<CompanyMatchStatus> statuses = new ArrayList<>();
         for (CompanySource company : companies) {
             CompanyMatchDecision decision = matchingService.match(company.companyName(), corporations);
