@@ -56,10 +56,11 @@ public class JobPostingController {
             @RequestParam(required = false) String experience,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String employmentType,
+            @RequestParam(defaultValue = "false") boolean financialsOnly,
             @RequestParam(defaultValue = "deadline_asc") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "24") int size) {
-        return searchService.search(query, roles, experience, location, employmentType, sort, page, size);
+        return searchService.search(query, roles, experience, location, employmentType, financialsOnly, sort, page, size);
     }
 
     @GetMapping("/{id}")

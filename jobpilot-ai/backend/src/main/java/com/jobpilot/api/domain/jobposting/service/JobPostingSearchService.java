@@ -30,6 +30,13 @@ public class JobPostingSearchService {
     // 길 수 있음)을 없앤다. 역할 필터가 없는 요청(대부분)은 이 서브쿼리를 아예 안 쓴다.
     private static final String SEARCHABLE_JOB_POSTINGS_SUBQUERY =
             "(SELECT job_postings.*, " + SEARCH_TEXT + " AS search_text FROM job_postings) job_postings";
+    private static final String HAS_FINANCIALS = "EXISTS (SELECT 1 FROM company_dart_matches finance_match "
+            + "JOIN company_financial_years financial ON financial.corp_code = finance_match.corp_code "
+            + "WHERE finance_match.source_provider = job_postings.source_provider "
+            + "AND finance_match.source_company_id = COALESCE(job_postings.source_company_id, '') "
+            + "AND finance_match.match_status = 'CONFIRMED' "
+            + "AND finance_match.normalized_company_name = LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(job_postings.company_name, ''), '주식회사', ''), '(주)', ''), '㈜', ''), '[^[:alnum:]가-힣]', '')) "
+            + "AND financial.report_code = '11011')";
 
     private static final Map<String, List<String>> ROLE_KEYWORDS = Map.of(
             "BACKEND", List.of("backend", "백엔드", "server", "서버", "spring", "django", "fastapi", "node.js", "nodejs"),
@@ -55,6 +62,7 @@ public class JobPostingSearchService {
             String experience,
             String location,
             String employmentType,
+            boolean financialsOnly,
             String sort,
             int page,
             int size
@@ -76,7 +84,7 @@ public class JobPostingSearchService {
         // 서브쿼리에서 행마다 "한 번만" 계산해두고 그 별칭을 재사용하도록 바꿔서 반복 계산
         // 비용만 없앴다 - 역할 필터를 안 쓰면(대부분의 요청) 기존과 동일한 단순 쿼리 그대로다.
         String from = selectedRoles.isEmpty() ? "job_postings" : SEARCHABLE_JOB_POSTINGS_SUBQUERY;
-        String where = buildWhere(query, selectedRoles, experience, location, employmentType, parameters);
+        String where = buildWhere(query, selectedRoles, experience, location, employmentType, financialsOnly, parameters);
         long totalElements = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM " + from + where, parameters, Long.class);
 
@@ -89,13 +97,7 @@ public class JobPostingSearchService {
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
                 + "is_rolling_deadline, status, COALESCE(view_count, 0) AS view_count, "
                 + "(SELECT COUNT(*) FROM user_interests interest WHERE interest.target_type = 'JOB_POSTING' AND interest.target_id = job_postings.id) AS bookmark_count, "
-                + "EXISTS (SELECT 1 FROM company_dart_matches finance_match "
-                + "JOIN company_financial_years financial ON financial.corp_code = finance_match.corp_code "
-                + "WHERE finance_match.source_provider = job_postings.source_provider "
-                + "AND finance_match.source_company_id = COALESCE(job_postings.source_company_id, '') "
-                + "AND finance_match.match_status = 'CONFIRMED' "
-                + "AND finance_match.normalized_company_name = LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(job_postings.company_name, ''), '주식회사', ''), '(주)', ''), '㈜', ''), '[^[:alnum:]가-힣]', '')) "
-                + "AND financial.report_code = '11011') AS has_financials "
+                + HAS_FINANCIALS + " AS has_financials "
                 + "FROM " + from + where + " ORDER BY " + orderBy(normalizedSort) + " LIMIT :limit OFFSET :offset";
         List<JobPostingListResponse> content = jdbcTemplate.query(sql, parameters, JOB_POSTING_ROW_MAPPER);
         int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeSize);
@@ -108,6 +110,7 @@ public class JobPostingSearchService {
             String experience,
             String location,
             String employmentType,
+            boolean financialsOnly,
             MapSqlParameterSource parameters
     ) {
         StringBuilder where = new StringBuilder(" WHERE status = :status AND (deadline_at IS NULL OR deadline_at >= NOW())");
@@ -130,6 +133,7 @@ public class JobPostingSearchService {
             where.append(" AND LOWER(COALESCE(employment_type, '')) = :employmentType");
             parameters.addValue("employmentType", employmentType.trim().toLowerCase(Locale.ROOT));
         }
+        if (financialsOnly) where.append(" AND ").append(HAS_FINANCIALS);
 
         if (!selectedRoles.isEmpty()) {
             where.append(" AND (");

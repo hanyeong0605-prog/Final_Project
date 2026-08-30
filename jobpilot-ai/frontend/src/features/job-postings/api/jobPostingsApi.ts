@@ -8,6 +8,7 @@ export function getJobPostings(params: JobPostingSearchParams = {}): Promise<Job
   if (params.experience) query.set("experience", params.experience);
   if (params.location) query.set("location", params.location);
   if (params.employmentType) query.set("employmentType", params.employmentType);
+  if (params.financialsOnly) query.set("financialsOnly", "true");
   query.set("sort", params.sort ?? "deadline_asc");
   query.set("page", String(params.page ?? 0));
   query.set("size", String(params.size ?? 24));

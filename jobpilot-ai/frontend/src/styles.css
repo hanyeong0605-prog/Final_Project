@@ -159,6 +159,15 @@ a { color: inherit; text-decoration: none; }
 .posting-search input { min-width: 0; flex: 1; border: 0; outline: 0; padding: 12px 0; color: #3c465a; font-size: 12px; }
 .posting-search button { align-self: stretch; border: 0; border-radius: 0 9px 9px 0; background: #586ff2; color: #fff; padding: 0 22px; font-size: 11px; font-weight: 800; }
 .posting-filters { position: relative; z-index: 100; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 16px; }
+.finance-filter-switch { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; margin-left: auto; border: 1px solid #dfe5ef; border-radius: 9px; background: #fff; color: #647188; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; user-select: none; }
+.finance-filter-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.finance-filter-switch > span { display: flex; width: 32px; height: 18px; align-items: center; border-radius: 999px; background: #cbd3df; padding: 2px; transition: .18s; }
+.finance-filter-switch > span i { width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #24334a33; transition: transform .18s; }
+.finance-filter-switch input:checked + span { background: #277fbb; }
+.finance-filter-switch input:checked + span i { transform: translateX(14px); }
+.finance-filter-switch:has(input:checked) { border-color: #9bcce5; background: #f1faff; color: #176b9f; }
+.finance-filter-switch:focus-within { outline: 3px solid #277fbb22; outline-offset: 2px; }
+@media (max-width: 720px) { .finance-filter-switch { width: 100%; justify-content: center; margin-left: 0; } }
 .filter-button, .filter-select { display: inline-flex; min-height: 37px; align-items: center; gap: 7px; border: 1px solid #e0e5ee; border-radius: 9px; background: #fff; color: #4e5a70; padding: 0 11px; font: inherit; font-size: 11px; font-weight: 800; }
 .filter-button { cursor: pointer; }
 .filter-button:hover, .filter-select:focus-within { border-color: #aab8f7; background: #fafbff; }

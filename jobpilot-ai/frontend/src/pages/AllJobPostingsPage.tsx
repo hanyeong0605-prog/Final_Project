@@ -34,11 +34,12 @@ type Filters = {
   experience: JobExperienceFilter;
   location: string;
   employmentType: string;
+  financialsOnly: boolean;
   sort: JobPostingSort;
 };
 
 const initialFilters: Filters = {
-  query: "", roles: [], experience: "", location: "", employmentType: "", sort: "deadline_asc",
+  query: "", roles: [], experience: "", location: "", employmentType: "", financialsOnly: false, sort: "deadline_asc",
 };
 
 function isSort(value: string | null): value is JobPostingSort {
@@ -161,6 +162,11 @@ export function AllJobPostingsPage() {
       <StyledSelect label="지역" open={openFilter === "location"} onOpenChange={(open) => setOpenFilter(open ? "location" : null)} value={filters.location} options={locationOptions} onChange={(value) => updateFilter("location", value)} />
       <StyledSelect label="고용 형태" open={openFilter === "employment"} onOpenChange={(open) => setOpenFilter(open ? "employment" : null)} value={filters.employmentType} options={employmentOptions} onChange={(value) => updateFilter("employmentType", value)} />
       <StyledSelect label="정렬" className="sort-select" open={openFilter === "sort"} onOpenChange={(open) => setOpenFilter(open ? "sort" : null)} value={filters.sort} options={sortOptions} onChange={(value) => updateFilter("sort", value)} />
+      <label className="finance-filter-switch">
+        <input type="checkbox" checked={filters.financialsOnly} onChange={(event) => updateFilter("financialsOnly", event.target.checked)} />
+        <span aria-hidden="true"><i /></span>
+        <Landmark size={14} />재무제표 있는 공고만
+      </label>
     </section>
 
     {filters.roles.length > 0 && <div className="selected-filter-chips">{filters.roles.map((role) => <button key={role} type="button" onClick={() => { setFilters((current) => ({ ...current, roles: current.roles.filter((item) => item !== role) })); setPage(0); }}>{roleName(role)}<X size={13} /></button>)}<button type="button" className="clear-filter-chip" onClick={clearRoles}>직무 초기화</button></div>}
