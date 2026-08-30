@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.companyfinance.client;
 
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -25,7 +26,11 @@ public class PublicCompanyFinancialClient {
         factory.setReadTimeout(Duration.ofSeconds(20));
         this.client = RestClient.builder().requestFactory(factory).build();
         this.parser = parser;
-        this.serviceKey = serviceKey;
+        // data.go.kr exposes both an encoded and a decoded variant of the
+        // service key. Accept either form, then encode exactly once when the
+        // request URI is built below. Otherwise an encoded key (%2F, %3D)
+        // becomes double-encoded and the API responds with an empty error body.
+        this.serviceKey = normalizeServiceKey(serviceKey);
         this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
 
@@ -37,4 +42,13 @@ public class PublicCompanyFinancialClient {
     }
 
     private static String enc(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20"); }
+
+    private static String normalizeServiceKey(String value) {
+        if (value == null || value.isBlank()) return value;
+        try {
+            return URLDecoder.decode(value.trim(), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException malformedEncoding) {
+            return value.trim();
+        }
+    }
 }
