@@ -229,7 +229,7 @@ jobs:
                 echo "DART/public financial sync did not complete within 4200 seconds." >&2
                 exit 1
               fi
-              $COMPOSE logs --since=70m backend | grep -E 'DART backfill complete|DART financial sync complete|Public finance fallback sync complete'
+              $COMPOSE logs --since=70m backend | grep -E 'DART backfill complete|DART financial sync complete|Public finance fallback diagnostics|Public finance fallback sync complete'
             fi
 
             if [ '${{ inputs.company_growth_report || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
