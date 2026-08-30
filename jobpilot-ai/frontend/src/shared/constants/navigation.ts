@@ -30,11 +30,7 @@ export const navigationGroups: NavigationGroup[] = [
   {
     label: "대시보드",
     icon: LayoutDashboard,
-    items: [
-      { path: "/dashboard", label: "대시보드", icon: LayoutDashboard },
-      { path: "/statistics", label: "ICT 관련 통계", icon: BarChart3 },
-      { path: "/planner", label: "나의 플래너", icon: CalendarDays },
-    ],
+    path: "/dashboard",
   },
   {
     label: "채용공고",
@@ -50,6 +46,7 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { path: "/capability", label: "역량 관리", icon: Target },
       { path: "/opportunities", label: "성장 기회 추천", icon: Sparkles },
+      { path: "/statistics", label: "ICT 관련 통계", icon: BarChart3 },
     ],
   },
   {
@@ -60,7 +57,14 @@ export const navigationGroups: NavigationGroup[] = [
       { path: "/timeline", label: "개인 타임라인", icon: History },
     ],
   },
-  { path: "/account", label: "마이페이지", icon: UserRound },
+  {
+    label: "마이페이지",
+    icon: UserRound,
+    items: [
+      { path: "/account", label: "마이페이지", icon: UserRound },
+      { path: "/planner", label: "나의 플래너", icon: CalendarDays },
+    ],
+  },
   { path: "/community", label: "커뮤니티", icon: MessageSquareText },
 ];
 
