@@ -84,7 +84,7 @@ function FinanceChart({ title, rows, field, tone = "blue" }: {
   </article>;
 }
 
-type ForecastPhase = "idle" | "analyzing" | "revealed";
+type ForecastPhase = "idle" | "video" | "revealed";
 
 function ForecastCard({ data, phase }: { data: CompanyFinanceAnalysis; phase: ForecastPhase }) {
   const forecast = data.forecast;
@@ -96,10 +96,11 @@ function ForecastCard({ data, phase }: { data: CompanyFinanceAnalysis; phase: Fo
   const riskStatus = forecast.stabilityRiskProbability >= .5 ? "주의" : "양호";
   const labels = forecastMetricLabels(riskStatus);
   const growthPercent = Math.round(forecast.growthProbability * 100);
-  if (phase === "analyzing") return <article className="company-finance-forecast company-finance-forecast-analysis" aria-live="polite">
-    <span className="company-finance-icon"><Sparkles size={20} /></span>
-    <div className="company-finance-analysis-copy"><span className="eyebrow">VERIFIED ML OUTLOOK</span><h3>기업 성장 신호를 분석하고 있습니다</h3><p>공시 재무 추이와 검증된 모델 결과를 연결해 다음 사업연도 전망을 구성 중입니다.</p><div className="company-finance-analysis-steps"><span>매출 추이</span><span>수익성</span><span>재무 안정성</span><span>성장 전망</span></div></div>
-    <div className="company-finance-analysis-orbit" aria-hidden="true"><i /><i /><i /></div>
+  if (phase === "video") return <article className="company-finance-forecast company-finance-forecast-video" aria-live="polite">
+    <video autoPlay muted playsInline preload="auto" aria-label="AI 기업 전망 분석 애니메이션">
+      <source src="/HappyHorse-20260831-0001-1788160001731.mp4" type="video/mp4" />
+    </video>
+    <div><span className="eyebrow">VERIFIED ML OUTLOOK</span><strong>AI가 기업 성장 신호를 분석하고 있습니다</strong></div>
   </article>;
   return <article className={`company-finance-forecast ${outlookClass}${phase === "revealed" ? " is-revealed" : ""}`}>
     <span className="company-finance-icon"><Sparkles size={20} /></span>
@@ -132,8 +133,8 @@ export function CompanyFinanceSection({ postingId }: { postingId: number }) {
     let revealTimer: number | undefined;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
-        setForecastPhase("analyzing");
-        revealTimer = window.setTimeout(() => setForecastPhase("revealed"), 1350);
+        setForecastPhase("video");
+        revealTimer = window.setTimeout(() => setForecastPhase("revealed"), 1150);
         observer.disconnect();
       }
     }, { threshold: .3 });
