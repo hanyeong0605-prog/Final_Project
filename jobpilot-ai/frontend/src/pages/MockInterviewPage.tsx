@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   Eye,
+  FileText,
   Gauge,
   Lightbulb,
   LoaderCircle,
@@ -21,9 +22,12 @@ import {
   PauseCircle,
   Quote,
   RotateCcw,
+  ShieldCheck,
   SkipForward,
+  Smile,
   Sparkles,
   Square,
+  Target,
   Volume2,
   VolumeX,
   Waves,
@@ -2103,26 +2107,55 @@ export function MockInterviewPage() {
   // 직접 비교하면(narrowing이 겹치는 지점에 따라) TS가 "겹치는 타입이 없다"고 오탐하는 경우가
   // 있어서, 좁혀지기 전에 미리 계산해 불리언 하나로만 참조한다.
   const questionAudioBusy = stage === "recording" || stage === "analyzing";
+  // 2026-08-31: 준비(기기 점검) + 카메라를 쓰는 진행 단계에서만 2단 레이아웃(메인 + 면접 팁
+  // 사이드)으로 보여준다. 기존 stage 값에서만 파생한 표시용 플래그라 면접 진행 로직에는
+  // 관여하지 않는다 - 타이핑 모드/리포트 화면은 예전처럼 1단 그대로다.
+  const showInterviewAside = stage === "device-check" || showVideoPreview;
 
   return (
     <>
+      {/* 2026-08-31: 면접이 시작되면 상단 안내문은 이미 읽은 내용이라 자리만 차지한다 -
+          진행 중에는 몇 번째 질문인지(아래 panel-title에서 뺀 정보)만 한 줄로 남긴다. */}
       <PageHeading
         eyebrow="Early Bird AI모의면접"
         title="AI모의면접"
-        body={`시작하면 자기소개를 포함한 질문 ${questionCount}개가 순서대로 나옵니다. 질문은 공개 직전까지 보이지 않아서 실제 면접처럼 답변을 준비하고, 말투(속도·높낮이·침묵)와 표정 신호(눈 깜빡임·고개 움직임)를 함께 분석해 보여줍니다.`}
+        body={
+          showVideoPreview
+            ? `질문 ${sessionIndex + 1} / ${sessionQuestions.length} 진행 중입니다.`
+            : `시작하면 자기소개를 포함한 질문 ${questionCount}개가 순서대로 나옵니다. 질문은 공개 직전까지 보이지 않아서 실제 면접처럼 답변을 준비하고, 말투(속도·높낮이·침묵)와 표정 신호(눈 깜빡임·고개 움직임)를 함께 분석해 보여줍니다.`
+        }
       />
 
-      <section className="panel">
-        <div className="panel-title">
-          <div>
-            <h2>질문</h2>
-            <p>
-              {hasSession && stage !== "device-check"
-                ? `질문 ${sessionIndex + 1} / ${sessionQuestions.length}`
-                : `면접을 시작하면 질문 ${questionCount}개(자기소개 포함)가 순서대로 진행됩니다.`}
-            </p>
-          </div>
+      {showInterviewAside && (
+        <div className="interview-hero-chips">
+          <span className="interview-hero-chip">
+            <Sparkles size={14} /> 맞춤 질문 {questionCount}개
+          </span>
+          <span className="interview-hero-chip">
+            <Waves size={14} /> 음성 분석 &amp; 피드백
+          </span>
+          <span className="interview-hero-chip">
+            <FileText size={14} /> 결과 리포트 제공
+          </span>
         </div>
+      )}
+
+      <div className={showInterviewAside ? "interview-stage-layout" : undefined}>
+      <section className="panel">
+        {/* 2026-08-31: 카메라를 쓰는 단계에서는 아래 질문 카드가 "QUESTION 01 / 03"으로
+            같은 정보를 이미 보여준다 - 헤더를 겹쳐 두면 세로만 길어져서 그때만 숨긴다. */}
+        {!showVideoPreview && (
+          <div className="panel-title">
+            <div>
+              <h2>질문</h2>
+              <p>
+                {hasSession && stage !== "device-check"
+                  ? `질문 ${sessionIndex + 1} / ${sessionQuestions.length}`
+                  : `면접을 시작하면 질문 ${questionCount}개(자기소개 포함)가 순서대로 진행됩니다.`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 2026-08-13: "녹화 UI가 화상통화처럼 느껴지게 해달라"는 요청으로, 카메라를 쓰는
             단계(showVideoPreview)에서는 이 밋밋한 카드 대신 아래 interview-call-stage(면접관
@@ -2146,11 +2179,64 @@ export function MockInterviewPage() {
           </div>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
+        {/* 2026-08-31: 준비/진행 단계는 하나의 면접 창(.interview-room)으로 묶어 경계를
+            분명히 하고, 그 안에서 타일 높이를 줄여 한 화면에 들어오게 한다. 그 외 화면은
+            예전 여백 그대로 둔다. */}
+        <div
+          className={showInterviewAside ? "interview-room" : undefined}
+          style={
+            showInterviewAside
+              ? undefined
+              : { display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }
+          }
+        >
+          {/* 2026-08-31: 창 우측 상단 닫기 버튼. 나가는 동작은 기존 endSession을 그대로
+              쓴다(device-check의 "이전 단계로"와 같은 핸들러) - 스트림·타이머·얼굴 추적·TTS를
+              정리하고 시작 화면으로 돌아간다. 새 종료 경로를 만들지 않았다. */}
+          {showInterviewAside && (
+            <button
+              type="button"
+              className="interview-room-close"
+              onClick={endSession}
+              title="모의면접 나가기"
+              aria-label="모의면접 나가기"
+            >
+              <X size={15} />
+            </button>
+          )}
+
           {/* 2026-08-13: 실제 화상 면접처럼 "면접관(고양이 마스코트, 말풍선으로 질문 표시)"과
               "나(카메라 미리보기)" 두 타일을 나란히 보여준다. 기존엔 카메라 미리보기 하나만
               덩그러니 있었는데, 옆에 면접관 타일을 두고 질문이 거기서 말풍선으로 나오게 하면
               실제 화상 면접 화면과 훨씬 비슷한 느낌을 준다. */}
+          {/* 2026-08-31: 화상 타일 위에 질문 카드를 둔다. 질문 텍스트는 기존 공개 조건
+              (questionRevealed)을 그대로 따르고, 공개 전에는 몇 번째 질문인지와 권장 길이만
+              보여준다 - "질문은 공개 직전까지 보이지 않는다"는 원래 진행 방식은 유지한다. */}
+          {showVideoPreview && (
+            <div className="interview-question-head" style={{ width: "100%" }}>
+              <div className="q-top">
+                <span className="q-badge">QUESTION</span>
+                <span className="q-count">
+                  {String(sessionIndex + 1).padStart(2, "0")} / {String(sessionQuestions.length).padStart(2, "0")}
+                </span>
+                {questionRevealed && (
+                  <button
+                    type="button"
+                    className="text-button q-replay"
+                    onClick={() => speakQuestion()}
+                    disabled={questionAudioBusy}
+                  >
+                    <Volume2 size={13} /> 다시 듣기
+                  </button>
+                )}
+              </div>
+              <strong className="q-text">{questionRevealed ? question : "질문은 시작 직후 공개됩니다."}</strong>
+              <span className="q-hint">
+                <Lightbulb size={13} /> 30초~1분 이내로 답변해보세요.
+              </span>
+            </div>
+          )}
+
           {showVideoPreview && (
             <div className="interview-call-stage">
               <div className="interview-call-tile interviewer-tile">
@@ -2189,6 +2275,9 @@ export function MockInterviewPage() {
                   </div>
                 )}
                 <span className="interview-call-tag">AI 면접관</span>
+                <span className="interview-tile-status">
+                  <i /> {isSpeaking ? "SPEAKING" : "READY"}
+                </span>
               </div>
 
               <div className="interview-call-tile candidate-tile">
@@ -2236,25 +2325,41 @@ export function MockInterviewPage() {
                     }}
                   />
                 </div>
-                <span className="interview-call-tag">나</span>
+                <span className="interview-call-tag">나 (지원자)</span>
+                <span className={`interview-tile-status${cameraReady ? "" : " waiting"}`}>
+                  <i /> {cameraReady ? "카메라 연결됨" : "카메라 연결 중"}
+                </span>
               </div>
             </div>
           )}
           {showVideoPreview && (
             <>
-              <span style={{ fontSize: 11, color: "#9098a7" }}>점선 타원 안에 얼굴을 맞춰주세요</span>
-              {/* 2026-08-07: 영상이 서버에 저장/전송되는 걸로 오해할 수 있어서(실제로는
-                  브라우저 안에서만 프레임을 읽어 얼굴 지표를 계산하고, 서버로는 답변 음성만
-                  올라간다) 명시적으로 안내한다. */}
-              <span style={{ fontSize: 11, color: "#9098a7" }}>영상은 저장되지 않습니다</span>
+              {/* 2026-08-31: 흩어져 있던 상태 문구를 한 줄짜리 기기 상태 바로 모았다. 표시
+                  근거는 기존 상태값 그대로다 - cameraReady(스트림 확보), faceCalibrated(기준
+                  자세 보정 완료), micLevel(입력 레벨). 판정 기준을 새로 만들지 않았다. */}
+              <div className="interview-device-bar">
+                <span className={`interview-device-item${cameraReady ? " ok" : " pending"}`}>
+                  <Camera size={15} /> {cameraReady ? "카메라 정상" : "카메라 확인 중"}
+                </span>
+                <span className={`interview-device-item${faceCalibrated ? " ok" : " pending"}`}>
+                  <CheckCircle2 size={15} /> {faceCalibrated ? "얼굴 인식 완료" : "얼굴 인식 중"}
+                </span>
+                <span className={`interview-device-item${micLevel >= 8 ? " ok" : " pending"}`}>
+                  <Mic size={15} /> {micLevel >= 8 ? "마이크 정상" : "마이크 확인 중"}
+                </span>
+              </div>
               {/* 2026-08-29: 기준 자세 보정 상태. 보정이 끝나야 고개 회전을 "이 사람의 평소
                   자세 대비"로 잴 수 있고, 못 잡은 채로 진행하면 결과 신뢰도가 데이터 부족으로
-                  내려간다(faceAnalysis.summarizeFaceFrames 참고). */}
-              <span style={{ fontSize: 11, color: faceCalibrated ? "#3f9c6d" : "#9098a7" }}>
-                {faceCalibrated
-                  ? "기준 자세를 잡았어요 - 이 자세를 기준으로 고개 방향을 비교할게요."
-                  : "정면을 2~3초만 바라봐 주세요 - 평소 자세를 기준으로 잡고 있어요."}
-              </span>
+                  내려간다(faceAnalysis.summarizeFaceFrames 참고).
+                  2026-08-31: 세로로 쌓여 있던 안내 문구를 한 줄로 모았다(내용은 그대로). */}
+              <div className="interview-room-hints">
+                <span>점선 타원 안에 얼굴을 맞춰주세요</span>
+                <span className={faceCalibrated ? "calibrated" : undefined}>
+                  {faceCalibrated
+                    ? "기준 자세를 잡았어요 - 이 자세를 기준으로 고개 방향을 비교할게요."
+                    : "정면을 2~3초만 바라봐 주세요 - 평소 자세를 기준으로 잡고 있어요."}
+                </span>
+              </div>
             </>
           )}
 
@@ -2651,20 +2756,29 @@ export function MockInterviewPage() {
 
           {stage === "testing-mic" && (
             <>
-              <canvas
-                ref={waveformCanvasRef}
-                style={{
-                  width: "100%",
-                  maxWidth: 320,
-                  height: 56,
-                  borderRadius: 8,
-                  background: "#eef0f6",
-                  border: micLevel < 8 ? "1px solid #e05252" : "1px solid transparent",
-                }}
-              />
-              <span style={{ fontSize: 11, color: micLevel < 8 ? "#c0392b" : "#9098a7" }}>
-                {micLevel < 8 ? "소리가 거의 안 잡혀요 - 마이크에 더 가까이서 말해보세요" : "마이크가 소리를 잡고 있어요"}
-              </span>
+              {/* 2026-08-31: 웨이브폼을 "음성 입력" 카드로 감쌌다. canvas는 매 프레임
+                  clientWidth를 읽어 백킹스토어를 다시 잡으므로(위 drawWaveform) 고정 폭 대신
+                  flex로 늘어나도 그리기 로직은 그대로 동작한다. */}
+              <div className="interview-mic-card">
+                <span className="mic-label">
+                  <Mic size={16} /> 음성 입력
+                </span>
+                <canvas
+                  ref={waveformCanvasRef}
+                  style={{
+                    height: 56,
+                    borderRadius: 8,
+                    background: "#eef0f6",
+                    border: micLevel < 8 ? "1px solid #e05252" : "1px solid transparent",
+                  }}
+                />
+                <span className={`interview-mic-state${micLevel < 8 ? " low" : " ok"}`}>
+                  {micLevel < 8 ? "소리가 거의 안 잡혀요" : "음성이 잘 들리고 있어요"}
+                </span>
+              </div>
+              {micLevel < 8 && (
+                <span style={{ fontSize: 11, color: "#c0392b" }}>마이크에 더 가까이서 말해보세요</span>
+              )}
               <div style={{ display: "flex", gap: 10 }}>
                 <button className="primary-button" onClick={beginInterviewCountdown} type="button" disabled={sessionQuestions.length === 0}>
                   {sessionQuestions.length === 0 ? (
@@ -2767,6 +2881,59 @@ export function MockInterviewPage() {
           )}
         </div>
       </section>
+
+      {/* 2026-08-31: 준비/진행 중 참고 정보는 메인 흐름에서 빼고 우측에 모았다. 안전 안내
+          문구는 실제 동작 그대로 적는다 - 얼굴 지표는 브라우저 안에서만 계산하고 서버로는
+          답변 음성만 올라간다(영상 미전송). "영상·음성 모두 저장 안 함"으로 쓰면 사실과
+          다르므로 쓰지 않는다. */}
+      {showInterviewAside && (
+        <aside className="interview-aside">
+          <div className="interview-aside-card">
+            <div className="interview-aside-title">
+              <Sparkles size={15} /> 면접 팁
+            </div>
+            <div className="interview-tip-list">
+              <div className="interview-tip">
+                <Target size={16} />
+                <div>
+                  <strong>핵심 위주로 답변하기</strong>
+                  <p>결론을 먼저 말하고, 구체적인 경험을 덧붙여 설명해보세요.</p>
+                </div>
+              </div>
+              <div className="interview-tip">
+                <Volume2 size={16} />
+                <div>
+                  <strong>또렷한 목소리로</strong>
+                  <p>적당한 속도와 톤으로 자신 있게 말씀해주세요.</p>
+                </div>
+              </div>
+              <div className="interview-tip">
+                <Smile size={16} />
+                <div>
+                  <strong>자연스러운 표정</strong>
+                  <p>부드러운 미소와 자연스러운 시선이 좋은 인상을 줍니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="interview-aside-card">
+            <div className="interview-aside-title">
+              <ShieldCheck size={15} /> 안전 안내
+            </div>
+            <div className="interview-tip">
+              <Eye size={16} />
+              <div>
+                <p>
+                  카메라 영상은 브라우저 안에서만 분석하고 서버로 보내지 않습니다. 서버에는 답변 음성만
+                  전송돼요.
+                </p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      )}
+      </div>
 
       {stage === "session-report" && (
         <SessionReportPanel
