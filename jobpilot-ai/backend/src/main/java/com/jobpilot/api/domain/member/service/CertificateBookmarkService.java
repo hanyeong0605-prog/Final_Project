@@ -63,6 +63,14 @@ public class CertificateBookmarkService {
         return list(memberId);
     }
 
+    /** Removes the bookmark and every certificate schedule generated from it. */
+    public void removeById(Long memberId, Long bookmarkId) {
+        repository.findByIdAndMemberId(bookmarkId, memberId).ifPresent(bookmark -> {
+            plannerEvents.deleteByMemberIdAndSourceTypeAndSourceId(memberId, "CERTIFICATE", bookmark.getId());
+            repository.delete(bookmark);
+        });
+    }
+
     private void syncExamSchedule(Long memberId, CertificateBookmark bookmark) {
         try {
             qnet.detail(bookmark.getJmcd()).rounds().forEach(round -> {

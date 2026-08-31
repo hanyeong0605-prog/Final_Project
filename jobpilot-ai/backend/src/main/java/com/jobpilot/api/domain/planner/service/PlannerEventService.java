@@ -6,6 +6,7 @@ import com.jobpilot.api.domain.planner.entity.PlannerEvent;
 import com.jobpilot.api.domain.planner.repository.PlannerEventRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import com.jobpilot.api.domain.member.service.CertificateBookmarkService;
+import com.jobpilot.api.domain.interest.service.InterestService;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -18,8 +19,14 @@ public class PlannerEventService {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("MM.dd HH:mm");
     private final PlannerEventRepository repository;
     private final CertificateBookmarkService certificateBookmarks;
+    private final InterestService interests;
 
-    public PlannerEventService(PlannerEventRepository repository, CertificateBookmarkService certificateBookmarks) { this.repository = repository; this.certificateBookmarks = certificateBookmarks; }
+    public PlannerEventService(PlannerEventRepository repository, CertificateBookmarkService certificateBookmarks,
+                               InterestService interests) {
+        this.repository = repository;
+        this.certificateBookmarks = certificateBookmarks;
+        this.interests = interests;
+    }
 
     public List<PlannerEventResponse> find(Long memberId, LocalDate from, LocalDate to) {
         if (to.isBefore(from)) throw new IllegalArgumentException("종료일은 시작일보다 빠를 수 없습니다.");
@@ -41,7 +48,23 @@ public class PlannerEventService {
         return response(event);
     }
 
-    public void delete(Long memberId, Long eventId) { repository.delete(editable(memberId, eventId)); }
+    public void delete(Long memberId, Long eventId) {
+        PlannerEvent event = repository.findByIdAndMemberId(eventId, memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("일정을 찾을 수 없습니다."));
+        if (event.isManual()) {
+            repository.delete(event);
+            return;
+        }
+        if ("JOB_POSTING".equals(event.getSourceType()) && event.getSourceId() != null) {
+            interests.removeJobBookmark(memberId, event.getSourceId());
+            return;
+        }
+        if ("CERTIFICATE".equals(event.getSourceType()) && event.getSourceId() != null) {
+            certificateBookmarks.removeById(memberId, event.getSourceId());
+            return;
+        }
+        throw new IllegalArgumentException("이 자동 일정은 원본 관심 목록에서 관리해 주세요.");
+    }
 
     private PlannerEvent editable(Long memberId, Long id) {
         PlannerEvent event = repository.findByIdAndMemberId(id, memberId)
