@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from app.core.config import settings
 from app.domain.assistant import knowledge
 from app.domain.assistant.site_map import is_known_path, site_pages_prompt_block
+from app.domain.interview.member_spec_retrieval import build_member_spec_context
 from app.domain.resume._shared import parse_json_response
 
 _NO_KEY_MESSAGE = "챗봇을 사용하려면 GEMINI_API_KEY 설정이 필요합니다."
@@ -56,7 +57,7 @@ def _history_block(history: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def chat(message: str, history: list[dict] | None = None) -> AssistantReply:
+def chat(message: str, history: list[dict] | None = None, member_id: int | None = None) -> AssistantReply:
     history = history or []
     message = message.strip()
 
@@ -67,6 +68,7 @@ def chat(message: str, history: list[dict] | None = None) -> AssistantReply:
 
     history_text = _history_block(history)
     knowledge_text = knowledge.knowledge_prompt_block(message)
+    member_spec_text = build_member_spec_context(member_id) if member_id else None
 
     prompt = (
         "당신은 한국 취업 준비생을 위한 채용/커리어 플랫폼 'Job-A-Dream AI'의 사이트 도우미 "
@@ -81,6 +83,8 @@ def chat(message: str, history: list[dict] | None = None) -> AssistantReply:
            f"정책/기능. 여기 없는 내용은 지어내지 말고, 정말 모르면 모른다고 답하세요]\n"
            f"{knowledge_text}\n\n" if knowledge_text else "")
         + (f"[이전 대화]\n{history_text}\n\n" if history_text else "")
+        + (f"[현재 회원이 직접 저장한 스펙 - 이 회원의 정보만 사용]\n{member_spec_text}\n\n"
+           if member_spec_text else "")
         + f"[사용자 메시지]\n{message}\n\n"
         "[작성 규칙]\n"
         "1. reply는 사용자 메시지에 대한 자연스러운 한국어 답변이다 - 존댓말, 2~4문장 "
@@ -93,7 +97,9 @@ def chat(message: str, history: list[dict] | None = None) -> AssistantReply:
         "다른 내용을 지어내지 마라. 참고자료가 없는데 사이트 고유 정책(요금, 절차 등)을 "
         "묻는 질문이면 확신 없이 단정하지 말고 정확한 정보는 사이트에서 직접 확인해달라고 "
         "안내해라\n"
-        "5. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
+        "5. [현재 회원이 직접 저장한 스펙]이 있으면 그 회원의 이력서·기술·프로젝트에 관한 질문에만 "
+        "참고하고, 정보에 없는 경력이나 성과는 지어내지 마라\n"
+        "6. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
         "{\n"
         '  "reply": "문장",\n'
         '  "navigate_to": "/path" 또는 null\n'

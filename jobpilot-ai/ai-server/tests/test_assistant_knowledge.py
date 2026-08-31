@@ -54,3 +54,17 @@ def test_missing_knowledge_file_returns_empty(monkeypatch, tmp_path):
     monkeypatch.setattr(knowledge, "_KNOWLEDGE_PATH", tmp_path / "없는파일.jsonl")
 
     assert knowledge.search("구독 요금") == []
+
+
+def test_database_knowledge_is_preferred_over_packaged_fallback(monkeypatch):
+    monkeypatch.setattr(knowledge, "_cache", None)
+    monkeypatch.setattr(
+        knowledge,
+        "_load_database_knowledge",
+        lambda: [{"topic": "DB 안내", "text": "DB에서 읽은 전역 챗봇 지식입니다."}],
+    )
+
+    results = knowledge.search("전역 챗봇 지식")
+
+    assert results
+    assert results[0]["topic"] == "DB 안내"

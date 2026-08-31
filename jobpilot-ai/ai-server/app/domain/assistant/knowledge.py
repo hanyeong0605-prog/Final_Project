@@ -21,6 +21,9 @@ from pathlib import Path
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sqlalchemy import text
+
+from app.core.db import get_engine
 
 _KNOWLEDGE_PATH = Path(__file__).parent / "data" / "site_knowledge.jsonl"
 
@@ -36,7 +39,7 @@ TOP_K = 3
 _cache: tuple[list[dict], TfidfVectorizer, object] | None = None
 
 
-def _load_knowledge() -> list[dict]:
+def _load_file_knowledge() -> list[dict]:
     if not _KNOWLEDGE_PATH.exists():
         return []
     entries: list[dict] = []
@@ -54,6 +57,38 @@ def _load_knowledge() -> list[dict]:
             if topic and text:
                 entries.append({"topic": topic, "text": text})
     return entries
+
+
+def _load_database_knowledge() -> list[dict]:
+    """Load only global, administrator-curated assistant knowledge.
+
+    The AI-server chat endpoint does not receive an authenticated member ID, so
+    it must never load MEMBER-scoped resumes, specs, or private finance notes.
+    Those require a future authenticated backend proxy. If Flyway has not yet
+    created the table or the database is temporarily unavailable, the checked-in
+    knowledge file keeps the chat fail-open.
+    """
+    try:
+        with get_engine().connect() as connection:
+            rows = connection.execute(text("""
+                SELECT title, content
+                FROM assistant_knowledge_documents
+                WHERE scope = 'GLOBAL' AND is_active = TRUE
+                ORDER BY id
+            """)).mappings()
+            return [
+                {"topic": str(row["title"]), "text": str(row["content"])}
+                for row in rows
+                if row["title"] and row["content"]
+            ]
+    except Exception:
+        return []
+
+
+def _load_knowledge() -> list[dict]:
+    """Prefer the database index; retain the packaged file during rollout."""
+    database_entries = _load_database_knowledge()
+    return database_entries or _load_file_knowledge()
 
 
 def _get_vectorizer() -> tuple[list[dict], TfidfVectorizer | None, object]:
