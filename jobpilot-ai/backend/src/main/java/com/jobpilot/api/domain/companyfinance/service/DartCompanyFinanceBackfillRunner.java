@@ -51,8 +51,9 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
                 log.info("DART financial sync complete: storedAnnualStatements={}", storedYears);
             } catch (OpenDartRequestLimitException requestLimit) {
                 // A one-shot recovery must never turn a temporary provider quota into a crash loop.
-                log.warn("DART financial sync paused because the OpenDART request limit was reached; existing data is preserved and the next run resumes only missing years.");
-                return;
+                // Public finance can still supplement the already confirmed corporations whose
+                // registration numbers were cached during earlier successful DART calls.
+                log.warn("DART financial sync paused because the OpenDART request limit was reached; existing data is preserved and the public-finance fallback will continue for cached registrations.");
             }
             int publicStoredYears = publicFinancialSync.syncMissingAnnualYears(currentYear - financialYearsBack, currentYear - 1);
             log.info("Public finance fallback sync complete: storedAnnualStatements={}", publicStoredYears);
