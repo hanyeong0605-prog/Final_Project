@@ -20,4 +20,15 @@ class PublicCompanyFinancialParserTest {
         assertTrue(result.isPresent());
         assertEquals(new PublicCompanyFinancialSnapshot(1200L, 100L, 70L, 2000L, 700L, 1300L), result.get());
     }
+
+    @Test
+    void preservesTheApiErrorInsteadOfTreatingItAsMissingData() {
+        var result = parser.parseResult("""
+                {"response":{"header":{"resultCode":"30","resultMsg":"SERVICE KEY IS NOT REGISTERED ERROR."}}}
+                """);
+
+        assertTrue(result.snapshot().isEmpty());
+        assertEquals("30", result.resultCode());
+        assertEquals("SERVICE KEY IS NOT REGISTERED ERROR.", result.resultMessage());
+    }
 }

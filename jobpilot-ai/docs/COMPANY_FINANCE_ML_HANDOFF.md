@@ -27,7 +27,7 @@
 
 - 매출 성장 가능성
 - 수익성 개선 가능성
-- 재무 위험 가능성 신호
+- 재무 위험 신호(부채비율·변화율·순이익으로 계산하는 규칙 기반 지표이며 ML 확률이 아님)
 
 이는 미래를 확정하는 정보가 아니라, 과거 재무 패턴을 기반으로 한 **성장 가능성 예측 지표**다.
 
@@ -51,6 +51,9 @@ Public finance fallback diagnostics:
   registrationResolved=...
   missingDartYears=...
   apiRecords=...
+  noPublicRecord=...
+  apiFailures=...
+  firstApiFailure=...
   storedAnnualStatements=...
 ```
 
@@ -62,6 +65,9 @@ Public finance fallback diagnostics:
 | `registrationResolved` | DART `company.json`에서 법인등록번호(`jurir_no`)까지 확보한 기업 수 |
 | `missingDartYears` | DART 연간 재무가 없는 기업-연도 조합 수 |
 | `apiRecords` | 공공데이터 API가 실제 재무 행을 반환한 수 |
+| `noPublicRecord` | API 요청은 정상이지만 해당 법인등록번호·연도에 재무 행이 없는 수 |
+| `apiFailures` | API 인증·응답 형식·HTTP 요청 오류 수 |
+| `firstApiFailure` | 첫 API 오류 코드와 안전한 요약 메시지(키·요청 URL은 출력하지 않음) |
 | `storedAnnualStatements` | DB에 최종 저장된 공공 재무제표 수 |
 
 ## 3. 필수 환경변수
@@ -74,6 +80,9 @@ DART_API_KEY=<OpenDART API key>
 
 # 공공데이터포털 '기업 재무정보' 서비스키
 DATA_GO_KR_SERVICE_KEY=<data.go.kr service key>
+
+# 백엔드와 AI 서버가 예측 API를 인증할 때 공통으로 사용하는 내부 키
+INTERNAL_API_KEY=<random shared internal key>
 
 # 기본값을 유지해도 된다.
 DATA_GO_KR_FINANCE_BASE_URL=http://apis.data.go.kr/1160100/service/GetFinaStatInfoService_V2
@@ -136,8 +145,12 @@ COMPANY_GROWTH_MODEL_PUBLISHED=...
    - `registrationResolved=0`: DART 기업개황의 법인등록번호 확보 단계 문제
 3. `missingDartYears`를 확인한다.
    - `0`: DART 행은 존재하므로 공공 보강 대상이 없음. 단, 숫자 컬럼이 비어 있는지 DB를 별도 점검한다.
-4. `missingDartYears>0`인데 `apiRecords=0`이면 공공 API 키, 법인등록번호 형식, 해당 API의 데이터 보유 범위를 확인한다.
-5. `apiRecords>0`인데 `storedAnnualStatements=0`이면 DB upsert/마이그레이션을 점검한다.
+4. `apiFailures>0`이면 `firstApiFailure`부터 확인한다.
+   - `CONFIGURATION`: `DATA_GO_KR_SERVICE_KEY`가 비어 있음
+   - `HTTP_REQUEST_FAILED`: 운영 서버에서 공공 API로의 네트워크 요청 실패
+   - 공공 API 오류 코드: 키의 활용신청/승인 상태, 요청 파라미터를 확인
+5. `missingDartYears>0`이고 `apiFailures=0`, `noPublicRecord>0`이면 해당 법인등록번호·연도에 공공 API가 보유한 재무 행이 없는 것이다.
+6. `apiRecords>0`인데 `storedAnnualStatements=0`이면 DB upsert/마이그레이션을 점검한다.
 
 ### 운영 서버에서 빠른 확인
 

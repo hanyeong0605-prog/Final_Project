@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @Component
 public class PublicCompanyFinancialClient {
@@ -35,10 +36,24 @@ public class PublicCompanyFinancialClient {
     }
 
     public Optional<PublicCompanyFinancialSnapshot> fetchSummary(String corporateRegistrationNumber, int businessYear) {
-        if (serviceKey == null || serviceKey.isBlank() || corporateRegistrationNumber == null || corporateRegistrationNumber.isBlank()) return Optional.empty();
+        return fetchSummaryResult(corporateRegistrationNumber, businessYear).snapshot();
+    }
+
+    public PublicCompanyFinancialResult fetchSummaryResult(String corporateRegistrationNumber, int businessYear) {
+        if (serviceKey == null || serviceKey.isBlank()) {
+            return PublicCompanyFinancialResult.failure("CONFIGURATION", "DATA_GO_KR_SERVICE_KEY is not configured.");
+        }
+        if (corporateRegistrationNumber == null || corporateRegistrationNumber.isBlank()) {
+            return PublicCompanyFinancialResult.failure("INVALID_CRNO", "Corporate registration number is blank.");
+        }
         String query = "serviceKey=" + enc(serviceKey) + "&pageNo=1&numOfRows=10&resultType=json&crno=" + enc(corporateRegistrationNumber) + "&bizYear=" + businessYear;
-        String body = client.get().uri(URI.create(baseUrl + "/getSummFinaStat_V2?" + query)).retrieve().body(String.class);
-        return parser.parse(body == null ? "" : body);
+        try {
+            String body = client.get().uri(URI.create(baseUrl + "/getSummFinaStat_V2?" + query)).retrieve().body(String.class);
+            return parser.parseResult(body == null ? "" : body);
+        } catch (RestClientException error) {
+            // Do not log the exception message: it can include the full request URI and service key.
+            return PublicCompanyFinancialResult.failure("HTTP_REQUEST_FAILED", "Public finance API request failed.");
+        }
     }
 
     private static String enc(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20"); }
