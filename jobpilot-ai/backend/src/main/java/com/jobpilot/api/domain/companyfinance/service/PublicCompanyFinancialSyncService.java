@@ -2,6 +2,7 @@ package com.jobpilot.api.domain.companyfinance.service;
 
 import com.jobpilot.api.domain.companyfinance.client.OpenDartClient;
 import com.jobpilot.api.domain.companyfinance.client.PublicCompanyFinancialClient;
+import com.jobpilot.api.domain.companyfinance.client.PublicCompanyFinancialResult;
 import com.jobpilot.api.domain.companyfinance.client.PublicCompanyFinancialSnapshot;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,9 @@ public class PublicCompanyFinancialSyncService {
         int registrationResolved = 0;
         int missingDartYears = 0;
         int apiRecords = 0;
+        int noPublicRecord = 0;
+        int apiFailures = 0;
+        String firstApiFailure = null;
         for (String corpCode : corpCodes) {
             Optional<String> registration = registrationNumber(corpCode);
             if (registration.isEmpty()) continue;
@@ -42,16 +46,25 @@ public class PublicCompanyFinancialSyncService {
                         """, Integer.class, corpCode, year);
                 if (dartRows != null && dartRows > 0) continue;
                 missingDartYears++;
-                Optional<PublicCompanyFinancialSnapshot> snapshot = publicFinance.fetchSummary(registration.get(), year);
+                PublicCompanyFinancialResult result = publicFinance.fetchSummaryResult(registration.get(), year);
+                if (!result.successfulRequest()) {
+                    apiFailures++;
+                    if (firstApiFailure == null) firstApiFailure = result.resultCode() + ": " + result.resultMessage();
+                    continue;
+                }
+                Optional<PublicCompanyFinancialSnapshot> snapshot = result.snapshot();
                 if (snapshot.isPresent()) {
                     apiRecords++;
                     store(corpCode, year, snapshot.get());
                     stored++;
+                } else {
+                    noPublicRecord++;
                 }
             }
         }
-        log.info("Public finance fallback diagnostics: confirmedCorporations={}, registrationResolved={}, missingDartYears={}, apiRecords={}, storedAnnualStatements={}",
-                corpCodes.size(), registrationResolved, missingDartYears, apiRecords, stored);
+        log.info("Public finance fallback diagnostics: confirmedCorporations={}, registrationResolved={}, missingDartYears={}, apiRecords={}, noPublicRecord={}, apiFailures={}, firstApiFailure={}, storedAnnualStatements={}",
+                corpCodes.size(), registrationResolved, missingDartYears, apiRecords, noPublicRecord, apiFailures,
+                firstApiFailure == null ? "NONE" : firstApiFailure, stored);
         return stored;
     }
 
