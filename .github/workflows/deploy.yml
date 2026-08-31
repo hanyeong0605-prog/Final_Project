@@ -14,6 +14,11 @@ on:
         required: false
         default: false
         type: boolean
+      training_finance_backfill:
+        description: 'Build an 800-company DART learning universe for the growth model (not limited to job postings)'
+        required: false
+        default: false
+        type: boolean
       company_growth_report:
         description: 'Build a temporary company-growth dataset and print held-out metrics'
         required: false
@@ -118,6 +123,8 @@ jobs:
             export ENV_FILE=/etc/jobpilot/jobpilot.env
             export DART_BACKFILL_ON_START='${{ inputs.dart_backfill || false }}'
             export DART_FINANCIAL_SYNC_ON_START='${{ inputs.dart_backfill || false }}'
+            export DART_TRAINING_SYNC_ON_START='${{ inputs.training_finance_backfill || false }}'
+            export DART_TRAINING_CORPORATION_LIMIT='800'
             # Predictions are deliberately opt-in: a model is promoted only after the
             # training command exits successfully with validated=true metadata.
             export DART_PREDICTION_SYNC_ON_START='${{ inputs.company_growth_publish || false }}'
@@ -158,6 +165,7 @@ jobs:
             fi
 
             if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || \
+              [ '${{ inputs.training_finance_backfill || false }}' = 'true' ] || \
               [ '${{ inputs.company_growth_publish || false }}' = 'true' ] || \
               printf '%s\n' "$CHANGED_FILES" | grep -Eq '^jobpilot-ai/(backend/|docker-compose.prod.yml$)'; then
                 # A manual finance recovery must execute the exact source just
@@ -169,7 +177,7 @@ jobs:
                 else
                   $COMPOSE build backend
                 fi
-                if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
+                if [ '${{ inputs.dart_backfill || false }}' = 'true' ] || [ '${{ inputs.training_finance_backfill || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then
                   $COMPOSE up -d --no-deps --force-recreate backend
                 else
                   $COMPOSE up -d --no-deps backend
@@ -233,6 +241,23 @@ jobs:
                 exit 1
               fi
               $COMPOSE logs --since=70m backend | grep -E 'DART backfill complete|DART financial sync complete|DART financial sync paused|Public finance fallback diagnostics|Public finance fallback sync complete'
+            fi
+
+            if [ '${{ inputs.training_finance_backfill || false }}' = 'true' ]; then
+              TRAINING_SYNC_COMPLETE=false
+              for attempt in $(seq 1 840); do
+                if $COMPOSE logs --since=70m backend | grep -q 'DART training universe sync complete'; then
+                  TRAINING_SYNC_COMPLETE=true
+                  break
+                fi
+                sleep 5
+              done
+              if [ "$TRAINING_SYNC_COMPLETE" != 'true' ]; then
+                $COMPOSE logs --tail=300 backend
+                echo "DART training-universe sync did not complete within 4200 seconds." >&2
+                exit 1
+              fi
+              $COMPOSE logs --since=70m backend | grep 'DART training universe sync complete'
             fi
 
             if [ '${{ inputs.company_growth_report || false }}' = 'true' ] || [ '${{ inputs.company_growth_publish || false }}' = 'true' ]; then

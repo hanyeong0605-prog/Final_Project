@@ -19,23 +19,39 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
     private final CompanyFinancialSyncService financialSync;
     private final PublicCompanyFinancialSyncService publicFinancialSync;
     private final boolean financialSyncOnStart;
+    private final boolean trainingSyncOnStart;
     private final int financialYearsBack;
+    private final int trainingCorporationLimit;
+
+    DartCompanyFinanceBackfillRunner(DartCorporationSyncService corporationSync,
+                                    CompanyDartBackfillService companyBackfill,
+                                    CompanyFinancialSyncService financialSync,
+                                    PublicCompanyFinancialSyncService publicFinancialSync,
+                                    boolean financialSyncOnStart,
+                                    int financialYearsBack) {
+        this(corporationSync, companyBackfill, financialSync, publicFinancialSync,
+                financialSyncOnStart, false, financialYearsBack, 800);
+    }
 
     public DartCompanyFinanceBackfillRunner(DartCorporationSyncService corporationSync,
                                             CompanyDartBackfillService companyBackfill,
                                             CompanyFinancialSyncService financialSync,
                                             PublicCompanyFinancialSyncService publicFinancialSync,
                                             @Value("${dart.financial-sync-on-start:false}") boolean financialSyncOnStart,
-                                            @Value("${dart.financial-years-back:7}") int financialYearsBack) {
+                                            @Value("${dart.training-sync-on-start:false}") boolean trainingSyncOnStart,
+                                            @Value("${dart.financial-years-back:7}") int financialYearsBack,
+                                            @Value("${dart.training-corporation-limit:800}") int trainingCorporationLimit) {
         this.corporationSync = corporationSync;
         this.companyBackfill = companyBackfill;
         this.financialSync = financialSync;
         this.publicFinancialSync = publicFinancialSync;
         this.financialSyncOnStart = financialSyncOnStart;
+        this.trainingSyncOnStart = trainingSyncOnStart;
         if (financialYearsBack < 4) {
             throw new IllegalArgumentException("dart.financial-years-back must be at least 4 for ML labels");
         }
         this.financialYearsBack = financialYearsBack;
+        this.trainingCorporationLimit = trainingCorporationLimit;
     }
 
     @Override
@@ -50,13 +66,22 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
                 int storedYears = financialSync.syncConfirmedCompanies(currentYear - financialYearsBack, currentYear - 1);
                 log.info("DART financial sync complete: storedAnnualStatements={}", storedYears);
             } catch (OpenDartRequestLimitException requestLimit) {
-                // A one-shot recovery must never turn a temporary provider quota into a crash loop.
-                // Public finance can still supplement the already confirmed corporations whose
-                // registration numbers were cached during earlier successful DART calls.
+                // DART 기업 정보 동기화 및 재무 데이터 보완
+                //채용공고의 기업명을 DART 기업 정보와 연결한 뒤, 최근 연도 재무제표를 조회하여 저장합니다.
+                //DART 요청 한도 등으로 일부 데이터가 비어 있는 경우에는 공공 재무정보를 활용해 누락 연도를 보완합니다.
                 log.warn("DART financial sync paused because the OpenDART request limit was reached; existing data is preserved and the public-finance fallback will continue for cached registrations.");
             }
             int publicStoredYears = publicFinancialSync.syncMissingAnnualYears(currentYear - financialYearsBack, currentYear - 1);
             log.info("Public finance fallback sync complete: storedAnnualStatements={}", publicStoredYears);
+        }
+        if (trainingSyncOnStart) {
+            int currentYear = java.time.Year.now().getValue();
+            try {
+                int storedYears = financialSync.syncTrainingUniverse(currentYear - financialYearsBack, currentYear - 1, trainingCorporationLimit);
+                log.info("DART training universe sync complete: corporations={}, storedAnnualStatements={}", trainingCorporationLimit, storedYears);
+            } catch (OpenDartRequestLimitException requestLimit) {
+                log.warn("DART training universe sync paused because the OpenDART request limit was reached; rerun resumes only missing years.");
+            }
         }
     }
 }

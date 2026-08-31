@@ -49,6 +49,13 @@ public class CompanyFinancialSyncService {
                 total_liabilities = VALUES(total_liabilities), total_equity = VALUES(total_equity),
                 operating_cash_flow = VALUES(operating_cash_flow), fetched_at = NOW()
             """;
+    private static final String TRAINING_LISTED_CORPORATIONS = """
+            SELECT corp_code, stock_code
+            FROM dart_corporations
+            WHERE stock_code IS NOT NULL AND stock_code <> ''
+            ORDER BY corp_code
+            LIMIT ?
+            """;
     private static final String DART_FINANCIAL_CORPORATIONS_FOR_YEAR = """
             SELECT DISTINCT corp_code FROM company_financial_years
             WHERE business_year=? AND report_code='11011' AND data_source='DART'
@@ -67,6 +74,35 @@ public class CompanyFinancialSyncService {
         List<CorporationReference> corporations = jdbc.query(CONFIRMED_LISTED_CORPORATIONS,
                 (rs, rowNum) -> new CorporationReference(rs.getString(1), rs.getString(2)));
         List<String> unlistedCorporations = jdbc.queryForList(CONFIRMED_UNLISTED_CORPORATIONS, String.class);
+        int stored = syncListedCorporations(corporations, firstYear, lastYear);
+        for (String corpCode : unlistedCorporations) {
+            for (int year = firstYear; year <= lastYear; year++) {
+                List<String> existingCorpCodes = jdbc.queryForList(DART_FINANCIAL_CORPORATIONS_FOR_YEAR, String.class, year);
+                if (existingCorpCodes.contains(corpCode)) continue;
+                OpenDartFinancialSnapshot snapshot = fetchSingleWithRetry(corpCode, year);
+                if (snapshot != null) {
+                    storeAnnualStatement(corpCode, year, snapshot);
+                    stored++;
+                }
+            }
+        }
+        return stored;
+    }
+
+    /**
+     * Builds an independent, listed-company learning universe. It deliberately
+     * does not join job postings: those are prediction targets, not samples.
+     */
+    public int syncTrainingUniverse(int firstYear, int lastYear, int corporationLimit) {
+        if (corporationLimit < 1 || corporationLimit > 2_000) {
+            throw new IllegalArgumentException("dart.training-corporation-limit must be between 1 and 2000");
+        }
+        List<CorporationReference> corporations = jdbc.query(TRAINING_LISTED_CORPORATIONS,
+                (rs, rowNum) -> new CorporationReference(rs.getString(1), rs.getString(2)), corporationLimit);
+        return syncListedCorporations(corporations, firstYear, lastYear);
+    }
+
+    private int syncListedCorporations(List<CorporationReference> corporations, int firstYear, int lastYear) {
         int stored = 0;
         for (int year = firstYear; year <= lastYear; year++) {
             List<String> existingCorpCodes = jdbc.queryForList(DART_FINANCIAL_CORPORATIONS_FOR_YEAR, String.class, year);
@@ -85,17 +121,6 @@ public class CompanyFinancialSyncService {
                         storeAnnualStatement(corporation.corpCode(), year, snapshot);
                         stored++;
                     }
-                }
-            }
-        }
-        for (String corpCode : unlistedCorporations) {
-            for (int year = firstYear; year <= lastYear; year++) {
-                List<String> existingCorpCodes = jdbc.queryForList(DART_FINANCIAL_CORPORATIONS_FOR_YEAR, String.class, year);
-                if (existingCorpCodes.contains(corpCode)) continue;
-                OpenDartFinancialSnapshot snapshot = fetchSingleWithRetry(corpCode, year);
-                if (snapshot != null) {
-                    storeAnnualStatement(corpCode, year, snapshot);
-                    stored++;
                 }
             }
         }
