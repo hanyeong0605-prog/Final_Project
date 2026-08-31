@@ -17,6 +17,16 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return output;
 }
 
+// 2026-08-31: 실제 스케줄러 3종이 보내는 문구를 그대로 채워 넣는 프리셋. 실기기 확인이나
+// 발표 시연에서 "테스트 알림"이 아니라 진짜 알림 모습을 보여줘야 할 때 쓴다 - 각 문구는
+// DeadlineReminderScheduler / RecommendedJobPushScheduler / InterviewPassNoticeScheduler가
+// 조립하는 형식과 같게 맞춰뒀다.
+const TEST_PRESETS = [
+  { label: "마감임박", title: "마감 1일 전이에요", body: "카카오 · 백엔드 개발자 신입 채용", url: "/job-postings/1" },
+  { label: "맞춤공고", title: "지금 바로 지원 가능한 새 공고예요", body: "네이버 · 프론트엔드 개발자", url: "/job-postings/1" },
+  { label: "무료 이용권", title: "이번 달 무료 이용권이 도착했어요", body: "지금 실전면접을 3회 이용할 수 있어요.", url: "/mock-interview" },
+] as const;
+
 // 2026-08-13: 마이페이지에 넣는 "마감임박 알림" 토글 섹션. VAPID 공개키가 비어있으면
 // (서버에 키가 설정 안 된 환경 - application.yml push.vapid.* 참고) 아예 렌더링하지 않는다 -
 // 눌러도 안 되는 버튼을 보여주는 것보다 숨기는 게 낫다는 기존 TTS/구독 기능의 fail-open
@@ -29,6 +39,10 @@ export function PushNotificationSection() {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState("");
   const [testMessage, setTestMessage] = useState("");
+  // 관리자 테스트 발송용 입력값 - 비워두면 서버가 기본 문구로 보낸다.
+  const [testTitle, setTestTitle] = useState("");
+  const [testBody, setTestBody] = useState("");
+  const [testUrl, setTestUrl] = useState("");
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -106,7 +120,7 @@ export function PushNotificationSection() {
     setTestMessage("");
     setIsBusy(true);
     try {
-      const result = await testSendPush();
+      const result = await testSendPush({ title: testTitle, body: testBody, url: testUrl });
       setTestMessage(result.sent ? "테스트 알림을 보냈어요. 잠시 후 폰으로 도착하는지 확인해보세요." : (result.reason ?? "발송하지 못했습니다."));
     } catch {
       setTestMessage("테스트 발송에 실패했습니다.");
@@ -140,6 +154,48 @@ export function PushNotificationSection() {
           알림을 켠 상태여야 자기 자신에게 보낼 구독이 있다는 뜻이라 subscribed일 때만 보여준다. */}
       {member?.role === "ADMIN" && subscribed && (
         <div className="push-test-send">
+          {/* 2026-08-31: 스케줄러가 실제로 보내는 문구를 실기기에서 그대로 재현해보기 위한 입력칸.
+              비워두면 서버가 기본 문구("테스트 알림")로 보낸다 - 기존 동작 그대로. */}
+          <div className="push-test-fields">
+            <input
+              type="text"
+              maxLength={200}
+              value={testTitle}
+              onChange={(event) => setTestTitle(event.target.value)}
+              placeholder="제목 (비우면 '테스트 알림')"
+            />
+            <input
+              type="text"
+              maxLength={500}
+              value={testBody}
+              onChange={(event) => setTestBody(event.target.value)}
+              placeholder="내용 (비우면 '웹푸시가 정상적으로 도착했어요.')"
+            />
+            <input
+              type="text"
+              maxLength={300}
+              value={testUrl}
+              onChange={(event) => setTestUrl(event.target.value)}
+              placeholder="이동 경로 (비우면 /account)"
+            />
+          </div>
+          <div className="push-test-presets">
+            {TEST_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className="text-button"
+                disabled={isBusy}
+                onClick={() => {
+                  setTestTitle(preset.title);
+                  setTestBody(preset.body);
+                  setTestUrl(preset.url);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <button className="text-button" disabled={isBusy} onClick={() => void handleTestSend()}>
             (관리자) 테스트 알림 보내기
           </button>
