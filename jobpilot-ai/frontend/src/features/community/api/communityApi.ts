@@ -5,7 +5,7 @@ export type Comment = { id:number; author:string; parentId?:number; body:string;
 export type Input = { boardType:Board; title:string; body:string; serviceFeedback:boolean; privatePost:boolean; };
 export type PostPage = { items:Post[]; total:number; page:number; size:number; totalPages:number; };
 const base="/api/v1/community";
-export const list=(boardType:Board,page=0,query="",sort="RECENT")=>getJson<PostPage>(`${base}/posts?boardType=${boardType}&page=${page}&size=10&query=${encodeURIComponent(query)}&sort=${sort}`);
+export const list=(boardType:Board,page=0,query="",sort="RECENT")=>getJson<PostPage>(`${base}/posts?boardType=${boardType}&page=${page}&size=5&query=${encodeURIComponent(query)}&sort=${sort}`);
 export const detail=(id:number)=>getJson<Post>(`${base}/posts/${id}`);
 export const create=(input:Input)=>postJson<Post>(`${base}/posts`,input);export const update=(id:number,input:Input)=>putJson<Post>(`${base}/posts/${id}`,input);export const remove=(id:number)=>deleteJson(`${base}/posts/${id}`);
 export const like=(id:number)=>postJson<{liked:boolean}>(`${base}/posts/${id}/like`,{});export const comments=(id:number)=>getJson<Comment[]>(`${base}/posts/${id}/comments`);export const comment=(id:number,body:string,parentId?:number)=>postJson<Comment>(`${base}/posts/${id}/comments`,{body,parentId});export const updateComment=(id:number,body:string)=>putJson<Comment>(`${base}/comments/${id}`,{body,parentId:null});export const removeComment=(id:number)=>deleteJson(`${base}/comments/${id}`);export const likeComment=(id:number)=>postJson<{liked:boolean}>(`${base}/comments/${id}/like`,{});export const report=(targetType:"POST"|"COMMENT",targetId:number,reason:string)=>postJson<void>(`${base}/reports`,{targetType,targetId,reason});
