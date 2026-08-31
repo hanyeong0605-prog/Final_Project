@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, Bookmark, BriefcaseBusiness, Building2, CalendarDays, Eye, ExternalLink, Landmark, MapPin, Star, Target } from "lucide-react";
+import { ArrowLeft, Bookmark, BriefcaseBusiness, Building2, CalendarDays, Eye, ExternalLink, Landmark, MapPin, Target } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { getJobPosting } from "../features/job-postings/api/jobPostingsApi";
 import type { JobPostingDetail } from "../features/job-postings/model/jobPosting.types";
@@ -9,9 +9,6 @@ import type { JobMatch } from "../features/jobs/model/job.types";
 import { DataStatePanel } from "../shared/components/DataStatePanel";
 import { useInterests } from "../features/interests/model/InterestContext";
 import { CompanyFinanceSection } from "../features/company-finance/components/CompanyFinanceSection";
-import { getJson, postJson } from "../api/httpClient";
-
-interface JobReview { id: number; rating: number; content: string; employmentVerified: boolean; mine: boolean; createdAt: string; }
 
 function hasText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -35,10 +32,6 @@ export function JobPostingDetailPage() {
   const [matching, setMatching] = useState(false);
   const [matchingError, setMatchingError] = useState<string | null>(null);
   const { isInterested, toggleInterest } = useInterests();
-  const [reviews, setReviews] = useState<JobReview[]>([]);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewContent, setReviewContent] = useState("");
-  const [reviewMessage, setReviewMessage] = useState("");
 
   useEffect(() => {
     if (!id) { setStatus("error"); return; }
@@ -51,15 +44,6 @@ export function JobPostingDetailPage() {
       .catch(() => { if (active) { setPosting(null); setStatus("error"); } })
       .finally(() => window.clearTimeout(timeout));
     return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
-  }, [id]);
-
-  useEffect(() => {
-    if (!id) return;
-    void getJson<JobReview[]>(`/api/v1/job-postings/${id}/reviews`).then((items) => {
-      setReviews(items);
-      const mine = items.find((item) => item.mine);
-      if (mine) { setReviewRating(mine.rating); setReviewContent(mine.content); }
-    }).catch(() => setReviews([]));
   }, [id]);
 
   if (status === "loading") return <DataStatePanel state="loading" />;
@@ -100,15 +84,6 @@ export function JobPostingDetailPage() {
       setMatching(false);
     }
   };
-  const saveReview = async () => {
-    setReviewMessage("");
-    try {
-      const saved = await postJson<JobReview>(`/api/v1/job-postings/${posting.id}/reviews`, { rating: reviewRating, content: reviewContent });
-      setReviews((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
-      setReviewMessage(saved.employmentVerified ? "재직 이력 인증 리뷰로 저장했습니다." : "리뷰를 저장했습니다. 이력서 경력의 회사명이 일치하면 재직 인증 배지가 표시됩니다.");
-    } catch (error) { setReviewMessage(error instanceof Error ? error.message : "리뷰 저장에 실패했습니다."); }
-  };
-
   return <div className="job-detail-page">
     <Link className="job-detail-back" to="/job-postings"><ArrowLeft size={16} />전체 채용공고</Link>
     <section className="job-detail-hero">
@@ -140,12 +115,6 @@ export function JobPostingDetailPage() {
       {hasText(posting.description) && <section className="job-detail-section job-description"><div className="job-detail-section-heading"><span className="eyebrow">JOB DESCRIPTION</span><h2>공고 상세</h2></div><p>{posting.description}</p></section>}
       {details.length > 0 && <aside className="job-detail-section job-information"><div className="job-detail-section-heading"><span className="eyebrow">JOB INFORMATION</span><h2>공고 정보</h2></div><dl>{details.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></aside>}
     </div>}
-    <section className="job-detail-section job-review-section">
-      <div className="job-detail-section-heading"><span className="eyebrow">EMPLOYEE REVIEWS</span><h2>회사 리뷰</h2></div>
-      <p className="job-review-guide">이력서의 경력 회사명과 공고 회사명이 일치하면 ‘재직 이력 확인’ 배지가 자동으로 붙습니다. 민감한 증빙 서류는 공개하지 않습니다.</p>
-      <div className="job-review-form"><label>별점<select value={reviewRating} onChange={(event) => setReviewRating(Number(event.target.value))}>{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value}점</option>)}</select></label><label>리뷰<textarea minLength={10} maxLength={2000} value={reviewContent} onChange={(event) => setReviewContent(event.target.value)} placeholder="근무 경험, 조직 문화, 성장 환경을 10자 이상 적어 주세요." /></label><button type="button" className="primary-button" disabled={reviewContent.trim().length < 10} onClick={() => void saveReview()}>리뷰 저장</button>{reviewMessage && <p role="status">{reviewMessage}</p>}</div>
-      <div className="job-review-list">{reviews.length === 0 ? <p className="job-review-empty">아직 등록된 리뷰가 없습니다.</p> : reviews.map((review) => <article key={review.id}><div><span className="job-review-stars"><Star size={14} fill="currentColor" /> {review.rating}.0</span>{review.employmentVerified && <span className="job-review-verified"><BadgeCheck size={14} />재직 이력 확인</span>}{review.mine && <small>내 리뷰</small>}<time>{dateLabel(review.createdAt)}</time></div><p>{review.content}</p></article>)}</div>
-    </section>
     <CompanyFinanceSection postingId={posting.id} />
     {selectedMatch && <JobMatchDrawer job={selectedMatch} interested={interested} onInterest={() => void toggleInterest(posting.id)} onClose={() => setSelectedMatch(null)} />}
   </div>;
