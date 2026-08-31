@@ -87,6 +87,8 @@ public-finance:
   # Financial Services Commission summary statements supplement missing DART years only.
   service-key: ${DATA_GO_KR_SERVICE_KEY:}
   base-url: ${DATA_GO_KR_FINANCE_BASE_URL:http://apis.data.go.kr/1160100/service/GetFinaStatInfoService_V2}
+  # A manual recovery is resumable. Cap remote calls so one GitHub Actions SSH job cannot time out.
+  max-requests-per-run: ${PUBLIC_FINANCE_MAX_REQUESTS_PER_RUN:250}
 
 app:
   cors:

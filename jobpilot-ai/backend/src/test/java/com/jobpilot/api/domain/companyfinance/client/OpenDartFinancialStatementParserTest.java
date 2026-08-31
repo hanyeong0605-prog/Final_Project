@@ -38,7 +38,7 @@ class OpenDartFinancialStatementParserTest {
 
         assertThrows(OpenDartNoDataException.class,
                 () -> parser.parse("{\"status\":\"013\",\"message\":\"no data\"}"));
-        var failure = assertThrows(java.io.IOException.class,
+        var failure = assertThrows(OpenDartRequestLimitException.class,
                 () -> parser.parse("{\"status\":\"020\",\"message\":\"request limit\"}"));
         org.assertj.core.api.Assertions.assertThat(failure.getMessage()).contains("status=020");
     }

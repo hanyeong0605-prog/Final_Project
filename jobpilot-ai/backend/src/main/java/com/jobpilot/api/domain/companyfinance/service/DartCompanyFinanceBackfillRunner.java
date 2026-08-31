@@ -1,5 +1,6 @@
 package com.jobpilot.api.domain.companyfinance.service;
 
+import com.jobpilot.api.domain.companyfinance.client.OpenDartRequestLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -45,8 +46,14 @@ public class DartCompanyFinanceBackfillRunner implements ApplicationRunner {
                 corporations, report.distinctCompanies(), report.confirmed(), report.candidates(), report.unmatched());
         if (financialSyncOnStart) {
             int currentYear = java.time.Year.now().getValue();
-            int storedYears = financialSync.syncConfirmedCompanies(currentYear - financialYearsBack, currentYear - 1);
-            log.info("DART financial sync complete: storedAnnualStatements={}", storedYears);
+            try {
+                int storedYears = financialSync.syncConfirmedCompanies(currentYear - financialYearsBack, currentYear - 1);
+                log.info("DART financial sync complete: storedAnnualStatements={}", storedYears);
+            } catch (OpenDartRequestLimitException requestLimit) {
+                // A one-shot recovery must never turn a temporary provider quota into a crash loop.
+                log.warn("DART financial sync paused because the OpenDART request limit was reached; existing data is preserved and the next run resumes only missing years.");
+                return;
+            }
             int publicStoredYears = publicFinancialSync.syncMissingAnnualYears(currentYear - financialYearsBack, currentYear - 1);
             log.info("Public finance fallback sync complete: storedAnnualStatements={}", publicStoredYears);
         }

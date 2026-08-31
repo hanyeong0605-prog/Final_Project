@@ -49,6 +49,10 @@ public class CompanyFinancialSyncService {
                 total_liabilities = VALUES(total_liabilities), total_equity = VALUES(total_equity),
                 operating_cash_flow = VALUES(operating_cash_flow), fetched_at = NOW()
             """;
+    private static final String DART_FINANCIAL_CORPORATIONS_FOR_YEAR = """
+            SELECT DISTINCT corp_code FROM company_financial_years
+            WHERE business_year=? AND report_code='11011' AND data_source='DART'
+            """;
 
     private final OpenDartClient client;
     private final JdbcTemplate jdbc;
@@ -64,9 +68,14 @@ public class CompanyFinancialSyncService {
         List<String> unlistedCorporations = jdbc.queryForList(CONFIRMED_UNLISTED_CORPORATIONS, String.class);
         int stored = 0;
         for (int year = firstYear; year <= lastYear; year++) {
-            for (int start = 0; start < corporations.size(); start += 100) {
-                List<CorporationReference> batch = corporations.subList(
-                        start, Math.min(start + 100, corporations.size()));
+            List<String> existingCorpCodes = jdbc.queryForList(DART_FINANCIAL_CORPORATIONS_FOR_YEAR, String.class, year);
+            java.util.Set<String> existing = java.util.Set.copyOf(existingCorpCodes);
+            List<CorporationReference> missingListed = corporations.stream()
+                    .filter(corporation -> !existing.contains(corporation.corpCode()))
+                    .toList();
+            for (int start = 0; start < missingListed.size(); start += 100) {
+                List<CorporationReference> batch = missingListed.subList(
+                        start, Math.min(start + 100, missingListed.size()));
                 List<String> corpCodes = batch.stream().map(CorporationReference::corpCode).toList();
                 Map<String, OpenDartFinancialSnapshot> byStockCode = fetchBatchWithRetry(corpCodes, year);
                 for (CorporationReference corporation : batch) {
@@ -80,6 +89,8 @@ public class CompanyFinancialSyncService {
         }
         for (String corpCode : unlistedCorporations) {
             for (int year = firstYear; year <= lastYear; year++) {
+                List<String> existingCorpCodes = jdbc.queryForList(DART_FINANCIAL_CORPORATIONS_FOR_YEAR, String.class, year);
+                if (existingCorpCodes.contains(corpCode)) continue;
                 OpenDartFinancialSnapshot snapshot = fetchSingleWithRetry(corpCode, year);
                 if (snapshot != null) {
                     storeAnnualStatement(corpCode, year, snapshot);

@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Adds only missing DART annual years; it never overwrites a DART statement. */
@@ -18,9 +19,13 @@ public class PublicCompanyFinancialSyncService {
     private final JdbcTemplate jdbc;
     private final OpenDartClient dart;
     private final PublicCompanyFinancialClient publicFinance;
+    private final int maxRequestsPerRun;
 
-    public PublicCompanyFinancialSyncService(JdbcTemplate jdbc, OpenDartClient dart, PublicCompanyFinancialClient publicFinance) {
+    public PublicCompanyFinancialSyncService(JdbcTemplate jdbc, OpenDartClient dart, PublicCompanyFinancialClient publicFinance,
+                                             @Value("${public-finance.max-requests-per-run:250}") int maxRequestsPerRun) {
         this.jdbc = jdbc; this.dart = dart; this.publicFinance = publicFinance;
+        if (maxRequestsPerRun < 1) throw new IllegalArgumentException("public-finance.max-requests-per-run must be positive");
+        this.maxRequestsPerRun = maxRequestsPerRun;
     }
 
     public int syncMissingAnnualYears(int fromYear, int toYear) {
@@ -34,22 +39,32 @@ public class PublicCompanyFinancialSyncService {
         int apiRecords = 0;
         int noPublicRecord = 0;
         int apiFailures = 0;
+        int attemptedRequests = 0;
         String firstApiFailure = null;
+        boolean requestBudgetExhausted = false;
+        outer:
         for (String corpCode : corpCodes) {
             Optional<String> registration = registrationNumber(corpCode);
             if (registration.isEmpty()) continue;
             registrationResolved++;
             for (int year = fromYear; year <= toYear; year++) {
-                Integer dartRows = jdbc.queryForObject("""
+                Integer existingRows = jdbc.queryForObject("""
                         SELECT COUNT(*) FROM company_financial_years
-                        WHERE corp_code=? AND business_year=? AND report_code='11011' AND data_source='DART'
+                        WHERE corp_code=? AND business_year=? AND report_code='11011'
+                          AND data_source IN ('DART', 'FINANCIAL_COMMISSION')
                         """, Integer.class, corpCode, year);
-                if (dartRows != null && dartRows > 0) continue;
+                if (existingRows != null && existingRows > 0) continue;
                 missingDartYears++;
+                if (attemptedRequests >= maxRequestsPerRun) {
+                    requestBudgetExhausted = true;
+                    break outer;
+                }
+                attemptedRequests++;
                 PublicCompanyFinancialResult result = publicFinance.fetchSummaryResult(registration.get(), year);
                 if (!result.successfulRequest()) {
                     apiFailures++;
                     if (firstApiFailure == null) firstApiFailure = result.resultCode() + ": " + result.resultMessage();
+                    if ("CONFIGURATION".equals(result.resultCode())) break outer;
                     continue;
                 }
                 Optional<PublicCompanyFinancialSnapshot> snapshot = result.snapshot();
@@ -62,8 +77,9 @@ public class PublicCompanyFinancialSyncService {
                 }
             }
         }
-        log.info("Public finance fallback diagnostics: confirmedCorporations={}, registrationResolved={}, missingDartYears={}, apiRecords={}, noPublicRecord={}, apiFailures={}, firstApiFailure={}, storedAnnualStatements={}",
-                corpCodes.size(), registrationResolved, missingDartYears, apiRecords, noPublicRecord, apiFailures,
+        log.info("Public finance fallback diagnostics: confirmedCorporations={}, registrationResolved={}, missingDartYears={}, attemptedRequests={}, maxRequestsPerRun={}, requestBudgetExhausted={}, apiRecords={}, noPublicRecord={}, apiFailures={}, firstApiFailure={}, storedAnnualStatements={}",
+                corpCodes.size(), registrationResolved, missingDartYears, attemptedRequests, maxRequestsPerRun,
+                requestBudgetExhausted, apiRecords, noPublicRecord, apiFailures,
                 firstApiFailure == null ? "NONE" : firstApiFailure, stored);
         return stored;
     }

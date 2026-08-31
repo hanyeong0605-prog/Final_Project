@@ -23,8 +23,10 @@ public class PublicCompanyFinancialClient {
                                         @Value("${public-finance.service-key:}") String serviceKey,
                                         @Value("${public-finance.base-url:http://apis.data.go.kr/1160100/service/GetFinaStatInfoService_V2}") String baseUrl) {
         var factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(10));
-        factory.setReadTimeout(Duration.ofSeconds(20));
+        // A bounded recovery must move on from an unavailable provider instead
+        // of spending the whole deployment window on one company-year.
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(10));
         this.client = RestClient.builder().requestFactory(factory).build();
         this.parser = parser;
         // data.go.kr exposes both an encoded and a decoded variant of the

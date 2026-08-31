@@ -53,6 +53,8 @@ public class OpenDartClient {
             return parser.parse(body == null ? "" : body);
         } catch (OpenDartNoDataException noData) {
             throw noData;
+        } catch (OpenDartRequestLimitException requestLimit) {
+            throw requestLimit;
         } catch (Exception error) {
             throw new IllegalStateException("DART financial statement response could not be parsed", error);
         }
@@ -67,6 +69,8 @@ public class OpenDartClient {
             return parser.parseMultiple(body == null ? "" : body);
         } catch (OpenDartNoDataException noData) {
             throw noData;
+        } catch (OpenDartRequestLimitException requestLimit) {
+            throw requestLimit;
         } catch (Exception error) {
             throw new IllegalStateException("DART multiple-company statement response could not be parsed", error);
         }

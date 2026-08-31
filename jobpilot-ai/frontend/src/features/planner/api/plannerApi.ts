@@ -1,11 +1,16 @@
 import { deleteJson, getJson, postJson, putJson } from "../../../api/httpClient";
 import type { PlannerEvent, PlannerEventInput } from "../model/planner.types";
 
+const toLocalIsoDate = (date: Date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, "0"),
+  String(date.getDate()).padStart(2, "0"),
+].join("-");
+
 export function getPlannerEvents(now = new Date()): Promise<PlannerEvent[]> {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const format = (date: Date) => date.toLocaleDateString("en-CA");
-  return getJson<PlannerEvent[]>(`/api/v1/planner-events?from=${format(firstDay)}&to=${format(lastDay)}`);
+  return getJson<PlannerEvent[]>(`/api/v1/planner-events?from=${toLocalIsoDate(firstDay)}&to=${toLocalIsoDate(lastDay)}`);
 }
 
 export const createPlannerEvent = (input: PlannerEventInput) => postJson<PlannerEvent>("/api/v1/planner-events", input);
