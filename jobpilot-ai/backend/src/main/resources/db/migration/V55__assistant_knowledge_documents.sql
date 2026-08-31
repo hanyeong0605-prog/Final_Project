@@ -1,0 +1,37 @@
+CREATE TABLE assistant_knowledge_documents (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    scope VARCHAR(20) NOT NULL,
+    member_id BIGINT NULL,
+    source_type VARCHAR(40) NOT NULL,
+    source_id VARCHAR(150) NOT NULL DEFAULT '',
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_assistant_knowledge_source (scope, source_type, source_id),
+    KEY ix_assistant_knowledge_scope_active (scope, is_active),
+    KEY ix_assistant_knowledge_member_active (member_id, is_active)
+);
+
+-- Global documents are safe for every authenticated site-assistant user. Personal
+-- documents are indexed separately with scope=MEMBER and must always be queried
+-- with the authenticated member_id; the current direct AI-server endpoint never
+-- reads them.
+INSERT INTO assistant_knowledge_documents(scope, source_type, source_id, title, content) VALUES
+('GLOBAL', 'SERVICE_GUIDE', 'subscription-price', '구독 요금', 'Job-A-Dream AI 구독은 월 9,900원 스탠다드 단일 요금제입니다. 정기 자동결제(빌링)가 아니라, 매달 사용자가 직접 결제창에서 다시 결제해야 구독이 연장됩니다. 결제를 안 하면 매일 새벽 3시에 도는 스케줄러가 만료된 구독을 자동으로 해지 처리합니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'subscription-benefits', '구독 혜택', '구독자는 모의면접에서 본인의 역량 프로필(목표 직무, 기술 요약)을 불러와 그 정보에 맞춘 개인화된 면접 질문을 받을 수 있습니다. 구독하지 않은 회원은 프로필과 무관한 일반적인 질문만 받습니다. 관리자 계정은 결제 없이도 모든 기능을 이용할 수 있습니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'employer-signup', '기업회원 가입', '기업회원으로 가입하려면 사업자등록번호(10자리 숫자), 개업일자, 대표자명, 담당자 이름·연락처, 회사명, 회사 주소를 입력해야 합니다. 가입 신청과 동시에 국세청 사업자등록 진위확인 API가 자동으로 호출되어 그 결과가 저장됩니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'employer-approval', '기업회원 승인', '국세청 진위확인을 통과했다고 해서 바로 채용공고를 등록할 수 있는 건 아닙니다. 새로 가입한 기업회원은 항상 심사 대기(PENDING) 상태로 시작하고, 관리자가 최종 승인(APPROVED)해야만 채용공고 등록이 가능합니다. 관리자가 거절하면 REJECTED 상태가 되고, 승인 전 상태에서는 채용공고를 등록할 수 없습니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'account-types', '회원 유형', '이 사이트는 개인회원(구직자)과 기업회원(구인 기업) 두 종류의 계정으로 나뉘며, 로그인/회원가입 화면에서 계정 유형을 선택해 각각 다른 절차로 가입합니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'interview-mode', '모의면접 진행 방식', '모의면접은 카메라와 마이크로 답변을 녹화하며 진행하는 방식과, 채팅창에 타이핑으로 답을 입력하는 방식 중 하나를 선택해서 연습할 수 있습니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'interview-types', '모의면접 유형', '면접 유형은 인성면접, 역량면접, 직무면접 세 가지로 나뉩니다. 직무면접은 지원자가 고른 목표 직무에 따라 실제 질문 내용이 달라지고, 인성면접·역량면접은 직무와 무관하게 공통 질문 풀을 사용합니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'interview-question-count', '모의면접 질문 개수', '모의면접 한 세션에서 풀 질문 개수는 3개, 5개, 7개 중에서 사용자가 직접 선택할 수 있고, 아무것도 선택하지 않으면 기본값은 3개입니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'interview-report', '모의면접 리포트', '모의면접이 끝나면 질문별 점수와 강점·개선점, 모범답안이 담긴 리포트를 받을 수 있고, 개인 타임라인 페이지에서 지난 모의면접 리포트들과 점수 추이 그래프를 다시 볼 수 있습니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'opportunities', '성장 기회 추천', '성장 기회 추천 페이지는 교육, 자격증, 공모전, 청년지원 네 카테고리로 정보를 제공합니다. 이 중 자격증 정보는 한국산업인력공단 Q-Net 공개 API에서 실시간에 가깝게 가져오는 실제 데이터입니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'certificate-plan', '자격증 학습 계획', '관심 있는 자격증을 고르면 회원이 이미 보유한 기술·자격증을 참고해서 예상 학습 기간, 우선 학습 영역, 주차별 계획, 학습 팁을 맞춤으로 생성해 줍니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'resume-cover-letter', '이력서 작성 도우미 - 자기소개서', '이력서 작성 도우미에서는 질문식으로 자기소개서 답변을 작성하거나 이미 쓴 답변을 첨삭받을 수 있습니다. 지원하려는 회사의 자소서 문항 안내문을 붙여넣으면 문항을 자동으로 추출해서 그 형식에 맞게 작성을 도와줍니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'resume-project', '이력서 작성 도우미 - 프로젝트 경험', '프로젝트 경험은 STAR 구조(Situation 상황, Task 과제/역할, Action 행동/해결, Result 결과) 네 단계로 나눠서 질문식으로 작성하도록 안내하고, 작성한 내용을 첨삭받을 수 있습니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'wordcloud', '채용공고 워드클라우드', '채용공고 워드클라우드는 실제 등록된 채용공고들에서 자주 나오는 기술·역량 키워드를 뽑아 시각화해서 보여주는 기능으로, 지금 시장에서 어떤 기술이 많이 요구되는지 한눈에 파악하는 데 씁니다.'),
+('GLOBAL', 'SERVICE_GUIDE', 'personalized-jobs', '맞춤 채용공고', '맞춤 채용공고 페이지는 회원의 역량 프로필을 채용공고의 요구사항과 비교해서, 각 공고에 얼마나 지원 준비가 됐는지와 그 이유를 요구사항 단위로 보여줍니다.');
