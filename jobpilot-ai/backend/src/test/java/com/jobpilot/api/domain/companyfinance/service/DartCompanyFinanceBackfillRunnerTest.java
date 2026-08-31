@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.never;
 
 class DartCompanyFinanceBackfillRunnerTest {
     @Test
@@ -46,6 +45,7 @@ class DartCompanyFinanceBackfillRunnerTest {
 
         new DartCompanyFinanceBackfillRunner(corporations, matching, financials, publicFinancials, true, 7).run(null);
 
-        verify(publicFinancials, never()).syncMissingAnnualYears(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+        int currentYear = Year.now().getValue();
+        verify(publicFinancials).syncMissingAnnualYears(currentYear - 7, currentYear - 1);
     }
 }
