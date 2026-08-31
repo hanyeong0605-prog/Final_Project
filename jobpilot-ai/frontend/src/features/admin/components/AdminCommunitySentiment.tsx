@@ -1,17 +1,3 @@
-import { useEffect, useState } from "react";
-import { getJson, postJson } from "../../../api/httpClient";
-
-type Summary={feedbackCount:number;positiveCount:number;neutralCount:number;negativeCount:number;mixedCount:number;pendingCount:number};
-type Row={id:number;board_type:string;title:string;created_at:string;polarity?:string;positive_score?:number;negative_score?:number;model_version?:string};
-type Data={summary:Summary;recent:Row[]};
-
-export function AdminCommunitySentiment(){
- const[data,setData]=useState<Data>();const[error,setError]=useState("");
- const load=()=>getJson<Data>("/api/v1/admin/community/sentiment/summary").then(setData).catch(e=>setError(e.message));
- useEffect(()=>{void load()},[]);
- async function moderate(id:number,action:"HIDE"|"RESTORE"|"DELETE"){
-  const reason=prompt("관리 사유를 입력하세요");if(!reason)return;
-  try{await postJson("/api/v1/admin/community/moderate",{targetType:"POST",targetId:id,action,reason});await load()}catch(e){setError((e as Error).message)}
- }
- return <section className="panel admin-community-sentiment"><span className="eyebrow">SERVICE FEEDBACK SENTIMENT</span><h2>커뮤니티 서비스 피드백</h2><p>작성자가 홈페이지 기능·사용 경험이라고 표시한 글만 집계합니다. 일반 자유게시판 대화와 분석 대상이 아닌 일반 대화와 분리해 운영합니다.</p>{error?<p className="form-error">{error}</p>:data&&<><div className="review-metrics"><div><strong>{data.summary.feedbackCount||0}</strong><span>피드백</span></div><div><strong>{data.summary.positiveCount||0}</strong><span>긍정</span></div><div><strong>{data.summary.negativeCount||0}</strong><span>부정</span></div><div><strong>{data.summary.mixedCount||0}</strong><span>복합</span></div><div><strong>{data.summary.pendingCount||0}</strong><span>분석 대기</span></div></div><div className="admin-feedback-preview">{data.recent.slice(0,10).map(r=><article key={r.id}><b>{r.title}</b><span>{r.polarity||"분석 대기"}</span><small>{r.board_type} · {r.model_version||"-"}</small><div><button onClick={()=>moderate(r.id,"HIDE")}>숨김</button><button onClick={()=>moderate(r.id,"RESTORE")}>복원</button><button onClick={()=>moderate(r.id,"DELETE")}>삭제</button></div></article>)}</div></>}</section>
-}
+import { useEffect,useState } from "react";import { getJson } from "../../../api/httpClient";
+type Row={id:number;title:string;polarity?:string;positiveTerms:number;negativeTerms:number};type Board={boardType:"FREE"|"QNA";postCount:number;positivePostCount:number;negativePostCount:number;positiveTerms:number;negativeTerms:number;pendingCount:number;recent:Row[]};type Data={boards:Board[]};const label=(board:string)=>board==="FREE"?"자유게시판":"Q&A 게시판";const polarity=(value?:string)=>value==="POSITIVE"?"긍정":value==="NEGATIVE"?"부정":value==="MIXED"?"복합":value==="NEUTRAL"?"중립":"분석 대기";
+export function AdminCommunitySentiment(){const[data,setData]=useState<Data|null>(null),[error,setError]=useState("");useEffect(()=>{void getJson<Data>("/api/v1/admin/community/sentiment/summary").then(setData).catch(e=>setError(e.message));},[]);return <section className="panel admin-community-sentiment"><span className="eyebrow">COMMUNITY MOOD SIGNALS</span><h2>커뮤니티 민심 요약</h2><p>공개 글의 감정분석 결과를 자유게시판과 Q&A로 나눠 보여줍니다. 비공개 문의는 분석에서 제외합니다.</p>{error?<p className="form-error">{error}</p>:data&&<div className="admin-community-board-grid">{data.boards.map(board=><article key={board.boardType} className="admin-community-board"><header><strong>{label(board.boardType)}</strong><small>공개 글 {board.postCount}개 · 분석 대기 {board.pendingCount}개</small></header><div className="admin-community-signal-grid"><span><b>{board.positivePostCount}</b>긍정 글</span><span><b>{board.negativePostCount}</b>부정 글</span><span><b>{board.positiveTerms}</b>긍정 표현</span><span><b>{board.negativeTerms}</b>부정 표현</span></div><div className="admin-community-preview">{board.recent.map(row=><div key={row.id}><b>{row.title}</b><small><em className={row.polarity?.toLowerCase()}>{polarity(row.polarity)}</em> · 긍정 표현 {row.positiveTerms} · 부정 표현 {row.negativeTerms}</small></div>)}</div></article>)}</div>}</section>}
