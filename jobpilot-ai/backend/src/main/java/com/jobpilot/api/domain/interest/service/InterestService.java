@@ -84,6 +84,13 @@ public class InterestService {
         return new InterestToggleResponse(request.targetId(), request.interested());
     }
 
+    /** Used by the planner's × button: remove the job bookmark and its automatic schedule together. */
+    public void removeJobBookmark(Long memberId, Long jobPostingId) {
+        var existing = interests.findByMemberIdAndTargetTypeAndTargetId(memberId, JOB, jobPostingId);
+        existing.ifPresent(interests::delete);
+        events.deleteByMemberIdAndSourceTypeAndSourceId(memberId, JOB, jobPostingId);
+    }
+
     private void notifyEmployer(Long memberId, JobPosting job) {
         if (job.getEmployerAccountId() == null) return;
         String nickname = members.findById(memberId).map(value -> value.getNickname()).orElse("일반회원");
