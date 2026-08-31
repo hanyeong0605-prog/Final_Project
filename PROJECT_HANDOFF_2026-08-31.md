@@ -3,10 +3,11 @@
 ## 현재 상황
 
 - 작업 브랜치: `김한영브뤤취학원`
-- 마지막 푸시 커밋: `d897a354 fix: restore paginated community list query`
+- 마지막 푸시 커밋: `af636e48 fix: calibrate community feedback sentiment`
 - 이 문서는 민감한 API 키, 서버 IP, 토큰을 포함하지 않는다.
 - 사용자는 `main`에 머지된 뒤 GitHub Actions의 **Verify and deploy main to EC2**로 EC2를 배포한다.
 - 현재 화면에 보인 수동 배포 실행은 실패가 아니라 취소 상태였다. `production-deploy` 동시 실행 제한 때문에 더 최신 요청이 들어오면 기존 실행이 취소된다.
+- 최신 Actions 화면 기준: PR #204의 브랜치 CI, `main` 머지 CI, `Verify and deploy main to EC2`가 각각 `In progress` 또는 `Queued`였다. 이는 정상적인 대기열 상태다. 같은 배포를 다시 실행하지 말고, 최신 `main` 배포 1건이 완료될 때까지 기다린다. 장시간(약 15분 이상) `Queued`에서 전혀 변하지 않을 때만 해당 실행 상세의 concurrency/runner 오류를 확인한다.
 
 ## 최우선 재개 순서
 
@@ -122,6 +123,17 @@ Public finance fallback diagnostics: ... apiRecords=... storedAnnualStatements=.
 - 표현 수는 운영자가 빠르게 분위기를 확인할 수 있도록 한국어 긍정/부정 신호어를 세는 보조 지표다. 모델 자체의 단어 추출 결과로 오해하면 안 된다.
 - DB 마이그레이션: `V53__queue_public_community_sentiment.sql`이 기존 공개 글 중 `SKIPPED` 상태를 `PENDING`으로 전환한다.
 - 실제 분석 수치는 백엔드 감정 워커와 AI 서버가 정상 설정·실행되어야 채워진다. 비공개 Q&A는 제외한다.
+
+### 부정 표현·부정 글 보정 (최신)
+
+커밋 `c4d189a5`, `af636e48`에 추가됨.
+
+- 문제 사례: `채용공고가 너무 IT 편향적이라 부족해요`가 기존 화면에서 긍정/부정 표현 모두 0개, 부정 글 0개로 표시됐다.
+- 원인: 관리자 화면의 보조 신호어 목록에 `편향`, `부족` 등이 없었고, 범용 감정 모델이 서비스 맥락의 불만을 `NEUTRAL`로 분류할 수 있었다.
+- 표현 집계에 `편향`, `부족`, `한정`, `제한`, `아쉽`, `불균형`, `차별`, `불공정`, `미흡`, `불안정`, `복잡`, `힘들` 등을 추가했다.
+- AI의 원 판정이 `NEUTRAL`이면서 위와 같은 명확한 부정 신호가 있으면, **커뮤니티 관리자 통계에서만** `NEGATIVE`로 보정한다. 이는 범용 모델을 재학습했다고 주장하는 기능이 아니라 서비스 피드백을 놓치지 않기 위한 명시적 운영 규칙이다.
+- `V54__requeue_community_feedback_calibration.sql`이 배포 시 기존 공개 글을 다시 `PENDING`으로 전환한다. 감정 워커가 활성화돼 있고 AI 서버 연결이 정상이라면 재분석 뒤 새 통계가 나온다.
+- 해당 문장은 재분석 후 부정 표현 최소 2개(`편향`, `부족`) 및 부정 글로 반영되는 것이 기대 결과다.
 
 ## 회사 리뷰 폐지
 
