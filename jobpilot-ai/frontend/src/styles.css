@@ -219,6 +219,12 @@ a { color: inherit; text-decoration: none; }
 .push-notification-section { margin-bottom: 22px; }
 .push-test-send { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e8ebf1; }
 .push-test-send p { margin: 6px 0 0; color: #9098a7; font-size: 11px; }
+/* 2026-08-31: 관리자 테스트 발송 입력칸 - 임의 문구로 실기기 알림을 재현해보는 용도. */
+.push-test-fields { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.push-test-fields input { width: 100%; border: 1px solid #e0e5ed; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #293349; background: #fbfcff; }
+.push-test-fields input:focus { outline: none; border-color: #6d8cf0; background: #fff; }
+.push-test-presets { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.push-test-presets .text-button { font-size: 11px; color: #6d8cf0; }
 .subscription-badge.active { background: #eaf7ee; color: #16a34a; }
 /* 사이드바 프로필 카드(닉네임 옆)에 넣을 때는 좁은 공간이라 더 작게. */
 .sidebar-subscription-badge { margin-left: 6px; padding: 2px 8px; font-size: 9px; vertical-align: middle; }
