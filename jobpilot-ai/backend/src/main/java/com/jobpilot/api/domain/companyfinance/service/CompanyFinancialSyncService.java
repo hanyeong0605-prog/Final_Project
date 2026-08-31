@@ -52,6 +52,7 @@ public class CompanyFinancialSyncService {
     private static final String DART_FINANCIAL_CORPORATIONS_FOR_YEAR = """
             SELECT DISTINCT corp_code FROM company_financial_years
             WHERE business_year=? AND report_code='11011' AND data_source='DART'
+              AND net_income IS NOT NULL
             """;
 
     private final OpenDartClient client;

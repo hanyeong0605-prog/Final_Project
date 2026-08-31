@@ -63,4 +63,13 @@ class OpenDartFinancialStatementParserTest {
         assertEquals(2500L, result.get("000660").revenue());
         assertEquals(800L, result.get("000660").totalLiabilities());
     }
+
+    @Test
+    void acceptsTheStandardDartNetIncomeLossAccountLabel() throws Exception {
+        var result = new OpenDartFinancialStatementParser(new ObjectMapper()).parse("""
+                {"status":"000","list":[{"account_nm":"당기순이익(손실)","thstrm_amount":"-42"}]}
+                """);
+
+        assertEquals(-42L, result.netIncome());
+    }
 }

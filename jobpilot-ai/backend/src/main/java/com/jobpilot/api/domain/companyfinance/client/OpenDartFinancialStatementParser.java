@@ -64,7 +64,10 @@ public class OpenDartFinancialStatementParser {
             switch (name) {
                 case "매출액", "수익(매출액)" -> revenue = amount;
                 case "영업이익" -> operatingIncome = amount;
-                case "당기순이익" -> netIncome = amount;
+                // OpenDART commonly labels a loss-making year as "당기순이익(손실)".
+                // Treat both total-profit labels as the same feature, while deliberately
+                // excluding the separate controlling/non-controlling-owner subtotals.
+                case "당기순이익", "당기순이익(손실)", "당기순손익" -> netIncome = amount;
                 case "자산총계" -> totalAssets = amount;
                 case "부채총계" -> totalLiabilities = amount;
                 case "자본총계" -> totalEquity = amount;
