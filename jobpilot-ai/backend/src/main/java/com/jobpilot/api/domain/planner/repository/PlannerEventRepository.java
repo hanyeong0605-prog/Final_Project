@@ -18,4 +18,6 @@ public interface PlannerEventRepository extends JpaRepository<PlannerEvent, Long
             Long memberId, String sourceType, Long sourceId, String eventType);
     void deleteByMemberIdAndSourceTypeAndSourceId(Long memberId, String sourceType, Long sourceId);
     boolean existsByMemberIdAndSourceTypeAndSourceId(Long memberId, String sourceType, Long sourceId);
+    boolean existsByMemberIdAndSourceTypeAndSourceIdAndEventTypeAndStartsAt(
+            Long memberId, String sourceType, Long sourceId, String eventType, LocalDateTime startsAt);
 }

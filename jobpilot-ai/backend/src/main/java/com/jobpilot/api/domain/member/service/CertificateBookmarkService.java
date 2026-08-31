@@ -78,8 +78,14 @@ public class CertificateBookmarkService {
         LocalDate from = parseDate(start); if (from == null) return;
         LocalDate to = parseDate(end); if (to == null) to = from;
         String title = "자격증 · " + bookmark.getName() + " · " + (roundName == null || roundName.isBlank() ? phase : roundName + " " + phase);
+        LocalDateTime startsAt = LocalDateTime.of(from, LocalTime.MIN);
+        // One qualification has multiple annual rounds. The old unique key treated all
+        // written (or all practical) rounds as one event, causing a flush failure that
+        // made the entire planner GET endpoint return 500.
+        if (plannerEvents.existsByMemberIdAndSourceTypeAndSourceIdAndEventTypeAndStartsAt(
+                memberId, "CERTIFICATE", bookmark.getId(), eventType, startsAt)) return;
         plannerEvents.save(PlannerEvent.fromCertificate(memberId, bookmark.getId(), title, eventType,
-                LocalDateTime.of(from, LocalTime.MIN), LocalDateTime.of(to, LocalTime.MAX)));
+                startsAt, LocalDateTime.of(to, LocalTime.MAX)));
     }
 
     private LocalDate parseDate(String value) {
