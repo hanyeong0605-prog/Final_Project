@@ -27,8 +27,8 @@ export function PlannerPage() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const load = () => getPlannerEvents(month).then((data) => { setEvents(data); setStatus("ready"); }).catch(() => { setEvents([]); setStatus("error"); });
-  useEffect(() => { setStatus("loading"); setSelectedEventId(null); void load(); }, [month]);
+  const load = () => getPlannerEvents(month).then((data) => { setEvents(data); setStatus("ready"); }).catch((reason) => { setEvents([]); setError(reason instanceof Error ? reason.message : "일정을 불러오지 못했습니다."); setStatus("error"); });
+  useEffect(() => { setStatus("loading"); setError(""); setSelectedEventId(null); void load(); }, [month]);
   const monthStart = new Date(month.getFullYear(), month.getMonth(), 1); const gridStart = new Date(monthStart); gridStart.setDate(1 - monthStart.getDay());
   const days = Array.from({ length: 42 }, (_, index) => { const value = new Date(gridStart); value.setDate(gridStart.getDate() + index); return value; });
   const dayEvents = (day: Date) => events.filter((event) => { const start = new Date(event.startsAt); const end = new Date(event.endsAt ?? event.startsAt); const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999); const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0); return start <= endOfDay && end >= startOfDay; });

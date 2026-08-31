@@ -44,6 +44,9 @@ public class OpenDartFinancialStatementParser {
         if ("013".equals(status)) {
             throw new OpenDartNoDataException();
         }
+        if ("020".equals(status)) {
+            throw new OpenDartRequestLimitException();
+        }
         if (!"000".equals(status)) {
             // Do not silently turn invalid keys, rate limits, or upstream failures into missing data.
             throw new IOException("OpenDART financial statement request failed with status=" + status);

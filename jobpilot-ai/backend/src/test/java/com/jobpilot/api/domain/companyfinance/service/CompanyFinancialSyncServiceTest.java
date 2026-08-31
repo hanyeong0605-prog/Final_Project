@@ -65,6 +65,18 @@ class CompanyFinancialSyncServiceTest {
     }
 
     @Test
+    void skipsDartRequestForAnAnnualStatementAlreadyStoredFromDart() {
+        OpenDartClient client = mock(OpenDartClient.class);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        mockListedCorporation(jdbc);
+        when(jdbc.queryForList(anyString(), eq(String.class), eq(2025))).thenReturn(List.of("00126380"));
+
+        assertEquals(0, new CompanyFinancialSyncService(client, jdbc).syncConfirmedCompanies(2025, 2025));
+
+        org.mockito.Mockito.verifyNoInteractions(client);
+    }
+
+    @Test
     void storesConfirmedUnlistedCorporationWithSingleCompanyDartEndpoint() {
         OpenDartClient client = mock(OpenDartClient.class);
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
