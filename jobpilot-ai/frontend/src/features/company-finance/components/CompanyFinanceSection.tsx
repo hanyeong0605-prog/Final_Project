@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CircleAlert, ExternalLink, Landmark, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -41,6 +41,10 @@ function ratio(numerator: number | null, denominator: number | null) {
   return (numerator / denominator) * 100;
 }
 
+function hasValue(rows: CompanyFinancialYear[], field: "revenue" | "operatingIncome" | "netIncome" | "operatingCashFlow") {
+  return rows.some((row) => row[field] != null);
+}
+
 function receiptUrl(receiptNumber: string) {
   return `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${encodeURIComponent(receiptNumber)}`;
 }
@@ -80,7 +84,7 @@ function FinanceChart({ title, rows, field, tone = "blue" }: {
   </article>;
 }
 
-function ForecastCard({ data }: { data: CompanyFinanceAnalysis }) {
+function ForecastCard({ data, revealed }: { data: CompanyFinanceAnalysis; revealed: boolean }) {
   const forecast = data.forecast;
   if (!forecast || data.status !== "READY") return <article className="company-finance-forecast pending">
     <span className="company-finance-icon"><ShieldCheck size={20} /></span>
@@ -89,29 +93,52 @@ function ForecastCard({ data }: { data: CompanyFinanceAnalysis }) {
   const outlookClass = forecast.outlook.toLowerCase();
   const riskStatus = forecast.stabilityRiskProbability >= .5 ? "주의" : "양호";
   const labels = forecastMetricLabels(riskStatus);
-  return <article className={`company-finance-forecast ${outlookClass}`}>
+  const growthPercent = Math.round(forecast.growthProbability * 100);
+  return <article className={`company-finance-forecast ${outlookClass}${revealed ? " is-revealed" : ""}`}>
     <span className="company-finance-icon"><Sparkles size={20} /></span>
     <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK · {forecast.modelVersion}</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 재무 데이터로 계산한 ML 예측 지표이며, 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
-    <div className="company-finance-probabilities"><span><b>{Math.round(forecast.growthProbability * 100)}%</b>{labels.growth}</span><span><b>{Math.round(forecast.profitabilityImprovementProbability * 100)}%</b>{labels.profitability}</span><span><b>{labels.risk.split(":")[0]}</b>{labels.risk.substring(labels.risk.indexOf(":") + 2)}</span></div>
+    <div className="company-finance-forecast-metrics">
+      <div className="company-finance-growth-score" style={{ "--growth": `${growthPercent}%` } as CSSProperties}><strong>{growthPercent}%</strong><span>{labels.growth}</span></div>
+      <div className="company-finance-probabilities"><span><b>{Math.round(forecast.profitabilityImprovementProbability * 100)}%</b>{labels.profitability}</span><span><b>{labels.risk.split(":")[0]}</b>{labels.risk.substring(labels.risk.indexOf(":") + 2)}</span></div>
+    </div>
   </article>;
 }
 
 export function CompanyFinanceSection({ postingId }: { postingId: number }) {
   const [data, setData] = useState<CompanyFinanceAnalysis | null>(null);
   const [failed, setFailed] = useState(false);
+  const [forecastRevealed, setForecastRevealed] = useState(false);
+  const forecastRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     setFailed(false);
+    setForecastRevealed(false);
     getCompanyFinance(postingId, controller.signal).then(setData).catch((error) => {
       if ((error as Error).name !== "AbortError") setFailed(true);
     });
     return () => controller.abort();
   }, [postingId]);
 
+  useEffect(() => {
+    const target = forecastRef.current;
+    if (!target || !data?.forecast || data.status !== "READY") return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setForecastRevealed(true); observer.disconnect(); }
+    }, { threshold: .3 });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [data]);
+
   const rows = useMemo(() => data?.financials.slice(-5) ?? [], [data]);
   const latest = rows.at(-1);
   const debtRatio = latest ? ratio(latest.totalLiabilities, latest.totalEquity) : null;
-  const cashFlowRatio = latest ? ratio(latest.operatingCashFlow, latest.revenue) : null;
+  const latestCashFlow = [...rows].reverse().find((row) => row.operatingCashFlow != null);
+  const cashFlowRatio = latestCashFlow ? ratio(latestCashFlow.operatingCashFlow, latestCashFlow.revenue) : null;
+  const charts = [
+    { title: "매출액", field: "revenue" as const, tone: "blue" as const },
+    { title: "영업이익", field: "operatingIncome" as const, tone: "green" as const },
+    { title: "당기순이익", field: "netIncome" as const, tone: "purple" as const },
+  ].filter((chart) => hasValue(rows, chart.field));
   const unavailable = failed || (data && ["UNMATCHED", "FINANCIALS_NOT_FOUND", "TEMPORARILY_UNAVAILABLE"].includes(data.status));
 
   return <section id="company-finance" className="company-finance-section" aria-labelledby="company-finance-title">
@@ -119,17 +146,15 @@ export function CompanyFinanceSection({ postingId }: { postingId: number }) {
     {!data && !failed && <div className="company-finance-state"><BarChart3 className="spinning" size={22} /><strong>재무정보를 불러오는 중입니다.</strong></div>}
     {unavailable && <div className="company-finance-state"><CircleAlert size={22} /><div><strong>재무 분석을 표시할 수 없습니다.</strong><p>{failed ? "재무정보를 일시적으로 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." : data?.message}</p></div></div>}
     {data && rows.length > 0 && <>
-      <ForecastCard data={data} />
+      <div ref={forecastRef}><ForecastCard data={data} revealed={forecastRevealed} /></div>
       {data.status === "DATA_INSUFFICIENT" && <div className="company-finance-inline-notice"><CircleAlert size={16} />{data.message}</div>}
       <div className="company-finance-chart-grid">
-        <FinanceChart title="매출액" rows={rows} field="revenue" />
-        <FinanceChart title="영업이익" rows={rows} field="operatingIncome" tone="green" />
-        <FinanceChart title="당기순이익" rows={rows} field="netIncome" tone="purple" />
+        {charts.map((chart) => <FinanceChart key={chart.field} title={chart.title} rows={rows} field={chart.field} tone={chart.tone} />)}
       </div>
-      <div className="company-finance-health-grid">
-        <article><span><TrendingUp size={16} />재무 안정성</span><strong>{debtRatio == null ? "자료 없음" : `부채비율 ${debtRatio.toFixed(1)}%`}</strong><p>최근 사업연도 부채총계를 자본총계로 나눈 값입니다.</p></article>
-        <article><span><BarChart3 size={16} />영업 현금흐름</span><strong>{latest?.operatingCashFlow == null ? "자료 없음" : money(latest.operatingCashFlow)}</strong><p>{cashFlowRatio == null ? "매출 대비 비율을 계산할 자료가 부족합니다." : `매출 대비 ${cashFlowRatio.toFixed(1)}% 수준입니다.`}</p></article>
-      </div>
+      {(debtRatio != null || latestCashFlow) && <div className="company-finance-health-grid">
+        {debtRatio != null && <article><span><TrendingUp size={16} />재무 안정성</span><strong>부채비율 {debtRatio.toFixed(1)}%</strong><p>최근 사업연도 부채총계를 자본총계로 나눈 값입니다.</p></article>}
+        {latestCashFlow && <article><span><BarChart3 size={16} />영업 현금흐름</span><strong>{money(latestCashFlow.operatingCashFlow)}</strong><p>{cashFlowRatio == null ? "매출 대비 비율을 계산할 자료가 부족합니다." : `매출 대비 ${cashFlowRatio.toFixed(1)}% 수준입니다.`}</p></article>}
+      </div>}
       <footer className="company-finance-source"><div><ShieldCheck size={15} /><span>출처: 금융감독원 전자공시시스템 DART · {latest?.fsDiv === "CFS" ? "연결" : "별도"}재무제표 · 최근 {rows.length}개 사업연도</span></div><div>{rows.filter((row) => row.receiptNumber).map((row) => <a key={`${row.businessYear}-${row.receiptNumber}`} href={receiptUrl(row.receiptNumber!)} target="_blank" rel="noreferrer">{row.businessYear} 공시 <ExternalLink size={11} /></a>)}</div><small>재무 추이와 모델 전망은 투자 조언이나 미래 실적 보장이 아닙니다.</small></footer>
     </>}
   </section>;
