@@ -104,7 +104,7 @@ function ForecastCard({ data, phase }: { data: CompanyFinanceAnalysis; phase: Fo
   </article>;
   return <article className={`company-finance-forecast ${outlookClass}${phase === "revealed" ? " is-revealed" : ""}`}>
     <span className="company-finance-icon"><Sparkles size={20} /></span>
-    <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK · {forecast.modelVersion}</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 재무 데이터로 계산한 ML 예측 지표이며, 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
+    <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 재무 데이터로 계산한 ML 예측 지표이며, 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
     <div className="company-finance-forecast-metrics">
       <div className="company-finance-growth-score" style={{ "--growth": `${growthPercent}%` } as CSSProperties}><strong>{growthPercent}%</strong><span>{labels.growth}</span></div>
       <div className="company-finance-probabilities"><span><b>{Math.round(forecast.profitabilityImprovementProbability * 100)}%</b>{labels.profitability}</span><span><b>{labels.risk.split(":")[0]}</b>{labels.risk.substring(labels.risk.indexOf(":") + 2)}</span></div>

@@ -74,11 +74,6 @@ public class SecurityConfig {
                         authorize.requestMatchers("/api/v1/dev/auth/token", "/api/v1/dev/auth/admin-token").permitAll();
                     }
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/job-postings/**").permitAll();
-                    // Homepage rankings contain only aggregated fictional-demo review statistics.
-                    // They must remain public because the home page renders before authentication.
-                    authorize.requestMatchers(HttpMethod.GET,
-                            "/api/v1/review-companies/rankings/companies",
-                            "/api/v1/review-companies/rankings/postings").permitAll();
                     // POST /ingest는 크롤러(ai-server)가 로그인 토큰 없이 호출한다 -
                     // InternalApiKeyFilter가 공유 비밀키(app.internal-api-key)로 이미
                     // 검증하므로 여기서는 permitAll하고, 키 검증 실패는 그 필터가 401로
