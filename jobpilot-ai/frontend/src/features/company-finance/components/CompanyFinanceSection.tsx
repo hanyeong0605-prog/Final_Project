@@ -84,7 +84,9 @@ function FinanceChart({ title, rows, field, tone = "blue" }: {
   </article>;
 }
 
-function ForecastCard({ data, revealed }: { data: CompanyFinanceAnalysis; revealed: boolean }) {
+type ForecastPhase = "idle" | "analyzing" | "revealed";
+
+function ForecastCard({ data, phase }: { data: CompanyFinanceAnalysis; phase: ForecastPhase }) {
   const forecast = data.forecast;
   if (!forecast || data.status !== "READY") return <article className="company-finance-forecast pending">
     <span className="company-finance-icon"><ShieldCheck size={20} /></span>
@@ -94,7 +96,12 @@ function ForecastCard({ data, revealed }: { data: CompanyFinanceAnalysis; reveal
   const riskStatus = forecast.stabilityRiskProbability >= .5 ? "주의" : "양호";
   const labels = forecastMetricLabels(riskStatus);
   const growthPercent = Math.round(forecast.growthProbability * 100);
-  return <article className={`company-finance-forecast ${outlookClass}${revealed ? " is-revealed" : ""}`}>
+  if (phase === "analyzing") return <article className="company-finance-forecast company-finance-forecast-analysis" aria-live="polite">
+    <span className="company-finance-icon"><Sparkles size={20} /></span>
+    <div className="company-finance-analysis-copy"><span className="eyebrow">VERIFIED ML OUTLOOK</span><h3>기업 성장 신호를 분석하고 있습니다</h3><p>공시 재무 추이와 검증된 모델 결과를 연결해 다음 사업연도 전망을 구성 중입니다.</p><div className="company-finance-analysis-steps"><span>매출 추이</span><span>수익성</span><span>재무 안정성</span><span>성장 전망</span></div></div>
+    <div className="company-finance-analysis-orbit" aria-hidden="true"><i /><i /><i /></div>
+  </article>;
+  return <article className={`company-finance-forecast ${outlookClass}${phase === "revealed" ? " is-revealed" : ""}`}>
     <span className="company-finance-icon"><Sparkles size={20} /></span>
     <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK · {forecast.modelVersion}</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 재무 데이터로 계산한 ML 예측 지표이며, 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
     <div className="company-finance-forecast-metrics">
@@ -107,12 +114,12 @@ function ForecastCard({ data, revealed }: { data: CompanyFinanceAnalysis; reveal
 export function CompanyFinanceSection({ postingId }: { postingId: number }) {
   const [data, setData] = useState<CompanyFinanceAnalysis | null>(null);
   const [failed, setFailed] = useState(false);
-  const [forecastRevealed, setForecastRevealed] = useState(false);
+  const [forecastPhase, setForecastPhase] = useState<ForecastPhase>("idle");
   const forecastRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     setFailed(false);
-    setForecastRevealed(false);
+    setForecastPhase("idle");
     getCompanyFinance(postingId, controller.signal).then(setData).catch((error) => {
       if ((error as Error).name !== "AbortError") setFailed(true);
     });
@@ -122,11 +129,16 @@ export function CompanyFinanceSection({ postingId }: { postingId: number }) {
   useEffect(() => {
     const target = forecastRef.current;
     if (!target || !data?.forecast || data.status !== "READY") return;
+    let revealTimer: number | undefined;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setForecastRevealed(true); observer.disconnect(); }
+      if (entry.isIntersecting) {
+        setForecastPhase("analyzing");
+        revealTimer = window.setTimeout(() => setForecastPhase("revealed"), 1350);
+        observer.disconnect();
+      }
     }, { threshold: .3 });
     observer.observe(target);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); if (revealTimer !== undefined) window.clearTimeout(revealTimer); };
   }, [data]);
 
   const rows = useMemo(() => data?.financials.slice(-5) ?? [], [data]);
@@ -146,7 +158,7 @@ export function CompanyFinanceSection({ postingId }: { postingId: number }) {
     {!data && !failed && <div className="company-finance-state"><BarChart3 className="spinning" size={22} /><strong>재무정보를 불러오는 중입니다.</strong></div>}
     {unavailable && <div className="company-finance-state"><CircleAlert size={22} /><div><strong>재무 분석을 표시할 수 없습니다.</strong><p>{failed ? "재무정보를 일시적으로 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." : data?.message}</p></div></div>}
     {data && rows.length > 0 && <>
-      <div ref={forecastRef}><ForecastCard data={data} revealed={forecastRevealed} /></div>
+      <div ref={forecastRef}><ForecastCard data={data} phase={forecastPhase} /></div>
       {data.status === "DATA_INSUFFICIENT" && <div className="company-finance-inline-notice"><CircleAlert size={16} />{data.message}</div>}
       <div className="company-finance-chart-grid">
         {charts.map((chart) => <FinanceChart key={chart.field} title={chart.title} rows={rows} field={chart.field} tone={chart.tone} />)}
