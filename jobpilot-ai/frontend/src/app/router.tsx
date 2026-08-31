@@ -38,6 +38,8 @@ import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { OAuthCompletePage } from "../pages/OAuthCompletePage";
 import { CapabilityManagementPage } from "../pages/CapabilityManagementPage";
 import { CommunityPage } from "../pages/CommunityPage";
+import { CommunityWritePage } from "../pages/CommunityWritePage";
+import { CommunityDetailPage } from "../pages/CommunityDetailPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -70,6 +72,8 @@ export const router = createBrowserRouter([
       { path: "job-postings", element: <AllJobPostingsPage /> },
       { path: "job-postings/:id", element: <JobPostingDetailPage /> },
       { path: "community", element: <CommunityPage /> },
+      { path: "community/write", element: <CommunityWritePage /> },
+      { path: "community/:id", element: <CommunityDetailPage /> },
       { path: "locationjobs", element: <LocationJobsPage /> },
       { path: "opportunities", element: <OpportunitiesPage /> },
       { path: "opportunities/:id", element: <OpportunityDetailPage /> },
