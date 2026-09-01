@@ -1501,8 +1501,8 @@ body { color: #2d3a50; line-height: 1.55; }
 }
 
 /* 빠른 시작도 채용공고 카드처럼 이미지 미리보기와 안내 정보를 위·아래로 분리한다. */
-.home-quick-grid { gap: 16px; }
-.home-quick-card { display: block; overflow: hidden; padding: 0; background: #fff; }
+.home-quick-grid { justify-items: center; gap: 16px; }
+.home-quick-card { display: block; width: min(100%, 340px); overflow: hidden; padding: 0; background: #fff; }
 .home-quick-thumbnail { aspect-ratio: 16 / 7; overflow: hidden; background: #CCDEFE; }
 .home-quick-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform .2s ease; }
 .home-quick-card-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 11px; align-items: start; padding: 15px 16px; }
@@ -1513,5 +1513,5 @@ body { color: #2d3a50; line-height: 1.55; }
 .home-quick-card:hover .home-quick-thumbnail img { transform: scale(1.035); }
 @media (max-width: 1180px) and (min-width: 741px) {
   .home-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .home-quick-card:last-child { grid-column: 1 / -1; width: calc((100% - 16px) / 2); justify-self: center; }
+  .home-quick-card:last-child { grid-column: 1 / -1; width: min(100%, 340px); justify-self: center; }
 }
