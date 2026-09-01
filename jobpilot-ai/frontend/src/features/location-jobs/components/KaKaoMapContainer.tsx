@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import type { LocationJob } from "../model/types";
-import { useNavigate } from "react-router-dom";
 
 const CURRENT_LOCATION_MARKER = "/map-markers/current-location-cat.png";
 
@@ -36,7 +35,6 @@ export const KakaoMapContainer: React.FC<Props> = ({
   const centerLockedRef = useRef(isCenterLocked);
   const onCenterChangedRef = useRef(onCenterChanged);
   
-  const navigate = useNavigate();
 
   useEffect(() => {
     centerLockedRef.current = isCenterLocked;
@@ -80,11 +78,6 @@ export const KakaoMapContainer: React.FC<Props> = ({
     container.onclick = (e) => {
       e.stopPropagation();
       onSelectJob(job);
-      
-      const targetId = job.jobPostingId || job.id;
-      if (targetId) {
-        navigate(`/job-postings/${targetId}`);
-      }
     };
 
     return container;
@@ -287,8 +280,9 @@ export const KakaoMapContainer: React.FC<Props> = ({
       row.append(company, detail);
       row.addEventListener("click", () => {
         onSelectJob(job);
-        const targetId = job.jobPostingId || job.id;
-        if (targetId) navigate(`/job-postings/${targetId}`);
+        // 군집에서 항목을 고르면 상세 화면으로 보내지 않는다. 선택된 카드가
+        // 왼쪽 목록으로 부드럽게 이동하고, 사용자가 카드에서 상세 보기를 선택한다.
+        clusterOverlayRef.current?.setMap(null);
       });
       panel.appendChild(row);
     });
