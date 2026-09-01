@@ -1473,3 +1473,45 @@ button:focus-visible,a:focus-visible {
 .interview-room-close { position: absolute; top: 10px; right: 10px; z-index: 3; display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid #d6dded; border-radius: 8px; background: #fff; color: #7c8698; padding: 0; cursor: pointer; transition: .15s; }
 .interview-room-close:hover { border-color: #e9b4ae; background: #fdf1ef; color: #c0392b; }
 .interview-room-close:focus-visible { outline: 2px solid #596ff3; outline-offset: 2px; }
+
+/* Readability pass: 보조 정보와 카드 경계를 제목만큼 또렷하게 보이도록 한다. */
+:root { color: #17243b; font-size: 16px; }
+body { color: #2d3a50; line-height: 1.55; }
+
+.sidebar, .topbar, .profile-card, .panel, .filter-panel, .metric-card,
+.home-quick-section, .home-job-showcase, .home-wordcloud-section, .home-stat-card,
+.home-statistics-section, .job-card, .posting-card, .notification-popover {
+  border-color: #cbd5e3;
+}
+
+.panel, .filter-panel, .metric-card, .home-job-showcase, .job-card, .posting-card {
+  box-shadow: 0 1px 2px #22375b12;
+}
+
+.page-heading p, .home-section-description, .panel-title p, .source-note,
+.notification-item-body, .data-empty, .home-job-company small, .home-job-card > p,
+.posting-company-identity, .posting-meta, .posting-footer strong, .posting-footer span {
+  color: #5f6d82;
+}
+
+.page-heading p { font-size: 15px; line-height: 1.75; }
+.home-section-description { font-size: 13px; line-height: 1.7; }
+.panel-title p, .source-note { font-size: 12px; line-height: 1.65; }
+.notification-item-body, .data-empty { font-size: 13px; }
+
+.home-job-company small, .home-job-card > p, .posting-company-identity,
+.posting-meta, .posting-footer strong, .posting-footer span { font-size: 12px; }
+.home-job-card > strong { font-size: 15px; line-height: 1.45; }
+.posting-card h2 { font-size: 17px; line-height: 1.42; }
+
+/* 상세 첫 이미지를 공고의 대표 비주얼로 쓰고, 홈·목록의 비율을 같은 3:2로 맞춘다. */
+.home-job-preview, .posting-card-preview {
+  aspect-ratio: 3 / 2;
+  height: auto;
+  border-color: #cdd7e8;
+  background: #f1f4fb;
+}
+
+.home-job-card { border-color: #cbd5e4; background: #fff; }
+.home-job-card footer, .posting-footer, .home-showcase-controls { border-color: #d5ddea; }
+.home-job-card:hover, .posting-card:hover { border-color: #94a8f5; box-shadow: 0 12px 26px #314f8c1c; }
