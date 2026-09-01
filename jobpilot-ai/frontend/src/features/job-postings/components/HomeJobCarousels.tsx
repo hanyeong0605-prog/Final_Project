@@ -74,10 +74,10 @@ function HomeJobShowcase({ eyebrow, title, description, sort, moreTo }: Showcase
 function HomeJobCard({ posting }: { posting: JobPosting }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
-  const preview = posting.thumbnailUrl || posting.companyLogoUrl;
+  const preview = posting.thumbnailUrl;
   const companyLogo = posting.companyLogoUrl;
   return <Link to={`/job-postings/${posting.id}`} className="home-job-card">
-    <div className="home-job-preview">{preview && !imageFailed ? <img src={preview} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} /> : <span>{posting.companyName?.slice(0, 1) ?? "J"}</span>}</div>
+    <div className="home-job-preview">{preview && !imageFailed ? <img src={preview} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} /> : null}</div>
     <div className="home-job-company">{companyLogo && !logoFailed ? <img src={companyLogo} alt="" onError={() => setLogoFailed(true)} /> : <span>{posting.companyName?.slice(0, 1) ?? "J"}</span>}<small>{posting.companyName ?? "채용 기업"}</small></div>
     <strong>{posting.title}</strong><p>{posting.location && <><MapPin size={13} />{posting.location}</>}</p>
     <footer><span><Eye size={13} /> {(posting.viewCount ?? 0).toLocaleString()}</span><span><Heart size={13} /> {(posting.bookmarkCount ?? 0).toLocaleString()}</span></footer>

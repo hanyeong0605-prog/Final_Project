@@ -25,7 +25,7 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const interested = isInterested(posting.id);
-  const previewImageUrl = posting.thumbnailUrl || posting.companyLogoUrl;
+  const previewImageUrl = posting.thumbnailUrl;
   const companyLogoUrl = posting.companyLogoUrl;
   const skills = (posting.jobName || posting.keywords || "").split(",").map((value) => value.trim()).filter(Boolean).slice(0, 5);
   const workType = [posting.experienceType, posting.employmentType].filter(hasText).join(" · ");
@@ -51,7 +51,7 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
     <div className="posting-card-preview">
       {hasText(previewImageUrl) && !imageFailed
         ? <img src={previewImageUrl} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} />
-        : <Building2 size={30} />}
+        : null}
     </div>
     <div className="posting-card-main">
       <h2>{posting.title}</h2>
