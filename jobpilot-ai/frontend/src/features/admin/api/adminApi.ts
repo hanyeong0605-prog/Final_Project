@@ -44,7 +44,7 @@ export const deleteAdminJobPosting = (jobPostingId: number) =>
 export const getAdminHomePromotions = () => getJson<AdminHomePromotion[]>(`${BASE}/home-promotions`);
 export const getAdminTrainingPromotionCandidates = (query = "") => getJson<AdminPage<AdminTrainingPromotionCandidate>>(`${BASE}/home-promotions/trainings?size=10&query=${encodeURIComponent(query)}`);
 export const createAdminHomePromotion = (request: CreateAdminHomePromotion) => postJson<AdminHomePromotion>(`${BASE}/home-promotions`, request);
-export const deleteAdminHomePromotion = (promotionId: number) => deleteJson<void>(`${BASE}/home-promotions/${promotionId}`);
+export const deleteAdminHomePromotion = (promotionId: number) => deleteJson(`${BASE}/home-promotions/${promotionId}`);
 export const getAdminEmployers = (query = "", status: EmployerAccountStatus | "ALL" = "ALL", page = 0, size = 20) =>
   getJson<AdminPage<AdminEmployer>>(`${BASE}/employers?size=${size}&page=${page}&query=${encodeURIComponent(query)}&status=${status}`);
 export const approveAdminEmployer = (employerId: number) => patchJson<AdminEmployer>(`${BASE}/employers/${employerId}/approve`, {});
