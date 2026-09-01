@@ -95,6 +95,8 @@ public class JobPostingSearchService {
                 // actual company/job visual next.  List cards use only that visual; when it is
                 // absent, the UI intentionally leaves the preview blank rather than stretching a logo.
                 + "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[2]')), 'null'), "
+                + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[1]')), 'null'), "
+                + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[0]')), 'null'), "
                 + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null')) AS thumbnail_url, "
                 + "title, source_url, location, employment_type, "
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
@@ -133,8 +135,18 @@ public class JobPostingSearchService {
             parameters.addValue("location", "%" + location.trim() + "%");
         }
         if (hasText(employmentType)) {
-            where.append(" AND LOWER(COALESCE(employment_type, '')) = :employmentType");
-            parameters.addValue("employmentType", employmentType.trim().toLowerCase(Locale.ROOT));
+            // 수집처마다 '정규직', 'regular', 'full-time'처럼 표현이 달라 정확 비교하면
+            // UI 필터가 빈 결과가 된다. 화면의 공통 분류를 원문 표현까지 포괄한다.
+            String normalized = employmentType.trim().toLowerCase(Locale.ROOT);
+            String pattern = switch (normalized) {
+                case "regular" -> "%정규%";
+                case "contract" -> "%계약%";
+                case "intern" -> "%인턴%";
+                default -> "%" + normalized + "%";
+            };
+            where.append(" AND (LOWER(COALESCE(employment_type, '')) LIKE :employmentType OR LOWER(COALESCE(employment_type, '')) LIKE :employmentEnglish)");
+            parameters.addValue("employmentType", pattern);
+            parameters.addValue("employmentEnglish", "%" + normalized + "%");
         }
         if (financialsOnly) where.append(" AND ").append(HAS_FINANCIALS);
 

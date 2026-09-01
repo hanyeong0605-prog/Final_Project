@@ -5,6 +5,7 @@ import { PageHeading } from "../shared/components/PageHeading";
 import { AdminFaceAuthModal } from "../features/admin/components/AdminFaceAuthModal";
 import { AdminFaceReferenceModal } from "../features/admin/components/AdminFaceReferenceModal";
 import { AdminCommunitySentiment } from "../features/admin/components/AdminCommunitySentiment";
+import { AdminCommunityManager } from "../features/admin/components/AdminCommunityManager";
 import { HomePromotionManager } from "../features/admin/components/HomePromotionManager";
 import { getAdminFaceReferences } from "../features/admin/api/adminFaceReferenceApi";
 import {
@@ -269,6 +270,7 @@ export function AdminPage() {
         <>
           <PageHeading eyebrow="ADMIN CONSOLE" title="관리자 페이지" body="회원, 채용공고, 일일 방문 현황을 안전하게 관리합니다." />
           <AdminCommunitySentiment />
+          <AdminCommunityManager />
           {(notice || error) && <div className={error ? "account-alert error" : "account-alert"}>{error || notice}</div>}
 
           <section className="admin-metric-grid">

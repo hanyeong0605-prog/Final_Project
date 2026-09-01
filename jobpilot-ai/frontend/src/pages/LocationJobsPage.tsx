@@ -203,6 +203,7 @@ export function LocationJobsPage() {
                   title: job.title || job.jobTitle || "채용 공고",
                   location: job.address || job.locationText || job.location,
                   companyLogoUrl: job.companyLogoUrl || job.logoUrl,
+                  thumbnailUrl: job.thumbnailUrl,
                 } as unknown as JobPosting;
 
                 return (
