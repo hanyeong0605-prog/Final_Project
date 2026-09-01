@@ -49,7 +49,7 @@ export function HomePage() {
 
     <section className="home-quick-section" data-scroll-reveal>
       <div className="home-section-heading"><div><span className="eyebrow">START HERE</span><h2>오늘 무엇을 해볼까요?</h2><p className="home-section-description">나에게 맞는 채용공고를 찾아보고, 필요한 준비를 하나씩 시작해 보세요.</p></div><Link to="/dashboard">대시보드 보기 <ArrowRight size={15} /></Link></div>
-      <div className="home-quick-grid">{quickLinks.map(({ to, image, title, body }) => <Link key={to} to={to} className="home-quick-card" aria-label={`${title}: ${body}`}><img src={image} alt="" /><span>{title} 시작하기 <ArrowRight size={17} /></span></Link>)}</div>
+      <div className="home-quick-grid">{quickLinks.map(({ to, image, title, body }) => <Link key={to} to={to} className="home-quick-card" aria-label={`${title}: ${body}`}><img src={image} alt="" /></Link>)}</div>
     </section>
 
     <HomeJobCarousels />

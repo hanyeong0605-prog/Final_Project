@@ -1478,26 +1478,16 @@ button:focus-visible,a:focus-visible {
 :root { color: #17243b; font-size: 16px; }
 body { color: #2d3a50; line-height: 1.55; }
 
-.sidebar, .topbar, .profile-card, .panel, .filter-panel, .metric-card,
-.home-quick-section, .home-job-showcase, .home-wordcloud-section, .home-stat-card,
-.home-statistics-section, .job-card, .posting-card, .notification-popover {
-  border-color: #cbd5e3;
-}
-
-.panel, .filter-panel, .metric-card, .home-job-showcase, .job-card, .posting-card {
-  box-shadow: 0 1px 2px #22375b12;
-}
-
 .page-heading p, .home-section-description, .panel-title p, .source-note,
 .notification-item-body, .data-empty, .home-job-company small, .home-job-card > p,
 .posting-company-identity, .posting-meta, .posting-footer strong, .posting-footer span {
   color: #5f6d82;
 }
 
-.page-heading p { font-size: 15px; line-height: 1.75; }
-.home-section-description { font-size: 13px; line-height: 1.7; }
-.panel-title p, .source-note { font-size: 12px; line-height: 1.65; }
-.notification-item-body, .data-empty { font-size: 13px; }
+.page-heading p { font-size: 16px; line-height: 1.75; }
+.home-section-description { font-size: 14px; line-height: 1.7; }
+.panel-title p, .source-note { font-size: 13px; line-height: 1.65; }
+.notification-item-body, .data-empty { font-size: 14px; }
 
 .home-job-company small, .home-job-card > p, .posting-company-identity,
 .posting-meta, .posting-footer strong, .posting-footer span { font-size: 12px; }
@@ -1508,44 +1498,35 @@ body { color: #2d3a50; line-height: 1.55; }
 .home-job-preview, .posting-card-preview {
   aspect-ratio: 3 / 2;
   height: auto;
-  border-color: #cdd7e8;
-  background: #f1f4fb;
 }
-
-.home-job-card { border-color: #cbd5e4; background: #fff; }
-.home-job-card footer, .posting-footer, .home-showcase-controls { border-color: #d5ddea; }
-.home-job-card:hover, .posting-card:hover { border-color: #94a8f5; box-shadow: 0 12px 26px #314f8c1c; }
 
 /* 홈의 빠른 시작 카드는 이미지 자체를 기능 미리보기이자 큰 클릭 영역으로 사용한다. */
 .home-quick-grid { gap: 18px; }
 .home-quick-card {
   display: block;
   overflow: hidden;
-  border-color: #cbd5e4;
-  background: #fff;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
   padding: 0;
-  box-shadow: 0 1px 3px #22375b14;
+  box-shadow: none;
 }
 .home-quick-card > img {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
+  height: auto;
+  border-radius: inherit;
+  object-fit: contain;
   transition: transform .24s ease;
 }
-.home-quick-card > span {
-  display: flex;
-  width: auto;
-  height: auto;
-  align-items: center;
-  justify-content: space-between;
-  border-radius: 0;
-  background: #fff;
-  padding: 13px 16px;
-  color: #315fcf;
-  font-size: 14px;
-  font-weight: 800;
-}
+.home-quick-card:hover { border-color: transparent; box-shadow: none; }
 .home-quick-card:hover > img { transform: scale(1.025); }
-.home-quick-card:hover > span { background: #f3f6ff; }
 .home-quick-card:focus-visible { outline: 3px solid #7f9df5; outline-offset: 3px; }
+@media (max-width: 1180px) and (min-width: 741px) {
+  .home-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-quick-card:last-child { grid-column: 1 / -1; width: calc((100% - 18px) / 2); justify-self: center; }
+}
+@media (max-width: 600px) {
+  .home-quick-grid { gap: 13px; }
+  .home-quick-card { width: min(100%, 420px); margin-inline: auto; border-radius: 12px; }
+}
