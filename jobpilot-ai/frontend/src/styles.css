@@ -1499,34 +1499,3 @@ body { color: #2d3a50; line-height: 1.55; }
   aspect-ratio: 3 / 2;
   height: auto;
 }
-
-/* 홈의 빠른 시작 카드는 이미지 자체를 기능 미리보기이자 큰 클릭 영역으로 사용한다. */
-.home-quick-grid { gap: 18px; }
-.home-quick-card {
-  display: block;
-  overflow: hidden;
-  border: 0;
-  border-radius: 16px;
-  background: transparent;
-  padding: 0;
-  box-shadow: none;
-}
-.home-quick-card > img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: inherit;
-  object-fit: contain;
-  transition: transform .24s ease;
-}
-.home-quick-card:hover { border-color: transparent; box-shadow: none; }
-.home-quick-card:hover > img { transform: scale(1.025); }
-.home-quick-card:focus-visible { outline: 3px solid #7f9df5; outline-offset: 3px; }
-@media (max-width: 1180px) and (min-width: 741px) {
-  .home-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .home-quick-card:last-child { grid-column: 1 / -1; width: calc((100% - 18px) / 2); justify-self: center; }
-}
-@media (max-width: 600px) {
-  .home-quick-grid { gap: 13px; }
-  .home-quick-card { width: min(100%, 420px); margin-inline: auto; border-radius: 12px; }
-}

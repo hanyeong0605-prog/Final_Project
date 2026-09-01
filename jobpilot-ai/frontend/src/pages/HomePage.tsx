@@ -1,14 +1,14 @@
 import { useEffect } from "react";
-import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, CheckCircle2, Mic, Sparkles, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { IctStatisticsPanel } from "../features/statistics/components/IctStatisticsPanel";
 import { HomeJobCarousels } from "../features/job-postings/components/HomeJobCarousels";
 import { WordCloudSection } from "../features/word-cloud/components/WordCloudSection";
 
 const quickLinks = [
-  { to: "/dashboard", image: "/home-quick/job-analysis-cat.png", title: "맞춤 채용 분석", body: "내 역량과 공고 요구사항을 비교해 지원 준비도를 확인하세요." },
-  { to: "/profile", image: "/home-quick/profile-cat.png", title: "역량 프로필", body: "기술, 학력, 자격증을 등록하고 부족한 역량을 찾아보세요." },
-  { to: "/mock-interview", image: "/home-quick/mock-interview-cat.png", title: "AI 모의면접", body: "질문·음성·표정 분석으로 실제 면접처럼 연습하세요." },
+  { to: "/dashboard", icon: BriefcaseBusiness, title: "맞춤 채용 분석", body: "내 역량과 공고 요구사항을 비교해 지원 준비도를 확인하세요." },
+  { to: "/profile", icon: Target, title: "역량 프로필", body: "기술, 학력, 자격증을 등록하고 부족한 역량을 찾아보세요." },
+  { to: "/mock-interview", icon: Mic, title: "AI 모의면접", body: "질문·음성·표정 분석으로 실제 면접처럼 연습하세요." },
 ];
 
 const insightBars = [
@@ -49,7 +49,7 @@ export function HomePage() {
 
     <section className="home-quick-section" data-scroll-reveal>
       <div className="home-section-heading"><div><span className="eyebrow">START HERE</span><h2>오늘 무엇을 해볼까요?</h2><p className="home-section-description">나에게 맞는 채용공고를 찾아보고, 필요한 준비를 하나씩 시작해 보세요.</p></div><Link to="/dashboard">대시보드 보기 <ArrowRight size={15} /></Link></div>
-      <div className="home-quick-grid">{quickLinks.map(({ to, image, title, body }) => <Link key={to} to={to} className="home-quick-card" aria-label={`${title}: ${body}`}><img src={image} alt="" /></Link>)}</div>
+      <div className="home-quick-grid">{quickLinks.map(({ to, icon: Icon, title, body }) => <Link key={to} to={to} className="home-quick-card"><span><Icon size={20} /></span><div><h3>{title}</h3><p>{body}</p></div><ArrowRight size={17} /></Link>)}</div>
     </section>
 
     <HomeJobCarousels />
