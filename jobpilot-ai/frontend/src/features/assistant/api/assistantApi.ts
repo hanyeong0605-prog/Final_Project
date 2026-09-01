@@ -13,6 +13,20 @@ export interface AssistantChatResult {
   message: string | null;
   reply: string | null;
   navigate_to: string | null;
+  job_references: AssistantJobReference[];
+}
+
+export interface AssistantJobReference {
+  job_posting_id: number;
+  company_name: string;
+  title: string;
+  source_url: string;
+  location: string;
+  deadline_at: string | null;
+  readiness_score: number;
+  recommendation_level: string;
+  summary_comment: string;
+  missing_required_count: number;
 }
 
 export async function sendAssistantMessage(
