@@ -16,7 +16,7 @@ import { PageHeading } from "../shared/components/PageHeading";
 import { SavedCapabilityList } from "./CapabilityManagementPage";
 import { getCertificateBookmarks, removeCertificateBookmark, type QnetQualification } from "../features/profile/api/memberCertificatesApi";
 import { CertificateDetailModal } from "../features/profile/components/CertificateDetailModal";
-import { myActivities, type CommunityActivity } from "../features/community/api/communityApi";
+import { like, likeComment, myActivities, type CommunityActivity } from "../features/community/api/communityApi";
 
 type Action = "nickname" | "password" | "withdraw" | null;
 export function MyPage() {
@@ -27,7 +27,13 @@ export function MyPage() {
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
   useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
   useEffect(() => { void getCertificateBookmarks().then(setCertificateBookmarks).catch(() => setCertificateBookmarks([])); }, []);
-  useEffect(() => { if (member) void myActivities().then((data) => setActivities(data.items)).catch(() => setActivities([])); }, [member]);
+  const refreshActivities = () => myActivities().then((data) => setActivities(data.items)).catch(() => setActivities([]));
+  useEffect(() => { if (member) void refreshActivities(); }, [member]);
+  const cancelCommunityLike = async (activity: CommunityActivity) => {
+    if (activity.type === "POST_LIKE") await like(activity.targetId);
+    if (activity.type === "COMMENT_LIKE") await likeComment(activity.targetId);
+    await refreshActivities();
+  };
   // 2026-08-26: onInterest={() => {}}로 아무 동작도 안 하던 버그 - 찜한 성장 기회 목록에서
   // 버튼을 눌러도 API 호출도 로컬 상태 변경도 없었다. 목록에 이미 있는 항목이니 누르면
   // "찜 해제"가 맞는 동작이라, 낙관적으로 목록에서 바로 빼고 실패하면 다시 불러와 복구한다.
@@ -56,7 +62,7 @@ export function MyPage() {
     <div className="mypage-section-title spec-title"><div><h2>나의 스펙정보</h2><p>역량 관리에 저장한 스펙정보를 조회합니다.</p></div><button className="outline-button" onClick={() => navigate("/capability?tool=profile")}><Target size={16} />스펙정보 입력하기</button></div>
     <section className="panel mypage-capability-view"><SavedCapabilityList readOnly /></section>
     <div className="saved-jobs-title"><div><MessageCircle size={18} /><h2>커뮤니티 활동</h2></div><span>{activities.length}건</span></div>
-    <section className="panel community-activity-list">{activities.length === 0 ? <div className="saved-empty">작성한 글, 댓글 또는 좋아요 활동이 없습니다.</div> : activities.map((activity) => <button key={`${activity.type}-${activity.targetId}-${activity.createdAt}`} type="button" onClick={() => navigate(`/community/${activity.postId ?? activity.targetId}`)}>{activity.type.includes("LIKE") ? <Heart size={15} /> : <MessageCircle size={15} />}<div><strong>{{ POST: "작성한 글", COMMENT: "작성한 댓글", POST_LIKE: "글 좋아요", COMMENT_LIKE: "댓글 좋아요" }[activity.type]}</strong><span>{activity.title}</span><small>{new Date(activity.createdAt).toLocaleString("ko-KR")}{activity.status !== "PUBLIC" ? " · 비공개/관리됨" : ""}</small></div></button>)}</section>
+    <section className="panel community-activity-list">{activities.length === 0 ? <div className="saved-empty">작성한 글, 댓글 또는 좋아요 활동이 없습니다.</div> : activities.map((activity) => <article key={`${activity.type}-${activity.targetId}-${activity.createdAt}`}><button type="button" className="community-activity-open" onClick={() => navigate(`/community/${activity.postId ?? activity.targetId}`)}>{activity.type.includes("LIKE") ? <Heart size={15} /> : <MessageCircle size={15} />}<div><strong>{{ POST: "작성한 글", COMMENT: "작성한 댓글", POST_LIKE: "글 좋아요", COMMENT_LIKE: "댓글 좋아요" }[activity.type]}</strong><span>{activity.title}</span><small>{new Date(activity.createdAt).toLocaleString("ko-KR")}{activity.status !== "PUBLIC" ? " · 비공개/관리됨" : ""}</small></div></button>{activity.type.includes("LIKE") ? <button type="button" className="outline-button community-activity-action" onClick={() => void cancelCommunityLike(activity)}>좋아요 취소</button> : <button type="button" className="outline-button community-activity-action" onClick={() => navigate(`/community/${activity.postId ?? activity.targetId}`)}>관리</button>}</article>)}</section>
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 자격증</h2></div><span>{certificateBookmarks.length}개</span></div>
     {certificateBookmarks.length === 0 ? <section className="panel saved-empty">찜한 자격증이 없습니다.</section> : <section className="certificate-opportunity-grid">{certificateBookmarks.map((item) => <article className="certificate-opportunity-card" key={item.code}><div><strong>{item.name}</strong><span>{[item.qualificationType, item.field, item.subField].filter(Boolean).join(" · ")}</span></div><div className="certificate-opportunity-actions"><button type="button" className="certificate-opportunity-detail" onClick={() => setCertificateDetail(item)}>시험 일정</button><button type="button" className="bookmark active" aria-label="자격증 찜 해제" onClick={() => void removeCertificateBookmark(item.code).then(setCertificateBookmarks)}><Bookmark size={17} fill="currentColor" /></button></div></article>)}</section>}
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>나의 채용공고 찜 목록</h2></div><span>{jobs.filter((job) => interestIds.includes(job.id)).length}개</span></div>
