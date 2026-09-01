@@ -11,7 +11,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, LoaderCircle, Quote, Sparkles, AlertTriangle, TrendingUp } from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, LoaderCircle, Quote, AlertTriangle, TrendingUp } from "lucide-react";
 import { getInterviewSessionDetail, listInterviewSessions } from "../features/timeline/api/timelineApi";
 import { generateTimelineInsight } from "../features/timeline/api/timelineAiApi";
 import type { TimelineInsightResult } from "../features/timeline/api/timelineAiApi";
@@ -202,7 +202,7 @@ export function TimelinePage() {
           )}
           {insight.resume_linked_suggestion && (
             <div className="interview-model-answer" style={{ marginTop: 6, marginBottom: insight.recurring_points.length > 0 ? 14 : 0 }}>
-              <h4><Sparkles size={13} /> 이력서 기반 제안</h4>
+              <h4>이력서 기반 제안</h4>
               <p>{insight.resume_linked_suggestion}</p>
             </div>
           )}
@@ -329,7 +329,7 @@ export function TimelinePage() {
                             {q.feedback && <p style={{ margin: 0, color: "#3a4356", fontSize: 13, lineHeight: 1.7 }}>{q.feedback}</p>}
                             {q.modelAnswer && (
                               <div className="interview-model-answer" style={{ marginTop: 10, marginBottom: 0 }}>
-                                <h4><Sparkles size={13} /> 모범 답안 예시</h4>
+                                <h4>모범 답안 예시</h4>
                                 <p>{q.modelAnswer}</p>
                               </div>
                             )}
