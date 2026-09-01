@@ -1,9 +1,10 @@
 import { useEffect } from "react";
-import { ArrowRight, BriefcaseBusiness, CheckCircle2, Mic, Sparkles, Target } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, CheckCircle2, Mic, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { IctStatisticsPanel } from "../features/statistics/components/IctStatisticsPanel";
 import { HomeJobCarousels } from "../features/job-postings/components/HomeJobCarousels";
 import { WordCloudSection } from "../features/word-cloud/components/WordCloudSection";
+import { HomeGrowthPromotions } from "../features/home-promotions/components/HomeGrowthPromotions";
 
 const quickLinks = [
   { to: "/dashboard", image: "/home-quick/job-analysis-thumb.png", icon: BriefcaseBusiness, title: "맞춤 채용 분석", body: "내 역량과 공고 요구사항을 비교해 지원 준비도를 확인하세요." },
@@ -66,7 +67,7 @@ export function HomePage() {
       </section>
     </section>
 
-    <section className="home-growth-card home-growth-banner" data-scroll-reveal><span><Sparkles size={18} /></span><div><strong>추천은 결과가 아니라 다음 행동의 시작이에요.</strong><p>공고별 부족 요건과 보완 행동을 확인하고 성장 기회를 연결해 보세요.</p></div><Link to="/opportunities">성장 기회 추천 보기 <ArrowRight size={15} /></Link></section>
+    <HomeGrowthPromotions />
 
     <section className="home-statistics-section" data-scroll-reveal>
       <IctStatisticsPanel />

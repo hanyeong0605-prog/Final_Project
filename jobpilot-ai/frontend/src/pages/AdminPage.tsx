@@ -5,6 +5,7 @@ import { PageHeading } from "../shared/components/PageHeading";
 import { AdminFaceAuthModal } from "../features/admin/components/AdminFaceAuthModal";
 import { AdminFaceReferenceModal } from "../features/admin/components/AdminFaceReferenceModal";
 import { AdminCommunitySentiment } from "../features/admin/components/AdminCommunitySentiment";
+import { HomePromotionManager } from "../features/admin/components/HomePromotionManager";
 import { getAdminFaceReferences } from "../features/admin/api/adminFaceReferenceApi";
 import {
   approveAdminEmployer,
@@ -327,6 +328,8 @@ export function AdminPage() {
               </div>
             )}
           </section>
+
+          <HomePromotionManager />
 
           <section className="panel admin-panel">
             <div className="admin-panel-heading">

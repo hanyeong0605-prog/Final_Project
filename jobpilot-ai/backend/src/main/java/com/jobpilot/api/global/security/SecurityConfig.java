@@ -67,6 +67,8 @@ public class SecurityConfig {
                     // (KCA 진위확인 기능은 커버 종목이 너무 적어 실효성이 없어 제거함 - 2026-08-11)
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/certifications/catalog", "/api/v1/certifications/catalog/list", "/api/v1/certifications/catalog/fields", "/api/v1/certifications/catalog/*/detail").permitAll();
                     authorize.requestMatchers(HttpMethod.GET, "/api/v1/books").permitAll();
+                    // 홈 성장기회 광고는 관리자만 편성하고, 방문자는 로그인 전에도 볼 수 있다.
+                    authorize.requestMatchers(HttpMethod.GET, "/api/v1/home-promotions").permitAll();
 
                     authorize.requestMatchers("/api/v1/auth/**").permitAll();
 
