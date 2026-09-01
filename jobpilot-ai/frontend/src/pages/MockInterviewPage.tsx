@@ -25,7 +25,6 @@ import {
   ShieldCheck,
   SkipForward,
   Smile,
-  Sparkles,
   Square,
   Target,
   Volume2,
@@ -436,15 +435,11 @@ function SessionReportPanel({
         return (
           <div key={i} style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #eef0f4" }}>
             <div className="interview-question-card" style={{ marginBottom: 16 }}>
-              <span className="interview-question-icon">
-                <Sparkles size={19} />
-              </span>
               <strong>{`Q${i + 1}. ${a.question}`}</strong>
             </div>
 
             {summary && (
               <div className="interview-summary-banner">
-                <Sparkles size={16} />
                 {summary}
               </div>
             )}
@@ -611,11 +606,11 @@ function SessionReportPanel({
           Gemini를 호출하지 않는다. */}
       <div className="interview-report-panel" style={{ marginTop: 24 }}>
         <div className="interview-report-head">
-          <Sparkles size={16} /> AI 종합 평가
+          AI 종합 평가
         </div>
         {!requested && (
           <button className="primary-button" onClick={loadReport} type="button">
-            <Sparkles size={14} /> AI 분석 보기
+            AI 분석 보기
           </button>
         )}
         {loading && (
@@ -2129,7 +2124,7 @@ export function MockInterviewPage() {
       {showInterviewAside && (
         <div className="interview-hero-chips">
           <span className="interview-hero-chip">
-            <Sparkles size={14} /> 맞춤 질문 {questionCount}개
+            맞춤 질문 {questionCount}개
           </span>
           <span className="interview-hero-chip">
             <Waves size={14} /> 음성 분석 &amp; 피드백
@@ -2163,9 +2158,6 @@ export function MockInterviewPage() {
             화면에서는 기존 카드를 그대로 쓴다. */}
         {questionRevealed && !showVideoPreview && (
           <div className="interview-question-card">
-            <span className="interview-question-icon">
-              <Sparkles size={19} />
-            </span>
             <strong>{question}</strong>
             <button
               className="primary-button"
@@ -2602,7 +2594,7 @@ export function MockInterviewPage() {
                 }
                 style={{ fontSize: 15, padding: "14px 32px" }}
               >
-                <Sparkles size={18} /> {interviewKind === "practice" ? "모의면접 시작하기" : "실전면접 시작하기"}
+                {interviewKind === "practice" ? "모의면접 시작하기" : "실전면접 시작하기"}
               </button>
 
               {import.meta.env.DEV && (
@@ -2890,7 +2882,7 @@ export function MockInterviewPage() {
         <aside className="interview-aside">
           <div className="interview-aside-card">
             <div className="interview-aside-title">
-              <Sparkles size={15} /> 면접 팁
+              면접 팁
             </div>
             <div className="interview-tip-list">
               <div className="interview-tip">

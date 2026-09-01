@@ -1,5 +1,5 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CircleAlert, ExternalLink, Landmark, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
+import { BarChart3, CircleAlert, ExternalLink, Landmark, ShieldCheck, TrendingUp } from "lucide-react";
 import { Bar } from "react-chartjs-2";
 import {
   BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip,
@@ -103,7 +103,6 @@ function ForecastCard({ data, phase }: { data: CompanyFinanceAnalysis; phase: Fo
     <div><span className="eyebrow">VERIFIED ML OUTLOOK</span><strong>AI가 기업 성장 신호를 분석하고 있습니다</strong></div>
   </article>;
   return <article className={`company-finance-forecast ${outlookClass}${phase === "revealed" ? " is-revealed" : ""}`}>
-    <span className="company-finance-icon"><Sparkles size={20} /></span>
     <div className="company-finance-forecast-copy"><span className="eyebrow">VERIFIED ML OUTLOOK</span><h3>다음 사업연도 성장 가능성: {outlookLabel(forecast.outlook)}</h3><p>{forecast.baseYear}년까지 공개된 재무 데이터로 계산한 ML 예측 지표이며, 신뢰도는 {confidenceLabel(forecast.confidence)}입니다.</p><ul>{forecast.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul></div>
     <div className="company-finance-forecast-metrics">
       <div className="company-finance-growth-score" style={{ "--growth": `${growthPercent}%` } as CSSProperties}><strong>{growthPercent}%</strong><span>{labels.growth}</span></div>

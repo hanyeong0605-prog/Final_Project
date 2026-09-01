@@ -587,7 +587,7 @@ a { color: inherit; text-decoration: none; }
 .ict-statistics-message { display: grid; grid-template-columns: 122px minmax(0, 1fr); gap: 15px; align-items: center; border: 1px solid #dce4ff; border-radius: 11px; background: linear-gradient(100deg, #f0f3ff, #fbfcff); padding: 15px 16px; }.ict-statistics-message span { color: #6578e6; font-family: "DM Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: .5px; }.ict-statistics-message p { display: grid; gap: 3px; margin: 0; color: #6d7a91; font-size: 11px; line-height: 1.55; }.ict-statistics-message b { color: #4056ae; font-size: 14px; letter-spacing: -.35px; }.ict-statistics-message small { color: #8792a7; font-size: 10px; }
 .home-growth-banner { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
 .home-job-period { color: #60728e !important; font-weight: 700; }
-.home-growth-promotions { margin: 0 0 28px; border: 1px solid #dbe4f4; border-radius: 18px; background: linear-gradient(135deg, #f8fbff, #f2f6ff); padding: clamp(20px, 3vw, 30px); }.home-growth-promotions .home-section-heading { margin-bottom: 18px; }.home-growth-promotions .home-section-heading > svg { color: #5b75ec; }.home-promotion-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }.home-promotion-groups > div { min-width: 0; }.home-promotion-groups h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; color: #33476b; font-size: 13px; }.home-promotion-groups h3 svg { color: #5b75ec; }.home-promotion-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }.home-promotion-card { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 92px; border: 1px solid #dce5f6; border-radius: 12px; background: #fff; padding: 9px; transition: .18s ease; }.home-promotion-card:hover { border-color: #9fb2f5; box-shadow: 0 10px 20px #4062a51c; transform: translateY(-2px); }.home-promotion-image { display: grid; width: 74px; height: 74px; place-items: center; overflow: hidden; border-radius: 8px; background: #eef3ff; color: #607be5; }.home-promotion-image img { width: 100%; height: 100%; object-fit: cover; }.home-promotion-copy { display: grid; min-width: 0; gap: 4px; }.home-promotion-copy span { color: #647ee5; font-size: 9px; font-weight: 800; }.home-promotion-copy strong { display: -webkit-box; overflow: hidden; color: #31415e; font-size: 12px; line-height: 1.4; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }.home-promotion-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: #7c899f; font-size: 10px; line-height: 1.4; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }.home-promotion-card > svg { color: #89a0d6; }
+.home-growth-promotions { margin: 0 0 28px; border: 1px solid #dbe4f4; border-radius: 18px; background: linear-gradient(135deg, #f8fbff, #f2f6ff); padding: clamp(20px, 3vw, 30px); }.home-growth-promotions .home-section-heading { margin-bottom: 18px; }.home-promotion-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }.home-promotion-groups > div { min-width: 0; }.home-promotion-groups h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; color: #33476b; font-size: 13px; }.home-promotion-groups h3 svg { color: #5b75ec; }.home-promotion-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }.home-promotion-card { display: grid; grid-template-columns: 102px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 128px; border: 1px solid #dce5f6; border-radius: 12px; background: #fff; padding: 12px; transition: .18s ease; }.home-promotion-card:hover { border-color: #9fb2f5; box-shadow: 0 10px 20px #4062a51c; transform: translateY(-2px); }.home-promotion-image { display: grid; width: 102px; height: 102px; place-items: center; overflow: hidden; border-radius: 8px; background: #eef3ff; color: #607be5; }.home-promotion-image img { width: 100%; height: 100%; object-fit: cover; }.home-promotion-copy { display: grid; min-width: 0; gap: 5px; }.home-promotion-copy span { color: #647ee5; font-size: 10px; font-weight: 800; }.home-promotion-copy strong { display: -webkit-box; overflow: hidden; color: #31415e; font-size: 13px; line-height: 1.45; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }.home-promotion-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: #7c899f; font-size: 11px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }.home-promotion-card > svg { color: #89a0d6; }
 
 /* 2026-08-19: 실제로 겪은 버그 - 데스크톱 폭이긴 한데(1180px 사이드바 전환 기준보다는 넓은)
    창을 줄이면 "AI 모의면접" 같은 메뉴 글자가 옆의 "통합검색" 입력창 위로 겹쳐 보이는 문제가
@@ -1522,4 +1522,20 @@ body { color: #2d3a50; line-height: 1.55; }
 @media (max-width: 1180px) and (min-width: 741px) {
   .home-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-quick-card:last-child { grid-column: 1 / -1; width: calc((100% - 16px) / 2); justify-self: center; }
+}
+
+/* 빠른 시작은 휴대폰에서도 세 기능을 한눈에 비교할 수 있게 항상 3열을 유지한다. */
+@media (max-width: 1500px) {
+  .home-quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1180px) {
+  .home-quick-card:last-child { grid-column: auto; width: auto; justify-self: stretch; }
+}
+@media (max-width: 640px) {
+  .home-quick-grid { gap: 7px; margin-top: 12px; }
+  .home-quick-thumbnail { aspect-ratio: 1 / .82; }
+  .home-quick-card-body { grid-template-columns: minmax(0, 1fr) auto; gap: 4px; padding: 7px 8px; }
+  .home-quick-card-body > span, .home-quick-card-body p { display: none; }
+  .home-quick-card-body h3 { margin: 0; font-size: clamp(9px, 2.7vw, 12px); line-height: 1.35; }
+  .home-quick-card-body > svg { width: 12px; height: 12px; margin-top: 1px; }
 }
