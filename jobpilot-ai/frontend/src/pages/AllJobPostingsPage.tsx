@@ -62,6 +62,7 @@ export function AllJobPostingsPage() {
   const [page, setPage] = useState(0);
   const [result, setResult] = useState<JobPostingPage | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -71,7 +72,7 @@ export function AllJobPostingsPage() {
       .then((data) => { if (active) { setResult(data); setStatus("ready"); } })
       .catch(() => { if (active) { setResult(null); setStatus("error"); } });
     return () => { active = false; };
-  }, [filters, page]);
+  }, [filters, page, reloadToken]);
 
   useEffect(() => {
     const nextQuery = searchParams.get("query")?.trim() ?? "";
@@ -172,7 +173,7 @@ export function AllJobPostingsPage() {
     {filters.roles.length > 0 && <div className="selected-filter-chips">{filters.roles.map((role) => <button key={role} type="button" onClick={() => { setFilters((current) => ({ ...current, roles: current.roles.filter((item) => item !== role) })); setPage(0); }}>{roleName(role)}<X size={13} /></button>)}<button type="button" className="clear-filter-chip" onClick={clearRoles}>직무 초기화</button></div>}
 
     {status === "loading" && <DataStatePanel state="loading" />}
-    {status === "error" && <DataStatePanel state="error" />}
+    {status === "error" && <DataStatePanel state="error" errorTitle="채용공고 목록을 불러오지 못했습니다" errorBody="공고는 일시적으로 갱신될 수 있습니다. 잠시 후 다시 불러오거나 홈에서 최근 공고를 확인해 주세요." onRetry={() => setReloadToken((value) => value + 1)} />}
     {status === "ready" && postings.length === 0 && <DataStatePanel state="empty" emptyTitle="조건에 맞는 채용공고가 없습니다" emptyBody="직무·경력·지역 조건을 조금 넓혀서 다시 찾아보세요." />}
     {status === "ready" && postings.length > 0 && <>
       <div className="list-heading"><strong>총 {result?.totalElements.toLocaleString()}개 중 {first.toLocaleString()}–{last.toLocaleString()}</strong><div className="posting-list-guides"><span className="finance-guide"><Landmark size={12} />카드에서 재무 연결 상태 확인</span><span>{sortLabel[filters.sort]}</span></div></div>

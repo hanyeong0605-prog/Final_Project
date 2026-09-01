@@ -27,6 +27,7 @@ export function JobPostingDetailPage() {
   const { id } = useParams();
   const [posting, setPosting] = useState<JobPostingDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadToken, setReloadToken] = useState(0);
   const [companyImageFailed, setCompanyImageFailed] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<JobMatch | null>(null);
   const [matching, setMatching] = useState(false);
@@ -44,11 +45,11 @@ export function JobPostingDetailPage() {
       .catch(() => { if (active) { setPosting(null); setStatus("error"); } })
       .finally(() => window.clearTimeout(timeout));
     return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
-  }, [id]);
+  }, [id, reloadToken]);
 
   if (status === "loading") return <DataStatePanel state="loading" />;
   if (status === "error" || !posting) {
-    return <><Link className="job-detail-back" to="/job-postings"><ArrowLeft size={16} />전체 채용공고</Link><DataStatePanel state="error" /></>;
+    return <><Link className="job-detail-back" to="/job-postings"><ArrowLeft size={16} />전체 채용공고</Link><DataStatePanel state="error" errorTitle="이 공고를 지금 불러오지 못했습니다" errorBody="공고가 갱신·마감 처리 중일 수 있습니다. 다시 시도하거나 현재 모집 중인 전체 공고를 확인해 주세요." onRetry={() => setReloadToken((value) => value + 1)} /></>;
   }
 
   const locations = posting.locations ?? [];
