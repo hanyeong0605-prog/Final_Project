@@ -1504,7 +1504,7 @@ body { color: #2d3a50; line-height: 1.55; }
 .home-quick-grid { gap: 16px; }
 .home-quick-card { display: block; overflow: hidden; padding: 0; background: #fff; }
 .home-quick-thumbnail { aspect-ratio: 3 / 2; overflow: hidden; background: #edf2ff; }
-.home-quick-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .2s ease; }
+.home-quick-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform .2s ease; }
 .home-quick-card-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 11px; align-items: start; padding: 15px 16px; }
 .home-quick-card-body > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; background: #eef1ff; color: #5c73e9; }
 .home-quick-card-body h3 { margin: 1px 0 5px; color: #3c4860; font-size: 14px; }
