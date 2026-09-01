@@ -122,7 +122,9 @@ export function AllJobPostingsPage() {
   };
 
   const applyRoles = () => {
-    setFilters((current) => ({ ...current, roles: roleDraft }));
+    // 바깥 pointerdown 처리와 겹쳐 메뉴만 닫히던 경우에도 선택값을 먼저 확정한다.
+    // 배열을 새로 만들어 체크박스 draft 참조가 이후 클릭으로 바뀌지 않게 한다.
+    setFilters((current) => ({ ...current, roles: [...roleDraft] }));
     setPage(0);
     setOpenFilter(null);
   };
@@ -151,7 +153,7 @@ export function AllJobPostingsPage() {
         <button type="button" className="filter-button" onClick={openRoleMenu} aria-expanded={openFilter === "role"}>
           <span>{filters.roles.length === 0 ? "직무 전체" : `직무 ${filters.roles.length}개`}</span><ChevronDown size={15} />
         </button>
-        {openFilter === "role" && <div className="role-filter-menu">
+        {openFilter === "role" && <div className="role-filter-menu" onPointerDown={(event) => event.stopPropagation()}>
           <div className="role-filter-head"><strong>개발 직무</strong><button type="button" onClick={() => setOpenFilter(null)} aria-label="직무 필터 닫기"><X size={17} /></button></div>
           <p>여러 직무를 함께 선택할 수 있어요.</p>
           <div className="role-check-list">{roleOptions.map(([key, label]) => <label key={key}><input type="checkbox" checked={roleDraft.includes(key)} onChange={() => toggleDraftRole(key)} />{label}</label>)}</div>
