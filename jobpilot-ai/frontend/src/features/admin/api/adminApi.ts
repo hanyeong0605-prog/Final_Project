@@ -1,4 +1,4 @@
-import { deleteJsonReturning, getJson, patchJson, putJson } from "../../../api/httpClient";
+import { deleteJson, deleteJsonReturning, getJson, patchJson, postJson, putJson } from "../../../api/httpClient";
 
 export type MemberRole = "USER" | "ADMIN";
 export type EmployerAccountStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -21,6 +21,9 @@ export interface UpdateAdminJobPostingRequest {
   deadlineAt: string | null;
   status: AdminJobPosting["status"];
 }
+export interface AdminHomePromotion { id: number; slotType: "TRAINING" | "BOOK"; title: string; provider: string | null; description: string | null; imageUrl: string | null; targetUrl: string; }
+export interface AdminTrainingPromotionCandidate { id: number; title: string; organization: string | null; period: string; thumbnailUrl: string | null; targetUrl: string; }
+export interface CreateAdminHomePromotion { slotType: "TRAINING" | "BOOK"; sourceKey: string; title: string; provider?: string | null; description?: string | null; imageUrl?: string | null; targetUrl: string; }
 
 const BASE = "/api/v1/admin";
 export const getAdminOverview = () => getJson<AdminOverview>(`${BASE}/overview`);
@@ -38,6 +41,10 @@ export const updateAdminJobPosting = (jobPostingId: number, request: UpdateAdmin
   putJson<AdminJobPosting>(`${BASE}/job-postings/${jobPostingId}`, request);
 export const deleteAdminJobPosting = (jobPostingId: number) =>
   deleteJsonReturning<AdminJobPosting>(`${BASE}/job-postings/${jobPostingId}`);
+export const getAdminHomePromotions = () => getJson<AdminHomePromotion[]>(`${BASE}/home-promotions`);
+export const getAdminTrainingPromotionCandidates = (query = "") => getJson<AdminPage<AdminTrainingPromotionCandidate>>(`${BASE}/home-promotions/trainings?size=10&query=${encodeURIComponent(query)}`);
+export const createAdminHomePromotion = (request: CreateAdminHomePromotion) => postJson<AdminHomePromotion>(`${BASE}/home-promotions`, request);
+export const deleteAdminHomePromotion = (promotionId: number) => deleteJson(`${BASE}/home-promotions/${promotionId}`);
 export const getAdminEmployers = (query = "", status: EmployerAccountStatus | "ALL" = "ALL", page = 0, size = 20) =>
   getJson<AdminPage<AdminEmployer>>(`${BASE}/employers?size=${size}&page=${page}&query=${encodeURIComponent(query)}&status=${status}`);
 export const approveAdminEmployer = (employerId: number) => patchJson<AdminEmployer>(`${BASE}/employers/${employerId}/approve`, {});

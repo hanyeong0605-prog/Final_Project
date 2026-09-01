@@ -23,8 +23,10 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
   const { isInterested, toggleInterest } = useInterests();
   const navigate = useNavigate();
   const [imageFailed, setImageFailed] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
   const interested = isInterested(posting.id);
-  const companyImageUrl = posting.thumbnailUrl || posting.companyLogoUrl;
+  const previewImageUrl = posting.thumbnailUrl;
+  const companyLogoUrl = posting.companyLogoUrl;
   const skills = (posting.jobName || posting.keywords || "").split(",").map((value) => value.trim()).filter(Boolean).slice(0, 5);
   const workType = [posting.experienceType, posting.employmentType].filter(hasText).join(" · ");
   const schedule = scheduleLabel(posting);
@@ -33,8 +35,8 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
   return <article className="posting-card" role="link" tabIndex={0} onClick={openDetail} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetail(); } }} aria-label={`${posting.title} 상세 보기`}>
     <div className="posting-card-top">
       <div className="posting-company-identity">
-        {hasText(companyImageUrl) && !imageFailed
-          ? <img src={companyImageUrl} alt="" onError={() => setImageFailed(true)} />
+        {hasText(companyLogoUrl) && !logoFailed
+          ? <img src={companyLogoUrl} alt="" onError={() => setLogoFailed(true)} />
           : <Building2 size={17} />}
         {hasText(posting.companyName) && <span className="company-name">{posting.companyName}</span>}
       </div>
@@ -47,9 +49,9 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
       <button className={interested ? "bookmark active" : "bookmark"} onClick={(event) => { event.stopPropagation(); void toggleInterest(posting.id); }} aria-label="관심 공고 등록"><Bookmark size={19} fill={interested ? "currentColor" : "none"} /></button>
     </div>
     <div className="posting-card-preview">
-      {hasText(companyImageUrl) && !imageFailed
-        ? <img src={companyImageUrl} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} />
-        : <Building2 size={30} />}
+      {hasText(previewImageUrl) && !imageFailed
+        ? <img src={previewImageUrl} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} />
+        : null}
     </div>
     <div className="posting-card-main">
       <h2>{posting.title}</h2>

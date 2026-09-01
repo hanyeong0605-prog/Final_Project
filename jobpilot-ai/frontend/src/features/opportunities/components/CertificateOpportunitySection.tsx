@@ -1,4 +1,4 @@
-import { Bookmark, GraduationCap, List, Sparkles } from "lucide-react";
+import { Bookmark, GraduationCap, List } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   addCertificateBookmark, getCertificateBookmarks, getMemberCertificates, getQnetFields, getRecommendedCertificates, listQnetQualifications, removeCertificateBookmark,
@@ -128,7 +128,7 @@ export function CertificateOpportunitySection({ initialQuery = "" }: { initialQu
           {f.field} <span>{f.count}</span>
         </button>)}
       </div>
-      <h3 className="certificate-opportunity-subtitle"><Sparkles size={16} /> 목표 직무 맞춤 추천</h3>
+      <h3 className="certificate-opportunity-subtitle">목표 직무 맞춤 추천</h3>
       {recommended.length === 0
         ? <p className="skill-empty">스펙정보의 목표 직무분야를 설정하면 맞춤 자격증을 추천해 드려요.</p>
         : <div className="certificate-opportunity-grid">{recommended.map((item) => renderCard(item, true))}</div>}

@@ -1,6 +1,7 @@
 package com.jobpilot.api.domain.locationjobs.matching.service;
 
 import com.jobpilot.api.domain.jobposting.entity.JobPosting;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.jobpilot.api.domain.locationjobs.matching.dto.LocationJobResponseDto;
 import com.jobpilot.api.domain.locationjobs.matching.entity.Location;
 import com.jobpilot.api.domain.locationjobs.matching.repository.LocationJobRepository;
@@ -38,6 +39,7 @@ public class LocationJobService {
                             ? jp.getCompanyName()
                             : (loc.getSourceProvider() != null ? loc.getSourceProvider() : "채용 기업");
                     String logoUrl = (jp != null) ? jp.getCompanyLogoUrl() : null;
+                    String thumbnailUrl = thumbnailUrl(jp);
                     String experienceType = (jp != null) ? jp.getExperienceType() : null;
                     String employmentType = (jp != null) ? jp.getEmploymentType() : null;
                     String deadlineAt = (jp != null && jp.getDeadlineAt() != null) ? jp.getDeadlineAt().toString() : null;
@@ -50,6 +52,7 @@ public class LocationJobService {
                             .title(title)
                             .companyName(companyName)
                             .companyLogoUrl(logoUrl)
+                            .thumbnailUrl(thumbnailUrl)
                             .address(shortAddress)
                             .experienceType(experienceType)
                             .employmentType(employmentType)
@@ -62,6 +65,16 @@ public class LocationJobService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    private String thumbnailUrl(JobPosting posting) {
+        if (posting == null || posting.getRawPayload() == null) return null;
+        JsonNode images = posting.getRawPayload().path("imageUrls");
+        if (images.isArray()) {
+            for (JsonNode image : images) if (image.isTextual() && !image.asText().isBlank()) return image.asText();
+        }
+        JsonNode thumbnails = posting.getRawPayload().path("images").path("job_thumbnail_urls");
+        return thumbnails.isArray() && !thumbnails.isEmpty() ? thumbnails.get(0).asText(null) : null;
     }
 
     private String formatRegionAddress(Location loc) {

@@ -6,6 +6,7 @@ public class LocationJobResponseDto {
     private String title;
     private String companyName;
     private String companyLogoUrl;
+    private String thumbnailUrl;
     private String address;
     private String experienceType;
     private String employmentType;
@@ -19,7 +20,7 @@ public class LocationJobResponseDto {
     public LocationJobResponseDto() {}
 
     public LocationJobResponseDto(Long id, Long jobPostingId, String title, String companyName,
-                                  String companyLogoUrl, String address, String experienceType,
+                                  String companyLogoUrl, String thumbnailUrl, String address, String experienceType,
                                   String employmentType, String deadlineAt, String keywords,
                                   String salary, Double latitude, Double longitude, Double distanceKm) {
         this.id = id;
@@ -27,6 +28,7 @@ public class LocationJobResponseDto {
         this.title = title;
         this.companyName = companyName;
         this.companyLogoUrl = companyLogoUrl;
+        this.thumbnailUrl = thumbnailUrl;
         this.address = address;
         this.experienceType = experienceType;
         this.employmentType = employmentType;
@@ -44,6 +46,7 @@ public class LocationJobResponseDto {
         private String title;
         private String companyName;
         private String companyLogoUrl;
+        private String thumbnailUrl;
         private String address;
         private String experienceType;
         private String employmentType;
@@ -59,6 +62,7 @@ public class LocationJobResponseDto {
         public Builder title(String title) { this.title = title; return this; }
         public Builder companyName(String companyName) { this.companyName = companyName; return this; }
         public Builder companyLogoUrl(String companyLogoUrl) { this.companyLogoUrl = companyLogoUrl; return this; }
+        public Builder thumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; return this; }
         public Builder address(String address) { this.address = address; return this; }
         public Builder experienceType(String experienceType) { this.experienceType = experienceType; return this; }
         public Builder employmentType(String employmentType) { this.employmentType = employmentType; return this; }
@@ -71,7 +75,7 @@ public class LocationJobResponseDto {
 
         public LocationJobResponseDto build() {
             return new LocationJobResponseDto(
-                    id, jobPostingId, title, companyName, companyLogoUrl,
+                    id, jobPostingId, title, companyName, companyLogoUrl, thumbnailUrl,
                     address, experienceType, employmentType, deadlineAt,
                     keywords, salary, latitude, longitude, distanceKm
             );
@@ -88,6 +92,7 @@ public class LocationJobResponseDto {
     public String getTitle() { return title; }
     public String getCompanyName() { return companyName; }
     public String getCompanyLogoUrl() { return companyLogoUrl; }
+    public String getThumbnailUrl() { return thumbnailUrl; }
     public String getAddress() { return address; }
     public String getExperienceType() { return experienceType; }
     public String getEmploymentType() { return employmentType; }

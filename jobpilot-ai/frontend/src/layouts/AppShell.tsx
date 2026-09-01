@@ -9,6 +9,7 @@ import { SiteAssistantWidget } from "../features/assistant/components/SiteAssist
 import { SiteAssistantWidgetProvider } from "../features/assistant/model/SiteAssistantWidgetContext";
 import { NotificationBell } from "../features/notifications/components/NotificationBell";
 import { BrandLogo } from "../shared/components/BrandLogo";
+import { SiteFooter } from "../shared/components/SiteFooter";
 
 function isGroupActive(group: NavigationGroup, pathname: string) {
   if (group.path) return pathname === group.path;
@@ -252,6 +253,7 @@ export function AppShell() {
             </section>}
           </header>
           <section className="content"><div className="page-transition" key={location.pathname}><Outlet /></div></section>
+          <SiteFooter />
         </main>
       </div>
     </SiteAssistantWidgetProvider>

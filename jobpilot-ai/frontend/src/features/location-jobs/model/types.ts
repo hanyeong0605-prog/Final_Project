@@ -14,6 +14,7 @@ export interface LocationJob {
   distanceKm?: number;
   companyLogoUrl?: string;
   logoUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export interface LocationJobRequestParams {

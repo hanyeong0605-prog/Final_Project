@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { useEmployerAuth } from "../features/employer/model/EmployerAuthContext";
 import { EmployerNotificationBell } from "../features/employer/components/EmployerNotificationBell";
 import { BrandLogo } from "../shared/components/BrandLogo";
+import { SiteFooter } from "../shared/components/SiteFooter";
 
 const employerNavigation = [
   { path: "/employer/dashboard", label: "대시보드", icon: LayoutDashboard },
@@ -67,6 +68,7 @@ export function EmployerShell() {
         </div>
       </header>
       <main className="employer-content"><Outlet /></main>
+      <SiteFooter />
     </div>
   );
 }
