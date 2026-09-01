@@ -46,6 +46,11 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
       </span>
       <button className={interested ? "bookmark active" : "bookmark"} onClick={(event) => { event.stopPropagation(); void toggleInterest(posting.id); }} aria-label="관심 공고 등록"><Bookmark size={19} fill={interested ? "currentColor" : "none"} /></button>
     </div>
+    <div className="posting-card-preview">
+      {hasText(companyImageUrl) && !imageFailed
+        ? <img src={companyImageUrl} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} />
+        : <Building2 size={30} />}
+    </div>
     <div className="posting-card-main">
       <h2>{posting.title}</h2>
       {(hasText(posting.location) || workType || schedule) && <div className="posting-meta">
