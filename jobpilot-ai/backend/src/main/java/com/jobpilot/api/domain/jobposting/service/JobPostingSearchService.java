@@ -92,11 +92,10 @@ public class JobPostingSearchService {
         parameters.addValue("offset", safePage * safeSize);
         String sql = "SELECT id, external_job_id, company_name, company_logo_url, "
                 // Crawled galleries commonly start with one or two logo canvases and place the
-                // actual company/job visual next.  Prefer that visual for compact cards, while
-                // retaining the first image as a safe fallback for short galleries.
+                // actual company/job visual next.  List cards use only that visual; when it is
+                // absent, the UI intentionally leaves the preview blank rather than stretching a logo.
                 + "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[2]')), 'null'), "
-                + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[0]')), 'null'), "
-                + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null'), company_logo_url) AS thumbnail_url, "
+                + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null')) AS thumbnail_url, "
                 + "title, source_url, location, employment_type, "
                 + "experience_type, job_name, salary, keywords, published_at, deadline_at, "
                 + "is_rolling_deadline, status, COALESCE(view_count, 0) AS view_count, "

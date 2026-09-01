@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, Heart, MapPin, RotateCw } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Eye, Heart, MapPin, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getJobPostings } from "../api/jobPostingsApi";
@@ -9,6 +9,14 @@ const CARDS_PER_PAGE = 4;
 const MAX_SHOWCASE_POSTINGS = 28;
 
 function cacheKey(sort: JobPostingSort) { return `jobpilot.home-showcase.${sort}`; }
+
+function recruitmentPeriod(posting: JobPosting) {
+  if (posting.rollingDeadline) return "상시 채용";
+  const format = (value: string | null) => value ? new Date(value).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }) : null;
+  const start = format(posting.publishedAt); const end = format(posting.deadlineAt);
+  if (start && end) return `${start} ~ ${end}`;
+  return end ? `~ ${end} 마감` : null;
+}
 
 function cachedPostings(sort: JobPostingSort): JobPosting[] {
   try {
@@ -61,7 +69,7 @@ function HomeJobShowcase({ eyebrow, title, description, sort, moreTo }: Showcase
     <div className="home-job-rail">
       <button className="home-showcase-arrow previous" type="button" disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} aria-label="이전 공고 4개"><ChevronLeft size={29} /></button>
       <div className="home-job-carousel">
-        {hasPopularitySignal && visible.map((posting) => <HomeJobCard posting={posting} key={posting.id} />)}
+        {hasPopularitySignal && visible.map((posting) => <HomeJobCard posting={posting} showPeriod={sort === "deadline_asc"} key={posting.id} />)}
         {!hasPopularitySignal && <div className="home-job-empty">공고 상세를 조회하거나 찜하면 인기 공고 순위가 자동으로 만들어집니다.</div>}
         {hasPopularitySignal && visible.length === 0 && <div className="home-job-empty">{loadError ? <><span>공고를 불러오지 못했습니다.</span><button type="button" onClick={() => setReloadToken((value) => value + 1)}><RotateCw size={14} /> 다시 불러오기</button></> : "표시할 채용공고가 없습니다."}</div>}
       </div>
@@ -71,15 +79,16 @@ function HomeJobShowcase({ eyebrow, title, description, sort, moreTo }: Showcase
   </section>;
 }
 
-function HomeJobCard({ posting }: { posting: JobPosting }) {
+function HomeJobCard({ posting, showPeriod }: { posting: JobPosting; showPeriod: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
-  const preview = posting.thumbnailUrl || posting.companyLogoUrl;
+  const preview = posting.thumbnailUrl;
   const companyLogo = posting.companyLogoUrl;
+  const period = showPeriod ? recruitmentPeriod(posting) : null;
   return <Link to={`/job-postings/${posting.id}`} className="home-job-card">
-    <div className="home-job-preview">{preview && !imageFailed ? <img src={preview} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} /> : <span>{posting.companyName?.slice(0, 1) ?? "J"}</span>}</div>
+    <div className="home-job-preview">{preview && !imageFailed ? <img src={preview} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} /> : null}</div>
     <div className="home-job-company">{companyLogo && !logoFailed ? <img src={companyLogo} alt="" onError={() => setLogoFailed(true)} /> : <span>{posting.companyName?.slice(0, 1) ?? "J"}</span>}<small>{posting.companyName ?? "채용 기업"}</small></div>
-    <strong>{posting.title}</strong><p>{posting.location && <><MapPin size={13} />{posting.location}</>}</p>
+    <strong>{posting.title}</strong><p>{posting.location && <><MapPin size={13} />{posting.location}</>}</p>{period && <p className="home-job-period"><CalendarDays size={12} />{period}</p>}
     <footer><span><Eye size={13} /> {(posting.viewCount ?? 0).toLocaleString()}</span><span><Heart size={13} /> {(posting.bookmarkCount ?? 0).toLocaleString()}</span></footer>
   </Link>;
 }

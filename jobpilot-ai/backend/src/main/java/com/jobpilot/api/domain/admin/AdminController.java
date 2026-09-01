@@ -7,6 +7,10 @@ import com.jobpilot.api.domain.employer.entity.EmployerAccountStatus;
 import com.jobpilot.api.domain.employer.repository.EmployerAccountRepository;
 import com.jobpilot.api.domain.jobposting.entity.JobPosting;
 import com.jobpilot.api.domain.jobposting.repository.JobPostingRepository;
+import com.jobpilot.api.domain.opportunity.entity.Opportunity;
+import com.jobpilot.api.domain.opportunity.repository.OpportunityRepository;
+import com.jobpilot.api.domain.homepromotion.entity.HomePromotion;
+import com.jobpilot.api.domain.homepromotion.repository.HomePromotionRepository;
 import com.jobpilot.api.domain.member.entity.Member;
 import com.jobpilot.api.domain.member.entity.MemberRole;
 import com.jobpilot.api.domain.member.repository.MemberRepository;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -40,16 +45,21 @@ public class AdminController {
     private final EmployerAccountRepository employers;
     private final MemberDailyVisitService dailyVisits;
     private final AdminMemberDeletionService memberDeletion;
+    private final OpportunityRepository opportunities;
+    private final HomePromotionRepository homePromotions;
 
     public AdminController(AdminAccessService adminAccess, MemberRepository members, JobPostingRepository postings,
                            EmployerAccountRepository employers, MemberDailyVisitService dailyVisits,
-                           AdminMemberDeletionService memberDeletion) {
+                           AdminMemberDeletionService memberDeletion, OpportunityRepository opportunities,
+                           HomePromotionRepository homePromotions) {
         this.adminAccess = adminAccess;
         this.members = members;
         this.postings = postings;
         this.employers = employers;
         this.dailyVisits = dailyVisits;
         this.memberDeletion = memberDeletion;
+        this.opportunities = opportunities;
+        this.homePromotions = homePromotions;
     }
 
     @GetMapping("/overview")
@@ -172,6 +182,47 @@ public class AdminController {
         return JobPostingSummary.from(postings.save(posting));
     }
 
+    @GetMapping("/home-promotions")
+    public java.util.List<HomePromotionSummary> homePromotions(Authentication authentication) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        return homePromotions.findAllByOrderBySlotTypeAscCreatedAtDesc().stream().map(HomePromotionSummary::from).toList();
+    }
+
+    @GetMapping("/home-promotions/trainings")
+    public PageResponse<TrainingPromotionCandidate> trainingPromotionCandidates(
+            Authentication authentication, @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 30));
+        return PageResponse.from(opportunities.findActiveTrainingForPromotion(query.trim(), pageable)
+                .map(TrainingPromotionCandidate::from));
+    }
+
+    @PostMapping("/home-promotions")
+    public HomePromotionSummary createHomePromotion(Authentication authentication,
+                                                      @Valid @RequestBody CreateHomePromotionRequest request) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        String slotType = request.slotType().trim().toUpperCase();
+        if (!slotType.matches("TRAINING|BOOK")) throw new IllegalArgumentException("지원하지 않는 광고 유형입니다.");
+        String sourceKey = request.sourceKey().trim();
+        if (homePromotions.existsBySlotTypeAndSourceKey(slotType, sourceKey)) {
+            throw new IllegalArgumentException("이미 홈 광고에 등록된 항목입니다.");
+        }
+        if (homePromotions.countBySlotType(slotType) >= 2) {
+            throw new IllegalArgumentException(slotType.equals("TRAINING") ? "훈련과정 광고는 최대 2개까지 선택할 수 있습니다." : "도서 광고는 최대 2개까지 선택할 수 있습니다.");
+        }
+        HomePromotion saved = homePromotions.save(HomePromotion.create(slotType, sourceKey, request.title().trim(),
+                blankToNull(request.provider()), blankToNull(request.description()), blankToNull(request.imageUrl()), request.targetUrl().trim()));
+        return HomePromotionSummary.from(saved);
+    }
+
+    @DeleteMapping("/home-promotions/{promotionId}")
+    public void deleteHomePromotion(Authentication authentication, @PathVariable Long promotionId) {
+        adminAccess.requireAdmin(AuthenticatedMember.id(authentication));
+        if (!homePromotions.existsById(promotionId)) throw new ResourceNotFoundException("홈 광고 항목을 찾을 수 없습니다.");
+        homePromotions.deleteById(promotionId);
+    }
+
     // 2026-08-19: 기업회원 승인 관리 - 목록/승인/거절. 상태(PENDING/APPROVED/REJECTED)
     // 필터는 회원 관리 검색과 동일하게 페이지네이션+검색어 조합으로 처리한다.
     @GetMapping("/employers")
@@ -236,6 +287,24 @@ public class AdminController {
     public record BulkUpdateResponse(int updatedCount) {}
     public record UpdatePostingRequest(@NotBlank String title, String companyName, String location,
                                        LocalDateTime deadlineAt, @NotBlank String status) {}
+    public record CreateHomePromotionRequest(@NotBlank String slotType, @NotBlank String sourceKey,
+                                             @NotBlank String title, String provider, String description,
+                                             String imageUrl, @NotBlank String targetUrl) {}
+    public record HomePromotionSummary(Long id, String slotType, String title, String provider, String description,
+                                       String imageUrl, String targetUrl) {
+        static HomePromotionSummary from(HomePromotion value) {
+            return new HomePromotionSummary(value.getId(), value.getSlotType(), value.getTitle(), value.getProvider(),
+                    value.getDescription(), value.getImageUrl(), value.getTargetUrl());
+        }
+    }
+    public record TrainingPromotionCandidate(Long id, String title, String organization, String period,
+                                             String thumbnailUrl, String targetUrl) {
+        static TrainingPromotionCandidate from(Opportunity value) {
+            String period = value.getEventStartAt() == null ? "" : value.getEventStartAt().toLocalDate().toString();
+            return new TrainingPromotionCandidate(value.getId(), value.getTitle(), value.getOrganization(), period,
+                    value.getThumbnailUrl(), "/opportunities/" + value.getId());
+        }
+    }
     public record JobPostingSummary(Long id, String title, String companyName, String status, String location, LocalDateTime deadlineAt, long viewCount) {
         static JobPostingSummary from(JobPosting posting) {
             return new JobPostingSummary(posting.getId(), posting.getTitle(), posting.getCompanyName(), posting.getStatus(), posting.getLocation(), posting.getDeadlineAt(), posting.getViewCount());
