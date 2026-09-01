@@ -23,7 +23,6 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
   const { isInterested, toggleInterest } = useInterests();
   const navigate = useNavigate();
   const [imageFailed, setImageFailed] = useState(false);
-  const [previewFit, setPreviewFit] = useState<"contain" | "cover">("contain");
   const interested = isInterested(posting.id);
   const companyImageUrl = posting.thumbnailUrl || posting.companyLogoUrl;
   const skills = (posting.jobName || posting.keywords || "").split(",").map((value) => value.trim()).filter(Boolean).slice(0, 5);
@@ -49,7 +48,7 @@ export function JobPostingCard({ posting }: { posting: JobPosting }) {
     </div>
     <div className="posting-card-preview">
       {hasText(companyImageUrl) && !imageFailed
-        ? <img className={previewFit === "cover" ? "is-photo" : undefined} src={companyImageUrl} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onLoad={(event) => { const { naturalWidth, naturalHeight } = event.currentTarget; const ratio = naturalHeight ? naturalWidth / naturalHeight : 1; setPreviewFit(ratio >= 1.25 && ratio <= 1.75 ? "cover" : "contain"); }} onError={() => setImageFailed(true)} />
+        ? <img src={companyImageUrl} alt={`${posting.companyName ?? "채용 기업"} 공고 미리보기`} onError={() => setImageFailed(true)} />
         : <Building2 size={30} />}
     </div>
     <div className="posting-card-main">
