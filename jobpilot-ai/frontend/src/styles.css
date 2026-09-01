@@ -1515,3 +1515,37 @@ body { color: #2d3a50; line-height: 1.55; }
 .home-job-card { border-color: #cbd5e4; background: #fff; }
 .home-job-card footer, .posting-footer, .home-showcase-controls { border-color: #d5ddea; }
 .home-job-card:hover, .posting-card:hover { border-color: #94a8f5; box-shadow: 0 12px 26px #314f8c1c; }
+
+/* 홈의 빠른 시작 카드는 이미지 자체를 기능 미리보기이자 큰 클릭 영역으로 사용한다. */
+.home-quick-grid { gap: 18px; }
+.home-quick-card {
+  display: block;
+  overflow: hidden;
+  border-color: #cbd5e4;
+  background: #fff;
+  padding: 0;
+  box-shadow: 0 1px 3px #22375b14;
+}
+.home-quick-card > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  transition: transform .24s ease;
+}
+.home-quick-card > span {
+  display: flex;
+  width: auto;
+  height: auto;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0;
+  background: #fff;
+  padding: 13px 16px;
+  color: #315fcf;
+  font-size: 14px;
+  font-weight: 800;
+}
+.home-quick-card:hover > img { transform: scale(1.025); }
+.home-quick-card:hover > span { background: #f3f6ff; }
+.home-quick-card:focus-visible { outline: 3px solid #7f9df5; outline-offset: 3px; }
