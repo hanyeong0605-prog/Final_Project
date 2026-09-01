@@ -17,9 +17,17 @@ import type { ResumeEntryType } from "../features/resume/model/resumeEntry.types
 
 type CapabilityTool = "profile" | "manage" | "analysis" | "writer" | null;
 
+function requestedCapabilityTool(value: string | null): CapabilityTool {
+  return value === "profile" || value === "manage" || value === "analysis" || value === "writer"
+    ? value
+    : null;
+}
+
 export function CapabilityManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTool = searchParams.get("tool") === "profile" ? "profile" : null;
+  // 자동채우기 완료 뒤 /capability?tool=writer 로 이동한다. profile만 허용하면 URL은
+  // 바뀌어도 화면 상태가 analysis에 남아 "양식 선택" 버튼이 먹지 않는 것처럼 보인다.
+  const requestedTool = requestedCapabilityTool(searchParams.get("tool"));
   const [openTool, setOpenTool] = useState<CapabilityTool>(requestedTool);
   useEffect(() => { if (requestedTool) setOpenTool(requestedTool); }, [requestedTool]);
   const closeTool = () => { setOpenTool(null); setSearchParams({}); };

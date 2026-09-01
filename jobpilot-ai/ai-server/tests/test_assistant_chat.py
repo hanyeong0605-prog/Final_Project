@@ -209,3 +209,32 @@ def test_site_knowledge_section_omitted_when_no_match(monkeypatch):
         chat(message="오늘 점심 뭐 먹지")
 
     assert "[사이트 지식 참고자료 - 사용자 질문과" not in captured["prompt"]
+
+
+def test_active_personal_matches_are_included_only_for_job_question(monkeypatch):
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+    captured = {}
+
+    class FakeResponse:
+        text = '{"reply": "추천 공고를 안내해드릴게요.", "navigate_to": null}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None): self.models = FakeModels()
+
+    reference = chat_module.JobMatchReference(
+        job_posting_id=12, company_name="잡드림", title="백엔드 개발자",
+        source_url="https://example.test/jobs/12", readiness_score=90,
+        recommendation_level="APPLY_NOW",
+    )
+    monkeypatch.setattr(chat_module, "fetch_active_matches", lambda member_id: [reference])
+
+    with patch("google.genai.Client", FakeClient):
+        result = chat(message="내게 맞는 채용공고 추천해줘", member_id=7)
+
+    assert "[현재 회원의 모집 중 매칭 공고" in captured["prompt"]
+    assert result.job_references == [reference.to_dict()]

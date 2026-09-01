@@ -21,6 +21,12 @@ from dataclasses import dataclass
 
 from app.core.config import settings
 from app.domain.assistant import knowledge
+from app.domain.assistant.job_match_retrieval import (
+    JobMatchReference,
+    fetch_active_matches,
+    is_job_question,
+    job_matches_prompt_block,
+)
 from app.domain.assistant.site_map import is_known_path, site_pages_prompt_block
 from app.domain.interview.member_spec_retrieval import build_member_spec_context
 from app.domain.resume._shared import parse_json_response
@@ -41,9 +47,16 @@ class AssistantReply:
     message: str | None = None
     reply: str | None = None
     navigate_to: str | None = None
+    job_references: list[dict] | None = None
 
     def to_dict(self) -> dict:
-        return {"ok": self.ok, "message": self.message, "reply": self.reply, "navigate_to": self.navigate_to}
+        return {
+            "ok": self.ok,
+            "message": self.message,
+            "reply": self.reply,
+            "navigate_to": self.navigate_to,
+            "job_references": self.job_references or [],
+        }
 
 
 def _history_block(history: list[dict]) -> str:
@@ -69,6 +82,10 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
     history_text = _history_block(history)
     knowledge_text = knowledge.knowledge_prompt_block(message)
     member_spec_text = build_member_spec_context(member_id) if member_id else None
+    job_matches: list[JobMatchReference] = (
+        fetch_active_matches(member_id) if member_id and is_job_question(message) else []
+    )
+    job_matches_text = job_matches_prompt_block(job_matches)
 
     prompt = (
         "당신은 한국 취업 준비생을 위한 채용/커리어 플랫폼 'Job-A-Dream AI'의 사이트 도우미 "
@@ -85,6 +102,7 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         + (f"[이전 대화]\n{history_text}\n\n" if history_text else "")
         + (f"[현재 회원이 직접 저장한 스펙 - 이 회원의 정보만 사용]\n{member_spec_text}\n\n"
            if member_spec_text else "")
+        + (f"{job_matches_text}\n\n" if job_matches_text else "")
         + f"[사용자 메시지]\n{message}\n\n"
         "[작성 규칙]\n"
         "1. reply는 사용자 메시지에 대한 자연스러운 한국어 답변이다 - 존댓말, 2~4문장 "
@@ -99,7 +117,11 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "안내해라\n"
         "5. [현재 회원이 직접 저장한 스펙]이 있으면 그 회원의 이력서·기술·프로젝트에 관한 질문에만 "
         "참고하고, 정보에 없는 경력이나 성과는 지어내지 마라\n"
-        "6. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
+        "6. [현재 회원의 모집 중 매칭 공고]가 있으면 공고 추천/지원 질문에는 그 목록의 공고와 "
+        "적합도·미확인 필수요건만 근거로 설명해라. 목록 밖 공고, 마감 여부, 자격 충족을 지어내지 마라\n"
+        "7. 매칭 공고가 없으면 공고를 지어내지 말고 맞춤 채용공고 페이지에서 스펙을 저장하거나 "
+        "매칭을 갱신해 달라고 안내해라\n"
+        "8. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
         "{\n"
         '  "reply": "문장",\n'
         '  "navigate_to": "/path" 또는 null\n'
@@ -126,7 +148,12 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         if not is_known_path(navigate_to):
             navigate_to = None  # 목록에 없는 경로는 절대 프론트로 내보내지 않는다
 
-        return AssistantReply(ok=True, reply=reply, navigate_to=navigate_to)
+        return AssistantReply(
+            ok=True,
+            reply=reply,
+            navigate_to=navigate_to,
+            job_references=[match.to_dict() for match in job_matches],
+        )
     except Exception as e:
         return AssistantReply(
             ok=False, message=f"챗봇 응답에 실패했습니다 ({type(e).__name__}). 잠시 후 다시 시도해 주세요."

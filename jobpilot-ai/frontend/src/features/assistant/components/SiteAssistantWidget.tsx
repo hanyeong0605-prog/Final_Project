@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import { Bot, LoaderCircle, MessageCircle, Send, User, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { sendAssistantMessage } from "../api/assistantApi";
-import type { AssistantChatTurn } from "../api/assistantApi";
+import type { AssistantChatTurn, AssistantJobReference } from "../api/assistantApi";
 import { useSiteAssistantWidget } from "../model/SiteAssistantWidgetContext";
 
 // 2026-08-10: mock-interview/components/InterviewChatWidget.tsx를 대체하는 사이트 전체
@@ -16,7 +16,13 @@ import { useSiteAssistantWidget } from "../model/SiteAssistantWidgetContext";
 // 이름은 "interview"지만 실제로는 범용 채팅 위젯 스타일(말풍선/패널/입력창)이라 내용상
 // 문제 없고, 클래스 이름을 전부 바꾸는 건 이 작업 범위를 벗어나는 순수 리네이밍이라
 // 남겨뒀다.
-type ChatMessage = { id: string; role: "bot" | "user"; kind: "text" | "error"; text: string };
+type ChatMessage = {
+  id: string;
+  role: "bot" | "user";
+  kind: "text" | "error";
+  text: string;
+  jobReferences?: AssistantJobReference[];
+};
 
 let messageIdCounter = 0;
 function nextId(): string {
@@ -34,6 +40,15 @@ const GREETING: ChatMessage = {
 // 서버로 보내는 대화 기록도 너무 길게 쌓이지 않게 최근 몇 턴만 유지한다(assistant/chat.py의
 // _MAX_HISTORY_TURNS와 같은 이유 - 최신 맥락이 더 중요하고 토큰도 아낀다).
 const MAX_HISTORY_TURNS = 10;
+
+function safeJobUrl(sourceUrl: string): string | null {
+  try {
+    const url = new URL(sourceUrl);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
 
 export function SiteAssistantWidget() {
   const { open, closeChat, toggleChat } = useSiteAssistantWidget();
@@ -69,7 +84,9 @@ export function SiteAssistantWidget() {
         ]);
         return;
       }
-      setMessages((prev) => [...prev, { id: nextId(), role: "bot", kind: "text", text: result.reply ?? "" }]);
+      setMessages((prev) => [...prev, {
+        id: nextId(), role: "bot", kind: "text", text: result.reply ?? "", jobReferences: result.job_references ?? [],
+      }]);
       if (result.navigate_to) navigate(result.navigate_to);
     } catch (error) {
       setMessages((prev) => [
@@ -170,12 +187,28 @@ function ChatBubble({ message }: { message: ChatMessage }) {
     );
   }
 
+  const jobReferences = message.jobReferences
+    ?.map((job) => ({ job, url: safeJobUrl(job.source_url) }))
+    .filter((item): item is { job: AssistantJobReference; url: string } => item.url !== null);
+
   return (
     <div className={`interview-chat-bubble bot${message.kind === "error" ? " error" : ""}`}>
       <span className="interview-chat-avatar">
         <Bot size={16} />
       </span>
-      <div className="interview-chat-bubble-body">{message.text}</div>
+      <div className="interview-chat-bubble-body">
+        {message.text}
+        {!!jobReferences?.length && (
+          <div className="assistant-job-reference-list">
+            {jobReferences.map(({ job, url }) => (
+              <a key={job.job_posting_id} href={url} target="_blank" rel="noreferrer" className="assistant-job-reference">
+                <strong>{job.company_name ? `${job.company_name} · ` : ""}{job.title}</strong>
+                <span>적합도 {Math.round(job.readiness_score)}점{job.location ? ` · ${job.location}` : ""}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
