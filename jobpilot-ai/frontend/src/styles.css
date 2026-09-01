@@ -1504,6 +1504,7 @@ body { color: #2d3a50; line-height: 1.55; }
 .home-quick-grid { gap: 16px; }
 .home-quick-card { display: block; overflow: hidden; padding: 0; background: #fff; }
 .home-quick-thumbnail { aspect-ratio: 16 / 7; overflow: hidden; background: #CCDEFE; }
+.home-quick-card:nth-child(2) .home-quick-thumbnail { background: #D8E9FF; }
 .home-quick-card:nth-child(3) .home-quick-thumbnail { background: #D0E4FF; }
 .home-quick-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform .2s ease; }
 .home-quick-card-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 11px; align-items: start; padding: 15px 16px; }
