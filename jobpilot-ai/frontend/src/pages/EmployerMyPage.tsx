@@ -86,11 +86,11 @@ export function EmployerMyPage() {
   };
 
   const remove = async (posting: EmployerJobPosting) => {
-    if (!window.confirm(`'${posting.title}' 공고를 숨김 처리할까요?`)) return;
+    if (!window.confirm(`'${posting.title}' 공고를 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
     setError(""); setNotice("");
     try {
       await hideJobPosting(posting.id);
-      setNotice("공고를 숨김 처리했습니다.");
+      setNotice("채용공고를 삭제했습니다.");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "처리에 실패했습니다.");
@@ -167,7 +167,7 @@ export function EmployerMyPage() {
                       <td>
                         <div className="admin-table-actions">
                           <button className="icon-button" title="수정" onClick={() => startEdit(posting)}><Pencil size={15} /></button>
-                          <button className="icon-button danger" title="숨김" onClick={() => void remove(posting)}><Trash2 size={15} /></button>
+                          <button className="icon-button danger" title="삭제" onClick={() => void remove(posting)}><Trash2 size={15} /></button>
                         </div>
                       </td>
                     </tr>

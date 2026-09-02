@@ -40,8 +40,8 @@ public class EmployerJobPostingController {
     }
 
     @DeleteMapping("/{jobPostingId}")
-    public EmployerJobPostingResponse hide(Authentication authentication, @PathVariable Long jobPostingId) {
-        return service.hide(AuthenticatedEmployer.id(authentication), jobPostingId);
+    public void delete(Authentication authentication, @PathVariable Long jobPostingId) {
+        service.delete(AuthenticatedEmployer.id(authentication), jobPostingId);
     }
 
     public record PageResponse<T>(java.util.List<T> content, int page, int size, long totalElements, int totalPages) {

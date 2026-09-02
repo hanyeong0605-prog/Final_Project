@@ -68,10 +68,14 @@ public class EmployerTalentService {
         Long id = profile.getMemberId(); Member member = members.findById(id).orElseThrow(); MemberSpecification spec = specifications.findById(id).orElse(null);
         List<String> skillNames = memberSkills.findByMemberId(id).stream().map(s -> skills.findById(s.getSkillId()).map(v -> v.getName()).orElse(null)).filter(java.util.Objects::nonNull).toList();
         String location = profile.getPreferredLocations() == null ? "" : profile.getPreferredLocations().toString().replaceAll("[\\[\\]\"]", "").replace(',', ' ');
-        String text = (member.getNickname()+" "+profile.getTargetRole()+" "+profile.getTargetJobFamily()+" "+location+" "+String.join(" ", skillNames)).toLowerCase(Locale.ROOT);
-        return new Talent(id, member.getNickname(), profile.getTargetRole(), profile.getTargetJobFamily(), location, profile.getExperienceType(),
+        String role = blankLabel(profile.getTargetRole(), "희망 직무 미설정");
+        String family = blankLabel(profile.getTargetJobFamily(), "직무 분야 미설정");
+        location = blankLabel(location, "희망 지역 미설정");
+        String text = (member.getNickname()+" "+role+" "+family+" "+location+" "+String.join(" ", skillNames)).toLowerCase(Locale.ROOT);
+        return new Talent(id, member.getNickname(), role, family, location, blankLabel(profile.getExperienceType(), "경력 정보 미설정"),
                 spec == null ? 0 : spec.getTotalCareerMonths(), spec == null ? null : spec.getTechnicalSummary(), spec == null ? null : spec.getPortfolioUrl(), skillNames, text);
     }
+    private String blankLabel(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
     public record Talent(Long memberId, String nickname, String targetRole, String targetJobFamily, String preferredLocations,
             String experienceType, int totalCareerMonths, String technicalSummary, String portfolioUrl, List<String> skills, String searchText) {}
 }
