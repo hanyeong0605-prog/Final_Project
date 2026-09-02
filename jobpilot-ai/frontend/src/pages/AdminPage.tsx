@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Briefcase, BriefcaseBusiness, CheckSquare, CircleCheckBig, Pencil, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
+import { Briefcase, BriefcaseBusiness, Building2, CheckSquare, CircleCheckBig, LayoutDashboard, Megaphone, MessageSquareText, Pencil, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { PageHeading } from "../shared/components/PageHeading";
 import { AdminFaceAuthModal } from "../features/admin/components/AdminFaceAuthModal";
 import { AdminFaceReferenceModal } from "../features/admin/components/AdminFaceReferenceModal";
@@ -34,6 +34,7 @@ import {
 const PAGE_SIZE = 20;
 const FACE_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 type MemberWithFacePhoto = AdminMember & { facePhotoRegistered?: boolean };
+type AdminMenu = "dashboard" | "members" | "employers" | "postings" | "promotions" | "community";
 
 function hasActiveFaceSession() {
   const verifiedAt = Number(sessionStorage.getItem("admin_face_verified_at"));
@@ -53,6 +54,7 @@ export function AdminPage() {
   const [isVerified, setIsVerified] = useState(hasActiveFaceSession);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => !hasActiveFaceSession());
   const [faceReferenceLoginId, setFaceReferenceLoginId] = useState<string | null>(null);
+  const [activeMenu, setActiveMenu] = useState<AdminMenu>("dashboard");
 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [members, setMembers] = useState<MemberWithFacePhoto[]>([]);
@@ -268,21 +270,32 @@ export function AdminPage() {
 
       {isVerified && (
         <>
-          <PageHeading eyebrow="ADMIN CONSOLE" title="관리자 페이지" body="회원, 채용공고, 일일 방문 현황을 안전하게 관리합니다." />
-          <AdminCommunitySentiment />
-          <AdminCommunityManager />
-          {(notice || error) && <div className={error ? "account-alert error" : "account-alert"}>{error || notice}</div>}
+          <PageHeading eyebrow="ADMIN CONSOLE" title="관리자 페이지" body="메뉴에서 관리할 항목을 선택해 빠르게 업무를 처리하세요." />
+          <div className="admin-console-layout">
+            <aside className="admin-side-menu" aria-label="관리자 메뉴">
+              <div><span className="eyebrow">ADMIN MENU</span><strong>관리 항목</strong></div>
+              <button className={activeMenu === "dashboard" ? "active" : ""} onClick={() => setActiveMenu("dashboard")}><LayoutDashboard size={17} />대시보드</button>
+              <p>사용자 관리</p>
+              <button className={activeMenu === "members" ? "active" : ""} onClick={() => setActiveMenu("members")}><UsersRound size={17} />일반 사용자</button>
+              <button className={activeMenu === "employers" ? "active" : ""} onClick={() => setActiveMenu("employers")}><Building2 size={17} />기업회원 관리</button>
+              <p>콘텐츠 관리</p>
+              <button className={activeMenu === "postings" ? "active" : ""} onClick={() => setActiveMenu("postings")}><BriefcaseBusiness size={17} />채용공고 관리</button>
+              <button className={activeMenu === "promotions" ? "active" : ""} onClick={() => setActiveMenu("promotions")}><Megaphone size={17} />광고·홈 노출</button>
+              <button className={activeMenu === "community" ? "active" : ""} onClick={() => setActiveMenu("community")}><MessageSquareText size={17} />게시글 관리</button>
+            </aside>
+            <main className="admin-content-area">
+              {(notice || error) && <div className={error ? "account-alert error" : "account-alert"}>{error || notice}</div>}
 
-          <section className="admin-metric-grid">
+          {activeMenu === "dashboard" && <><section className="admin-metric-grid">
             <article><UsersRound size={20} /><span>전체 회원</span><strong>{overview?.memberCount ?? "-"}</strong></article>
             <article><ShieldCheck size={20} /><span>관리자</span><strong>{overview?.adminCount ?? "-"}</strong></article>
             <article><BriefcaseBusiness size={20} /><span>전체 공고</span><strong>{overview?.jobPostingCount ?? "-"}</strong></article>
             <article><CircleCheckBig size={20} /><span>공개 공고</span><strong>{overview?.activePostingCount ?? "-"}</strong></article>
             <article className="admin-visitor-metric"><CheckSquare size={20} /><span>오늘 방문 회원</span><strong>{overview?.todayVisitorCount ?? "-"}</strong><small>일반 {overview?.todayUserVisitorCount ?? "-"} · 관리자 {overview?.todayAdminVisitorCount ?? "-"}</small></article>
             <article><Briefcase size={20} /><span>기업회원 승인 대기</span><strong>{overview?.employerPendingCount ?? "-"}</strong></article>
-          </section>
+          </section><section className="panel admin-dashboard-welcome"><span className="eyebrow">QUICK GUIDE</span><h2>관리 메뉴를 선택하세요</h2><p>사용자·기업회원·채용공고·광고·게시글 관리 기능을 각각의 메뉴에서 바로 처리할 수 있습니다.</p></section></>}
 
-          <section className="panel admin-panel">
+          {activeMenu === "employers" && <section className="panel admin-panel">
             <div className="admin-panel-heading">
               <div><span className="eyebrow">EMPLOYER APPROVAL</span><h2>기업회원 승인 관리</h2><p>가입 시 국세청 사업자 진위확인 결과가 자동으로 표시됩니다. 최종 승인/거절은 직접 처리해 주세요.</p></div>
               <form onSubmit={(e) => { e.preventDefault(); void loadEmployers(0); }}>
@@ -329,11 +342,11 @@ export function AdminPage() {
                 <button className="outline-button" disabled={employerPage.page + 1 >= employerPage.totalPages} onClick={() => void loadEmployers(employerPage.page + 1)}>다음</button>
               </div>
             )}
-          </section>
+          </section>}
 
-          <HomePromotionManager />
+          {activeMenu === "promotions" && <HomePromotionManager />}
 
-          <section className="panel admin-panel">
+          {activeMenu === "members" && <section className="panel admin-panel">
             <div className="admin-panel-heading">
               <div><span className="eyebrow">MEMBER MANAGEMENT</span><h2>회원 관리</h2></div>
               <form onSubmit={(e) => { e.preventDefault(); void loadOverviewAndMembers(); }}>
@@ -370,9 +383,9 @@ export function AdminPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </section>}
 
-          <section className="panel admin-panel">
+          {activeMenu === "postings" && <section className="panel admin-panel">
             <div className="admin-panel-heading admin-posting-heading">
               <div>
                 <span className="eyebrow">JOB POSTING MANAGEMENT</span>
@@ -447,7 +460,10 @@ export function AdminPage() {
                 <button className="outline-button" disabled={postingPage.page + 1 >= postingPage.totalPages} onClick={() => void loadPostings(postingPage.page + 1)}>다음</button>
               </div>
             )}
-          </section>
+          </section>}
+          {activeMenu === "community" && <><AdminCommunityManager /><AdminCommunitySentiment /></>}
+            </main>
+          </div>
         </>
       )}
       {isVerified && faceReferenceLoginId && <AdminFaceReferenceModal loginId={faceReferenceLoginId} onClose={() => setFaceReferenceLoginId(null)} onSaved={() => void loadOverviewAndMembers()} />}
