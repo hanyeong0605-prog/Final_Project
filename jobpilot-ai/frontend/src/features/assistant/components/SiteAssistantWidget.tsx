@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Bot, LoaderCircle, MessageCircle, Send, User, X } from "lucide-react";
+import { ArrowRight, Bot, LoaderCircle, MessageCircle, Send, User, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { sendAssistantMessage } from "../api/assistantApi";
-import type { AssistantChatTurn, AssistantJobReference } from "../api/assistantApi";
+import type { AssistantChatTurn, AssistantJobReference, AssistantSuggestedPage } from "../api/assistantApi";
+import { readNavigationIntent } from "../lib/navigationConsent";
 import { useSiteAssistantWidget } from "../model/SiteAssistantWidgetContext";
 
 // 2026-08-10: mock-interview/components/InterviewChatWidget.tsx를 대체하는 사이트 전체
@@ -22,7 +23,12 @@ type ChatMessage = {
   kind: "text" | "error";
   text: string;
   jobReferences?: AssistantJobReference[];
+  // 이 답변에 딸린 "이 페이지로 갈까요?" 제안. 있으면 말풍선 아래에 미리보기 카드가 붙는다.
+  suggestedPage?: AssistantSuggestedPage;
 };
+
+// 마지막으로 받은 이동 제안. 사용자가 말로 "네"라고 답했을 때 어디로 보낼지 기억해둔다.
+type PendingNavigation = { messageId: string; page: AssistantSuggestedPage };
 
 let messageIdCounter = 0;
 function nextId(): string {
@@ -41,17 +47,6 @@ const GREETING: ChatMessage = {
 // _MAX_HISTORY_TURNS와 같은 이유 - 최신 맥락이 더 중요하고 토큰도 아낀다).
 const MAX_HISTORY_TURNS = 10;
 
-function isNavigationApproval(value: string): boolean {
-  const normalized = value.trim().replace(/[!.,?~]/g, "").replace(/\s+/g, " ");
-  return /^(네|넵|예|응|어|좋아|좋아요|그래|그럼|yes|y)( 이동(해)?(줘|주세요|요)?| 가(줘|주세요|요)?| 해(줘|주세요|요)?)?$/i.test(normalized)
-    || /^(이동(해)?(줘|주세요|요)?|가(줘|주세요|요)?)$/i.test(normalized);
-}
-
-function isNavigationDecline(value: string): boolean {
-  const normalized = value.trim().replace(/[!.,?~]/g, "").replace(/\s+/g, " ");
-  return /^(아니|아니요|아뇨|괜찮아|괜찮아요|싫어|no|n)( 됐어| 됐어요|야)?$/i.test(normalized);
-}
-
 function safeJobUrl(sourceUrl: string): string | null {
   try {
     const url = new URL(sourceUrl);
@@ -67,7 +62,10 @@ export function SiteAssistantWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
+  // 미리보기 카드에서 이미 이동/거절을 고른 답변. 대화 기록에 남은 카드의 버튼을 다시
+  // 누르는 걸 막고, 어떻게 처리됐는지 카드에 표시하기 위한 것.
+  const [resolvedCards, setResolvedCards] = useState<Record<string, "accepted" | "declined">>({});
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,30 +73,42 @@ export function SiteAssistantWidget() {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending, open]);
 
+  const approveNavigation = (pending: PendingNavigation, userText?: string) => {
+    setMessages((prev) => [...prev,
+      ...(userText ? [{ id: nextId(), role: "user" as const, kind: "text" as const, text: userText }] : []),
+      { id: nextId(), role: "bot", kind: "text", text: `네, ${pending.page.name} 페이지로 이동할게요.` },
+    ]);
+    setResolvedCards((prev) => ({ ...prev, [pending.messageId]: "accepted" }));
+    setPendingNavigation(null);
+    navigate(pending.page.path);
+  };
+
+  const declineNavigation = (pending: PendingNavigation, userText?: string) => {
+    setMessages((prev) => [...prev,
+      ...(userText ? [{ id: nextId(), role: "user" as const, kind: "text" as const, text: userText }] : []),
+      { id: nextId(), role: "bot", kind: "text", text: "알겠습니다. 현재 페이지에 머무를게요. 다른 궁금한 점을 물어보세요." },
+    ]);
+    setResolvedCards((prev) => ({ ...prev, [pending.messageId]: "declined" }));
+    setPendingNavigation(null);
+  };
+
   const send = async () => {
     const text = draft.trim();
     if (!text || sending) return;
 
-    if (pendingNavigation && isNavigationApproval(text)) {
-      setMessages((prev) => [...prev,
-        { id: nextId(), role: "user", kind: "text", text },
-        { id: nextId(), role: "bot", kind: "text", text: "네, 요청하신 페이지로 이동할게요." },
-      ]);
-      setDraft("");
-      const destination = pendingNavigation;
-      setPendingNavigation(null);
-      navigate(destination);
-      return;
-    }
-
-    if (pendingNavigation && isNavigationDecline(text)) {
-      setMessages((prev) => [...prev,
-        { id: nextId(), role: "user", kind: "text", text },
-        { id: nextId(), role: "bot", kind: "text", text: "알겠습니다. 현재 페이지에 머무를게요. 다른 궁금한 점을 물어보세요." },
-      ]);
-      setDraft("");
-      setPendingNavigation(null);
-      return;
+    if (pendingNavigation) {
+      const intent = readNavigationIntent(text);
+      if (intent === "approve") {
+        setDraft("");
+        approveNavigation(pendingNavigation, text);
+        return;
+      }
+      if (intent === "decline") {
+        setDraft("");
+        declineNavigation(pendingNavigation, text);
+        return;
+      }
+      // "unrelated"면 새 질문이므로 아래 일반 경로로 흘려보낸다.
     }
 
     const history: AssistantChatTurn[] = messages
@@ -118,10 +128,19 @@ export function SiteAssistantWidget() {
         ]);
         return;
       }
+      // 경로와 미리보기 정보가 둘 다 있을 때만 제안으로 인정한다 - 서버가 목록에 없는
+      // 경로를 걸러내면 둘 다 null로 내려오므로, 여기서도 자연히 제안이 사라진다.
+      const suggestedPage = result.suggested_navigate_to && result.suggested_page ? result.suggested_page : null;
+      const replyId = nextId();
       setMessages((prev) => [...prev, {
-        id: nextId(), role: "bot", kind: "text", text: result.reply ?? "", jobReferences: result.job_references ?? [],
+        id: replyId,
+        role: "bot",
+        kind: "text",
+        text: result.reply ?? "",
+        jobReferences: result.job_references ?? [],
+        ...(suggestedPage ? { suggestedPage } : {}),
       }]);
-      setPendingNavigation(result.suggested_navigate_to ?? null);
+      setPendingNavigation(suggestedPage ? { messageId: replyId, page: suggestedPage } : null);
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -159,7 +178,13 @@ export function SiteAssistantWidget() {
 
           <div className="interview-chat-log interview-chat-widget-log" ref={logRef}>
             {messages.map((m) => (
-              <ChatBubble key={m.id} message={m} />
+              <ChatBubble
+                key={m.id}
+                message={m}
+                cardState={resolvedCards[m.id]}
+                onApprove={() => m.suggestedPage && approveNavigation({ messageId: m.id, page: m.suggestedPage })}
+                onDecline={() => m.suggestedPage && declineNavigation({ messageId: m.id, page: m.suggestedPage })}
+              />
             ))}
             {sending && (
               <div className="interview-chat-bubble bot">
@@ -209,7 +234,12 @@ export function SiteAssistantWidget() {
   );
 }
 
-function ChatBubble({ message }: { message: ChatMessage }) {
+function ChatBubble({ message, cardState, onApprove, onDecline }: {
+  message: ChatMessage;
+  cardState?: "accepted" | "declined";
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
   if (message.role === "user") {
     return (
       <div className="interview-chat-bubble user">
@@ -232,6 +262,14 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       </span>
       <div className="interview-chat-bubble-body">
         {message.text}
+        {message.suggestedPage && (
+          <NavigationPreviewCard
+            page={message.suggestedPage}
+            state={cardState}
+            onApprove={onApprove}
+            onDecline={onDecline}
+          />
+        )}
         {!!jobReferences?.length && (
           <div className="assistant-job-reference-list">
             {jobReferences.map(({ job, url }) => (
@@ -243,6 +281,45 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// 이동 전 미리보기 카드. 예전엔 "이동할까요?"라는 문장 하나만 나와서 사용자는 그 페이지에
+// 뭐가 있는지 모른 채 답해야 했고, 수락도 오직 타이핑으로만 가능했다(그마저도 표현이 조금만
+// 달라지면 못 알아들었다). 이제 갈 곳의 내용을 먼저 보여주고, 말로 답하든 버튼을 누르든
+// 똑같이 이동할 수 있다. 어느 쪽이든 이동은 사용자가 고른 뒤에만 일어난다.
+function NavigationPreviewCard({ page, state, onApprove, onDecline }: {
+  page: AssistantSuggestedPage;
+  state?: "accepted" | "declined";
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <div className="assistant-nav-preview">
+      <strong>{page.name}</strong>
+      <span className="assistant-nav-preview-desc">{page.description}</span>
+      {!!page.highlights.length && (
+        <ul>
+          {page.highlights.map((highlight) => (
+            <li key={highlight}>{highlight}</li>
+          ))}
+        </ul>
+      )}
+      {state ? (
+        <span className="assistant-nav-preview-done">
+          {state === "accepted" ? "이 페이지로 이동했어요." : "이동하지 않았어요."}
+        </span>
+      ) : (
+        <div className="assistant-nav-preview-actions">
+          <button type="button" className="assistant-nav-preview-go" onClick={onApprove}>
+            이동하기 <ArrowRight size={13} />
+          </button>
+          <button type="button" className="assistant-nav-preview-stay" onClick={onDecline}>
+            여기 있을게요
+          </button>
+        </div>
+      )}
     </div>
   );
 }

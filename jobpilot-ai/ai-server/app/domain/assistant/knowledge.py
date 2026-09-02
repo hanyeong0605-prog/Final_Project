@@ -55,7 +55,7 @@ def _load_file_knowledge() -> list[dict]:
             topic = row.get("topic", "")
             text = row.get("text", "")
             if topic and text:
-                entries.append({"topic": topic, "text": text})
+                entries.append({"topic": topic, "text": text, "aliases": row.get("aliases", "")})
     return entries
 
 
@@ -77,7 +77,7 @@ def _load_database_knowledge() -> list[dict]:
                 ORDER BY id
             """)).mappings()
             return [
-                {"topic": str(row["title"]), "text": str(row["content"])}
+                {"topic": str(row["title"]), "text": str(row["content"]), "aliases": ""}
                 for row in rows
                 if row["title"] and row["content"]
             ]
@@ -101,9 +101,12 @@ def _get_vectorizer() -> tuple[list[dict], TfidfVectorizer | None, object]:
         _cache = (entries, None, None)
         return _cache
 
-    # topic + text를 같이 벡터화한다 - 주제어(topic)가 질문의 핵심 키워드와 직접 겹치는
-    # 경우가 많아서(예: 질문 "구독 얼마야" vs topic "구독 요금") 검색 정확도에 도움이 된다.
-    documents = [f"{e['topic']} {e['text']}" for e in entries]
+    # topic + aliases + text를 같이 벡터화한다 - 주제어(topic)가 질문의 핵심 키워드와 직접
+    # 겹치는 경우가 많아서 검색 정확도에 도움이 된다. aliases는 본문과 표현이 다른 검색어를
+    # 붙여두는 자리다(예: 본문은 "이용권"이라고만 쓰는데 사용자는 "구독 요금 얼마야"라고
+    # 묻는다 - 별칭이 없으면 유사도가 임계값 아래로 떨어져 지식 조각을 아예 못 찾았다).
+    # 프롬프트에는 topic/text만 나가므로 별칭이 답변 문구에 섞이지는 않는다.
+    documents = [f"{e['topic']} {e.get('aliases', '')} {e['text']}" for e in entries]
     vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4))
     matrix = vectorizer.fit_transform(documents)
     _cache = (entries, vectorizer, matrix)

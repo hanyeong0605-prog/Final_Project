@@ -31,11 +31,16 @@ def test_empty_message_returns_guidance_without_calling_api(monkeypatch):
     mock_client.assert_not_called()
 
 
-def test_chat_returns_reply_and_known_navigate_to(monkeypatch):
+def test_chat_returns_reply_and_page_preview_for_suggestion(monkeypatch):
+    """이동은 항상 2단계다 - 서버는 navigate_to를 절대 채우지 않고, 검증된 제안 경로와
+    그 페이지의 미리보기(suggested_page)만 내려보낸다."""
     monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
 
     class FakeResponse:
-        text = '{"reply": "이력서 작성 도우미로 안내해드릴게요!", "navigate_to": "/resume"}'
+        text = (
+            '{"reply": "이력서는 질문에 답하면 문단으로 정리돼요. 이동할까요?",'
+            ' "navigate_to": null, "suggested_navigate_to": "/resume"}'
+        )
 
     class FakeModels:
         def generate_content(self, model, contents, config=None):
@@ -50,17 +55,46 @@ def test_chat_returns_reply_and_known_navigate_to(monkeypatch):
         result = chat(message="이력서 쓰고 싶어")
 
     assert result.ok is True
-    assert result.reply == "이력서 작성 도우미로 안내해드릴게요!"
-    assert result.navigate_to == "/resume"
+    assert result.reply == "이력서는 질문에 답하면 문단으로 정리돼요. 이동할까요?"
+    assert result.navigate_to is None
+    assert result.suggested_navigate_to == "/resume"
+    assert result.suggested_page is not None
+    assert result.suggested_page["path"] == "/resume"
+    assert result.suggested_page["name"] == "이력서 작성 도우미"
+    assert result.suggested_page["highlights"]
 
 
-def test_unknown_navigate_to_is_nulled_out(monkeypatch):
-    """Gemini가 목록에 없는 경로를 지어내도 절대 그대로 내보내면 안 된다 - 프론트가 그걸
-    믿고 useNavigate()로 라우팅하면 404가 뜬다."""
+def test_direct_navigate_to_is_always_dropped(monkeypatch):
+    """Gemini가 navigate_to를 채워 보내도 동의 없는 자동 이동은 없어야 한다."""
     monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
 
     class FakeResponse:
-        text = '{"reply": "안내해드릴게요!", "navigate_to": "/does-not-exist"}'
+        text = '{"reply": "바로 이동할게요!", "navigate_to": "/resume", "suggested_navigate_to": null}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        result = chat(message="이력서 페이지 열어줘")
+
+    assert result.ok is True
+    assert result.navigate_to is None
+    assert result.suggested_navigate_to is None
+    assert result.suggested_page is None
+
+
+def test_unknown_suggested_path_is_nulled_out(monkeypatch):
+    """Gemini가 목록에 없는 경로를 지어내도 절대 그대로 내보내면 안 된다 - 프론트가 그걸
+    믿고 useNavigate()로 라우팅하면 404가 뜬다. 미리보기 카드도 같이 사라져야 한다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    class FakeResponse:
+        text = '{"reply": "안내해드릴게요!", "navigate_to": null, "suggested_navigate_to": "/does-not-exist"}'
 
     class FakeModels:
         def generate_content(self, model, contents, config=None):
@@ -74,7 +108,8 @@ def test_unknown_navigate_to_is_nulled_out(monkeypatch):
         result = chat(message="아무데나 가줘")
 
     assert result.ok is True
-    assert result.navigate_to is None
+    assert result.suggested_navigate_to is None
+    assert result.suggested_page is None
 
 
 def test_no_navigation_intent_leaves_navigate_to_null(monkeypatch):
@@ -96,6 +131,32 @@ def test_no_navigation_intent_leaves_navigate_to_null(monkeypatch):
 
     assert result.ok is True
     assert result.navigate_to is None
+    assert result.suggested_page is None
+
+
+def test_page_highlights_are_in_prompt_for_preview(monkeypatch):
+    """미리보기 문구를 Gemini가 지어내지 않게 하려면, 각 페이지에서 볼 수 있는 것이
+    프롬프트에 근거로 들어가 있어야 한다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    captured = {}
+
+    class FakeResponse:
+        text = '{"reply": "확인해볼까요?", "navigate_to": null, "suggested_navigate_to": null}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            captured["prompt"] = contents
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        chat(message="모의면접 어떻게 해?")
+
+    assert "끝나면 질문별 점수·강점·개선점 리포트 제공" in captured["prompt"]
 
 
 def test_history_included_in_prompt(monkeypatch):

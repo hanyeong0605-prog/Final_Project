@@ -37,19 +37,19 @@ export function SubscriptionResultPage() {
       })
       .catch((e) => {
         setStatus("error");
-        setMessage(e instanceof Error ? e.message : "구독 확정에 실패했습니다.");
+        setMessage(e instanceof Error ? e.message : "결제 확정에 실패했습니다.");
       });
   }, [isSuccess, searchParams]);
 
   return (
     <>
-      <PageHeading eyebrow="SUBSCRIPTION" title="구독 결과" body="구독 신청 결과를 확인합니다." />
+      <PageHeading eyebrow="INTERVIEW PASS" title="결제 결과" body="실전면접 이용권 결제 결과를 확인합니다." />
       <div style={{ padding: "40px 24px", background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", textAlign: "center" }}>
         {status === "loading" && <DataStatePanel state="loading" />}
         {status === "done" && (
           <>
             <CheckCircle2 size={40} color="#16a34a" />
-            <p style={{ marginTop: "16px", fontWeight: 600 }}>구독이 시작되었습니다.</p>
+            <p style={{ marginTop: "16px", fontWeight: 600 }}>실전면접 이용권이 충전되었습니다.</p>
           </>
         )}
         {status === "error" && (
@@ -59,7 +59,7 @@ export function SubscriptionResultPage() {
           </>
         )}
         {status !== "loading" && (
-          <Link to="/account" className="primary-button" style={{ display: "inline-block", marginTop: "20px", textDecoration: "none" }}>
+          <Link to="/account?tab=subscription" className="primary-button" style={{ display: "inline-block", marginTop: "20px", textDecoration: "none" }}>
             마이페이지로 이동
           </Link>
         )}

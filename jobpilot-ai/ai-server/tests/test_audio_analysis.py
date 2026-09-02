@@ -7,6 +7,7 @@
 (Dockerfile, 오디오 분석 기능 자체의 전제조건).
 """
 
+import os
 import subprocess
 import tempfile
 from unittest.mock import Mock, patch
@@ -239,16 +240,20 @@ def test_load_audio_mono16k_decodes_real_wav_via_ffmpeg():
     ffmpeg로 만든 짧은 사인파 WAV를 디코딩해서 예상한 길이/타입의 배열이 나오는지 확인한다
     (모킹이 아니라 실제 왕복 검증 - 이 함수 자체가 순수 subprocess 호출이라 모킹하면 로직을
     검증하는 의미가 없다)."""
-    with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+    # 디렉터리를 만들고 그 안의 경로만 넘긴다 - NamedTemporaryFile은 파일 핸들을 연 채로
+    # 두는데, 윈도우에서는 그 핸들이 배타적이라 ffmpeg가 같은 경로에 쓰지 못하고
+    # "Permission denied"로 죽는다(리눅스 CI에서는 통과해서 개발자 PC에서만 실패했다).
+    with tempfile.TemporaryDirectory() as directory:
+        wav_path = os.path.join(directory, "sine.wav")
         subprocess.run(
             [
                 "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=200:duration=1",
-                "-ar", "48000", "-ac", "2", f.name,
+                "-ar", "48000", "-ac", "2", wav_path,
             ],
             capture_output=True,
             check=True,
         )
-        y = audio_analysis._load_audio_mono16k(f.name)
+        y = audio_analysis._load_audio_mono16k(wav_path)
 
     assert y.dtype == np.float32
     # 1초짜리 오디오를 16kHz 모노로 디코딩했으니 대략 16000 샘플이어야 한다(리샘플링
