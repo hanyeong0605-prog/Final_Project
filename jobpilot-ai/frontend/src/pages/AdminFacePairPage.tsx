@@ -51,7 +51,11 @@ export function AdminFacePairPage() {
     try {
       const result = await submitAdminFaceCapture(sessionId, token, imageBase64);
       if (result.status === "VERIFIED") {
-        setMessage(`인증되었습니다. PC 화면으로 돌아가세요. (일치율 ${result.similarity ?? "-"}%)`);
+        // 2026-09-02: 성공했을 때는 일치율을 보여주지 않는다. 통과한 사람에게는 쓸모없는
+        // 숫자인 데다, 몇 %로 통과했는지는 굳이 알릴 이유가 없다(실패 문구는 반대로 조명·
+        // 각도를 어떻게 고칠지 판단할 근거라서 ml-server가 내려주는 "일치율 미달 (현재 …,
+        // 기준 …)"을 그대로 보여준다).
+        setMessage("인증되었습니다. PC 화면으로 돌아가세요.");
         streamRef.current?.getTracks().forEach((track) => track.stop());
       } else {
         setError(`${result.message ?? "등록 사진과 일치하지 않습니다."} QR을 새로 만들 필요 없이 이 화면에서 다시 인증할 수 있습니다.`);
