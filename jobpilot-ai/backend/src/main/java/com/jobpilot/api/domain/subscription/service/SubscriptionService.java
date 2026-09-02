@@ -13,6 +13,8 @@ import com.jobpilot.api.domain.subscription.exception.SubscriptionException;
 import com.jobpilot.api.domain.subscription.repository.SubscriptionPaymentRepository;
 import com.jobpilot.api.domain.subscription.repository.SubscriptionRepository;
 import com.jobpilot.api.domain.admin.AdminAccessService;
+import com.jobpilot.api.domain.notification.entity.NotificationLog;
+import com.jobpilot.api.domain.notification.repository.NotificationLogRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
@@ -55,17 +57,20 @@ public class SubscriptionService {
     private final SubscriptionPaymentRepository paymentRepository;
     private final TossPaymentsClient tossPaymentsClient;
     private final AdminAccessService adminAccess;
+    private final NotificationLogRepository notifications;
 
     public SubscriptionService(
             SubscriptionRepository subscriptionRepository,
             SubscriptionPaymentRepository paymentRepository,
             TossPaymentsClient tossPaymentsClient,
-            AdminAccessService adminAccess
+            AdminAccessService adminAccess,
+            NotificationLogRepository notifications
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.paymentRepository = paymentRepository;
         this.tossPaymentsClient = tossPaymentsClient;
         this.adminAccess = adminAccess;
+        this.notifications = notifications;
     }
 
     /** 판매 중인 이용권 상품 목록(1회/5회/10회) - 프론트가 이 중 하나를 골라 checkout한다. */
@@ -155,6 +160,8 @@ public class SubscriptionService {
         // 없고, 이 금액은 바로 위에서 "서버가 정한 금액과 같은지" 검증을 통과한 값이라 안전하다.
         SubscriptionPlan plan = SubscriptionPlan.findByPrice(payment.getAmount());
         subscription.addSessions(plan.id(), plan.priceWon(), plan.sessions());
+        notifications.save(new NotificationLog(memberId, "SUBSCRIPTION_PAYMENT", payment.getSubscriptionId(), "SUBSCRIPTION_PAID",
+                "이용권 결제가 완료되었습니다", plan.displayName() + " 결제가 완료되어 실전면접 " + plan.sessions() + "회가 충전되었습니다. 결제 금액: " + String.format("%,d원", payment.getAmount()), "/account"));
 
         return toResponse(subscription);
     }

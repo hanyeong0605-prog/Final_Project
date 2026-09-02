@@ -43,7 +43,7 @@ export function CapabilityManagementPage() {
 
   return <>
     <PageHeading eyebrow="CAPABILITY MANAGEMENT" title={heading[0]} body={heading[1]} />
-    <section className="panel talent-visibility-setting"><div><strong>기업회원에게 내 역량 공개</strong><p>공개하면 기업회원이 공개 인재 대시보드에서 내 스펙을 조회할 수 있습니다. 언제든 다시 비공개로 바꿀 수 있어요.</p></div><button className={talentPublic ? "primary-button" : "outline-button"} onClick={() => void setTalentVisibility(!talentPublic).then((value) => setTalentPublic(value.enabled))}>{talentPublic ? "공개 중 · 끄기" : "비공개 · 공개하기"}</button></section>
+    <section className="panel talent-visibility-setting"><div><strong>기업에게 내 역량 공개</strong><p>공개하면 기업이 공개 인재 대시보드에서 내 스펙을 조회할 수 있습니다. 언제든 비공개로 전환할 수 있어요.</p></div><button type="button" className={`visibility-switch ${talentPublic ? "on" : ""}`} role="switch" aria-checked={talentPublic} onClick={() => { const next = !talentPublic; if (window.confirm(next ? "기업에게 내 역량을 공개할까요?" : "기업에게 내 역량 공개를 해제할까요?")) void setTalentVisibility(next).then((value) => setTalentPublic(value.enabled)); }}><span /></button></section>
 
     <section className="capability-tool-grid" aria-label="역량 관리 도구">
       <article className={`capability-tool-card ${openTool === "profile" || openTool === "analysis" ? "selected" : ""}`}>
