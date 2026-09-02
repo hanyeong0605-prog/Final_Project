@@ -12,7 +12,7 @@ const dateKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date
 const isRecruiting = (event: PlannerEvent) => event.sourceType === "JOB_POSTING" || event.eventType === "APPLICATION_PERIOD";
 const sourceHref = (event: PlannerEvent) => {
   if (event.sourceType === "JOB_POSTING" && event.sourceId) return `/job-postings/${event.sourceId}`;
-  if (event.sourceType === "CERTIFICATE") return "/account";
+  if (event.sourceType === "CERTIFICATE") return "/account?tab=saved";
   if (event.sourceType === "OPPORTUNITY" && event.sourceId) return `/opportunities/${event.sourceId}`;
   return null;
 };

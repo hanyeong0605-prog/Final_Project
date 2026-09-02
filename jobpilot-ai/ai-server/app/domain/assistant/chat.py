@@ -15,6 +15,12 @@
 knowledge.py가 사용자 메시지와 관련 있는 사이트 지식 조각(실제 코드/정책 기반 FAQ)을
 로컬 TF-IDF로 검색해서 찾아주면, 관련 있는 것만 프롬프트에 "[사이트 지식 참고자료]"로
 끼워넣는다 - 관련 지식이 없으면(예: 일반 잡담) 그 섹션 자체를 안 넣고 기존처럼 동작한다.
+
+2026-09-02 이동 전 미리보기: 예전엔 "정보를 묻는 질문에는 페이지를 제안하지 말라"고 막아둬서,
+사용자는 답만 받고 그 다음 행동(어디로 가야 하는지)은 스스로 찾아야 했다. 이제 답변은 그대로
+완결되게 하되 이어서 볼 페이지가 있으면 suggested_navigate_to를 채우고, 그 페이지에서 볼 수
+있는 것(site_map의 highlights)을 reply에서 미리 요약한 뒤 이동 여부를 묻는다. 같은 highlights를
+suggested_page로 내려보내면 프론트가 이동 전 미리보기 카드로 띄운다.
 """
 
 from dataclasses import dataclass
@@ -27,7 +33,7 @@ from app.domain.assistant.job_match_retrieval import (
     is_job_question,
     job_matches_prompt_block,
 )
-from app.domain.assistant.site_map import is_known_path, site_pages_prompt_block
+from app.domain.assistant.site_map import find_page, site_pages_prompt_block
 from app.domain.interview.member_spec_retrieval import build_member_spec_context
 from app.domain.resume._shared import parse_json_response
 
@@ -48,6 +54,9 @@ class AssistantReply:
     reply: str | None = None
     navigate_to: str | None = None
     suggested_navigate_to: str | None = None
+    # 이동 전 프론트가 띄우는 미리보기 카드 재료(site_map.SitePage.to_dict()).
+    # suggested_navigate_to가 살아남았을 때만 채워진다.
+    suggested_page: dict | None = None
     job_references: list[dict] | None = None
 
     def to_dict(self) -> dict:
@@ -57,6 +66,7 @@ class AssistantReply:
             "reply": self.reply,
             "navigate_to": self.navigate_to,
             "suggested_navigate_to": self.suggested_navigate_to,
+            "suggested_page": self.suggested_page,
             "job_references": self.job_references or [],
         }
 
@@ -93,9 +103,9 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "당신은 한국 취업 준비생을 위한 채용/커리어 플랫폼 'Job-A-Dream AI'의 사이트 도우미 "
         "챗봇입니다. 사용자의 질문에 친절하고 간결하게 답하고, 사이트 이용법이나 채용/취업/"
         "이력서/면접 관련 조언도 해줄 수 있습니다.\n\n"
-        "아래는 이 사이트에서 실제로 존재하는 페이지 목록입니다. 사용자가 특정 기능이나 페이지로 "
-        "이동해 달라고 명시적으로 요청한 경우에도 바로 이동시키지 말고, suggested_navigate_to에만 "
-        "그 페이지 경로를 넣고 reply에서 '해당 페이지로 이동할까요?'라고 확인하세요.\n\n"
+        "아래는 이 사이트에서 실제로 존재하는 페이지 목록과, 각 페이지에서 볼 수 있는 내용(· 줄)입니다. "
+        "사용자가 이동해 달라고 명시적으로 요청한 경우에도 바로 이동시키지 말고, suggested_navigate_to에 "
+        "경로만 넣은 뒤 reply에서 그 페이지에 무엇이 있는지 미리 알려주고 마지막에 이동 여부를 물어보세요.\n\n"
         f"[사이트 페이지 목록]\n{site_pages_prompt_block()}\n\n"
         + (f"[사이트 지식 참고자료 - 사용자 질문과 관련 있을 수 있는 이 사이트의 실제 "
            f"정책/기능. 여기 없는 내용은 지어내지 말고, 정말 모르면 모른다고 답하세요]\n"
@@ -106,24 +116,29 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         + (f"{job_matches_text}\n\n" if job_matches_text else "")
         + f"[사용자 메시지]\n{message}\n\n"
         "[작성 규칙]\n"
-        "1. reply는 사용자 메시지에 대한 자연스러운 한국어 답변이다 - 존댓말, 2~4문장 "
+        "1. reply는 사용자 메시지에 대한 자연스러운 한국어 답변이다 - 존댓말, 2~5문장 "
         "내외로 간결하게 작성해라\n"
         "2. navigate_to는 항상 null로 써라. 사용자 동의 전에는 절대 자동 이동하지 않는다.\n"
         "3. suggested_navigate_to는 위 페이지 목록에 있는 경로 문자열 그대로만 쓰거나 null로 써라. "
-        "사용자가 '이동해줘', '열어줘', '보여줘'처럼 이동을 명시적으로 요청한 경우에만 경로를 채우고, "
-        "reply 마지막에 '해당 페이지로 이동할까요?'라고 물어라. 요금·이용권·기능·절차처럼 정보를 "
-        "묻는 질문에는 RAG 근거의 구체적인 내용을 reply에서 완결되게 답하고 suggested_navigate_to도 null로 둬라.\n"
-        "4. [사이트 지식 참고자료]가 있으면 그 내용을 우선 근거로 답해라 - 참고자료와 "
+        "사용자가 '이동해줘', '열어줘'처럼 이동을 명시적으로 요청했을 때는 물론이고, 질문에 대한 답을 그 "
+        "페이지에서 이어서 확인하거나 처리할 수 있을 때도 경로를 채워라(예: 이용권 잔여 횟수 질문 -> "
+        "/account, 나에게 맞는 공고 질문 -> /dashboard).\n"
+        "4. suggested_navigate_to를 채웠으면 reply는 반드시 이 순서로 써라 - (a) 먼저 질문에 대한 답을 "
+        "그 자리에서 완결되게 하고, (b) 그 페이지에서 볼 수 있는 것을 위 목록의 · 줄을 근거로 한두 가지 "
+        "미리 알려주고, (c) 마지막 문장에서 '...페이지로 이동할까요?'라고 물어라. 답은 생략한 채 이동만 "
+        "권하지 말고, · 줄에 없는 기능을 그 페이지에 있는 것처럼 지어내지도 마라. 관련 페이지가 없으면 "
+        "suggested_navigate_to를 null로 두고 답만 해라.\n"
+        "5. [사이트 지식 참고자료]가 있으면 그 내용을 우선 근거로 답해라 - 참고자료와 "
         "다른 내용을 지어내지 마라. 참고자료가 없는데 사이트 고유 정책(요금, 절차 등)을 "
         "묻는 질문이면 확신 없이 단정하지 말고 정확한 정보는 사이트에서 직접 확인해달라고 "
         "안내해라\n"
-        "5. [현재 회원이 직접 저장한 스펙]이 있으면 그 회원의 이력서·기술·프로젝트에 관한 질문에만 "
+        "6. [현재 회원이 직접 저장한 스펙]이 있으면 그 회원의 이력서·기술·프로젝트에 관한 질문에만 "
         "참고하고, 정보에 없는 경력이나 성과는 지어내지 마라\n"
-        "6. [현재 회원의 모집 중 매칭 공고]가 있으면 공고 추천/지원 질문에는 그 목록의 공고와 "
+        "7. [현재 회원의 모집 중 매칭 공고]가 있으면 공고 추천/지원 질문에는 그 목록의 공고와 "
         "적합도·미확인 필수요건만 근거로 설명해라. 목록 밖 공고, 마감 여부, 자격 충족을 지어내지 마라\n"
-        "7. 매칭 공고가 없으면 공고를 지어내지 말고 맞춤 채용공고 페이지에서 스펙을 저장하거나 "
+        "8. 매칭 공고가 없으면 공고를 지어내지 말고 맞춤 채용공고 페이지에서 스펙을 저장하거나 "
         "매칭을 갱신해 달라고 안내해라\n"
-        "8. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
+        "9. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
         "{\n"
         '  "reply": "문장",\n'
         '  "navigate_to": null,\n'
@@ -152,7 +167,10 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         # destination; the widget stores only a validated suggestion and asks for consent.
         suggested_navigate_to = data.get("suggested_navigate_to")
         suggested_navigate_to = str(suggested_navigate_to).strip() if suggested_navigate_to else None
-        if not is_known_path(suggested_navigate_to):
+        # find_page()는 is_known_path()와 같은 목록을 본다 - 목록에 없는 경로면 여기서 None이
+        # 되어 제안 자체가 사라지므로, 프론트가 없는 페이지의 미리보기를 띄울 일도 없다.
+        suggested_page = find_page(suggested_navigate_to)
+        if suggested_page is None:
             suggested_navigate_to = None
 
         return AssistantReply(
@@ -160,6 +178,7 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
             reply=reply,
             navigate_to=None,
             suggested_navigate_to=suggested_navigate_to,
+            suggested_page=suggested_page.to_dict() if suggested_page else None,
             job_references=[match.to_dict() for match in job_matches],
         )
     except Exception as e:

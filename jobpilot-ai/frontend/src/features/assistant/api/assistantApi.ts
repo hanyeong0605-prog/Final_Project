@@ -14,7 +14,17 @@ export interface AssistantChatResult {
   reply: string | null;
   navigate_to: string | null;
   suggested_navigate_to: string | null;
+  // suggested_navigate_to가 살아남았을 때만 채워지는 이동 전 미리보기 정보
+  // (ai-server site_map.SitePage). 경로가 사이트 페이지 목록에 없으면 둘 다 null이다.
+  suggested_page: AssistantSuggestedPage | null;
   job_references: AssistantJobReference[];
+}
+
+export interface AssistantSuggestedPage {
+  path: string;
+  name: string;
+  description: string;
+  highlights: string[];
 }
 
 export interface AssistantJobReference {

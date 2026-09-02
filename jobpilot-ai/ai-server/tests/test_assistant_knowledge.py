@@ -9,9 +9,12 @@ from app.domain.assistant import knowledge
 
 
 def test_relevant_query_returns_matching_topic():
+    """본문은 "이용권"이라고만 쓰는데 사용자는 "구독"이라고 묻는다 - 지식 조각의 aliases가
+    이 표현 차이를 메워야 한다(별칭이 없던 동안은 유사도가 임계값 아래로 떨어져 아무것도
+    못 찾았다)."""
     results = knowledge.search("구독 요금이 얼마야")
     assert results
-    assert results[0]["topic"] == "구독 요금"
+    assert results[0]["topic"] == "이용권 요금 · 실전면접 가격"
     assert results[0]["score"] >= knowledge.SIMILARITY_THRESHOLD
 
 
@@ -38,7 +41,10 @@ def test_top_k_limits_result_count():
 
 def test_knowledge_prompt_block_formats_as_bullet_list():
     block = knowledge.knowledge_prompt_block("구독 요금이 얼마야")
-    assert block.startswith("- 구독 요금:")
+    assert block.startswith("- 이용권 요금 · 실전면접 가격:")
+    # 검색 전용 별칭은 프롬프트에 새어나가면 안 된다 - Gemini가 "구독"이라는 표현을
+    # 근거 문구로 착각해 답변에 쓰면 실제 정책(구독 아님)과 반대되는 말을 하게 된다.
+    assert "정기결제" not in block
 
 
 def test_knowledge_prompt_block_empty_for_unrelated_query():

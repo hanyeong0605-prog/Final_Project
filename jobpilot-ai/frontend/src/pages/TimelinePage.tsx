@@ -123,7 +123,11 @@ export function TimelinePage() {
       .then(setInsight)
       .catch(() => setInsight(null))
       .finally(() => setInsightLoading(false));
-  }, [sessions]);
+    // subscribed도 의존성에 있어야 한다 - 세션 목록과 이용권 조회가 병렬로 나가는데, 세션이
+    // 먼저 도착하면 이 이펙트는 subscribed가 아직 null인 채로 돌아 위에서 그냥 빠져나간다.
+    // 예전엔 [sessions]만 있어서 그 뒤에 subscribed가 true가 돼도 다시 돌지 않았고, 결국
+    // 이용권이 있는 회원인데도 누적 인사이트가 아예 안 뜨는 일이 응답 순서에 따라 생겼다.
+  }, [sessions, subscribed]);
 
   const toggleExpand = (id: number) => {
     if (expandedId === id) {
@@ -173,10 +177,10 @@ export function TimelinePage() {
             <TrendingUp size={16} /> 누적 인사이트
           </div>
           <p style={{ margin: "0 0 12px", color: "#6a7383", fontSize: 13, lineHeight: 1.6 }}>
-            구독하면 지금까지의 모의면접 기록에서 반복적으로 지적된 점과, 이력서 내용과 연결된 맞춤 제안을 볼 수 있어요.
+            이용권을 구매하면 지금까지의 모의면접 기록에서 반복적으로 지적된 점과, 이력서 내용과 연결된 맞춤 제안을 볼 수 있어요.
           </p>
-          <Link to="/account" className="primary-button" style={{ display: "inline-block", textDecoration: "none" }}>
-            구독하기
+          <Link to="/account?tab=subscription" className="primary-button" style={{ display: "inline-block", textDecoration: "none" }}>
+            이용권 구매하기
           </Link>
         </section>
       )}
