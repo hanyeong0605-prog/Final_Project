@@ -13,6 +13,7 @@ export interface AssistantChatResult {
   message: string | null;
   reply: string | null;
   navigate_to: string | null;
+  suggested_navigate_to: string | null;
   job_references: AssistantJobReference[];
 }
 

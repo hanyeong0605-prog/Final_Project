@@ -47,6 +47,7 @@ class AssistantReply:
     message: str | None = None
     reply: str | None = None
     navigate_to: str | None = None
+    suggested_navigate_to: str | None = None
     job_references: list[dict] | None = None
 
     def to_dict(self) -> dict:
@@ -55,6 +56,7 @@ class AssistantReply:
             "message": self.message,
             "reply": self.reply,
             "navigate_to": self.navigate_to,
+            "suggested_navigate_to": self.suggested_navigate_to,
             "job_references": self.job_references or [],
         }
 
@@ -91,10 +93,9 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "당신은 한국 취업 준비생을 위한 채용/커리어 플랫폼 'Job-A-Dream AI'의 사이트 도우미 "
         "챗봇입니다. 사용자의 질문에 친절하고 간결하게 답하고, 사이트 이용법이나 채용/취업/"
         "이력서/면접 관련 조언도 해줄 수 있습니다.\n\n"
-        "아래는 이 사이트에서 실제로 존재하는 페이지 목록입니다 - 사용자가 특정 기능이나 "
-        "페이지로 이동하고 싶어하는 의도가 분명하면(예: '이력서 쓰고 싶어', '채용공고 보여줘') "
-        "navigate_to에 그 페이지 경로를 정확히 채워주세요. 단순 질문이나 이동 의도가 없으면 "
-        "navigate_to는 null로 두세요.\n\n"
+        "아래는 이 사이트에서 실제로 존재하는 페이지 목록입니다. 사용자가 특정 기능이나 페이지로 "
+        "이동해 달라고 명시적으로 요청한 경우에도 바로 이동시키지 말고, suggested_navigate_to에만 "
+        "그 페이지 경로를 넣고 reply에서 '해당 페이지로 이동할까요?'라고 확인하세요.\n\n"
         f"[사이트 페이지 목록]\n{site_pages_prompt_block()}\n\n"
         + (f"[사이트 지식 참고자료 - 사용자 질문과 관련 있을 수 있는 이 사이트의 실제 "
            f"정책/기능. 여기 없는 내용은 지어내지 말고, 정말 모르면 모른다고 답하세요]\n"
@@ -107,10 +108,11 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "[작성 규칙]\n"
         "1. reply는 사용자 메시지에 대한 자연스러운 한국어 답변이다 - 존댓말, 2~4문장 "
         "내외로 간결하게 작성해라\n"
-        "2. navigate_to는 위 페이지 목록에 있는 경로 문자열 그대로만 쓰거나, 이동 의도가 "
-        "없으면 null로 써라 - 목록에 없는 경로를 지어내지 마라\n"
-        "3. navigate_to를 채웠다면 reply에도 어디로 안내하는지 자연스럽게 언급해라(예: "
-        "'이력서 작성 도우미 페이지로 안내해드릴게요!')\n"
+        "2. navigate_to는 항상 null로 써라. 사용자 동의 전에는 절대 자동 이동하지 않는다.\n"
+        "3. suggested_navigate_to는 위 페이지 목록에 있는 경로 문자열 그대로만 쓰거나 null로 써라. "
+        "사용자가 '이동해줘', '열어줘', '보여줘'처럼 이동을 명시적으로 요청한 경우에만 경로를 채우고, "
+        "reply 마지막에 '해당 페이지로 이동할까요?'라고 물어라. 요금·이용권·기능·절차처럼 정보를 "
+        "묻는 질문에는 RAG 근거의 구체적인 내용을 reply에서 완결되게 답하고 suggested_navigate_to도 null로 둬라.\n"
         "4. [사이트 지식 참고자료]가 있으면 그 내용을 우선 근거로 답해라 - 참고자료와 "
         "다른 내용을 지어내지 마라. 참고자료가 없는데 사이트 고유 정책(요금, 절차 등)을 "
         "묻는 질문이면 확신 없이 단정하지 말고 정확한 정보는 사이트에서 직접 확인해달라고 "
@@ -124,7 +126,8 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "8. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
         "{\n"
         '  "reply": "문장",\n'
-        '  "navigate_to": "/path" 또는 null\n'
+        '  "navigate_to": null,\n'
+        '  "suggested_navigate_to": "/path" 또는 null\n'
         "}"
     )
 
@@ -145,13 +148,18 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         reply = str(data.get("reply") or "").strip() or _FALLBACK_REPLY
         navigate_to = data.get("navigate_to")
         navigate_to = str(navigate_to).strip() if navigate_to else None
-        if not is_known_path(navigate_to):
-            navigate_to = None  # 목록에 없는 경로는 절대 프론트로 내보내지 않는다
+        # Navigation is a two-step interaction. The server never returns a direct
+        # destination; the widget stores only a validated suggestion and asks for consent.
+        suggested_navigate_to = data.get("suggested_navigate_to")
+        suggested_navigate_to = str(suggested_navigate_to).strip() if suggested_navigate_to else None
+        if not is_known_path(suggested_navigate_to):
+            suggested_navigate_to = None
 
         return AssistantReply(
             ok=True,
             reply=reply,
-            navigate_to=navigate_to,
+            navigate_to=None,
+            suggested_navigate_to=suggested_navigate_to,
             job_references=[match.to_dict() for match in job_matches],
         )
     except Exception as e:

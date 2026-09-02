@@ -41,6 +41,14 @@ const GREETING: ChatMessage = {
 // _MAX_HISTORY_TURNS와 같은 이유 - 최신 맥락이 더 중요하고 토큰도 아낀다).
 const MAX_HISTORY_TURNS = 10;
 
+function isNavigationApproval(value: string): boolean {
+  return /^(네|넵|예|응|어|좋아|좋아요|그래|그럼|이동해줘|가줘|yes|y)$/i.test(value.trim());
+}
+
+function isNavigationDecline(value: string): boolean {
+  return /^(아니|아니요|아뇨|괜찮아|괜찮아요|싫어|no|n)$/i.test(value.trim());
+}
+
 function safeJobUrl(sourceUrl: string): string | null {
   try {
     const url = new URL(sourceUrl);
@@ -56,6 +64,7 @@ export function SiteAssistantWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,6 +75,28 @@ export function SiteAssistantWidget() {
   const send = async () => {
     const text = draft.trim();
     if (!text || sending) return;
+
+    if (pendingNavigation && isNavigationApproval(text)) {
+      setMessages((prev) => [...prev,
+        { id: nextId(), role: "user", kind: "text", text },
+        { id: nextId(), role: "bot", kind: "text", text: "네, 요청하신 페이지로 이동할게요." },
+      ]);
+      setDraft("");
+      const destination = pendingNavigation;
+      setPendingNavigation(null);
+      navigate(destination);
+      return;
+    }
+
+    if (pendingNavigation && isNavigationDecline(text)) {
+      setMessages((prev) => [...prev,
+        { id: nextId(), role: "user", kind: "text", text },
+        { id: nextId(), role: "bot", kind: "text", text: "알겠습니다. 현재 페이지에 머무를게요. 다른 궁금한 점을 물어보세요." },
+      ]);
+      setDraft("");
+      setPendingNavigation(null);
+      return;
+    }
 
     const history: AssistantChatTurn[] = messages
       .filter((m) => m.kind === "text")
@@ -87,7 +118,7 @@ export function SiteAssistantWidget() {
       setMessages((prev) => [...prev, {
         id: nextId(), role: "bot", kind: "text", text: result.reply ?? "", jobReferences: result.job_references ?? [],
       }]);
-      if (result.navigate_to) navigate(result.navigate_to);
+      setPendingNavigation(result.suggested_navigate_to ?? null);
     } catch (error) {
       setMessages((prev) => [
         ...prev,
