@@ -105,20 +105,21 @@ def test_suggestion_survives_when_model_leaves_the_field_empty(monkeypatch):
             self.models = FakeModels()
 
     with patch("google.genai.Client", FakeClient):
-        result = chat(message="자소서 첨삭 받고 싶어")
+        result = chat(message="이력서 페이지 열어줘")
 
     assert result.suggested_navigate_to == "/resume"
     assert result.suggested_page is not None
     assert result.suggested_page["highlights"]
 
 
-def test_unknown_suggested_path_is_nulled_out(monkeypatch):
-    """Gemini가 목록에 없는 경로를 지어내도 절대 그대로 내보내면 안 된다 - 프론트가 그걸
-    믿고 useNavigate()로 라우팅하면 404가 뜬다. 미리보기 카드도 같이 사라져야 한다."""
+def test_job_matches_keep_their_cards_and_add_a_page_choice(monkeypatch):
+    """이 챗봇의 미리보기는 적합도 순 공고 카드다. 카드는 그대로 남고, 그 아래에 "자세히
+    보려면 이동할까요?"를 고를 수 있게 맞춤 채용 분석 화면이 함께 제안돼야 한다. 한때
+    카드가 페이지 안내로 대체돼서 공고가 아예 안 보인 적이 있어 둘 다 확인한다."""
     monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
 
     class FakeResponse:
-        text = '{"reply": "안내해드릴게요!", "navigate_to": null, "suggested_navigate_to": "/does-not-exist"}'
+        text = '{"reply": "적합도가 높은 공고 3개예요.", "navigate_to": null, "suggested_navigate_to": null}'
 
     class FakeModels:
         def generate_content(self, model, contents, config=None):
@@ -128,12 +129,19 @@ def test_unknown_suggested_path_is_nulled_out(monkeypatch):
         def __init__(self, api_key=None):
             self.models = FakeModels()
 
-    with patch("google.genai.Client", FakeClient):
-        result = chat(message="아무데나 가줘")
+    reference = chat_module.JobMatchReference(
+        job_posting_id=12, company_name="잡드림", title="백엔드 개발자",
+        source_url="https://example.test/jobs/12", readiness_score=90,
+        recommendation_level="APPLY_NOW",
+    )
+    monkeypatch.setattr(chat_module, "fetch_active_matches", lambda member_id: [reference])
 
-    assert result.ok is True
-    assert result.suggested_navigate_to is None
-    assert result.suggested_page is None
+    with patch("google.genai.Client", FakeClient):
+        result = chat(message="나한테 맞는 채용공고 추천해줘", member_id=7)
+
+    assert result.job_references == [reference.to_dict()]
+    assert result.suggested_navigate_to == "/dashboard"
+    assert result.suggested_page is not None
 
 
 def test_no_navigation_intent_leaves_navigate_to_null(monkeypatch):
