@@ -18,6 +18,7 @@ import com.jobpilot.api.global.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Locale;
+import java.util.Base64;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -89,15 +90,19 @@ public class EmployerTalentService {
         List<SelfIntroductionItem> introductions = selfIntroductions.findByMemberIdOrderByUpdatedAtDesc(id).stream()
                 .map(item -> new SelfIntroductionItem(item.getTitle(), item.getContent(), item.isPrimary())).toList();
         return new Talent(id, member.getNickname(), role, family, location, blankLabel(profile.getExperienceType(), "경력 정보 미설정"),
-                spec == null ? 0 : spec.getTotalCareerMonths(), spec == null ? null : spec.getTechnicalSummary(), spec == null ? null : spec.getPortfolioUrl(), skillNames, entries, certificateItems, introductions, text);
+                spec == null ? 0 : spec.getTotalCareerMonths(), spec == null ? null : spec.getTechnicalSummary(), spec == null ? null : spec.getPortfolioUrl(), photoDataUrl(spec), skillNames, entries, certificateItems, introductions, text);
     }
     private String blankLabel(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
+    private String photoDataUrl(MemberSpecification spec) {
+        if (spec == null || spec.getProfilePhoto() == null || spec.getProfilePhotoContentType() == null) return null;
+        return "data:" + spec.getProfilePhotoContentType() + ";base64," + Base64.getEncoder().encodeToString(spec.getProfilePhoto());
+    }
     private ProfileEntry entry(ResumeEntry value) {
         String detail = value.getContent() == null ? "" : value.getContent().toString().replaceAll("[{}\"]", "").replace(',', ' ').replace(':', ' ').trim();
         return new ProfileEntry(value.getEntryType().name(), value.getTitle(), detail);
     }
     public record Talent(Long memberId, String nickname, String targetRole, String targetJobFamily, String preferredLocations,
-            String experienceType, int totalCareerMonths, String technicalSummary, String portfolioUrl, List<String> skills,
+            String experienceType, int totalCareerMonths, String technicalSummary, String portfolioUrl, String profilePhotoDataUrl, List<String> skills,
             List<ProfileEntry> entries, List<CertificateItem> certificates, List<SelfIntroductionItem> selfIntroductions, String searchText) {}
     public record ProfileEntry(String type, String title, String detail) {}
     public record CertificateItem(String name, String issuer, String acquiredAt) {}
