@@ -43,8 +43,13 @@ public class EmployerTalentService {
     public Talent detail(Long employerId, Long memberId) {
         employers.requireApproved(employerId); MemberProfile profile = publicProfile(memberId); Talent item = summary(profile);
         String company = employers.requireApproved(employerId).getCompanyName();
-        notifications.save(new NotificationLog(memberId, "EMPLOYER_PROFILE", employerId, "EMPLOYER_PROFILE_VIEW",
-                "기업회원이 내 스펙을 조회했어요", company + "에서 공개한 역량 정보를 조회했습니다.", "/mypage"));
+        // 동일 기업이 이미 조회한 프로필은 기존 알림 이력을 재사용한다. notification_logs의
+        // 중복 방지 키에 걸려 상세 화면 자체가 500이 되는 것을 막고, 종 알림도 불필요하게
+        // 같은 내용으로 쌓이지 않게 한다.
+        if (!notifications.existsByMemberIdAndTargetTypeAndTargetIdAndNotificationType(memberId, "EMPLOYER_PROFILE", employerId, "EMPLOYER_PROFILE_VIEW")) {
+            notifications.save(new NotificationLog(memberId, "EMPLOYER_PROFILE", employerId, "EMPLOYER_PROFILE_VIEW",
+                    "기업회원이 내 스펙을 조회했어요", company + "에서 공개한 역량 정보를 조회했습니다.", "/account"));
+        }
         return item;
     }
     public boolean toggleFavorite(Long employerId, Long memberId) {
