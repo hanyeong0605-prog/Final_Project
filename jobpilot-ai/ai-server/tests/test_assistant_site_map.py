@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from app.domain.assistant.site_map import SITE_PAGES
+from app.domain.assistant.site_map import SITE_PAGES, find_page_for_message
 
 _ROUTER_PATH = Path(__file__).resolve().parents[2] / "frontend" / "src" / "app" / "router.tsx"
 
@@ -47,3 +47,34 @@ def test_site_pages_have_preview_highlights():
 def test_site_page_paths_are_unique():
     paths = [page.path for page in SITE_PAGES]
     assert len(paths) == len(set(paths))
+
+
+@pytest.mark.parametrize(("message", "expected"), [
+    ("이력서 쓰고 싶어", "/resume"),
+    ("자소서 첨삭해줘", "/resume"),
+    ("모의면접 어떻게 해?", "/mock-interview"),
+    ("이용권 얼마야", "/account"),
+    ("찜한 공고 어디서 봐", "/account"),
+    ("채용공고 보고싶어", "/job-postings"),
+    # 더 구체적인 표현("우리 동네" + "채용공고" 2건)이 "채용공고" 1건을 이겨야 한다.
+    ("우리 동네 채용공고 있어?", "/locationjobs"),
+    ("맞춤 공고 추천해줘", "/dashboard"),
+    ("지난 면접 결과 보고싶어", "/timeline"),
+    ("대외활동 뭐 있어?", "/opportunities"),
+    ("플래너 열어줘", "/planner"),
+])
+def test_find_page_for_message_matches_expected_page(message, expected):
+    page = find_page_for_message(message)
+    assert page is not None and page.path == expected
+
+
+@pytest.mark.parametrize("message", [
+    "오늘 점심 뭐 먹지",
+    "안녕",
+    # "면접"만으로는 모의면접/타임라인 어느 쪽인지 알 수 없다 - 억지로 권하지 않는다.
+    "면접 팁 알려줘",
+    "",
+    "   ",
+])
+def test_find_page_for_message_returns_none_without_a_clear_target(message):
+    assert find_page_for_message(message) is None
