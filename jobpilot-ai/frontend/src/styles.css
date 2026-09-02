@@ -1455,6 +1455,19 @@ button:focus-visible,a:focus-visible {
 .interview-mic-state { display: inline-flex; flex: none; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 11px; font-size: 11px; font-weight: 800; }
 .interview-mic-state.ok { background: #eaf8f1; color: #2f9b68; }
 .interview-mic-state.low { background: #fdeeec; color: #c0392b; }
+.interview-mic-state.listening { background: #eef2ff; color: #4a5ad0; }
+/* 2026-09-02: 마이크 테스트 영역. 버튼 -> "말해주세요" -> 결과로 내용이 바뀌는데 높이가
+   달라지면 아래 "모의면접 시작하기" 버튼이 위아래로 튄다. 높이를 고정해서 막는다. */
+/* 높이뿐 아니라 폭도 고정한다 - .interview-mic-card는 flex-wrap이라, 버튼(넓음)과 상태
+   알약(좁음)의 폭이 다르면 카드가 한 줄로 붙었다 두 줄로 접혔다 하면서 그 자체로 화면이
+   튄다. 내용이 뭐가 오든 이 칸의 크기는 그대로다. */
+/* 마이크 칩은 상태에 따라 글자 수가 달라진다("마이크 정상" <-> "마이크 확인 필요"). 좁은
+   화면에서는 그 차이만으로 기기 상태 바가 한 줄 더 접히면서 화면이 통째로 밀린다. 가장 긴
+   문구 기준으로 폭을 잡아둬서 어떤 상태든 같은 자리를 차지하게 한다. */
+.interview-device-item.mic-slot { min-width: 112px; justify-content: center; white-space: nowrap; }
+.interview-mic-test { display: inline-flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; width: 168px; min-height: 34px; }
+.interview-mic-test .outline-button { padding: 6px 12px; font-size: 12px; }
+.interview-mic-hint { display: block; min-height: 16px; color: #c0392b; font-size: 11px; line-height: 1.4; text-align: center; }
 
 /* 우측 사이드 - 면접 팁 / 안전 안내 */
 .interview-aside { display: flex; flex-direction: column; gap: 14px; }

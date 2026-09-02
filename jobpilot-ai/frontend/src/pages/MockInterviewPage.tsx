@@ -755,7 +755,19 @@ export function MockInterviewPage() {
     [],
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [micLevel, setMicLevel] = useState(0);
+  // 2026-09-02: 마이크 확인을 "항상 켜져 있는 실시간 판정"에서 "버튼을 눌러 한 번 해보는
+  // 테스트"로 바꿨다. 예전엔 입력 레벨(micLevel)을 매 프레임 state에 넣어 페이지 전체가
+  // 초당 60번 리렌더됐고, 그 값이 판정 기준(8) 근처에서 계속 오르내리니 테두리 색과
+  // 문구("소리가 거의 안 잡혀요" <-> "잘 들리고 있어요")가 쉴 새 없이 뒤집히면서 화면이
+  // 요동쳤다. 이제 레벨은 state에 담지 않는다 - 분석 루프는 캔버스에 직접 그리기만 하므로
+  // 리렌더를 한 번도 일으키지 않고, 화면 문구는 테스트 결과가 나올 때만 바뀐다.
+  const [micTest, setMicTest] = useState<"idle" | "listening" | "done">("idle");
+  const [micTestPeak, setMicTestPeak] = useState(0);
+  // 테스트 창(3초) 동안의 최고 입력. tick()은 렌더 밖에서 도는 콜백이라 state를 읽으면
+  // 옛날 값을 보게 되므로 ref로 주고받는다.
+  const micTestingRef = useRef(false);
+  const micPeakRef = useRef(0);
+  const micTestTimerRef = useRef<number | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [pairingPanelOpen, setPairingPanelOpen] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -774,6 +786,10 @@ export function MockInterviewPage() {
   // 제한시간 - 답변을 소리 내어 말하는 것보다 타이핑은 오래 걸리는 걸 감안해 90초로 잡았다.
   // 시간이 다 되면(입력된 내용이 있을 때만) 자동 제출해서 실제 면접처럼 시간 압박을 준다.
   const TYPING_TIME_LIMIT_SEC = 90;
+  // 마이크 테스트를 듣는 시간과 "잡혔다"고 볼 최소 입력. 기준값 8은 예전 실시간 판정에서
+  // 쓰던 것을 그대로 가져왔다 - 판정선을 새로 만들지 않았다.
+  const MIC_TEST_SECONDS = 3;
+  const MIC_OK_LEVEL = 8;
   const [typingSecondsLeft, setTypingSecondsLeft] = useState(TYPING_TIME_LIMIT_SEC);
   // 2026-08-05: 이번 세션에서 쓸 질문 3개(자기소개 포함, 순서 셔플됨) - "시작하기"를 누르는
   // 순간 한 번에 미리 만들어두고, 카운트다운이 끝날 때마다 순서대로 하나씩 공개한다.
@@ -1251,12 +1267,21 @@ export function MockInterviewPage() {
     rafIdRef.current = null;
     void audioContextRef.current?.close();
     audioContextRef.current = null;
+    // 분석 루프가 멈춘 뒤에도 테스트 타이머가 살아 있으면 아무 입력도 못 받은 상태로
+    // "안 잡혔어요" 결과가 뒤늦게 뜬다.
+    if (micTestTimerRef.current !== null) window.clearTimeout(micTestTimerRef.current);
+    micTestTimerRef.current = null;
+    micTestingRef.current = false;
   };
 
   const startMeterLoop = (stream: MediaStream) => {
     stopMeterLoop();
     if (stream.getAudioTracks().length === 0) {
-      setMicLevel(0);
+      // 오디오 트랙이 없으면 테스트해봐야 무조건 "안 잡힘"이다 - 결과를 바로 확정해둔다.
+      micTestingRef.current = false;
+      micPeakRef.current = 0;
+      setMicTestPeak(0);
+      setMicTest("done");
       return;
     }
     const audioContext = new AudioContext();
@@ -1271,11 +1296,41 @@ export function MockInterviewPage() {
       analyser.getByteTimeDomainData(data);
       let peak = 0;
       for (const value of data) peak = Math.max(peak, Math.abs((value - 128) / 128));
-      setMicLevel(Math.min(100, Math.round(peak * 250)));
+      const level = Math.min(100, Math.round(peak * 250));
+
+      // 테스트 중에는 순간 최고치를 따로 모은다 - 말은 끊겼다 이어지므로 "지금 이 순간의
+      // 크기"가 아니라 "3초 동안 한 번이라도 제대로 잡혔는가"로 판정해야 맞다.
+      if (micTestingRef.current) micPeakRef.current = Math.max(micPeakRef.current, level);
+
+      // 레벨은 state로 올리지 않는다 - 실시간 반응은 아래 캔버스 파형이 그대로 보여준다.
       drawWaveform(data);
       rafIdRef.current = requestAnimationFrame(tick);
     };
     tick();
+  };
+
+  // 마이크 테스트: 버튼을 누르면 MIC_TEST_SECONDS 동안 듣고, 그동안의 최고 입력으로
+  // 잡혔는지 여부를 한 번만 판정해서 보여준다.
+  const startMicTest = () => {
+    if (micTestTimerRef.current !== null) window.clearTimeout(micTestTimerRef.current);
+    micPeakRef.current = 0;
+    micTestingRef.current = true;
+    setMicTest("listening");
+    micTestTimerRef.current = window.setTimeout(() => {
+      micTestingRef.current = false;
+      micTestTimerRef.current = null;
+      setMicTestPeak(micPeakRef.current);
+      setMicTest("done");
+    }, MIC_TEST_SECONDS * 1000);
+  };
+
+  const resetMicTest = () => {
+    if (micTestTimerRef.current !== null) window.clearTimeout(micTestTimerRef.current);
+    micTestTimerRef.current = null;
+    micTestingRef.current = false;
+    micPeakRef.current = 0;
+    setMicTest("idle");
+    setMicTestPeak(0);
   };
 
   // 2026-08-12 추가: analyser의 시간 영역 데이터(byte time-domain data)를 그대로 캔버스에
@@ -1466,6 +1521,7 @@ export function MockInterviewPage() {
 
       startMeterLoop(stream);
 
+      resetMicTest();
       setStage("testing-mic");
     } catch (error) {
       // NotAllowedError: 권한을 거부한 경우. NotFoundError: 이 기기에 마이크/카메라
@@ -1483,6 +1539,7 @@ export function MockInterviewPage() {
 
   const cancelDeviceTest = () => {
     stopMeterLoop();
+    resetMicTest();
     stopFaceLoop();
     isRecordingRef.current = false;
     disconnectPhonePairing();
@@ -2001,7 +2058,7 @@ export function MockInterviewPage() {
     setQuestion("");
     setStage("start");
     setErrorMessage(null);
-    setMicLevel(0);
+    resetMicTest();
     setElapsedSec(0);
     setAnswerMode("voice");
     setTypedAnswer("");
@@ -2328,7 +2385,7 @@ export function MockInterviewPage() {
             <>
               {/* 2026-08-31: 흩어져 있던 상태 문구를 한 줄짜리 기기 상태 바로 모았다. 표시
                   근거는 기존 상태값 그대로다 - cameraReady(스트림 확보), faceCalibrated(기준
-                  자세 보정 완료), micLevel(입력 레벨). 판정 기준을 새로 만들지 않았다. */}
+                  자세 보정 완료), 마이크 테스트 결과. 판정 기준(8)은 예전 값을 그대로 쓴다. */}
               <div className="interview-device-bar">
                 <span className={`interview-device-item${cameraReady ? " ok" : " pending"}`}>
                   <Camera size={15} /> {cameraReady ? "카메라 정상" : "카메라 확인 중"}
@@ -2336,8 +2393,13 @@ export function MockInterviewPage() {
                 <span className={`interview-device-item${faceCalibrated ? " ok" : " pending"}`}>
                   <CheckCircle2 size={15} /> {faceCalibrated ? "얼굴 인식 완료" : "얼굴 인식 중"}
                 </span>
-                <span className={`interview-device-item${micLevel >= 8 ? " ok" : " pending"}`}>
-                  <Mic size={15} /> {micLevel >= 8 ? "마이크 정상" : "마이크 확인 중"}
+                {/* 2026-09-02: 이 칩도 실시간 입력에 물려 있어서 말할 때마다 "정상"과
+                    "확인 중"이 번갈아 깜빡였다. 이제 테스트 결과에만 따른다. */}
+                <span className={`interview-device-item mic-slot${micTest === "done" && micTestPeak >= MIC_OK_LEVEL ? " ok" : " pending"}`}>
+                  <Mic size={15} />{" "}
+                  {micTest === "done"
+                    ? micTestPeak >= MIC_OK_LEVEL ? "마이크 정상" : "마이크 확인 필요"
+                    : micTest === "listening" ? "마이크 듣는 중" : "마이크 테스트 전"}
                 </span>
               </div>
               {/* 2026-08-29: 기준 자세 보정 상태. 보정이 끝나야 고개 회전을 "이 사람의 평소
@@ -2755,22 +2817,42 @@ export function MockInterviewPage() {
                 <span className="mic-label">
                   <Mic size={16} /> 음성 입력
                 </span>
+                {/* 테두리 색을 입력 레벨에 물려두면 말할 때마다 빨강/투명이 번갈아 깜빡인다.
+                    테스트 결과가 나온 뒤에만 색을 바꾼다. */}
                 <canvas
                   ref={waveformCanvasRef}
                   style={{
                     height: 56,
                     borderRadius: 8,
                     background: "#eef0f6",
-                    border: micLevel < 8 ? "1px solid #e05252" : "1px solid transparent",
+                    border: micTest === "done" && micTestPeak < MIC_OK_LEVEL ? "1px solid #e05252" : "1px solid transparent",
                   }}
                 />
-                <span className={`interview-mic-state${micLevel < 8 ? " low" : " ok"}`}>
-                  {micLevel < 8 ? "소리가 거의 안 잡혀요" : "음성이 잘 들리고 있어요"}
-                </span>
+                <div className="interview-mic-test">
+                  {micTest === "idle" && (
+                    <button type="button" className="outline-button" onClick={startMicTest}>
+                      <Mic size={14} /> 마이크 테스트
+                    </button>
+                  )}
+                  {micTest === "listening" && (
+                    <span className="interview-mic-state listening">
+                      <LoaderCircle className="spin" size={13} /> 말해주세요… 듣고 있어요
+                    </span>
+                  )}
+                  {micTest === "done" && (
+                    <>
+                      <span className={`interview-mic-state${micTestPeak < MIC_OK_LEVEL ? " low" : " ok"}`}>
+                        {micTestPeak < MIC_OK_LEVEL ? "소리가 거의 안 잡혔어요" : "소리가 잘 잡혔어요"}
+                      </span>
+                      <button type="button" className="text-button" onClick={startMicTest}>다시 테스트</button>
+                    </>
+                  )}
+                </div>
               </div>
-              {micLevel < 8 && (
-                <span style={{ fontSize: 11, color: "#c0392b" }}>마이크에 더 가까이서 말해보세요</span>
-              )}
+              {/* 문구가 나타났다 사라지며 아래 버튼을 밀어올리지 않도록 자리를 항상 잡아둔다. */}
+              <span className="interview-mic-hint">
+                {micTest === "done" && micTestPeak < MIC_OK_LEVEL ? "마이크에 더 가까이서 말해보세요" : ""}
+              </span>
               <div style={{ display: "flex", gap: 10 }}>
                 <button className="primary-button" onClick={beginInterviewCountdown} type="button" disabled={sessionQuestions.length === 0}>
                   {sessionQuestions.length === 0 ? (
