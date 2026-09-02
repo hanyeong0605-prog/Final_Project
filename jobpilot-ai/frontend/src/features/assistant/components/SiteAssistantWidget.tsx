@@ -322,7 +322,9 @@ function NavigationPreviewCard({ page, state, onApprove, onDecline }: {
         </span>
       ) : (
         <>
-          <strong className="assistant-nav-preview-ask">{withDirectionParticle(page.name)} 이동할까요?</strong>
+          <strong className="assistant-nav-preview-ask">
+            자세히 보려면 {withDirectionParticle(page.name)} 이동해야 해요. 이동할까요?
+          </strong>
           <div className="assistant-nav-preview-actions">
             <button type="button" className="assistant-nav-preview-go" onClick={onApprove}>
               예 <ArrowRight size={13} />

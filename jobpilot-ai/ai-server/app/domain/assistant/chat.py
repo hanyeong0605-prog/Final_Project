@@ -33,12 +33,7 @@ from app.domain.assistant.job_match_retrieval import (
     is_job_question,
     job_matches_prompt_block,
 )
-from app.domain.assistant.site_map import (
-    find_page,
-    find_page_for_message,
-    has_navigation_intent,
-    site_pages_prompt_block,
-)
+from app.domain.assistant.site_map import find_page, find_page_for_message, site_pages_prompt_block
 from app.domain.interview.member_spec_retrieval import build_member_spec_context
 from app.domain.resume._shared import parse_json_response
 
@@ -124,14 +119,14 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "1. reply는 사용자 메시지에 대한 자연스러운 한국어 답변이다 - 존댓말, 2~5문장 "
         "내외로 간결하게 작성해라\n"
         "2. navigate_to는 항상 null로 써라. 사용자 동의 전에는 절대 자동 이동하지 않는다.\n"
-        "3. 채팅 안에서 답을 끝내는 것이 항상 우선이다. 아래 근거 자료로 답할 수 있는 질문을 "
-        "'그 페이지에 가보세요'로 떠넘기지 마라. suggested_navigate_to는 위 페이지 목록에 있는 경로 "
-        "문자열 그대로만 쓰거나 null로 써라 - 사용자가 '이동해줘', '열어줘', '어디서 봐'처럼 그 화면으로 "
-        "가고 싶다는 뜻을 밝혔을 때만 채우고, 그 외에는 null이다.\n"
-        "4. suggested_navigate_to를 채웠으면 reply는 반드시 이 순서로 써라 - (a) 먼저 질문에 대한 답을 "
-        "그 자리에서 완결되게 하고, (b) 그 페이지에서 볼 수 있는 것을 위 목록의 · 줄을 근거로 한두 가지 "
-        "미리 알려주고, (c) 마지막 문장에서 '...로 이동할까요?'라고 물어라. 답은 생략한 채 이동만 "
-        "권하지 말고, · 줄에 없는 기능을 그 페이지에 있는 것처럼 지어내지도 마라.\n"
+        "3. reply는 채팅 안에서 답을 끝내라. 아래 근거 자료로 답할 수 있는 질문을 '그 페이지에 "
+        "가보세요'로 떠넘기지 마라 - 이동은 답을 대체하는 게 아니라 '더 자세히 보고 싶으면' 고르는 "
+        "선택지다. suggested_navigate_to는 위 페이지 목록에 있는 경로 문자열 그대로만 쓰거나 null로 "
+        "쓰고, 답변 내용을 더 자세히 볼 수 있는 페이지가 있으면 채워라.\n"
+        "4. suggested_navigate_to를 채웠어도 reply는 (a) 질문에 대한 답을 그 자리에서 완결되게 하고 "
+        "(b) 그 페이지에서 더 볼 수 있는 것을 위 목록의 · 줄을 근거로 한두 가지 덧붙이는 순서다. "
+        "이동 여부를 묻는 문장은 reply에 쓰지 마라 - 화면에 예/아니오 버튼이 따로 붙는다. "
+        "· 줄에 없는 기능을 그 페이지에 있는 것처럼 지어내지 마라.\n"
         "5. [사이트 지식 참고자료]가 있으면 그 내용을 우선 근거로 답해라 - 참고자료와 "
         "다른 내용을 지어내지 마라. 참고자료가 없는데 사이트 고유 정책(요금, 절차 등)을 "
         "묻는 질문이면 확신 없이 단정하지 말고 정확한 정보는 사이트에서 직접 확인해달라고 "
@@ -139,9 +134,8 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         "6. [현재 회원이 직접 저장한 스펙]이 있으면 그 회원의 이력서·기술·프로젝트에 관한 질문에만 "
         "참고하고, 정보에 없는 경력이나 성과는 지어내지 마라\n"
         "7. [현재 회원의 모집 중 매칭 공고]가 있으면 공고 추천/지원 질문에는 그 목록의 공고를 "
-        "회사명·적합도와 함께 reply에서 직접 소개해라 - 이때는 페이지로 안내하지 말고 채팅 안에서 "
-        "답을 끝내라(공고 카드가 답변 아래에 함께 표시된다). 적합도·미확인 필수요건만 근거로 설명하고, "
-        "목록 밖 공고, 마감 여부, 자격 충족을 지어내지 마라\n"
+        "회사명·적합도와 함께 reply에서 직접 소개해라(같은 공고 카드가 답변 아래에 함께 표시된다). "
+        "적합도·미확인 필수요건만 근거로 설명하고, 목록 밖 공고, 마감 여부, 자격 충족을 지어내지 마라\n"
         "8. 매칭 공고가 없으면 공고를 지어내지 말고 맞춤 채용공고 페이지에서 스펙을 저장하거나 "
         "매칭을 갱신해 달라고 안내해라\n"
         "9. 아래 스키마의 JSON 객체 하나만 출력해라 - 설명, 마크다운, 코드펜스 없이:\n"
@@ -181,12 +175,11 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         # 모델이 칸을 안 채우면 미리보기도 예/아니오 버튼도 안 뜨고 답변만 "이동할까요?"라고
         # 물어보는 상태가 됐다(사용자가 "네"라고 해도 아무 일도 안 일어남).
         suggested_page = find_page(suggested_navigate_to) or find_page_for_message(message)
-        # 채팅 안에 이미 답이 있으면(적합도 순 매칭 공고 카드) 이동 제안을 얹지 않는다.
-        # 그 카드가 이 챗봇의 원래 "미리보기"인데, 여기에 페이지 안내까지 붙이니 공고를
-        # 보여주던 자리가 안내로 덮여서 "무조건 페이지 안내"처럼 보였다. 사용자가 직접
-        # 이동을 요청한 경우(has_navigation_intent)에만 예외로 남긴다.
-        if job_matches and not has_navigation_intent(message):
-            suggested_page = None
+        # 적합도 순 매칭 공고를 보여준 답변에는 항상 맞춤 채용 분석 화면을 붙인다 - 채팅에
+        # 실리는 건 상위 3개뿐이라 "자세히 보려면" 갈 곳이 확실하기 때문이다. 공고 카드
+        # 자체는 그대로 남는다(카드를 안내로 대체하면 안 된다).
+        if job_matches:
+            suggested_page = find_page("/dashboard") or suggested_page
         suggested_navigate_to = suggested_page.path if suggested_page else None
 
         return AssistantReply(
