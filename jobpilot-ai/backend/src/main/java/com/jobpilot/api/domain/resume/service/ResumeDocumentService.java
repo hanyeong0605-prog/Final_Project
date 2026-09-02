@@ -112,7 +112,17 @@ public class ResumeDocumentService {
                 ? data.path("totalCareerMonths").asInt(0)
                 : Math.max(spec.getTotalCareerMonths(), data.path("totalCareerMonths").asInt(0));
         ArrayNode locations = profile.getPreferredLocations() instanceof ArrayNode array ? array : json.createArrayNode();
-        profile.update(empty(role), empty(profile.getTargetJobFamily()), locations, profile.getAvailableFrom(), empty(profile.getExperienceType()), empty(profile.getGithubUsername()));
+        // 이력서 반영 경로가 직무 분야·희망 지역을 빈 값으로 저장해 공개 인재 화면에서
+        // 점(.)만 보이던 문제를 막는다. 추출된 희망 직무는 분야의 기본값으로도 쓰고,
+        // 개인 정보의 주소가 있으면 첫 희망 지역으로 보관한다.
+        String family = preserve(profile.getTargetJobFamily(), data.path("targetJobFamily").asText());
+        if (blank(family)) family = role;
+        if (locations.isEmpty()) {
+            String address = data.path("personalInfo").path("address").asText("").trim();
+            if (!address.isBlank()) locations.add(address);
+        }
+        String experienceType = blank(profile.getExperienceType()) ? (months > 0 ? "EXPERIENCED" : "ENTRY") : profile.getExperienceType();
+        profile.update(empty(role), empty(family), locations, profile.getAvailableFrom(), empty(experienceType), empty(profile.getGithubUsername()));
         spec.update(empty(education), empty(schoolName), empty(major), empty(graduationStatus), months, empty(summary), empty(spec.getPortfolioUrl()));
         String photoDataUrl = data.path("profilePhotoDataUrl").asText("");
         applyExtractedPhoto(spec, photoDataUrl);
