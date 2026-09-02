@@ -49,6 +49,8 @@ export interface JobPostingDetail extends JobPosting {
   sourceProvider: string;
   companyUrl: string | null;
   description: string | null;
+  qualifications?: string | null;
+  preferredQualifications?: string | null;
   entryLevel: boolean | null;
   industryName: string | null;
   jobMidName: string | null;

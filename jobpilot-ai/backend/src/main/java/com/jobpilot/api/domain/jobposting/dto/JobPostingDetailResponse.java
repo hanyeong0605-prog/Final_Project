@@ -12,6 +12,8 @@ public record JobPostingDetailResponse(
         String companyLogoUrl,
         String title,
         String description,
+        String qualifications,
+        String preferredQualifications,
         String sourceUrl,
         String location,
         String employmentType,

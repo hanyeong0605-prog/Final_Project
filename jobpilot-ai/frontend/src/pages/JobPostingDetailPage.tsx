@@ -112,8 +112,10 @@ export function JobPostingDetailPage() {
 
     {images.length > 0 && <section className="job-detail-section"><div className="job-detail-section-heading"><span className="eyebrow">COMPANY IMAGES</span><h2>공고 이미지</h2></div><div className="job-image-gallery">{images.map((url) => <img key={url} src={url} alt={`${posting.companyName ?? "회사"} 공고 이미지`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />)}</div></section>}
 
-    {(hasText(posting.description) || details.length > 0) && <div className="job-detail-layout">
+    {(hasText(posting.description) || hasText(posting.qualifications) || hasText(posting.preferredQualifications) || details.length > 0) && <div className="job-detail-layout">
       {hasText(posting.description) && <section className="job-detail-section job-description"><div className="job-detail-section-heading"><span className="eyebrow">JOB DESCRIPTION</span><h2>공고 상세</h2></div><p>{posting.description}</p></section>}
+      {hasText(posting.qualifications) && <section className="job-detail-section job-description"><div className="job-detail-section-heading"><span className="eyebrow">QUALIFICATIONS</span><h2>자격요건</h2></div><p>{posting.qualifications}</p></section>}
+      {hasText(posting.preferredQualifications) && <section className="job-detail-section job-description"><div className="job-detail-section-heading"><span className="eyebrow">PREFERRED</span><h2>우대사항</h2></div><p>{posting.preferredQualifications}</p></section>}
       {details.length > 0 && <aside className="job-detail-section job-information"><div className="job-detail-section-heading"><span className="eyebrow">JOB INFORMATION</span><h2>공고 정보</h2></div><dl>{details.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></aside>}
     </div>}
     <CompanyFinanceSection postingId={posting.id} />

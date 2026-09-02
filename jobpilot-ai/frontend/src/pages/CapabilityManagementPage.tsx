@@ -14,6 +14,7 @@ import { listResumeEntries } from "../features/resume/api/resumeEntriesApi";
 import { listSelfIntroductions } from "../features/resume/api/resumeApi";
 import { getResumeSaveState, type ResumeSaveState } from "../features/resume/api/resumeSaveStateApi";
 import type { ResumeEntryType } from "../features/resume/model/resumeEntry.types";
+import { getTalentVisibility, setTalentVisibility } from "../features/profile/api/talentVisibilityApi";
 
 type CapabilityTool = "profile" | "manage" | "analysis" | "writer" | null;
 
@@ -29,6 +30,8 @@ export function CapabilityManagementPage() {
   // 바뀌어도 화면 상태가 analysis에 남아 "양식 선택" 버튼이 먹지 않는 것처럼 보인다.
   const requestedTool = requestedCapabilityTool(searchParams.get("tool"));
   const [openTool, setOpenTool] = useState<CapabilityTool>(requestedTool);
+  const [talentPublic, setTalentPublic] = useState(false);
+  useEffect(() => { void getTalentVisibility().then((value) => setTalentPublic(value.enabled)).catch(() => {}); }, []);
   useEffect(() => { if (requestedTool) setOpenTool(requestedTool); }, [requestedTool]);
   const closeTool = () => { setOpenTool(null); setSearchParams({}); };
 
@@ -40,6 +43,7 @@ export function CapabilityManagementPage() {
 
   return <>
     <PageHeading eyebrow="CAPABILITY MANAGEMENT" title={heading[0]} body={heading[1]} />
+    <section className="panel talent-visibility-setting"><div><strong>기업회원에게 내 역량 공개</strong><p>공개하면 기업회원이 공개 인재 대시보드에서 내 스펙을 조회할 수 있습니다. 언제든 다시 비공개로 바꿀 수 있어요.</p></div><button className={talentPublic ? "primary-button" : "outline-button"} onClick={() => void setTalentVisibility(!talentPublic).then((value) => setTalentPublic(value.enabled))}>{talentPublic ? "공개 중 · 끄기" : "비공개 · 공개하기"}</button></section>
 
     <section className="capability-tool-grid" aria-label="역량 관리 도구">
       <article className={`capability-tool-card ${openTool === "profile" || openTool === "analysis" ? "selected" : ""}`}>

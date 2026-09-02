@@ -8,6 +8,9 @@ export interface EmployerJobPostingInput {
   employmentType?: string;
   experienceType?: string;
   salary?: string;
+  qualifications?: string;
+  preferredQualifications?: string;
+  imageUrl?: string;
   deadlineAt?: string | null;
   rollingDeadline: boolean;
 }

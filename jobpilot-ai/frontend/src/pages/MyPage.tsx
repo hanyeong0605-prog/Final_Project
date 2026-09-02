@@ -17,6 +17,7 @@ import { SavedCapabilityList } from "./CapabilityManagementPage";
 import { getCertificateBookmarks, removeCertificateBookmark, type QnetQualification } from "../features/profile/api/memberCertificatesApi";
 import { CertificateDetailModal } from "../features/profile/components/CertificateDetailModal";
 import { like, likeComment, myActivities, type CommunityActivity } from "../features/community/api/communityApi";
+import { getTalentVisibility, setTalentVisibility } from "../features/profile/api/talentVisibilityApi";
 
 type Action = "nickname" | "password" | "withdraw" | null;
 export function MyPage() {
@@ -24,6 +25,8 @@ export function MyPage() {
   const [action, setAction] = useState<Action>(null); const [nickname, setNickname] = useState(member?.nickname ?? "");
   const [passwords, setPasswords] = useState({ current: "", next: "" }); const [withdrawPassword, setWithdrawPassword] = useState(""); const [activities, setActivities] = useState<CommunityActivity[]>([]);
   const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [submitting, setSubmitting] = useState<Action>(null); const [jobs, setJobs] = useState<JobPosting[]>([]); const [opportunities, setOpportunities] = useState<Opportunity[]>([]); const [certificateBookmarks, setCertificateBookmarks] = useState<QnetQualification[]>([]); const [certificateDetail, setCertificateDetail] = useState<QnetQualification | null>(null);
+  const [talentPublic, setTalentPublic] = useState(false);
+  useEffect(() => { void getTalentVisibility().then((value) => setTalentPublic(value.enabled)).catch(() => {}); }, []);
   useEffect(() => { void getBookmarkedJobs().then(setJobs).catch(() => setJobs([])); }, [interestCount]);
   useEffect(() => { void getBookmarkedOpportunities().then(setOpportunities).catch(() => setOpportunities([])); }, []);
   useEffect(() => { void getCertificateBookmarks().then(setCertificateBookmarks).catch(() => setCertificateBookmarks([])); }, []);
@@ -61,6 +64,7 @@ export function MyPage() {
     <PushNotificationSection />
     <div className="mypage-section-title spec-title"><div><h2>나의 스펙정보</h2><p>역량 관리에 저장한 스펙정보를 조회합니다.</p></div><button className="outline-button" onClick={() => navigate("/capability?tool=profile")}><Target size={16} />스펙정보 입력하기</button></div>
     <section className="panel mypage-capability-view"><SavedCapabilityList readOnly /></section>
+    <section className="panel talent-visibility-setting"><div><strong>내 역량 공개 설정</strong><p>{talentPublic ? "기업회원이 내 공개 스펙을 조회할 수 있습니다." : "현재 기업회원에게 내 스펙이 표시되지 않습니다."}</p></div><button className={talentPublic ? "primary-button" : "outline-button"} onClick={() => void setTalentVisibility(!talentPublic).then((value) => setTalentPublic(value.enabled))}>{talentPublic ? "공개 중 · 비공개로 전환" : "비공개 · 공개하기"}</button></section>
     <div className="saved-jobs-title"><div><MessageCircle size={18} /><h2>커뮤니티 활동</h2></div><span>{activities.length}건</span></div>
     <section className="panel community-activity-list">{activities.length === 0 ? <div className="saved-empty">작성한 글, 댓글 또는 좋아요 활동이 없습니다.</div> : activities.map((activity) => <article key={`${activity.type}-${activity.targetId}-${activity.createdAt}`}><button type="button" className="community-activity-open" onClick={() => navigate(`/community/${activity.postId ?? activity.targetId}`)}>{activity.type.includes("LIKE") ? <Heart size={15} /> : <MessageCircle size={15} />}<div><strong>{{ POST: "작성한 글", COMMENT: "작성한 댓글", POST_LIKE: "글 좋아요", COMMENT_LIKE: "댓글 좋아요" }[activity.type]}</strong><span>{activity.title}</span><small>{new Date(activity.createdAt).toLocaleString("ko-KR")}{activity.status !== "PUBLIC" ? " · 비공개/관리됨" : ""}</small></div></button>{activity.type.includes("LIKE") ? <button type="button" className="outline-button community-activity-action" onClick={() => void cancelCommunityLike(activity)}>좋아요 취소</button> : <button type="button" className="outline-button community-activity-action" onClick={() => navigate(`/community/${activity.postId ?? activity.targetId}`)}>관리</button>}</article>)}</section>
     <div className="saved-jobs-title"><div><Bookmark size={18} /><h2>찜한 자격증</h2></div><span>{certificateBookmarks.length}개</span></div>

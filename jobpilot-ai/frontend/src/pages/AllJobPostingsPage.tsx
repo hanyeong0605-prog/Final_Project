@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Landmark, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { getJobPostings } from "../features/job-postings/api/jobPostingsApi";
@@ -9,13 +9,6 @@ import { PageHeading } from "../shared/components/PageHeading";
 
 const PAGE_SIZE = 24;
 
-const roleOptions = [
-  ["BACKEND", "백엔드"], ["FRONTEND", "프론트엔드"], ["FULLSTACK", "풀스택"],
-  ["MOBILE", "모바일"], ["DATA_AI", "데이터 · AI"], ["DEVOPS", "DevOps · 인프라"],
-  ["QA", "QA · 테스트"], ["SECURITY", "보안"], ["GAME_EMBEDDED", "게임 · 임베디드"],
-] as const;
-
-const roleName = (value: string) => roleOptions.find(([key]) => key === value)?.[1] ?? value;
 const experienceOptions = [{ value: "", label: "경력 전체" }, { value: "ENTRY", label: "신입 가능" }, { value: "EXPERIENCED", label: "경력" }] as const;
 const locationOptions = ["", "서울", "경기", "인천", "부산", "대전", "대구", "광주", "울산", "세종", "제주"].map((value) => ({ value, label: value || "지역 전체" }));
 const employmentOptions = [{ value: "", label: "고용 형태 전체" }, { value: "regular", label: "정규직" }, { value: "contract", label: "계약직" }, { value: "intern", label: "인턴" }] as const;
@@ -33,7 +26,6 @@ function FilterSelect<Value extends string>({ ariaLabel, value, options, onChang
 
 type Filters = {
   query: string;
-  roles: string[];
   experience: JobExperienceFilter;
   location: string;
   employmentType: string;
@@ -42,7 +34,7 @@ type Filters = {
 };
 
 const initialFilters: Filters = {
-  query: "", roles: [], experience: "", location: "", employmentType: "", financialsOnly: false, sort: "deadline_asc",
+  query: "", experience: "", location: "", employmentType: "", financialsOnly: false, sort: "deadline_asc",
 };
 
 function isSort(value: string | null): value is JobPostingSort {
@@ -59,9 +51,6 @@ export function AllJobPostingsPage() {
   const initialSort = sortFromParams(searchParams.get("sort"));
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState<Filters>({ ...initialFilters, query: initialQuery, sort: initialSort });
-  const [roleDraft, setRoleDraft] = useState<string[]>([]);
-  const [openFilter, setOpenFilter] = useState<"role" | null>(null);
-  const roleFilterRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const [result, setResult] = useState<JobPostingPage | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -85,17 +74,6 @@ export function AllJobPostingsPage() {
     setPage(0);
   }, [searchParams]);
 
-  useEffect(() => {
-    const closeOutside = (event: PointerEvent) => { if (openFilter === "role" && !roleFilterRef.current?.contains(event.target as Node)) setOpenFilter(null); };
-    const closeEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpenFilter(null); };
-    document.addEventListener("pointerdown", closeOutside);
-    document.addEventListener("keydown", closeEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      document.removeEventListener("keydown", closeEscape);
-    };
-  }, [openFilter]);
-
   const pages = useMemo(() => {
     if (!result || result.totalPages < 2) return [];
     const start = Math.max(0, Math.min(page - 2, result.totalPages - 5));
@@ -108,31 +86,8 @@ export function AllJobPostingsPage() {
     setPage(0);
   };
 
-  const updateFilter = <Key extends keyof Omit<Filters, "query" | "roles">>(key: Key, value: Filters[Key]) => {
+  const updateFilter = <Key extends keyof Omit<Filters, "query">>(key: Key, value: Filters[Key]) => {
     setFilters((current) => ({ ...current, [key]: value }));
-    setPage(0);
-  };
-
-  const toggleDraftRole = (role: string) => {
-    setRoleDraft((current) => current.includes(role) ? current.filter((item) => item !== role) : [...current, role]);
-  };
-
-  const openRoleMenu = () => {
-    setRoleDraft(filters.roles);
-    setOpenFilter((current) => current === "role" ? null : "role");
-  };
-
-  const applyRoles = () => {
-    // 바깥 pointerdown 처리와 겹쳐 메뉴만 닫히던 경우에도 선택값을 먼저 확정한다.
-    // 배열을 새로 만들어 체크박스 draft 참조가 이후 클릭으로 바뀌지 않게 한다.
-    setFilters((current) => ({ ...current, roles: [...roleDraft] }));
-    setPage(0);
-    setOpenFilter(null);
-  };
-
-  const clearRoles = () => {
-    setFilters((current) => ({ ...current, roles: [] }));
-    setRoleDraft([]);
     setPage(0);
   };
 
@@ -150,18 +105,6 @@ export function AllJobPostingsPage() {
     </form>
 
     <section className="posting-filters" aria-label="채용공고 필터">
-      <div className="role-filter" ref={roleFilterRef}>
-        <button type="button" className="filter-button" onClick={openRoleMenu} aria-expanded={openFilter === "role"}>
-          <span>{filters.roles.length === 0 ? "직무 전체" : `직무 ${filters.roles.length}개`}</span><ChevronDown size={15} />
-        </button>
-        {openFilter === "role" && <div className="role-filter-menu" onPointerDown={(event) => event.stopPropagation()}>
-          <div className="role-filter-head"><strong>개발 직무</strong><button type="button" onClick={() => setOpenFilter(null)} aria-label="직무 필터 닫기"><X size={17} /></button></div>
-          <p>여러 직무를 함께 선택할 수 있어요.</p>
-          <div className="role-check-list">{roleOptions.map(([key, label]) => <label key={key}><input type="checkbox" checked={roleDraft.includes(key)} onChange={() => toggleDraftRole(key)} />{label}</label>)}</div>
-          <div className="role-filter-actions"><button type="button" onClick={() => setRoleDraft([])}>초기화</button><button type="button" className="primary-button" onClick={applyRoles}>적용</button></div>
-        </div>}
-      </div>
-
       <FilterSelect ariaLabel="경력" value={filters.experience} options={experienceOptions} onChange={(value) => updateFilter("experience", value)} />
       <FilterSelect ariaLabel="지역" value={filters.location} options={locationOptions} onChange={(value) => updateFilter("location", value)} />
       <FilterSelect ariaLabel="고용 형태" value={filters.employmentType} options={employmentOptions} onChange={(value) => updateFilter("employmentType", value)} />
@@ -173,7 +116,7 @@ export function AllJobPostingsPage() {
       </label>
     </section>
 
-    {(filters.roles.length > 0 || filters.experience || filters.location || filters.employmentType || filters.financialsOnly) && <div className="selected-filter-chips">{filters.roles.map((role) => <button key={role} type="button" onClick={() => { setFilters((current) => ({ ...current, roles: current.roles.filter((item) => item !== role) })); setPage(0); }}>{roleName(role)}<X size={13} /></button>)}{filters.experience && <button type="button" onClick={() => updateFilter("experience", "")}>{experienceOptions.find((option) => option.value === filters.experience)?.label}<X size={13} /></button>}{filters.location && <button type="button" onClick={() => updateFilter("location", "")}>{filters.location}<X size={13} /></button>}{filters.employmentType && <button type="button" onClick={() => updateFilter("employmentType", "")}>{employmentOptions.find((option) => option.value === filters.employmentType)?.label}<X size={13} /></button>}{filters.financialsOnly && <button type="button" onClick={() => updateFilter("financialsOnly", false)}>재무제표 있는 공고<X size={13} /></button>}<button type="button" className="clear-filter-chip" onClick={() => { setFilters((current) => ({ ...current, roles: [], experience: "", location: "", employmentType: "", financialsOnly: false })); setRoleDraft([]); setPage(0); }}>필터 초기화</button></div>}
+    {(filters.experience || filters.location || filters.employmentType || filters.financialsOnly) && <div className="selected-filter-chips">{filters.experience && <button type="button" onClick={() => updateFilter("experience", "")}>{experienceOptions.find((option) => option.value === filters.experience)?.label}<X size={13} /></button>}{filters.location && <button type="button" onClick={() => updateFilter("location", "")}>{filters.location}<X size={13} /></button>}{filters.employmentType && <button type="button" onClick={() => updateFilter("employmentType", "")}>{employmentOptions.find((option) => option.value === filters.employmentType)?.label}<X size={13} /></button>}{filters.financialsOnly && <button type="button" onClick={() => updateFilter("financialsOnly", false)}>재무제표 있는 공고<X size={13} /></button>}<button type="button" className="clear-filter-chip" onClick={() => { setFilters((current) => ({ ...current, experience: "", location: "", employmentType: "", financialsOnly: false })); setPage(0); }}>필터 초기화</button></div>}
 
     {status === "loading" && <DataStatePanel state="loading" />}
     {status === "error" && <DataStatePanel state="error" errorTitle="채용공고 목록을 불러오지 못했습니다" errorBody="공고는 일시적으로 갱신될 수 있습니다. 잠시 후 다시 불러오거나 홈에서 최근 공고를 확인해 주세요." onRetry={() => setReloadToken((value) => value + 1)} />}

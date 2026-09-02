@@ -16,6 +16,9 @@ public record EmployerJobPostingRequest(
         String employmentType,
         String experienceType,
         String salary,
+        String qualifications,
+        String preferredQualifications,
+        String imageUrl,
         LocalDateTime deadlineAt,
         boolean rollingDeadline
 ) {

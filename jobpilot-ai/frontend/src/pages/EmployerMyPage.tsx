@@ -7,10 +7,11 @@ import {
   type EmployerJobPosting, type EmployerJobPostingInput,
 } from "../features/employer/api/employerJobPostingApi";
 import { PostcodeSearchModal } from "../features/location-jobs/components/PostcodeSearchModal";
+import { getEmployerTalentFavorites, type EmployerTalent } from "../features/employer/api/employerTalentApi";
 
 const emptyForm: EmployerJobPostingInput = {
   title: "", companyUrl: "", description: "", location: "", employmentType: "", experienceType: "",
-  salary: "", deadlineAt: "", rollingDeadline: false,
+  salary: "", qualifications: "", preferredQualifications: "", imageUrl: "", deadlineAt: "", rollingDeadline: false,
 };
 
 export function EmployerMyPage() {
@@ -22,6 +23,7 @@ export function EmployerMyPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [addressSearchOpen, setAddressSearchOpen] = useState(false);
+  const [favoriteTalents, setFavoriteTalents] = useState<EmployerTalent[]>([]);
 
   const approved = employer?.status === "APPROVED";
 
@@ -36,6 +38,7 @@ export function EmployerMyPage() {
   };
 
   useEffect(() => { void load(); }, [approved]);
+  useEffect(() => { if (approved) void getEmployerTalentFavorites().then(setFavoriteTalents).catch(() => setFavoriteTalents([])); }, [approved]);
 
   if (!employer) return null;
 
@@ -52,6 +55,7 @@ export function EmployerMyPage() {
       title: posting.title, companyUrl: posting.companyUrl ?? "", description: posting.description ?? "",
       location: posting.location ?? "", employmentType: posting.employmentType ?? "", experienceType: posting.experienceType ?? "",
       salary: posting.salary ?? "", deadlineAt: posting.deadlineAt ? posting.deadlineAt.slice(0, 16) : "",
+      qualifications: posting.qualifications ?? "", preferredQualifications: posting.preferredQualifications ?? "", imageUrl: posting.imageUrl ?? "",
       rollingDeadline: posting.rollingDeadline,
     });
   };
@@ -123,6 +127,9 @@ export function EmployerMyPage() {
             <form onSubmit={submit} className="employer-posting-form">
               <label>제목<input required value={form.title} onChange={update("title")} /></label>
               <label>상세 설명<textarea required rows={5} value={form.description} onChange={update("description")} /></label>
+              <label>자격요건<textarea rows={3} value={form.qualifications} onChange={update("qualifications")} placeholder="필수 기술, 경력, 학력 등을 줄바꿈으로 입력" /></label>
+              <label>우대사항<textarea rows={3} value={form.preferredQualifications} onChange={update("preferredQualifications")} placeholder="우대 기술, 경험, 자격증 등을 줄바꿈으로 입력" /></label>
+              <label>대표 이미지 URL<input type="url" value={form.imageUrl} onChange={update("imageUrl")} placeholder="https://... (채용공고 카드에 표시)" /></label>
               <label>근무지<div className="field-input-action"><input value={form.location} readOnly placeholder="주소 찾기를 눌러 주세요" /><button type="button" className="outline-button" onClick={() => setAddressSearchOpen(true)}>주소 찾기</button></div></label>
               <label>고용 형태<input value={form.employmentType} onChange={update("employmentType")} placeholder="정규직/계약직 등" /></label>
               <label>경력 조건<input value={form.experienceType} onChange={update("experienceType")} placeholder="신입/경력 등" /></label>
@@ -137,6 +144,11 @@ export function EmployerMyPage() {
                 {editingId && <button type="button" className="outline-button" onClick={cancelEdit}>취소</button>}
               </div>
             </form>
+          </section>
+
+          <section className="panel admin-panel">
+            <div className="admin-panel-heading"><div><span className="eyebrow">FAVORITE TALENT</span><h2>관심 인재</h2></div><span>{favoriteTalents.length}명</span></div>
+            {favoriteTalents.length === 0 ? <p className="saved-empty">관심 표시한 공개 인재가 없습니다. 인재 대시보드에서 하트를 눌러 관리하세요.</p> : <div className="employer-talent-list">{favoriteTalents.map((talent) => <article key={talent.memberId}><div className="employer-talent-open"><strong>{talent.nickname}</strong><span>{talent.targetJobFamily} · {talent.targetRole}</span><small>{talent.skills.slice(0, 5).join(" · ")}</small></div></article>)}</div>}
           </section>
 
           <section className="panel admin-panel">
