@@ -50,18 +50,17 @@ def test_site_page_paths_are_unique():
 
 
 @pytest.mark.parametrize(("message", "expected"), [
-    ("이력서 쓰고 싶어", "/resume"),
-    ("자소서 첨삭해줘", "/resume"),
-    ("모의면접 어떻게 해?", "/mock-interview"),
-    ("이용권 얼마야", "/account"),
+    ("이력서 페이지 열어줘", "/resume"),
+    ("자소서 첨삭 어디서 해?", "/resume"),
+    ("모의면접 하러 가자", "/mock-interview"),
+    ("이용권 어디서 확인해?", "/account"),
     ("찜한 공고 어디서 봐", "/account"),
-    ("채용공고 보고싶어", "/job-postings"),
+    ("채용공고 페이지로 이동해줘", "/job-postings"),
     # 더 구체적인 표현("우리 동네" + "채용공고" 2건)이 "채용공고" 1건을 이겨야 한다.
-    ("우리 동네 채용공고 있어?", "/locationjobs"),
-    ("맞춤 공고 추천해줘", "/dashboard"),
-    ("지난 면접 결과 보고싶어", "/timeline"),
-    ("대외활동 뭐 있어?", "/opportunities"),
+    ("우리 동네 채용공고 화면 보여줘", "/locationjobs"),
     ("플래너 열어줘", "/planner"),
+    ("커뮤니티 가고싶어", "/community"),
+    ("지난 면접 결과 어디서 봐", "/timeline"),
 ])
 def test_find_page_for_message_matches_expected_page(message, expected):
     page = find_page_for_message(message)
@@ -69,9 +68,15 @@ def test_find_page_for_message_matches_expected_page(message, expected):
 
 
 @pytest.mark.parametrize("message", [
+    # 주제어만 있고 "가고 싶다"는 뜻이 없으면 이동을 권하지 않는다 - 채팅에서 답하면 될 질문에
+    # 페이지 안내가 따라붙으면 정작 채팅 안에 보여주던 내용(적합도 순 공고 카드 등)이 덮인다.
+    "이력서 쓰고 싶어",
+    "이용권 얼마야",
+    "모의면접 어떻게 해?",
+    "대외활동 뭐 있어?",
     "오늘 점심 뭐 먹지",
     "안녕",
-    # "면접"만으로는 모의면접/타임라인 어느 쪽인지 알 수 없다 - 억지로 권하지 않는다.
+    # "면접"만으로는 모의면접/타임라인 어느 쪽인지 알 수 없다.
     "면접 팁 알려줘",
     "",
     "   ",

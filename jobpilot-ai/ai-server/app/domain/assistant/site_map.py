@@ -127,17 +127,36 @@ def find_page(path: str | None) -> SitePage | None:
     return _PAGES_BY_PATH.get(path)
 
 
+# "그 페이지로 가고 싶다"는 뜻이 실제로 드러난 표현. 주제어만으로 이동을 권하면 안 된다 -
+# "이력서 쓰고 싶어"는 채팅에서 도와달라는 말이지 이력서 페이지로 보내달라는 말이 아니다.
+_NAVIGATION_INTENT = (
+    "이동", "가줘", "가주", "가고싶", "가고 싶", "가자", "갈래", "가볼", "가 볼", "들어가",
+    "데려다", "열어", "열래", "보여줘", "보여 줘", "어디서", "어디로", "어디에", "어디야",
+    "페이지", "화면", "바로가기",
+)
+
+
+def has_navigation_intent(message: str) -> bool:
+    text = (message or "").strip().lower()
+    return any(phrase in text for phrase in _NAVIGATION_INTENT)
+
+
 def find_page_for_message(message: str) -> SitePage | None:
-    """사용자 메시지만 보고 이동 후보 페이지를 고른다(Gemini 호출 없음).
+    """사용자가 "그 페이지로 가고 싶다"고 밝혔을 때만 이동 후보를 고른다(Gemini 호출 없음).
 
     Gemini가 suggested_navigate_to를 비워 보내는 경우를 받아내는 결정적 경로다 - 모델이
-    어떻게 답하든 같은 질문에는 항상 같은 페이지가 제안되게 하려는 것이기도 하다.
+    어떻게 답하든 같은 요청에는 항상 같은 페이지가 제안되게 하려는 것이기도 하다.
+
+    2026-09-02: 처음엔 주제어만 걸리면 바로 페이지를 제안했는데, 그러면 무슨 질문을 하든
+    페이지 안내가 따라붙어서 정작 채팅 안에서 답을 보여주던 자리(적합도 높은 공고 카드 등)를
+    덮어버렸다. 이제 이동 의사를 밝힌 표현이 함께 있어야만 후보를 고른다 - 답할 수 있는
+    질문은 채팅에서 답하는 게 우선이다.
 
     가장 많은 keywords가 걸린 페이지를 고르고, 같은 개수면 더 긴(= 더 구체적인) 표현이
     걸린 쪽을 고른다. 하나도 안 걸리면 None - 억지로 아무 페이지나 권하지 않는다.
     """
     text = (message or "").strip().lower()
-    if not text:
+    if not text or not has_navigation_intent(text):
         return None
 
     best: tuple[int, int, SitePage] | None = None

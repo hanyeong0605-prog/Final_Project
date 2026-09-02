@@ -105,11 +105,71 @@ def test_suggestion_survives_when_model_leaves_the_field_empty(monkeypatch):
             self.models = FakeModels()
 
     with patch("google.genai.Client", FakeClient):
-        result = chat(message="자소서 첨삭 받고 싶어")
+        result = chat(message="이력서 페이지 열어줘")
 
     assert result.suggested_navigate_to == "/resume"
     assert result.suggested_page is not None
     assert result.suggested_page["highlights"]
+
+
+def test_job_matches_are_answered_in_chat_without_a_page_suggestion(monkeypatch):
+    """이 챗봇의 원래 미리보기는 적합도 순 공고 카드다. 거기에 페이지 안내까지 얹으면 공고를
+    보여주던 자리가 안내로 덮여서 "무조건 페이지 안내"가 된다 - 이동을 직접 요청하지 않은
+    공고 질문에는 제안이 붙지 않아야 한다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    class FakeResponse:
+        text = '{"reply": "적합도가 높은 공고 3개예요.", "navigate_to": null, "suggested_navigate_to": "/dashboard"}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    reference = chat_module.JobMatchReference(
+        job_posting_id=12, company_name="잡드림", title="백엔드 개발자",
+        source_url="https://example.test/jobs/12", readiness_score=90,
+        recommendation_level="APPLY_NOW",
+    )
+    monkeypatch.setattr(chat_module, "fetch_active_matches", lambda member_id: [reference])
+
+    with patch("google.genai.Client", FakeClient):
+        result = chat(message="나한테 맞는 채용공고 추천해줘", member_id=7)
+
+    assert result.job_references == [reference.to_dict()]
+    assert result.suggested_navigate_to is None
+    assert result.suggested_page is None
+
+
+def test_job_question_still_suggests_when_user_asks_to_move(monkeypatch):
+    """같은 공고 질문이라도 사용자가 직접 "가자"고 하면 제안은 남아야 한다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    class FakeResponse:
+        text = '{"reply": "맞춤 공고 화면으로 안내할게요.", "navigate_to": null, "suggested_navigate_to": "/dashboard"}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    reference = chat_module.JobMatchReference(
+        job_posting_id=12, company_name="잡드림", title="백엔드 개발자",
+        source_url="https://example.test/jobs/12", readiness_score=90,
+        recommendation_level="APPLY_NOW",
+    )
+    monkeypatch.setattr(chat_module, "fetch_active_matches", lambda member_id: [reference])
+
+    with patch("google.genai.Client", FakeClient):
+        result = chat(message="맞춤 공고 페이지로 이동해줘", member_id=7)
+
+    assert result.suggested_navigate_to == "/dashboard"
 
 
 def test_unknown_suggested_path_is_nulled_out(monkeypatch):
