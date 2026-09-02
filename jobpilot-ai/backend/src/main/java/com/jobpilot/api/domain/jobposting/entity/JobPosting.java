@@ -64,6 +64,9 @@ public class JobPosting {
     @Column(name = "job_code", length = 500) private String jobCode;
     @Column(name = "job_name", length = 1000) private String jobName;
     private String salary;
+    @Lob @Column(name = "employer_qualifications", columnDefinition = "TEXT") private String employerQualifications;
+    @Lob @Column(name = "employer_preferred_qualifications", columnDefinition = "TEXT") private String employerPreferredQualifications;
+    @Column(name = "employer_image_url", length = 1500) private String employerImageUrl;
     @Lob @Column(columnDefinition = "TEXT") private String keywords;
 
     @Column(name = "published_at")
@@ -162,6 +165,9 @@ public class JobPosting {
     public String getJobMidName() { return jobMidName; }
     public String getJobName() { return jobName; }
     public String getSalary() { return salary; }
+    public String getEmployerQualifications() { return employerQualifications; }
+    public String getEmployerPreferredQualifications() { return employerPreferredQualifications; }
+    public String getEmployerImageUrl() { return employerImageUrl; }
     public String getKeywords() { return keywords; }
     public LocalDateTime getPublishedAt() { return publishedAt; }
     public LocalDateTime getDeadlineAt() { return deadlineAt; }
@@ -196,11 +202,11 @@ public class JobPosting {
     public static JobPosting createByEmployer(Long employerAccountId, String title, String companyName, String companyUrl,
                                                 String description, String location, String employmentType,
                                                 String experienceType, String salary, LocalDateTime deadlineAt,
-                                                boolean rollingDeadline) {
+                                                boolean rollingDeadline, String qualifications, String preferredQualifications, String imageUrl) {
         JobPosting posting = new JobPosting("EMPLOYER", "EMP-" + UUID.randomUUID());
         posting.employerAccountId = employerAccountId;
         posting.applyEmployerFields(title, companyName, companyUrl, description, location, employmentType,
-                experienceType, salary, deadlineAt, rollingDeadline);
+                experienceType, salary, deadlineAt, rollingDeadline, qualifications, preferredQualifications, imageUrl);
         LocalDateTime now = LocalDateTime.now();
         posting.status = "ACTIVE";
         posting.publishedAt = now;
@@ -212,14 +218,14 @@ public class JobPosting {
 
     public void updateByEmployer(String title, String companyName, String companyUrl, String description, String location,
                                   String employmentType, String experienceType, String salary, LocalDateTime deadlineAt,
-                                  boolean rollingDeadline) {
+                                  boolean rollingDeadline, String qualifications, String preferredQualifications, String imageUrl) {
         applyEmployerFields(title, companyName, companyUrl, description, location, employmentType, experienceType,
-                salary, deadlineAt, rollingDeadline);
+                salary, deadlineAt, rollingDeadline, qualifications, preferredQualifications, imageUrl);
     }
 
     private void applyEmployerFields(String title, String companyName, String companyUrl, String description, String location,
                                       String employmentType, String experienceType, String salary, LocalDateTime deadlineAt,
-                                      boolean rollingDeadline) {
+                                      boolean rollingDeadline, String qualifications, String preferredQualifications, String imageUrl) {
         this.title = title;
         this.companyName = companyName;
         this.companyUrl = companyUrl;
@@ -230,5 +236,8 @@ public class JobPosting {
         this.salary = salary;
         this.deadlineAt = deadlineAt;
         this.rollingDeadline = rollingDeadline;
+        this.employerQualifications = qualifications;
+        this.employerPreferredQualifications = preferredQualifications;
+        this.employerImageUrl = imageUrl;
     }
 }

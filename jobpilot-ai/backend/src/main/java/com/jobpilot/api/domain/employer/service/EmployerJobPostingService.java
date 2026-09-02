@@ -44,7 +44,7 @@ public class EmployerJobPostingService {
                 employerId, request.title().trim(), employer.getCompanyName(), blankToNull(request.companyUrl()),
                 request.description(), blankToNull(request.location()), blankToNull(request.employmentType()),
                 blankToNull(request.experienceType()), blankToNull(request.salary()), request.deadlineAt(),
-                request.rollingDeadline());
+                request.rollingDeadline(), blankToNull(request.qualifications()), blankToNull(request.preferredQualifications()), blankToNull(request.imageUrl()));
         JobPosting saved = postings.save(posting);
         // 원문 링크가 없는 자체 등록 공고라, 저장 후 생성된 id로 우리 사이트 상세 페이지
         // URL을 채워 넣는다("공고 원문 보기" 버튼이 깨지지 않게).
@@ -58,7 +58,7 @@ public class EmployerJobPostingService {
         posting.updateByEmployer(request.title().trim(), employer.getCompanyName(), blankToNull(request.companyUrl()),
                 request.description(), blankToNull(request.location()), blankToNull(request.employmentType()),
                 blankToNull(request.experienceType()), blankToNull(request.salary()), request.deadlineAt(),
-                request.rollingDeadline());
+                request.rollingDeadline(), blankToNull(request.qualifications()), blankToNull(request.preferredQualifications()), blankToNull(request.imageUrl()));
         return EmployerJobPostingResponse.from(postings.save(posting));
     }
 

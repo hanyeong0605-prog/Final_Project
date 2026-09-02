@@ -18,6 +18,7 @@ public class MemberProfile {
     @Column(name = "available_from") private LocalDate availableFrom;
     @Column(name = "experience_type", nullable = false) private String experienceType;
     @Column(name = "github_username") private String githubUsername;
+    @Column(name = "talent_public", nullable = false) private boolean talentPublic;
     protected MemberProfile() {}
     public MemberProfile(Long memberId) { this.memberId = memberId; }
     public void update(String targetRole, String targetJobFamily, ArrayNode preferredLocations,
@@ -33,4 +34,6 @@ public class MemberProfile {
     public LocalDate getAvailableFrom() { return availableFrom; }
     public String getExperienceType() { return experienceType; }
     public String getGithubUsername() { return githubUsername; }
+    public boolean isTalentPublic() { return talentPublic; }
+    public void changeTalentPublic(boolean talentPublic) { this.talentPublic = talentPublic; }
 }

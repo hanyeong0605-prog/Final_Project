@@ -94,7 +94,7 @@ public class JobPostingSearchService {
                 // Crawled galleries commonly start with one or two logo canvases and place the
                 // actual company/job visual next.  List cards use only that visual; when it is
                 // absent, the UI intentionally leaves the preview blank rather than stretching a logo.
-                + "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[2]')), 'null'), "
+                + "COALESCE(NULLIF(employer_image_url, ''), NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[2]')), 'null'), "
                 + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[1]')), 'null'), "
                 + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.imageUrls[0]')), 'null'), "
                 + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.images.job_thumbnail_urls[0]')), 'null')) AS thumbnail_url, "

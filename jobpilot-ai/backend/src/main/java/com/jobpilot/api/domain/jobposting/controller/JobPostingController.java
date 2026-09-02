@@ -79,7 +79,7 @@ public class JobPostingController {
         return new JobPostingDetailResponse(
                 posting.getId(), posting.getExternalJobId(), posting.getSourceProvider(),
                 posting.getCompanyName(), posting.getCompanyUrl(), posting.getCompanyLogoUrl(),
-                posting.getTitle(), posting.getDescription(), posting.getSourceUrl(), posting.getLocation(),
+                posting.getTitle(), posting.getDescription(), posting.getEmployerQualifications(), posting.getEmployerPreferredQualifications(), posting.getSourceUrl(), posting.getLocation(),
                 posting.getEmploymentType(), posting.getExperienceType(), posting.getEntryLevel(),
                 posting.getIndustryName(), posting.getJobMidName(), posting.getJobName(), posting.getSalary(),
                 posting.getKeywords(), posting.getPublishedAt(), posting.getDeadlineAt(), posting.isRollingDeadline(),
@@ -98,6 +98,7 @@ public class JobPostingController {
     }
 
     private List<String> imageUrls(JobPosting posting) {
+        if (posting.getEmployerImageUrl() != null && !posting.getEmployerImageUrl().isBlank()) return List.of(posting.getEmployerImageUrl());
         try {
             String imageUrlsJson = repository.findImageUrlsJsonById(posting.getId());
             if (imageUrlsJson != null && !imageUrlsJson.isBlank()) {
