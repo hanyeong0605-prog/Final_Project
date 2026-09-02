@@ -42,11 +42,14 @@ const GREETING: ChatMessage = {
 const MAX_HISTORY_TURNS = 10;
 
 function isNavigationApproval(value: string): boolean {
-  return /^(네|넵|예|응|어|좋아|좋아요|그래|그럼|이동해줘|가줘|yes|y)$/i.test(value.trim());
+  const normalized = value.trim().replace(/[!.,?~]/g, "").replace(/\s+/g, " ");
+  return /^(네|넵|예|응|어|좋아|좋아요|그래|그럼|yes|y)( 이동(해)?(줘|주세요|요)?| 가(줘|주세요|요)?| 해(줘|주세요|요)?)?$/i.test(normalized)
+    || /^(이동(해)?(줘|주세요|요)?|가(줘|주세요|요)?)$/i.test(normalized);
 }
 
 function isNavigationDecline(value: string): boolean {
-  return /^(아니|아니요|아뇨|괜찮아|괜찮아요|싫어|no|n)$/i.test(value.trim());
+  const normalized = value.trim().replace(/[!.,?~]/g, "").replace(/\s+/g, " ");
+  return /^(아니|아니요|아뇨|괜찮아|괜찮아요|싫어|no|n)( 됐어| 됐어요|야)?$/i.test(normalized);
 }
 
 function safeJobUrl(sourceUrl: string): string | null {
