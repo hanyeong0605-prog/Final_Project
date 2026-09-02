@@ -33,7 +33,7 @@ public class CameraPairingService {
         Instant expiresAt = clock.instant().plus(PAIRING_LIFETIME);
         String roomId = UUID.randomUUID().toString();
         String pairingToken = nextToken();
-        rooms.put(roomId, new PairingSession(roomId, ownerMemberId, pairingToken, expiresAt, false));
+        rooms.put(roomId, new PairingSession(roomId, ownerMemberId, pairingToken, expiresAt));
         return new CreatedPairing(roomId, pairingToken, issueTicket(roomId, ownerMemberId, PeerRole.PC, expiresAt), expiresAt);
     }
 
@@ -42,11 +42,13 @@ public class CameraPairingService {
         PairingSession room = rooms.get(roomId);
         if (room == null || room.expiresAt().isBefore(clock.instant())) throw new PairingException("페어링 시간이 만료되었거나 존재하지 않습니다.");
         if (room.ownerMemberId() != memberId) throw new PairingException("페어링을 만든 계정으로 휴대폰에서 로그인해 주세요.");
-        synchronized (room) {
-            if (room.pairingTokenUsed()) throw new PairingException("이미 사용된 페어링 코드입니다. PC에서 새 QR 코드를 생성해 주세요.");
-            if (!room.pairingToken().equals(pairingToken)) throw new PairingException("유효하지 않은 페어링 코드입니다.");
-            rooms.put(roomId, room.withPairingTokenUsed());
-        }
+        if (!room.pairingToken().equals(pairingToken)) throw new PairingException("유효하지 않은 페어링 코드입니다.");
+        // 폰 페이지는 새로고침, 홈 화면 갔다 복귀, 인증 컨텍스트 재렌더 같은 이유로 다시 마운트되면서
+        // 같은 QR로 join을 한 번 더 호출한다. 예전엔 여기서 "이미 사용된 코드"라고 막아버려서,
+        // WebRTC 영상은 멀쩡히 PC로 전송되는 중인데 폰 화면에만 빨간 에러가 남는 문제가 있었다.
+        // 바로 위 ownerMemberId 검사가 "QR을 만든 계정"만 통과시키므로 재접속을 막을 이유가 없다 -
+        // 소켓 티켓만 새로 발급하고, 방 자체는 그대로 5분 뒤 만료된다. WebSocket 핸들러도 같은
+        // role의 이전 세션을 새 세션으로 교체하도록 이미 되어 있다.
         return new JoinedPairing(roomId, issueTicket(roomId, memberId, PeerRole.PHONE, room.expiresAt()), room.expiresAt());
     }
 
@@ -83,8 +85,6 @@ public class CameraPairingService {
     public record CreatedPairing(String roomId, String pairingToken, String socketTicket, Instant expiresAt) {}
     public record JoinedPairing(String roomId, String socketTicket, Instant expiresAt) {}
     public record SocketIdentity(String roomId, long memberId, PeerRole role) {}
-    private record PairingSession(String roomId, long ownerMemberId, String pairingToken, Instant expiresAt, boolean pairingTokenUsed) {
-        PairingSession withPairingTokenUsed() { return new PairingSession(roomId, ownerMemberId, pairingToken, expiresAt, true); }
-    }
+    private record PairingSession(String roomId, long ownerMemberId, String pairingToken, Instant expiresAt) {}
     private record SocketTicket(String roomId, long memberId, PeerRole role, Instant expiresAt) {}
 }

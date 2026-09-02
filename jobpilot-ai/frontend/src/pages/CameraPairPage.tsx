@@ -51,23 +51,37 @@ export function CameraPairPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
+  // AuthContext의 member는 getMe() 응답이 올 때마다 새 객체라, 이걸 그대로 의존성에 두면
+  // 로그인 상태가 그대로여도 effect가 다시 돌면서 이미 붙어 있던 소켓·피어를 정리하고
+  // 같은 QR로 join을 또 호출한다. 실제로 값이 바뀔 때만 재연결하도록 id만 본다.
+  const memberId = member?.id ?? null;
+
   useEffect(() => {
-    if (!member || !roomId || !pairingToken) return;
+    if (memberId === null || !roomId || !pairingToken) return;
     let disposed = false;
+    setError(null);
     joinCameraPairing(roomId, pairingToken)
       .then((joined) => {
         if (disposed) return;
+        setError(null);
         setStatus("PC의 면접 시작 신호를 기다리고 있습니다.");
-        socketRef.current = openPairingSocket(joined.socketTicket, handleSignal, setError);
+        socketRef.current = openPairingSocket(joined.socketTicket, handleSignal, (message) => {
+          if (!disposed) setError(message);
+        });
       })
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "페어링에 실패했습니다."));
+      // 이미 정리된(disposed) 시도의 실패까지 화면에 띄우면, 새로 맺힌 연결로 영상은
+      // 잘 넘어가는 중인데 폰 화면엔 이전 시도의 에러 문구만 남는다.
+      .catch((reason: unknown) => {
+        if (disposed) return;
+        setError(reason instanceof Error ? reason.message : "페어링에 실패했습니다.");
+      });
     return () => {
       disposed = true;
       socketRef.current?.close();
       peerRef.current?.close();
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
-  }, [member, roomId, pairingToken]);
+  }, [memberId, roomId, pairingToken]);
 
   const send = (signal: PairingSignal) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) socketRef.current.send(JSON.stringify(signal));

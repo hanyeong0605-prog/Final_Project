@@ -20,8 +20,10 @@ export function openPairingSocket(ticket: string, onSignal: (signal: PairingSign
     }
   };
   socket.onerror = () => onError("페어링 WebSocket 연결 중 오류가 발생했습니다.");
+  // close()를 코드 없이 부르면 close 이벤트 코드가 1005(No Status Rcvd)로 들어온다.
+  // 대부분 effect 정리 과정에서 우리가 스스로 닫은 경우라 에러로 띄우면 안 된다.
   socket.onclose = (event) => {
-    if (event.code !== 1000) {
+    if (event.code !== 1000 && event.code !== 1005) {
       onError(`페어링 WebSocket이 종료되었습니다. 코드: ${event.code}${event.reason ? ` (${event.reason})` : ""}`);
     }
   };
