@@ -8,6 +8,10 @@ import com.jobpilot.api.domain.member.repository.MemberRepository;
 import com.jobpilot.api.domain.member.repository.MemberSkillRepository;
 import com.jobpilot.api.domain.member.repository.MemberSpecificationRepository;
 import com.jobpilot.api.domain.member.repository.SkillRepository;
+import com.jobpilot.api.domain.member.repository.CertificateRepository;
+import com.jobpilot.api.domain.member.repository.SelfIntroductionRepository;
+import com.jobpilot.api.domain.resume.entity.ResumeEntry;
+import com.jobpilot.api.domain.resume.repository.ResumeEntryRepository;
 import com.jobpilot.api.domain.notification.entity.NotificationLog;
 import com.jobpilot.api.domain.notification.repository.NotificationLogRepository;
 import com.jobpilot.api.global.exception.ResourceNotFoundException;
@@ -24,11 +28,16 @@ public class EmployerTalentService {
     private final EmployerAccessService employers; private final MemberRepository members; private final MemberProfileRepository profiles;
     private final MemberSpecificationRepository specifications; private final MemberSkillRepository memberSkills; private final SkillRepository skills;
     private final NotificationLogRepository notifications; private final JdbcTemplate jdbc;
+    private final ResumeEntryRepository resumeEntries; private final SelfIntroductionRepository selfIntroductions;
+    private final CertificateRepository certificates;
     public EmployerTalentService(EmployerAccessService employers, MemberRepository members, MemberProfileRepository profiles,
             MemberSpecificationRepository specifications, MemberSkillRepository memberSkills, SkillRepository skills,
-            NotificationLogRepository notifications, JdbcTemplate jdbc) {
+            NotificationLogRepository notifications, JdbcTemplate jdbc, ResumeEntryRepository resumeEntries,
+            SelfIntroductionRepository selfIntroductions, CertificateRepository certificates) {
         this.employers = employers; this.members = members; this.profiles = profiles; this.specifications = specifications;
         this.memberSkills = memberSkills; this.skills = skills; this.notifications = notifications; this.jdbc = jdbc;
+        this.resumeEntries = resumeEntries; this.selfIntroductions = selfIntroductions;
+        this.certificates = certificates;
     }
     public boolean visibility(Long memberId) { return profiles.findById(memberId).map(MemberProfile::isTalentPublic).orElse(false); }
     public boolean changeVisibility(Long memberId, boolean enabled) {
@@ -72,10 +81,25 @@ public class EmployerTalentService {
         String family = blankLabel(profile.getTargetJobFamily(), "직무 분야 미설정");
         location = blankLabel(location, "희망 지역 미설정");
         String text = (member.getNickname()+" "+role+" "+family+" "+location+" "+String.join(" ", skillNames)).toLowerCase(Locale.ROOT);
+        List<ProfileEntry> entries = resumeEntries.findByMemberIdOrderByEntryTypeAscDisplayOrderAscIdAsc(id).stream()
+                .filter(entry -> entry.getEntryType() != com.jobpilot.api.domain.resume.entity.ResumeEntryType.PERSONAL)
+                .map(this::entry).toList();
+        List<CertificateItem> certificateItems = certificates.findByMemberId(id).stream()
+                .map(certificate -> new CertificateItem(certificate.getName(), certificate.getIssuer(), certificate.getAcquiredAt() == null ? null : certificate.getAcquiredAt().toString())).toList();
+        List<SelfIntroductionItem> introductions = selfIntroductions.findByMemberIdOrderByUpdatedAtDesc(id).stream()
+                .map(item -> new SelfIntroductionItem(item.getTitle(), item.getContent(), item.isPrimary())).toList();
         return new Talent(id, member.getNickname(), role, family, location, blankLabel(profile.getExperienceType(), "경력 정보 미설정"),
-                spec == null ? 0 : spec.getTotalCareerMonths(), spec == null ? null : spec.getTechnicalSummary(), spec == null ? null : spec.getPortfolioUrl(), skillNames, text);
+                spec == null ? 0 : spec.getTotalCareerMonths(), spec == null ? null : spec.getTechnicalSummary(), spec == null ? null : spec.getPortfolioUrl(), skillNames, entries, certificateItems, introductions, text);
     }
     private String blankLabel(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
+    private ProfileEntry entry(ResumeEntry value) {
+        String detail = value.getContent() == null ? "" : value.getContent().toString().replaceAll("[{}\"]", "").replace(',', ' ').replace(':', ' ').trim();
+        return new ProfileEntry(value.getEntryType().name(), value.getTitle(), detail);
+    }
     public record Talent(Long memberId, String nickname, String targetRole, String targetJobFamily, String preferredLocations,
-            String experienceType, int totalCareerMonths, String technicalSummary, String portfolioUrl, List<String> skills, String searchText) {}
+            String experienceType, int totalCareerMonths, String technicalSummary, String portfolioUrl, List<String> skills,
+            List<ProfileEntry> entries, List<CertificateItem> certificates, List<SelfIntroductionItem> selfIntroductions, String searchText) {}
+    public record ProfileEntry(String type, String title, String detail) {}
+    public record CertificateItem(String name, String issuer, String acquiredAt) {}
+    public record SelfIntroductionItem(String title, String content, boolean primary) {}
 }
