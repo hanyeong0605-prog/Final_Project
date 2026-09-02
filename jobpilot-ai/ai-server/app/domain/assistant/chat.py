@@ -33,7 +33,7 @@ from app.domain.assistant.job_match_retrieval import (
     is_job_question,
     job_matches_prompt_block,
 )
-from app.domain.assistant.site_map import find_page, site_pages_prompt_block
+from app.domain.assistant.site_map import find_page, find_page_for_message, site_pages_prompt_block
 from app.domain.interview.member_spec_retrieval import build_member_spec_context
 from app.domain.resume._shared import parse_json_response
 
@@ -167,11 +167,15 @@ def chat(message: str, history: list[dict] | None = None, member_id: int | None 
         # destination; the widget stores only a validated suggestion and asks for consent.
         suggested_navigate_to = data.get("suggested_navigate_to")
         suggested_navigate_to = str(suggested_navigate_to).strip() if suggested_navigate_to else None
-        # find_page()는 is_known_path()와 같은 목록을 본다 - 목록에 없는 경로면 여기서 None이
-        # 되어 제안 자체가 사라지므로, 프론트가 없는 페이지의 미리보기를 띄울 일도 없다.
-        suggested_page = find_page(suggested_navigate_to)
-        if suggested_page is None:
-            suggested_navigate_to = None
+        # find_page()는 is_known_path()와 같은 목록을 본다 - 목록에 없는 경로면 None이 되어
+        # 제안 자체가 사라지므로, 프론트가 없는 페이지의 미리보기를 띄울 일도 없다.
+        #
+        # Gemini가 그 칸을 비워 보내면 find_page_for_message()가 사용자 메시지에서 직접
+        # 찾는다. 이 폴백이 없던 동안은 이동 제안이 모델 응답 하나에 통째로 달려 있어서,
+        # 모델이 칸을 안 채우면 미리보기도 예/아니오 버튼도 안 뜨고 답변만 "이동할까요?"라고
+        # 물어보는 상태가 됐다(사용자가 "네"라고 해도 아무 일도 안 일어남).
+        suggested_page = find_page(suggested_navigate_to) or find_page_for_message(message)
+        suggested_navigate_to = suggested_page.path if suggested_page else None
 
         return AssistantReply(
             ok=True,

@@ -65,7 +65,8 @@ def test_chat_returns_reply_and_page_preview_for_suggestion(monkeypatch):
 
 
 def test_direct_navigate_to_is_always_dropped(monkeypatch):
-    """Gemini가 navigate_to를 채워 보내도 동의 없는 자동 이동은 없어야 한다."""
+    """Gemini가 navigate_to를 채워 보내도 동의 없는 자동 이동은 없어야 한다 - 경로는
+    사용자가 예/아니오를 고를 수 있는 제안(suggested_*)으로만 나간다."""
     monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
 
     class FakeResponse:
@@ -84,8 +85,31 @@ def test_direct_navigate_to_is_always_dropped(monkeypatch):
 
     assert result.ok is True
     assert result.navigate_to is None
-    assert result.suggested_navigate_to is None
-    assert result.suggested_page is None
+
+
+def test_suggestion_survives_when_model_leaves_the_field_empty(monkeypatch):
+    """이 기능의 핵심 안전장치 - 예전엔 이동 제안이 오로지 Gemini가 그 칸을 채워주는지에만
+    달려 있어서, 모델이 비워 보내면 미리보기도 예/아니오 버튼도 통째로 안 떴다. 이제 메시지에서
+    직접 페이지를 찾아내 제안이 유지돼야 한다."""
+    monkeypatch.setattr(chat_module.settings, "gemini_api_key", "fake-key")
+
+    class FakeResponse:
+        text = '{"reply": "이력서는 질문에 답하면 정리돼요.", "navigate_to": null, "suggested_navigate_to": null}'
+
+    class FakeModels:
+        def generate_content(self, model, contents, config=None):
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.models = FakeModels()
+
+    with patch("google.genai.Client", FakeClient):
+        result = chat(message="자소서 첨삭 받고 싶어")
+
+    assert result.suggested_navigate_to == "/resume"
+    assert result.suggested_page is not None
+    assert result.suggested_page["highlights"]
 
 
 def test_unknown_suggested_path_is_nulled_out(monkeypatch):

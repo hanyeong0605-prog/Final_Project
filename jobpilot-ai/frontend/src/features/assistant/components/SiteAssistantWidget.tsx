@@ -47,6 +47,16 @@ const GREETING: ChatMessage = {
 // _MAX_HISTORY_TURNS와 같은 이유 - 최신 맥락이 더 중요하고 토큰도 아낀다).
 const MAX_HISTORY_TURNS = 10;
 
+// "마이페이지 페이지로"처럼 말이 겹치지 않게 이름 뒤에 조사만 붙인다. 받침이 없거나 ㄹ이면
+// "로", 그 외에는 "으로"다("홈으로", "마이페이지로", "AI 모의면접으로").
+function withDirectionParticle(name: string): string {
+  const last = name.trim().slice(-1);
+  const code = last.charCodeAt(0);
+  if (Number.isNaN(code) || code < 0xac00 || code > 0xd7a3) return `${name}(으)로`;
+  const finalConsonant = (code - 0xac00) % 28;
+  return `${name}${finalConsonant === 0 || finalConsonant === 8 ? "로" : "으로"}`;
+}
+
 function safeJobUrl(sourceUrl: string): string | null {
   try {
     const url = new URL(sourceUrl);
@@ -76,7 +86,7 @@ export function SiteAssistantWidget() {
   const approveNavigation = (pending: PendingNavigation, userText?: string) => {
     setMessages((prev) => [...prev,
       ...(userText ? [{ id: nextId(), role: "user" as const, kind: "text" as const, text: userText }] : []),
-      { id: nextId(), role: "bot", kind: "text", text: `네, ${pending.page.name} 페이지로 이동할게요.` },
+      { id: nextId(), role: "bot", kind: "text", text: `네, ${withDirectionParticle(pending.page.name)} 이동할게요.` },
     ]);
     setResolvedCards((prev) => ({ ...prev, [pending.messageId]: "accepted" }));
     setPendingNavigation(null);
@@ -311,14 +321,17 @@ function NavigationPreviewCard({ page, state, onApprove, onDecline }: {
           {state === "accepted" ? "이 페이지로 이동했어요." : "이동하지 않았어요."}
         </span>
       ) : (
-        <div className="assistant-nav-preview-actions">
-          <button type="button" className="assistant-nav-preview-go" onClick={onApprove}>
-            이동하기 <ArrowRight size={13} />
-          </button>
-          <button type="button" className="assistant-nav-preview-stay" onClick={onDecline}>
-            여기 있을게요
-          </button>
-        </div>
+        <>
+          <strong className="assistant-nav-preview-ask">{withDirectionParticle(page.name)} 이동할까요?</strong>
+          <div className="assistant-nav-preview-actions">
+            <button type="button" className="assistant-nav-preview-go" onClick={onApprove}>
+              예 <ArrowRight size={13} />
+            </button>
+            <button type="button" className="assistant-nav-preview-stay" onClick={onDecline}>
+              아니오
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
