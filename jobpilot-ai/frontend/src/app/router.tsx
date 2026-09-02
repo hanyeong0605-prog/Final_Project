@@ -19,6 +19,7 @@ import { EmployerSignupPage } from "../pages/EmployerSignupPage";
 import { EmployerMyPage } from "../pages/EmployerMyPage";
 import { EmployerHomePage } from "../pages/EmployerHomePage";
 import { EmployerDashboardPage } from "../pages/EmployerDashboardPage";
+import { EmployerTalentDetailPage } from "../pages/EmployerTalentDetailPage";
 import { EmployerEnrollmentPage } from "../pages/EmployerEnrollmentPage";
 import { EmployerAccountPage } from "../pages/EmployerAccountPage";
 import { RequireAuth } from "../features/auth/components/RequireAuth";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <EmployerHomePage /> },
       { path: "dashboard", element: <EmployerDashboardPage /> },
+      { path: "talents/:memberId", element: <EmployerTalentDetailPage /> },
       { path: "postings", element: <EmployerMyPage /> },
       { path: "account", element: <EmployerAccountPage /> },
     ],
